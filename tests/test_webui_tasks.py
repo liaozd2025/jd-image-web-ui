@@ -1,0 +1,1108 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+import struct
+import tempfile
+import threading
+import time
+import unittest
+import zipfile
+from io import BytesIO
+from pathlib import Path
+from unittest.mock import patch
+
+from fastapi.testclient import TestClient
+from PIL import Image
+
+from tests.webui_helpers import (
+    AlwaysFailQueueTestExecutor,
+    BlockingActiveConcurrentApiImageClient,
+    BlockingConcurrentApiImageClient,
+    BlockingFirstImageClient,
+    BlockingFirstQueueTestExecutor,
+    BlockingFourthImageClient,
+    BlockingSecondImageClient,
+    CancelQueueTestExecutor,
+    CancelsTaskBeforeReturningImageClient,
+    CapturingApiImageClient,
+    CapturingApiResponsesImageClient,
+    ConcurrentApiImageClient,
+    FailFastSlowCompleteQueueTestExecutor,
+    FailsSecondImageClient,
+    FakeImageClient,
+    InvalidRequestImageClient,
+    PartiallyFailingConcurrentApiImageClient,
+    ProviderSwitchRetryApiImageClient,
+    QueueTestExecutor,
+    QuotaLimitedAfterFirstImageClient,
+    QuotaLimitedApiImageClient,
+    QuotaLimitedImageClient,
+    QuotaLimitedOnceImageClient,
+    SharedConcurrentApiImageClient,
+    SlowFourthImageClient,
+    SlowImageClient,
+    input_name,
+    metadata_path,
+    output_name,
+    output_url,
+    request_path,
+)
+
+
+class WebUITaskTests(unittest.TestCase):
+    def _png_bytes(self, size: tuple[int, int] = (400, 640)) -> bytes:
+        image = Image.new("RGB", size, (120, 180, 160))
+        buffer = BytesIO()
+        image.save(buffer, format="PNG")
+        return buffer.getvalue()
+
+    def test_task_outputs_zip_downloads_multiple_outputs(self) -> None:
+        from codex_image.webui.app import create_app
+
+        task_id = "20260505010203-abcdef01"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first = root / output_name(task_id, 1)
+            second = root / output_name(task_id, 2, "webp")
+            first.parent.mkdir(parents=True, exist_ok=True)
+            first.write_bytes(b"first-image")
+            second.write_bytes(b"second-image")
+            metadata_path(root, task_id).parent.mkdir(parents=True, exist_ok=True)
+            metadata_path(root, task_id).write_text(
+                json.dumps(
+                    {
+                        "task_id": task_id,
+                        "status": "completed",
+                        "output_files": [output_name(task_id, 1), output_name(task_id, 2, "webp")],
+                        "output_urls": [output_url(task_id, 1), output_url(task_id, 2, "webp")],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            app = create_app(output_root=root, auth_checker=lambda: True, auto_start_queue=False)
+            response = TestClient(app).get(f"/api/tasks/{task_id}/outputs.zip")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.headers["content-type"], "application/zip")
+            self.assertIn(f'filename="{task_id}-images.zip"', response.headers["content-disposition"])
+            with zipfile.ZipFile(BytesIO(response.content)) as archive:
+                self.assertEqual(
+                    sorted(archive.namelist()),
+                    [f"{task_id}-image-1.png", f"{task_id}-image-2.webp"],
+                )
+                self.assertEqual(archive.read(f"{task_id}-image-1.png"), b"first-image")
+                self.assertEqual(archive.read(f"{task_id}-image-2.webp"), b"second-image")
+
+    def test_task_reveal_output_endpoint_opens_output_directory(self) -> None:
+        from codex_image.webui.app import create_app
+
+        task_id = "20260505010203-abcdef01"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_path = root / output_name(task_id, 1)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(b"image")
+            metadata_path(root, task_id).parent.mkdir(parents=True, exist_ok=True)
+            metadata_path(root, task_id).write_text(
+                json.dumps(
+                    {
+                        "task_id": task_id,
+                        "status": "completed",
+                        "output_files": [output_name(task_id, 1)],
+                        "output_urls": [output_url(task_id, 1)],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            app = create_app(output_root=root, auth_checker=lambda: True, auto_start_queue=False)
+            with patch("codex_image.webui.routes.tasks._open_path_in_file_manager") as open_path:
+                response = TestClient(app).post(
+                    f"/api/tasks/{task_id}/reveal-output",
+                    headers={"X-Requested-With": "codex-image-webui"},
+                )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()["ok"], True)
+            open_path.assert_called_once_with(output_path.parent)
+
+    def test_task_reveal_output_endpoint_requires_webui_header(self) -> None:
+        from codex_image.webui.app import create_app
+
+        task_id = "20260505010203-abcdef01"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_path = root / output_name(task_id, 1)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(b"image")
+            metadata_path(root, task_id).parent.mkdir(parents=True, exist_ok=True)
+            metadata_path(root, task_id).write_text(
+                json.dumps(
+                    {
+                        "task_id": task_id,
+                        "status": "completed",
+                        "output_files": [output_name(task_id, 1)],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            app = create_app(output_root=root, auth_checker=lambda: True, auto_start_queue=False)
+            with patch("codex_image.webui.routes.tasks._open_path_in_file_manager") as open_path:
+                response = TestClient(app).post(f"/api/tasks/{task_id}/reveal-output")
+
+            self.assertEqual(response.status_code, 403)
+            open_path.assert_not_called()
+
+    def test_task_outputs_can_select_and_prune_unselected_results(self) -> None:
+        from codex_image.webui.app import create_app
+
+        task_id = "20260505010203-abcdef01"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_files = [output_name(task_id, index) for index in (1, 2, 3)]
+            for index, filename in enumerate(output_files, start=1):
+                path = root / filename
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(self._png_bytes())
+                thumb = root / "thumbnails" / "2026-05-05" / f"{task_id}-image-{index}-thumb.jpg"
+                thumb.parent.mkdir(parents=True, exist_ok=True)
+                thumb.write_bytes(f"thumb-{index}".encode("utf-8"))
+            metadata_path(root, task_id).parent.mkdir(parents=True, exist_ok=True)
+            metadata_path(root, task_id).write_text(
+                json.dumps(
+                    {
+                        "task_id": task_id,
+                        "status": "completed",
+                        "generated_count": 3,
+                        "total_count": 3,
+                        "output_file": output_files[0],
+                        "output_files": output_files,
+                        "output_url": output_url(task_id, 1),
+                        "output_urls": [output_url(task_id, index) for index in (1, 2, 3)],
+                        "outputs": [
+                            {
+                                "index": index,
+                                "status": "completed",
+                                "file": output_files[index - 1],
+                                "url": output_url(task_id, index),
+                                "thumbnail_file": f"thumbnails/2026-05-05/{task_id}-image-{index}-thumb.jpg",
+                                "thumbnail_url": f"/outputs/thumbnails/2026-05-05/{task_id}-image-{index}-thumb.jpg",
+                            }
+                            for index in (1, 2, 3)
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            app = create_app(output_root=root, auth_checker=lambda: True, auto_start_queue=False)
+            client = TestClient(app)
+            first_selection = client.patch(f"/api/tasks/{task_id}/outputs/1/selected", json={"selected": True})
+            third_selection = client.patch(f"/api/tasks/{task_id}/outputs/3/selected", json={"selected": True})
+
+            self.assertEqual(first_selection.status_code, 200)
+            self.assertEqual(third_selection.status_code, 200)
+            self.assertEqual(third_selection.json()["task"]["selected_output_indexes"], [1, 3])
+
+            selected_zip = client.get(f"/api/tasks/{task_id}/outputs.zip?selected=1")
+            self.assertEqual(selected_zip.status_code, 200)
+            with zipfile.ZipFile(BytesIO(selected_zip.content)) as archive:
+                self.assertEqual(
+                    sorted(archive.namelist()),
+                    [f"{task_id}-image-1.png", f"{task_id}-image-3.png"],
+                )
+
+            pruned = client.post(f"/api/tasks/{task_id}/outputs/delete-unselected")
+
+            self.assertEqual(pruned.status_code, 200)
+            task = pruned.json()["task"]
+            self.assertEqual(task["output_urls"], [output_url(task_id, 1), output_url(task_id, 3)])
+            self.assertEqual(task["output_files"], [output_files[0], output_files[2]])
+            self.assertEqual([(item["index"], item["url"]) for item in task["outputs"]], [(1, output_url(task_id, 1)), (2, output_url(task_id, 3))])
+            self.assertEqual(task["generated_count"], 2)
+            self.assertEqual(task["total_count"], 2)
+            self.assertEqual(task["selected_output_indexes"], [])
+            self.assertTrue((root / output_files[0]).is_file())
+            self.assertFalse((root / output_files[1]).exists())
+            self.assertTrue((root / output_files[2]).is_file())
+            self.assertTrue((root / "thumbnails" / "2026-05-05" / f"{task_id}-image-1-thumb.jpg").is_file())
+            self.assertTrue((root / "thumbnails" / "2026-05-05" / f"{task_id}-image-2-thumb.jpg").is_file())
+            self.assertFalse((root / "thumbnails" / "2026-05-05" / f"{task_id}-image-3-thumb.jpg").exists())
+
+    def test_task_thumbnail_route_backfills_legacy_output_thumbnail(self) -> None:
+        from codex_image.webui.app import create_app
+
+        task_id = "20260505010203-abcdef01"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_file = output_name(task_id, 1)
+            output_path = root / output_file
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(self._png_bytes())
+            original_size = output_path.stat().st_size
+            metadata_path(root, task_id).parent.mkdir(parents=True, exist_ok=True)
+            metadata_path(root, task_id).write_text(
+                json.dumps(
+                    {
+                        "task_id": task_id,
+                        "status": "completed",
+                        "generated_count": 1,
+                        "total_count": 1,
+                        "output_file": output_file,
+                        "output_files": [output_file],
+                        "output_url": output_url(task_id, 1),
+                        "output_urls": [output_url(task_id, 1)],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            app = create_app(output_root=root, auth_checker=lambda: True, auto_start_queue=False)
+            client = TestClient(app)
+            task_response = client.get(f"/api/tasks/{task_id}")
+            thumbnail_response = client.get(f"/api/tasks/{task_id}/outputs/1/thumbnail")
+            thumbnail_file_exists = (root / "thumbnails" / "2026-05-05" / f"{task_id}-image-1-thumb.jpg").is_file()
+
+        task = task_response.json()["task"]
+        self.assertEqual(task_response.status_code, 200)
+        self.assertEqual(task["thumbnail_urls"], [f"/api/tasks/{task_id}/outputs/1/thumbnail"])
+        self.assertEqual(thumbnail_response.status_code, 200)
+        self.assertEqual(thumbnail_response.headers["content-type"], "image/jpeg")
+        self.assertLess(len(thumbnail_response.content), original_size)
+        self.assertTrue(thumbnail_file_exists)
+
+    def test_task_input_thumbnail_route_backfills_legacy_input_thumbnail(self) -> None:
+        from codex_image.webui.app import create_app
+
+        task_id = "20260505010203-abcdef01"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            input_file = input_name(task_id, "input.png")
+            input_path = root / "inputs" / input_file
+            input_path.parent.mkdir(parents=True, exist_ok=True)
+            input_path.write_bytes(self._png_bytes())
+            original_size = input_path.stat().st_size
+            metadata_path(root, task_id).parent.mkdir(parents=True, exist_ok=True)
+            metadata_path(root, task_id).write_text(
+                json.dumps(
+                    {
+                        "task_id": task_id,
+                        "status": "completed",
+                        "input_files": [input_file],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            app = create_app(output_root=root, auth_checker=lambda: True, auto_start_queue=False)
+            client = TestClient(app)
+            task_response = client.get(f"/api/tasks/{task_id}")
+            thumbnail_response = client.get(f"/api/tasks/{task_id}/inputs/1/thumbnail")
+            thumbnail_file_exists = (root / "thumbnails" / "2026-05-05" / f"{task_id}-input-01-thumb.jpg").is_file()
+
+        task = task_response.json()["task"]
+        self.assertEqual(task_response.status_code, 200)
+        self.assertEqual(task["input_thumbnail_urls"], [f"/api/tasks/{task_id}/inputs/1/thumbnail"])
+        self.assertEqual(thumbnail_response.status_code, 200)
+        self.assertEqual(thumbnail_response.headers["content-type"], "image/jpeg")
+        self.assertLess(len(thumbnail_response.content), original_size)
+        self.assertTrue(thumbnail_file_exists)
+
+    def test_delete_unselected_outputs_requires_a_selection(self) -> None:
+        from codex_image.webui.app import create_app
+
+        task_id = "20260505010203-abcdef01"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first = root / output_name(task_id, 1)
+            first.parent.mkdir(parents=True, exist_ok=True)
+            first.write_bytes(b"image")
+            metadata_path(root, task_id).parent.mkdir(parents=True, exist_ok=True)
+            metadata_path(root, task_id).write_text(
+                json.dumps(
+                    {
+                        "task_id": task_id,
+                        "status": "completed",
+                        "output_files": [output_name(task_id, 1)],
+                        "output_urls": [output_url(task_id, 1)],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            app = create_app(output_root=root, auth_checker=lambda: True, auto_start_queue=False)
+            response = TestClient(app).post(f"/api/tasks/{task_id}/outputs/delete-unselected")
+
+            self.assertEqual(response.status_code, 409)
+            self.assertIn("Select at least one output", response.json()["detail"])
+    def test_task_response_backfills_main_model_from_stored_request(self) -> None:
+        from codex_image.webui.app import _with_file_urls
+
+        task = _with_file_urls(
+            {
+                "task_id": "task-1",
+                "status": "completed",
+                "params": {"model": "gpt-image-2"},
+                "request": {"model": "gpt-5.5"},
+            }
+        )
+
+        self.assertEqual(task["params"]["main_model"], "gpt-5.5")
+    def test_tasks_list_omits_stored_request_payloads(self) -> None:
+        from codex_image.webui.app import create_app
+        from codex_image.webui.storage import TaskStorage
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            storage = TaskStorage(root)
+            created = storage.create_task("edit")
+            storage.write_metadata(
+                created.task_id,
+                {
+                    "task_id": created.task_id,
+                    "created_at": "2026-05-01T00:00:00+00:00",
+                    "updated_at": "2026-05-01T00:00:00+00:00",
+                    "mode": "edit",
+                    "status": "completed",
+                    "prompt": "heavy request",
+                    "params": {"model": "gpt-image-2"},
+                    "request": {
+                        "model": "gpt-5.5",
+                        "input": [{"content": [{"type": "input_image", "image_url": "data:image/png;base64," + "a" * 1000}]}],
+                    },
+                },
+            )
+            app = create_app(output_root=root, auth_checker=lambda: True, auto_start_queue=False)
+            response = TestClient(app).get("/api/tasks")
+
+        task = response.json()["tasks"][0]
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("request", task)
+        self.assertEqual(task["params"]["main_model"], "gpt-5.5")
+    def test_task_viewed_route_marks_metadata_and_returns_task(self) -> None:
+        from codex_image.webui.app import create_app
+        from codex_image.webui.storage import TaskStorage
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            storage = TaskStorage(root)
+            created = storage.create_task("generate")
+            storage.write_metadata(
+                created.task_id,
+                {
+                    "task_id": created.task_id,
+                    "created_at": "2026-05-18T00:00:00+00:00",
+                    "updated_at": "2026-05-18T00:05:00+00:00",
+                    "status": "completed",
+                    "prompt": "finished task",
+                    "viewed_at": "2026-05-18T00:00:00+00:00",
+                },
+            )
+            app = create_app(output_root=root, auth_checker=lambda: True, auto_start_queue=False)
+            client = TestClient(app)
+
+            response = client.patch(f"/api/tasks/{created.task_id}/viewed")
+            metadata = storage.read_metadata(created.task_id)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["task"]["task_id"], created.task_id)
+        self.assertGreater(metadata["viewed_at"], "2026-05-18T00:05:00+00:00")
+        self.assertEqual(response.json()["task"]["viewed_at"], metadata["viewed_at"])
+    def test_task_detail_keeps_stored_request_payload(self) -> None:
+        from codex_image.webui.app import create_app
+        from codex_image.webui.storage import TaskStorage
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            storage = TaskStorage(root)
+            created = storage.create_task("edit")
+            storage.write_metadata(
+                created.task_id,
+                {
+                    "task_id": created.task_id,
+                    "created_at": "2026-05-01T00:00:00+00:00",
+                    "updated_at": "2026-05-01T00:00:00+00:00",
+                    "mode": "edit",
+                    "status": "completed",
+                    "prompt": "heavy request detail",
+                    "params": {"model": "gpt-image-2"},
+                    "request": {"model": "gpt-5.5", "input": [{"content": [{"image_url": "data:image/png;base64,aaa"}]}]},
+                },
+            )
+            app = create_app(output_root=root, auth_checker=lambda: True, auto_start_queue=False)
+            response = TestClient(app).get(f"/api/tasks/{created.task_id}")
+
+        task = response.json()["task"]
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(task["request"]["model"], "gpt-5.5")
+    def test_task_archive_route_persists_archived_at(self) -> None:
+        from codex_image.webui.app import create_app
+        from codex_image.webui.storage import TaskStorage
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            storage = TaskStorage(root)
+            created = storage.create_task("generate")
+            storage.write_metadata(
+                created.task_id,
+                {
+                    "task_id": created.task_id,
+                    "mode": "generate",
+                    "prompt": "archive me",
+                    "status": "completed",
+                    "created_at": "2026-05-16T01:00:00Z",
+                },
+            )
+            app = create_app(output_root=root, auth_checker=lambda: True, auto_start_queue=False)
+            client = TestClient(app)
+
+            response = client.patch(f"/api/tasks/{created.task_id}/archive", json={"archived": True})
+
+            self.assertEqual(response.status_code, 200)
+            task = response.json()["task"]
+            self.assertEqual(task["task_id"], created.task_id)
+            self.assertIn("archived_at", task)
+            self.assertTrue(task["archived_at"])
+
+            stored = storage.read_metadata(created.task_id)
+            self.assertEqual(stored["archived_at"], task["archived_at"])
+
+            listed = client.get("/api/tasks").json()["tasks"][0]
+            self.assertEqual(listed["archived_at"], task["archived_at"])
+    def test_task_archive_route_restores_archived_task(self) -> None:
+        from codex_image.webui.app import create_app
+        from codex_image.webui.storage import TaskStorage
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            storage = TaskStorage(root)
+            created = storage.create_task("generate")
+            storage.write_metadata(
+                created.task_id,
+                {
+                    "task_id": created.task_id,
+                    "mode": "generate",
+                    "prompt": "restore me",
+                    "status": "completed",
+                    "created_at": "2026-05-16T01:00:00Z",
+                    "archived_at": "2026-05-16T02:00:00Z",
+                },
+            )
+            app = create_app(output_root=root, auth_checker=lambda: True, auto_start_queue=False)
+            client = TestClient(app)
+
+            response = client.patch(f"/api/tasks/{created.task_id}/archive", json={"archived": False})
+
+            self.assertEqual(response.status_code, 200)
+            task = response.json()["task"]
+            self.assertNotIn("archived_at", task)
+            self.assertNotIn("archived_at", storage.read_metadata(created.task_id))
+    def test_startup_prunes_duplicate_request_payload_from_metadata(self) -> None:
+        from codex_image.webui.app import create_app
+        from codex_image.webui.storage import TaskStorage
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            storage = TaskStorage(root)
+            created = storage.create_task("edit")
+            request_payload = {"model": "gpt-5.5", "input": [{"content": [{"image_url": "data:image/png;base64,aaa"}]}]}
+            storage.write_request(created.task_id, request_payload)
+            storage.write_metadata(
+                created.task_id,
+                {
+                    "task_id": created.task_id,
+                    "created_at": "2026-05-01T00:00:00+00:00",
+                    "updated_at": "2026-05-01T00:00:00+00:00",
+                    "mode": "edit",
+                    "status": "completed",
+                    "prompt": "duplicate request",
+                    "params": {"model": "gpt-image-2"},
+                    "request": request_payload,
+                },
+            )
+
+            app = create_app(output_root=root, auth_checker=lambda: True, auto_start_queue=False)
+            metadata = storage.read_metadata(created.task_id)
+            detail = TestClient(app).get(f"/api/tasks/{created.task_id}").json()["task"]
+
+        self.assertNotIn("request", metadata)
+        self.assertEqual(detail["request"], request_payload)
+    def test_queue_delete_waiting_task_removes_directory(self) -> None:
+        from codex_image.webui.app import create_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            app = create_app(output_root=Path(tmp), client_factory=lambda: FakeImageClient(), auth_checker=lambda: True, auto_start_queue=False)
+            client = TestClient(app)
+            created = client.post("/api/generate", data={"prompt": "delete me", "size": "1024x1024"})
+            task_id = created.json()["task"]["task_id"]
+
+            deleted = client.delete(f"/api/queue/{task_id}")
+
+            task_exists = metadata_path(Path(tmp), task_id).exists()
+
+        self.assertEqual(deleted.status_code, 200)
+        self.assertFalse(task_exists)
+    def test_delete_task_route_removes_waiting_queue_entry(self) -> None:
+        from codex_image.webui.app import create_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            app = create_app(output_root=Path(tmp), client_factory=lambda: FakeImageClient(), auth_checker=lambda: True, auto_start_queue=False)
+            client = TestClient(app)
+            first = client.post("/api/generate", data={"prompt": "first", "size": "1024x1024"}).json()["task"]["task_id"]
+            second = client.post("/api/generate", data={"prompt": "second", "size": "1024x1024"}).json()["task"]["task_id"]
+
+            deleted = client.delete(f"/api/tasks/{first}")
+            queue = client.get("/api/queue").json()
+            reordered = client.patch("/api/queue/reorder", json={"task_ids": [second]})
+
+        self.assertEqual(deleted.status_code, 200)
+        self.assertEqual([task["task_id"] for task in queue["waiting"]], [second])
+        self.assertEqual(reordered.status_code, 200)
+    def test_delete_task_route_rejects_queue_running_task(self) -> None:
+        from codex_image.webui.app import create_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            app = create_app(output_root=Path(tmp), client_factory=lambda: FakeImageClient(), auth_checker=lambda: True, auto_start_queue=False)
+            client = TestClient(app)
+            created = client.post("/api/generate", data={"prompt": "running race", "size": "1024x1024"})
+            task_id = created.json()["task"]["task_id"]
+            app.state.queue_storage.remove_waiting(task_id)
+            app.state.queue_storage.set_running("codex:local", task_id, auth_source="codex")
+
+            deleted = client.delete(f"/api/tasks/{task_id}")
+            task_exists = metadata_path(Path(tmp), task_id).exists()
+            running = app.state.queue_storage.read_state()["running"]
+
+        self.assertEqual(deleted.status_code, 409)
+        self.assertTrue(task_exists)
+        self.assertEqual(running["codex:local"]["task_id"], task_id)
+    def test_queue_promote_and_reorder_waiting_tasks(self) -> None:
+        from codex_image.webui.app import create_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            app = create_app(output_root=Path(tmp), client_factory=lambda: FakeImageClient(), auth_checker=lambda: True, auto_start_queue=False)
+            client = TestClient(app)
+            first = client.post("/api/generate", data={"prompt": "first", "size": "1024x1024"}).json()["task"]["task_id"]
+            second = client.post("/api/generate", data={"prompt": "second", "size": "1024x1024"}).json()["task"]["task_id"]
+            third = client.post("/api/generate", data={"prompt": "third", "size": "1024x1024"}).json()["task"]["task_id"]
+
+            promoted = client.post(f"/api/queue/{third}/promote").json()
+            reordered = client.patch("/api/queue/reorder", json={"task_ids": [second, third, first]}).json()
+
+        self.assertEqual([task["task_id"] for task in promoted["waiting"]], [third, first, second])
+        self.assertEqual([task["task_id"] for task in reordered["waiting"]], [second, third, first])
+    def test_queue_delete_running_task_cancels_and_keeps_history(self) -> None:
+        from codex_image.webui.app import create_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            app = create_app(output_root=Path(tmp), client_factory=lambda: FakeImageClient(), auth_checker=lambda: True, auto_start_queue=False)
+            client = TestClient(app)
+            created = client.post("/api/generate", data={"prompt": "running", "size": "1024x1024"})
+            task_id = created.json()["task"]["task_id"]
+            app.state.queue_storage.remove_waiting(task_id)
+            app.state.queue_storage.set_running("codex:local", task_id, auth_source="codex")
+
+            deleted = client.delete(f"/api/queue/{task_id}")
+            task = client.get(f"/api/tasks/{task_id}").json()["task"]
+            queue = client.get("/api/queue").json()
+
+        self.assertEqual(deleted.status_code, 200)
+        self.assertEqual(task["status"], "failed")
+        self.assertEqual(task["error"], "Task cancelled by user.")
+        self.assertTrue(task["cancel_requested"])
+        self.assertEqual(queue["running"], [])
+    def test_accept_partial_task_successes_marks_completed_and_reindexes_outputs(self) -> None:
+        from codex_image.webui.app import create_app
+
+        fake = FailsSecondImageClient()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app = create_app(
+                output_root=root,
+                client_factory=lambda: fake,
+                auth_checker=lambda: True,
+                batch_delay_seconds=0,
+                auto_start_queue=False,
+            )
+            client = TestClient(app)
+            created = client.post("/api/generate", data={"prompt": "accept partial", "size": "1024x1024", "quality": "low", "n": "4"})
+            task_id = created.json()["task"]["task_id"]
+
+            asyncio.run(app.state.queue_manager.run_available_once())
+            partial = client.get(f"/api/tasks/{task_id}").json()["task"]
+            response = client.post(f"/api/tasks/{task_id}/accept-successes")
+            accepted = response.json()["task"]
+            stored = client.get(f"/api/tasks/{task_id}").json()["task"]
+            output_files_exist = [(root / output_name(task_id, index)).exists() for index in (1, 2, 3, 4)]
+
+        self.assertEqual(partial["status"], "partial_failed")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(accepted["status"], "completed")
+        self.assertEqual(accepted["generated_count"], 2)
+        self.assertEqual(accepted["failed_count"], 0)
+        self.assertEqual(accepted["total_count"], 2)
+        self.assertEqual(accepted["original_total_count"], 4)
+        self.assertEqual(accepted["cleared_failed_count"], 2)
+        self.assertIn("partial_failure_cleared_at", accepted)
+        self.assertNotIn("error", accepted)
+        self.assertNotIn("last_error", accepted)
+        self.assertNotIn("retrying_failed_slots", accepted)
+        self.assertEqual(
+            [(item["index"], item["status"]) for item in accepted["outputs"]],
+            [(1, "completed"), (2, "completed")],
+        )
+        self.assertEqual(
+            accepted["output_urls"],
+            [output_url(task_id, 1), output_url(task_id, 4)],
+        )
+        self.assertEqual(stored["status"], "completed")
+        self.assertEqual(stored["total_count"], 2)
+        self.assertEqual(output_files_exist, [True, False, False, True])
+    def test_accept_failed_task_successes_after_interruption(self) -> None:
+        from codex_image.webui.app import create_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app = create_app(
+                output_root=root,
+                client_factory=lambda: FakeImageClient(),
+                auth_checker=lambda: True,
+                auto_start_queue=False,
+            )
+            storage = app.state.storage
+            task_id = "20260517150500-interrupted"
+            output_paths = {index: storage.write_output(task_id, b"image", "png", index=index) for index in (1, 2, 3)}
+            output_records = [
+                {
+                    "index": index,
+                    "status": "completed",
+                    "file": storage.output_file(output_paths[index]),
+                    "url": output_url(task_id, index),
+                }
+                for index in (1, 2, 3)
+            ]
+            storage.write_metadata(
+                task_id,
+                {
+                    "task_id": task_id,
+                    "created_at": "2026-05-17T00:00:00+00:00",
+                    "updated_at": "2026-05-17T00:01:00+00:00",
+                    "mode": "generate",
+                    "status": "failed",
+                    "prompt": "interrupted partial outputs",
+                    "prompt_for_model": "interrupted partial outputs",
+                    "params": {"size": "1024x1024", "quality": "low", "n": 4},
+                    "input_files": [],
+                    "gallery_refs": [],
+                    "reference_assets": [],
+                    "generated_count": 3,
+                    "failed_count": 0,
+                    "total_count": 4,
+                    "output_file": storage.output_file(output_paths[1]),
+                    "output_files": [storage.output_file(output_paths[index]) for index in (1, 2, 3)],
+                    "output_url": output_url(task_id, 1),
+                    "output_urls": [output_url(task_id, index) for index in (1, 2, 3)],
+                    "outputs": output_records,
+                    "last_error": "Service restarted before this task completed.",
+                    "error": "Service restarted before this task completed.",
+                },
+            )
+            client = TestClient(app)
+            response = client.post(f"/api/tasks/{task_id}/accept-successes")
+            self.assertEqual(response.status_code, 200, response.text)
+            accepted = response.json()["task"]
+
+        self.assertEqual(accepted["status"], "completed")
+        self.assertEqual(accepted["generated_count"], 3)
+        self.assertEqual(accepted["failed_count"], 0)
+        self.assertEqual(accepted["total_count"], 3)
+        self.assertEqual(accepted["original_total_count"], 4)
+        self.assertEqual(accepted["cleared_failed_count"], 1)
+        self.assertNotIn("error", accepted)
+        self.assertNotIn("last_error", accepted)
+        self.assertEqual(
+            [(item["index"], item["status"]) for item in accepted["outputs"]],
+            [(1, "completed"), (2, "completed"), (3, "completed")],
+        )
+    def test_accept_orphaned_running_task_successes_after_interruption(self) -> None:
+        from codex_image.webui.app import create_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app = create_app(
+                output_root=root,
+                client_factory=lambda: FakeImageClient(),
+                auth_checker=lambda: True,
+                auto_start_queue=False,
+            )
+            storage = app.state.storage
+            task_id = "20260520103352-orphaned"
+            output_path = storage.write_output(task_id, b"image", "png", index=1)
+            storage.write_metadata(
+                task_id,
+                {
+                    "task_id": task_id,
+                    "created_at": "2026-05-20T02:33:52+00:00",
+                    "updated_at": "2026-05-20T02:36:23+00:00",
+                    "mode": "generate",
+                    "status": "running",
+                    "prompt": "orphaned partial output",
+                    "prompt_for_model": "orphaned partial output",
+                    "params": {"size": "1024x1024", "quality": "low", "n": 2},
+                    "input_files": [],
+                    "gallery_refs": [],
+                    "reference_assets": [],
+                    "generated_count": 1,
+                    "failed_count": 0,
+                    "total_count": 2,
+                    "output_file": storage.output_file(output_path),
+                    "output_files": [storage.output_file(output_path)],
+                    "output_url": output_url(task_id, 1),
+                    "output_urls": [output_url(task_id, 1)],
+                    "outputs": [
+                        {
+                            "index": 1,
+                            "status": "completed",
+                            "file": storage.output_file(output_path),
+                            "url": output_url(task_id, 1),
+                        }
+                    ],
+                    "last_error": "Service restarted before this task completed.",
+                    "error": "Service restarted before this task completed.",
+                },
+            )
+
+            client = TestClient(app)
+            response = client.post(f"/api/tasks/{task_id}/accept-successes")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        accepted = response.json()["task"]
+        self.assertEqual(accepted["status"], "completed")
+        self.assertEqual(accepted["generated_count"], 1)
+        self.assertEqual(accepted["failed_count"], 0)
+        self.assertEqual(accepted["total_count"], 1)
+        self.assertEqual(accepted["original_total_count"], 2)
+        self.assertNotIn("error", accepted)
+        self.assertNotIn("last_error", accepted)
+    def test_retry_failed_outputs_requeues_only_failed_slots(self) -> None:
+        from codex_image.webui.app import create_app
+
+        fake = FailsSecondImageClient()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app = create_app(
+                output_root=root,
+                client_factory=lambda: fake,
+                auth_checker=lambda: True,
+                batch_delay_seconds=0,
+                auto_start_queue=False,
+            )
+            client = TestClient(app)
+            created = client.post("/api/generate", data={"prompt": "retry failed slot", "size": "1024x1024", "quality": "low", "n": "4"})
+            task_id = created.json()["task"]["task_id"]
+
+            asyncio.run(app.state.queue_manager.run_available_once())
+            partial = client.get(f"/api/tasks/{task_id}").json()["task"]
+            retry_response = client.post(f"/api/tasks/{task_id}/retry-failed")
+            queued = retry_response.json()["task"]
+            queue_after_retry = app.state.queue_storage.read_state()
+
+            asyncio.run(app.state.queue_manager.run_available_once())
+            retried = client.get(f"/api/tasks/{task_id}").json()["task"]
+            output_files_exist = [(root / output_name(task_id, index)).exists() for index in (1, 2, 3, 4)]
+
+        self.assertEqual(partial["status"], "partial_failed")
+        self.assertEqual(partial["output_urls"], [output_url(task_id, 1), output_url(task_id, 4)])
+        self.assertEqual(retry_response.status_code, 200)
+        self.assertEqual(queued["status"], "queued")
+        self.assertEqual(queued["retrying_failed_slots"], [2, 3])
+        self.assertEqual(queued["attempts"], 0)
+        self.assertIn(task_id, queue_after_retry["waiting"])
+        self.assertEqual(len(fake.generate_calls), 6)
+        self.assertEqual(retried["status"], "completed")
+        self.assertEqual(retried["generated_count"], 4)
+        self.assertEqual(retried["failed_count"], 0)
+        self.assertEqual(
+            retried["output_urls"],
+            [output_url(task_id, 1), output_url(task_id, 2), output_url(task_id, 3), output_url(task_id, 4)],
+        )
+        self.assertEqual(
+            [(item["index"], item["status"]) for item in retried["outputs"]],
+            [(1, "completed"), (2, "completed"), (3, "completed"), (4, "completed")],
+        )
+        self.assertEqual(output_files_exist, [True, True, True, True])
+    def test_task_metadata_accept_successes_reindexes_completed_outputs(self) -> None:
+        from codex_image.webui.task_metadata import _accept_partial_task_successes
+        from codex_image.webui.storage import TaskStorage
+
+        with tempfile.TemporaryDirectory() as tmp:
+            storage = TaskStorage(Path(tmp) / "outputs")
+            task = storage.create_task("generate")
+            metadata = {
+                "task_id": task.task_id,
+                "created_at": "2026-05-21T00:00:00Z",
+                "updated_at": "2026-05-21T00:00:00Z",
+                "mode": "generate",
+                "status": "partial_failed",
+                "prompt": "test",
+                "prompt_for_model": "test",
+                "params": {"n": 3},
+                "outputs": [
+                    {"index": 1, "status": "completed", "file": "20260521/a.png", "url": "/outputs/20260521/a.png"},
+                    {"index": 2, "status": "failed", "error": "bad"},
+                    {"index": 3, "status": "completed", "file": "20260521/c.png", "url": "/outputs/20260521/c.png"},
+                ],
+                "generated_count": 2,
+                "failed_count": 1,
+                "total_count": 3,
+            }
+            storage.write_metadata(task.task_id, metadata)
+
+            accepted = _accept_partial_task_successes(storage, task.task_id, metadata)
+
+        self.assertEqual(accepted["status"], "completed")
+        self.assertEqual(accepted["generated_count"], 2)
+        self.assertEqual(accepted["failed_count"], 0)
+        self.assertEqual([item["index"] for item in accepted["outputs"]], [1, 2])
+        self.assertEqual(accepted["original_total_count"], 3)
+        self.assertEqual(accepted["cleared_failed_count"], 1)
+    def test_retry_failed_orphaned_running_task_requeues_missing_slots_only(self) -> None:
+        from codex_image.webui.app import create_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app = create_app(
+                output_root=root,
+                client_factory=lambda: FakeImageClient(),
+                auth_checker=lambda: True,
+                auto_start_queue=False,
+            )
+            storage = app.state.storage
+            task_id = "20260520103420-orphaned-retry"
+            output_path = storage.write_output(task_id, b"image", "png", index=1)
+            storage.write_metadata(
+                task_id,
+                {
+                    "task_id": task_id,
+                    "created_at": "2026-05-20T02:34:20+00:00",
+                    "updated_at": "2026-05-20T02:36:23+00:00",
+                    "mode": "generate",
+                    "status": "running",
+                    "prompt": "orphaned retry missing slot",
+                    "prompt_for_model": "orphaned retry missing slot",
+                    "params": {"size": "1024x1024", "quality": "low", "n": 2},
+                    "input_files": [],
+                    "gallery_refs": [],
+                    "reference_assets": [],
+                    "generated_count": 1,
+                    "failed_count": 0,
+                    "total_count": 2,
+                    "output_file": storage.output_file(output_path),
+                    "output_files": [storage.output_file(output_path)],
+                    "output_url": output_url(task_id, 1),
+                    "output_urls": [output_url(task_id, 1)],
+                    "outputs": [
+                        {
+                            "index": 1,
+                            "status": "completed",
+                            "file": storage.output_file(output_path),
+                            "url": output_url(task_id, 1),
+                        }
+                    ],
+                    "last_error": "Service restarted before this task completed.",
+                    "error": "Service restarted before this task completed.",
+                },
+            )
+
+            client = TestClient(app)
+            response = client.post(f"/api/tasks/{task_id}/retry-failed")
+            queue_after_retry = app.state.queue_storage.read_state()
+
+        self.assertEqual(response.status_code, 200, response.text)
+        queued = response.json()["task"]
+        self.assertEqual(queued["status"], "queued")
+        self.assertEqual(queued["retrying_failed_slots"], [2])
+        self.assertEqual(queue_after_retry["waiting"], [task_id])
+    def test_retry_failed_outputs_rejects_non_retryable_error(self) -> None:
+        from codex_image.webui.app import create_app
+
+        fake = InvalidRequestImageClient()
+        with tempfile.TemporaryDirectory() as tmp:
+            app = create_app(
+                output_root=Path(tmp),
+                client_factory=lambda: fake,
+                auth_checker=lambda: True,
+                batch_delay_seconds=0,
+                auto_start_queue=False,
+            )
+            client = TestClient(app)
+            created = client.post("/api/generate", data={"prompt": "bad retry", "size": "1024x1024", "quality": "low", "n": "2"})
+            task_id = created.json()["task"]["task_id"]
+
+            with self.assertRaisesRegex(RuntimeError, "invalid_request_error"):
+                asyncio.run(app.state.queue_manager.run_available_once())
+            retry_response = client.post(f"/api/tasks/{task_id}/retry-failed")
+            queue_state = app.state.queue_storage.read_state()
+
+        self.assertEqual(retry_response.status_code, 409)
+        self.assertIn("No retryable failed image slots", retry_response.json()["detail"])
+        self.assertEqual(queue_state["waiting"], [])
+        self.assertEqual(len(fake.generate_calls), 1)
+    def test_api_provider_metadata_is_returned_for_cards_detail_and_request_preview_without_key(self) -> None:
+        from codex_image.webui.app import create_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app = create_app(
+                output_root=root / "tasks",
+                auth_settings_path=root / "auth-settings.json",
+                api_settings_path=root / "api-settings.json",
+                auto_start_queue=False,
+            )
+            client = TestClient(app)
+            client.patch(
+                "/api/api-settings",
+                json={
+                    "active_provider_id": "vendor-a",
+                    "providers": [
+                        {
+                            "id": "vendor-a",
+                            "name": "Vendor A",
+                            "base_url": "https://vendor-a.example.com/v1",
+                            "api_key": "test-api-key-vendor-a-secret",
+                            "image_model": "vendor-a-image",
+                            "api_mode": "images",
+                        },
+                        {
+                            "id": "vendor-b",
+                            "name": "Vendor B",
+                            "base_url": "https://vendor-b.example.com/v1",
+                            "api_key": "test-api-key-vendor-b-secret",
+                            "image_model": "vendor-b-image",
+                            "api_mode": "images",
+                        },
+                    ],
+                },
+            )
+            client.patch("/api/auth", json={"source": "api"})
+
+            response = client.post(
+                "/api/generate",
+                data={
+                    "prompt": "api provider visible",
+                    "size": "1024x1024",
+                    "quality": "low",
+                    "api_provider_id": "vendor-b",
+                },
+            )
+            body = response.json()
+            task_id = body["task"]["task_id"]
+            listed_task = client.get("/api/tasks").json()["tasks"][0]
+            detail_task = client.get(f"/api/tasks/{task_id}").json()["task"]
+
+        self.assertEqual(response.status_code, 200)
+        for task in (body["task"], listed_task, detail_task):
+            self.assertEqual(task["api_provider_id"], "vendor-b")
+            self.assertEqual(task["api_provider_name"], "Vendor B")
+            self.assertEqual(task["params"]["api_provider_id"], "vendor-b")
+            self.assertNotIn("api_key", task)
+        for request_payload in (body["request"], detail_task["request"]):
+            self.assertEqual(request_payload["webui_api_provider_id"], "vendor-b")
+            self.assertEqual(request_payload["webui_api_provider_name"], "Vendor B")
+            self.assertNotIn("api_key", request_payload)
+        payload_text = json.dumps({"body": body, "listed": listed_task, "detail": detail_task}, ensure_ascii=False)
+        self.assertNotIn("test-api-key-vendor-a-secret", payload_text)
+        self.assertNotIn("test-api-key-vendor-b-secret", payload_text)
+    def test_startup_migrates_legacy_task_directory_to_dated_output_storage(self) -> None:
+        from codex_image.webui.app import create_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            task_id = "20260501000000-legacy1"
+            task_dir = root / task_id
+            (task_dir / "inputs").mkdir(parents=True)
+            (task_dir / "inputs" / "input.png").write_bytes(b"input")
+            (task_dir / "image-1.png").write_bytes(b"output")
+            (task_dir / "request.json").write_text(json.dumps({"model": "gpt-5.4"}), encoding="utf-8")
+            (task_dir / "metadata.json").write_text(
+                json.dumps(
+                    {
+                        "task_id": task_id,
+                        "created_at": "2026-05-01T00:00:00+00:00",
+                        "updated_at": "2026-05-01T00:00:00+00:00",
+                        "mode": "generate",
+                        "status": "completed",
+                        "prompt": "legacy",
+                        "params": {"output_format": "png"},
+                        "input_files": ["input.png"],
+                        "output_files": ["image-1.png"],
+                        "output_file": "image-1.png",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            app = create_app(output_root=root, auth_checker=lambda: True, auto_start_queue=False)
+            task = TestClient(app).get(f"/api/tasks/{task_id}").json()["task"]
+            task_dir_exists = task_dir.exists()
+            migrated_input_exists = (root / "inputs" / input_name(task_id, "input.png")).exists()
+            migrated_output_exists = (root / output_name(task_id)).exists()
+            migrated_request_exists = request_path(root, task_id).exists()
+
+        self.assertFalse(task_dir_exists)
+        self.assertEqual(task["input_files"], [input_name(task_id, "input.png")])
+        self.assertEqual(task["input_urls"], [f"/inputs/{input_name(task_id, 'input.png')}"])
+        self.assertEqual(task["output_files"], [output_name(task_id)])
+        self.assertEqual(task["output_urls"], [output_url(task_id)])
+        self.assertTrue(migrated_input_exists)
+        self.assertTrue(migrated_output_exists)
+        self.assertTrue(migrated_request_exists)
+    def test_delete_completed_task_removes_task_directory(self) -> None:
+        from codex_image.webui.app import create_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            app = create_app(output_root=Path(tmp), client_factory=lambda: FakeImageClient(), auth_checker=lambda: True)
+            task = app.state.storage.create_task("generate")
+            app.state.storage.write_metadata(
+                task.task_id,
+                {
+                    "task_id": task.task_id,
+                    "created_at": "2026-04-24T01:00:00+00:00",
+                    "status": "completed",
+                    "input_files": [],
+                },
+            )
+
+            response = TestClient(app).delete(f"/api/tasks/{task.task_id}")
+
+            task_exists = app.state.storage.metadata_path(task.task_id).exists()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(task_exists)
+    def test_delete_running_task_is_rejected(self) -> None:
+        from codex_image.webui.app import create_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            app = create_app(output_root=Path(tmp), client_factory=lambda: FakeImageClient(), auth_checker=lambda: True)
+            task = app.state.storage.create_task("generate")
+            app.state.active_task_ids.add(task.task_id)
+            app.state.storage.write_metadata(
+                task.task_id,
+                {
+                    "task_id": task.task_id,
+                    "created_at": "2026-04-24T01:00:00+00:00",
+                    "status": "running",
+                    "input_files": [],
+                },
+            )
+
+            response = TestClient(app).delete(f"/api/tasks/{task.task_id}")
+
+            task_exists = app.state.storage.metadata_path(task.task_id).exists()
+
+        self.assertEqual(response.status_code, 409)
+        self.assertTrue(task_exists)

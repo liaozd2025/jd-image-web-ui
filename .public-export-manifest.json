@@ -1,0 +1,36 @@
+{
+  "project": "ilab-gpt-conjure",
+  "repo_slug": "kadevin/ilab-gpt-conjure",
+  "allowlist": [
+    ".gitignore",
+    ".github/workflows/ci.yml",
+    ".github/workflows/release-portable.yml",
+    "Start WebUI.command",
+    "Start WebUI Debug.command",
+    "Start WebUI.bat",
+    "assets/wechat-qr.jpg",
+    "codex_image",
+    "package-lock.json",
+    "package.json",
+    "packaging/macos",
+    "packaging/windows",
+    "pyproject.toml",
+    "requirements-webui.txt",
+    "scripts/build-webui-css.mjs",
+    "scripts/migrate-webui-source-data.py",
+    "tests",
+    "tsconfig.webui.json"
+  ],
+  "denylist": [
+    "tests/test_public_repo_export.py"
+  ],
+  "excluded_private_paths": [
+    "AGENTS.md",
+    "DESIGN.md",
+    "docs/superpowers/",
+    "input/",
+    "inputs/",
+    "output/",
+    "outputs/"
+  ]
+}

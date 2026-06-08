@@ -1,0 +1,9 @@
+[project]
+name = "ilab-gpt-conjure"
+version = "0.1.0"
+description = "Local-first image generation workbench with WebUI and CLI."
+requires-python = ">=3.11"
+
+license = "AGPL-3.0-only"
+[project.scripts]
+codex-image = "codex_image.cli:main_entry"
