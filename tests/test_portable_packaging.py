@@ -5,6 +5,15 @@ import unittest
 
 
 class PortablePackagingTests(unittest.TestCase):
+    def test_ci_workflow_avoids_github_unsupported_job_hashfiles_if(self) -> None:
+        workflow = Path(".github/workflows/ci.yml")
+        self.assertTrue(workflow.exists(), f"{workflow} should exist")
+
+        text = workflow.read_text(encoding="utf-8")
+        self.assertIn("name: CI", text)
+        self.assertIn("Public export guard", text)
+        self.assertNotIn("hashFiles('.public-export-manifest.json')", text)
+
     def test_windows_portable_packaging_files_define_self_contained_bundle(self) -> None:
         build_script = Path("packaging/windows/build-portable.ps1")
         launcher = Path("packaging/windows/Start WebUI Portable.bat")
