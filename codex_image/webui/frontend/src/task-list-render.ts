@@ -10,6 +10,12 @@ const EXPANDED_TASK_GROUP_CHUNK_SIZE = 48;
 const EXPANDED_TASK_GROUP_ANIMATION_FALLBACK_MS = 320;
 let expandedTaskGroupRenderToken = 0;
 type QueueTaskIdSections = { running: Map<string, number>; waiting: Map<string, number> };
+type TaskListScrollAnchor = {
+  scroller: HTMLElement;
+  scrollTop: number;
+  taskId?: string;
+  offsetTop?: number;
+};
 let queueTaskIdsCacheKey = "";
 let queueTaskIdsCache: QueueTaskIdSections | null = null;
 
@@ -51,7 +57,8 @@ const taskRuntimeText = (...args: any[]) => legacyMethod("taskRuntimeText", ...a
 const taskCompletionTimestampTitle = (...args: any[]) => legacyMethod("taskCompletionTimestampTitle", ...args);
 const timestampMs = (...args: any[]) => legacyMethod("timestampMs", ...args);
 
-function renderTasks() {
+function renderTasks(options: { preserveScroll?: boolean } = {}) {
+  const scrollAnchor = options.preserveScroll ? captureTaskListScrollAnchor() : null;
   const query = taskSearchQuery();
   const filters = taskFilterValues();
   const visibleTasks = state.tasks.filter((task: any) => !isTaskArchived(task.task_id));
@@ -68,6 +75,7 @@ function renderTasks() {
   const nextRenderKey = taskListRenderKey(tasks, query, layout, filters, activeGroup);
   if (state.tasksRenderKey === nextRenderKey) {
     updateTaskElapsedDisplays();
+    restoreTaskListScrollAnchor(scrollAnchor);
     return;
   }
   state.tasksRenderKey = nextRenderKey;
@@ -80,12 +88,14 @@ function renderTasks() {
     expandedTaskGroupRenderToken += 1;
     els.taskList.innerHTML = `<div class="task-meta">${escapeHtml(translate("taskList.empty"))}</div>`;
     updateDocumentTitle();
+    restoreTaskListScrollAnchor(scrollAnchor);
     return;
   }
   if (!layout.expandedGroup) {
     expandedTaskGroupRenderToken += 1;
     els.taskList.innerHTML = "";
     updateDocumentTitle();
+    restoreTaskListScrollAnchor(scrollAnchor);
     return;
   }
 
@@ -93,6 +103,56 @@ function renderTasks() {
   els.taskList.innerHTML = renderExpandedTaskGroupShellHtml(group);
   scheduleExpandedTaskGroupItemsRender(group, layout.expandedKey || group?.key || null);
   updateDocumentTitle();
+  restoreTaskListScrollAnchor(scrollAnchor);
+}
+
+function taskListScrollContainer(): HTMLElement | null {
+  return els.sidebarContent || els.taskHistoryShell || els.taskList || null;
+}
+
+function captureTaskListScrollAnchor(): TaskListScrollAnchor | null {
+  const scroller = taskListScrollContainer();
+  const root = taskCardRoot();
+  if (!scroller || !root) return null;
+  const scrollerRect = scroller.getBoundingClientRect();
+  const cards = Array.from(root.querySelectorAll(".task-card[data-task-id]")) as HTMLElement[];
+  const visibleCard = cards.find((card) => {
+    const rect = card.getBoundingClientRect();
+    return rect.bottom > scrollerRect.top && rect.top < scrollerRect.bottom;
+  });
+  if (!visibleCard) return { scroller, scrollTop: scroller.scrollTop };
+  const rect = visibleCard.getBoundingClientRect();
+  const anchor: TaskListScrollAnchor = {
+    scroller,
+    scrollTop: scroller.scrollTop,
+    offsetTop: rect.top - scrollerRect.top,
+  };
+  if (visibleCard.dataset.taskId) anchor.taskId = visibleCard.dataset.taskId;
+  return anchor;
+}
+
+function restoreTaskListScrollAnchor(anchor: TaskListScrollAnchor | null): void {
+  if (!anchor?.scroller) return;
+  let attempts = 12;
+  const restore = () => {
+    if (!anchor.scroller.isConnected) return;
+    if (anchor.taskId) {
+      const card = taskCardElement(anchor.taskId);
+      if (card instanceof HTMLElement) {
+        const scrollerRect = anchor.scroller.getBoundingClientRect();
+        const rect = card.getBoundingClientRect();
+        anchor.scroller.scrollTop += rect.top - scrollerRect.top - (anchor.offsetTop || 0);
+        return;
+      }
+    }
+    if (anchor.taskId && attempts > 0) {
+      attempts -= 1;
+      requestAnimationFrame(restore);
+      return;
+    }
+    anchor.scroller.scrollTop = anchor.scrollTop;
+  };
+  requestAnimationFrame(restore);
 }
 
 function renderHistoryLibraryGroup(tasks: any[], query: string) {
@@ -252,11 +312,14 @@ function updateTaskSelectionVisuals(taskId: any = state.selectedTaskId) {
   root.querySelectorAll(".task-card.active").forEach((card: any) => {
     if (String(card.dataset.taskId || "") !== selectedId) {
       card.classList.remove("active");
+      card.removeAttribute("aria-current");
     }
   });
   const selectedCard = taskCardElement(taskId);
   if (selectedCard) {
     selectedCard.classList.add("active");
+    selectedCard.setAttribute("aria-current", "true");
+    selectedCard.dataset.activeLabel = translate("taskList.viewing");
     selectedCard.classList.remove("unread");
     selectedCard.dataset.taskUnread = "false";
     selectedCard.querySelector(".task-unread-dot")?.remove();
@@ -583,6 +646,7 @@ function taskCardActionsHtml(taskId: string, queueSection = "") {
 function taskCardHtml(task: any) {
   const image = taskThumbHtml(task);
   const active = String(task.task_id) === String(state.selectedTaskId) ? " active" : "";
+  const activeCurrent = active ? ' aria-current="true"' : "";
   const unread = taskHasUnreadUpdate(task);
   const unreadClass = unread ? " unread" : "";
   const statusClass = task.status ? ` ${escapeHtml(task.status)}` : "";
@@ -613,8 +677,9 @@ function taskCardHtml(task: any) {
       </button>
     ` : "";
   const unreadDot = unread ? `<span class="task-unread-dot" aria-label="${escapeHtml(translate("taskList.unreadUpdate"))}"></span>` : "";
+  const activeLabel = escapeHtml(translate("taskList.viewing"));
   return `
-    <div class="task-card${active}${unreadClass}${statusClass}${batchClass}${batchSelectedClass}${queueClass}" role="button" tabindex="0" data-task-id="${taskId}" data-task-unread="${unread ? "true" : "false"}"${queueTaskData}>
+    <div class="task-card${active}${unreadClass}${statusClass}${batchClass}${batchSelectedClass}${queueClass}" role="button" tabindex="0" data-task-id="${taskId}" data-task-unread="${unread ? "true" : "false"}" data-active-label="${activeLabel}"${activeCurrent}${queueTaskData}>
       ${batchSelect}
       ${image}
       <div class="task-info">

@@ -58,7 +58,7 @@ async function refreshTaskAfterActionConflict(taskId: any): Promise<boolean> {
     const updatedTask = data.task;
     updateTaskInState(updatedTask);
     state.selectedTaskId = updatedTask.task_id;
-    renderTasks();
+    renderTasks({ preserveScroll: true });
     renderArchiveButton();
     renderArchiveModal();
     renderPreview(updatedTask);
@@ -166,7 +166,7 @@ async function acceptTaskSuccesses(taskId: any) {
     const updatedTask = data.task;
     updateTaskInState(updatedTask);
     state.selectedTaskId = updatedTask.task_id;
-    renderTasks();
+    renderTasks({ preserveScroll: true });
     renderArchiveButton();
     renderArchiveModal();
     renderPreview(updatedTask);

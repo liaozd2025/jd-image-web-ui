@@ -183,6 +183,7 @@ class TaskStorage:
         provider: str = "",
         archived: bool | None = None,
         sort: str = "newest",
+        direction: str = "next",
     ) -> dict[str, Any]:
         self.refresh_stale_task_index()
         return self.task_index.query_history(
@@ -200,6 +201,7 @@ class TaskStorage:
             provider=provider,
             archived=archived,
             sort=sort,
+            direction=direction,
         )
 
     def refresh_stale_task_index(self, *, limit: int = 500) -> int:
@@ -441,7 +443,20 @@ def _sidebar_task_card(metadata: dict[str, Any]) -> dict[str, Any]:
 def _sidebar_input_thumbnail_urls(metadata: dict[str, Any]) -> list[str]:
     urls = metadata.get("input_thumbnail_urls")
     if isinstance(urls, list):
-        return [str(url) for url in urls if url]
+        clean_urls = [str(url) for url in urls if url]
+        if clean_urls:
+            return clean_urls
+    input_sources = metadata.get("input_sources")
+    if isinstance(input_sources, list):
+        source_urls: list[str] = []
+        for source in input_sources:
+            if not isinstance(source, dict) or source.get("missing"):
+                continue
+            url = source.get("thumbnail_url") or source.get("image_url")
+            if url:
+                source_urls.append(str(url))
+        if source_urls:
+            return source_urls
     task_id = str(metadata.get("task_id") or "")
     input_files = metadata.get("input_files")
     if not task_id or not isinstance(input_files, list):

@@ -106,10 +106,12 @@ def _accept_partial_task_successes(storage: TaskStorage, task_id: str, metadata:
 
     output_files = [str(record.get("file")) for record in accepted_outputs if record.get("file")]
     output_urls = [str(record.get("url")) for record in accepted_outputs if record.get("url")]
+    accepted_at = utc_now()
     metadata.update(
         {
             "status": "completed",
-            "updated_at": utc_now(),
+            "updated_at": accepted_at,
+            "viewed_at": accepted_at,
             "generated_count": success_count,
             "failed_count": 0,
             "total_count": success_count,
@@ -118,7 +120,7 @@ def _accept_partial_task_successes(storage: TaskStorage, task_id: str, metadata:
             "output_urls": output_urls,
             "original_total_count": original_total_count,
             "cleared_failed_count": cleared_failed_count,
-            "partial_failure_cleared_at": utc_now(),
+            "partial_failure_cleared_at": accepted_at,
         }
     )
     if output_files:
@@ -155,7 +157,7 @@ def _accept_partial_task_successes(storage: TaskStorage, task_id: str, metadata:
 def _retryable_failed_output_indexes(metadata: dict[str, Any]) -> list[int]:
     total = _positive_int(metadata.get("total_count")) or _positive_int((metadata.get("params") or {}).get("n")) or 1
     task_error = str(metadata.get("error") or metadata.get("last_error") or "")
-    if _is_non_retryable_error(RuntimeError(task_error)):
+    if _is_non_retryable_task_error(metadata, task_error):
         return []
     failed_records = [
         record
@@ -166,7 +168,7 @@ def _retryable_failed_output_indexes(metadata: dict[str, Any]) -> list[int]:
     if failed_records:
         for fallback_index, record in enumerate(failed_records, start=1):
             error = str(record.get("error") or metadata.get("last_error") or metadata.get("error") or "")
-            if _is_non_retryable_error(RuntimeError(error)):
+            if _is_non_retryable_failed_slot_error(metadata, error):
                 continue
             index = _positive_int(record.get("index")) or fallback_index
             if 1 <= index <= total and index not in retryable:
@@ -236,6 +238,41 @@ def _is_non_retryable_error(exc: BaseException) -> bool:
         or "invalid_value" in message
         or "expected a base64-encoded data url" in message
         or "unsupported mime type" in message
+    )
+
+
+def _is_non_retryable_task_error(metadata: dict[str, Any], error: str) -> bool:
+    if not _is_non_retryable_error(RuntimeError(error)):
+        return False
+    if metadata.get("status") != "partial_failed":
+        return True
+    return _successful_output_count(metadata) <= 0
+
+
+def _is_non_retryable_failed_slot_error(metadata: dict[str, Any], error: str) -> bool:
+    if not _is_non_retryable_error(RuntimeError(error)):
+        return False
+    if metadata.get("status") == "partial_failed" and _successful_output_count(metadata) > 0 and _is_generic_invalid_request_error(error):
+        return False
+    return True
+
+
+def _successful_output_count(metadata: dict[str, Any]) -> int:
+    outputs = metadata.get("outputs")
+    if isinstance(outputs, list):
+        return sum(1 for record in outputs if isinstance(record, dict) and record.get("status") == "completed")
+    return _positive_int(metadata.get("generated_count")) or 0
+
+
+def _is_generic_invalid_request_error(error: str) -> bool:
+    message = str(error or "").lower()
+    return (
+        "http 400" in message
+        and "invalid_request_error" in message
+        and "invalid_value" not in message
+        and "expected a base64-encoded data url" not in message
+        and "unsupported mime type" not in message
+        and "reference asset" not in message
     )
 
 

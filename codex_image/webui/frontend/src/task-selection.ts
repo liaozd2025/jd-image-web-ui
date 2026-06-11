@@ -8,6 +8,7 @@ const els = bridge.els;
 
 let taskSelectionInitialized = false;
 const HISTORY_TASK_REUSE_HANDOFF_KEY = "codex-image-history-task-reuse-handoff";
+let selectedTaskDetailRequestSeq = 0;
 
 function legacyMethod(name, ...args) {
   const method = getLegacyBridge().methods[name];
@@ -92,6 +93,19 @@ async function loadFullTaskDetail(taskId) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.detail || translate("notifications.taskMissing"));
   return data.task;
+}
+
+async function ensureSelectedTaskDetail(taskId = state.selectedTaskId) {
+  const normalizedTaskId = String(taskId || "").trim();
+  if (!normalizedTaskId) return null;
+  const task = state.tasks.find((item) => String(item.task_id) === normalizedTaskId);
+  if (!task) return null;
+  if (!task.summary_only) return task;
+  const detailSeq = ++selectedTaskDetailRequestSeq;
+  const fullTask = await loadFullTaskDetail(normalizedTaskId);
+  if (detailSeq !== selectedTaskDetailRequestSeq) return null;
+  if (String(state.selectedTaskId) !== normalizedTaskId) return null;
+  return replaceSelectedTaskDetail(normalizedTaskId, fullTask);
 }
 
 function replaceSelectedTaskDetail(taskId, task) {
@@ -275,6 +289,7 @@ export function initTaskSelectionFeature() {
   if (taskSelectionInitialized) return;
   taskSelectionInitialized = true;
   Object.assign(getLegacyBridge().methods, {
+    ensureSelectedTaskDetail,
     selectTask,
     restoreHistoryTaskReuseHandoff,
   });

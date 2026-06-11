@@ -11,6 +11,7 @@ export interface LegacyMethods {
     options?: { migrateLegacyArchives?: boolean; requestSeq?: number },
   ): Promise<void>;
   applyTaskUpdate(task: WebUITask | null | undefined): void;
+  ensureSelectedTaskDetail(taskId?: string | null): Promise<WebUITask | null> | WebUITask | null;
   notifyTaskUpdate(previousTask: WebUITask | null | undefined, nextTask: WebUITask | null | undefined): void;
   refreshTasks(options?: { migrateLegacyArchives?: boolean }): Promise<void>;
   updateDocumentTitle(): void;
@@ -18,7 +19,7 @@ export interface LegacyMethods {
   taskHasViewableUpdate(task: WebUITask | null | undefined): boolean;
   markTaskViewed(taskId: string): Promise<void> | void;
   cleanupSessionSelections(): void;
-  renderTasks(): void;
+  renderTasks(options?: { preserveScroll?: boolean }): void;
   renderArchiveButton(): void;
   renderArchiveModal(): void;
   renderPreview(task?: WebUITask | null): void;

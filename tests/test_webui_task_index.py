@@ -4,7 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from codex_image.webui.task_index import RATIO_OTHER_VALUE, SQLiteTaskIndex
+from codex_image.webui.task_index import RATIO_OTHER_VALUE, SQLiteTaskIndex, _encode_cursor
 
 
 class WebUITaskIndexTests(unittest.TestCase):
@@ -133,6 +133,19 @@ class WebUITaskIndexTests(unittest.TestCase):
             size = index.query_history(limit=10, size="1152x2048")
             quality = index.query_history(limit=10, quality="high")
             oldest = index.query_history(limit=2, sort="oldest")
+            previous_newest = index.query_history(
+                limit=1,
+                month="2026-05",
+                cursor=_encode_cursor(shared_time, "task-a"),
+                direction="previous",
+            )
+            previous_oldest = index.query_history(
+                limit=1,
+                month="2026-05",
+                sort="oldest",
+                cursor=_encode_cursor(shared_time, "task-b"),
+                direction="previous",
+            )
 
         self.assertEqual([task["task_id"] for task in first_page["tasks"]], ["task-b"])
         self.assertEqual(first_page["tasks"][0]["thumbnail_url"], "/api/tasks/task-b/outputs/1/thumbnail")
@@ -151,6 +164,9 @@ class WebUITaskIndexTests(unittest.TestCase):
         self.assertEqual(first_page["tasks"][0]["prompt_mode"], "strict")
         self.assertEqual(first_page["tasks"][0]["quality"], "high")
         self.assertEqual([task["task_id"] for task in oldest["tasks"]], ["task-old", "task-a"])
+        self.assertEqual([task["task_id"] for task in previous_newest["tasks"]], ["task-b"])
+        self.assertIn("previous_cursor", previous_newest)
+        self.assertEqual([task["task_id"] for task in previous_oldest["tasks"]], ["task-a"])
 
     def test_history_summary_groups_counts_for_filters(self) -> None:
         with TemporaryDirectory() as tmp:

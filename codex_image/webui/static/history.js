@@ -189,7 +189,7 @@
       "history.detailFailed": "\u8BE6\u60C5\u8F7D\u5165\u5931\u8D25",
       "history.noMatches": "\u6682\u65E0\u5339\u914D\u4EFB\u52A1",
       "history.loadedCount": "{count} \u6761\u5DF2\u8F7D\u5165",
-      "history.windowNotice": "\u5217\u8868\u7A97\u53E3\u5DF2\u9650\u5236\u4E3A {count} \u6761\uFF1B\u7EE7\u7EED\u7528\u7B5B\u9009\u6216\u641C\u7D22\u5B9A\u4F4D\u66F4\u65E9\u4EFB\u52A1",
+      "history.windowNotice": "\u5217\u8868\u7A97\u53E3\u5DF2\u9650\u5236\u4E3A {count} \u6761\uFF1B\u4E0A\u4E0B\u6EDA\u52A8\u4F1A\u6309\u9700\u6062\u590D\u76F8\u90BB\u4EFB\u52A1",
       "history.selectTask": "\u9009\u62E9\u4EFB\u52A1",
       "history.viewing": "\u67E5\u770B\u4E2D",
       "history.noPreview": "\u6682\u65E0\u53EF\u9884\u89C8\u56FE\u7247",
@@ -500,13 +500,11 @@
       "promptPopover.copied": "\u5DF2\u590D\u5236",
       "taskContext.menuLabel": "\u4EFB\u52A1\u53F3\u952E\u83DC\u5355",
       "taskContext.view": "\u67E5\u770B\u4EFB\u52A1",
-      "taskContext.restore": "\u6062\u590D\u5230\u8868\u5355",
       "taskContext.copyId": "\u590D\u5236\u4EFB\u52A1 ID",
       "taskContext.copyPrompt": "\u590D\u5236\u63D0\u793A\u8BCD",
       "taskContext.revealOutput": "\u6253\u5F00\u8F93\u51FA\u76EE\u5F55",
       "taskContext.archive": "\u5F52\u6863\u4EFB\u52A1",
       "taskContext.delete": "\u5220\u9664\u4EFB\u52A1",
-      "taskContext.restored": "\u5DF2\u6062\u590D\u4EFB\u52A1\u53C2\u6570",
       "taskContext.idCopied": "\u4EFB\u52A1 ID \u5DF2\u590D\u5236",
       "taskContext.promptCopied": "\u63D0\u793A\u8BCD\u5DF2\u590D\u5236",
       "taskContext.revealFailed": "\u6253\u5F00\u8F93\u51FA\u76EE\u5F55\u5931\u8D25",
@@ -532,6 +530,7 @@
       "taskList.empty": "\u6682\u65E0\u5386\u53F2\u4EFB\u52A1",
       "taskList.selectSession": "\u9009\u62E9\u4F1A\u8BDD",
       "taskList.unreadUpdate": "\u672A\u8BFB\u66F4\u65B0",
+      "taskList.viewing": "\u67E5\u770B\u4E2D",
       "taskDerived.usageLimited": "\u7528\u91CF\u53D7\u9650",
       "taskSubmit.requestFailed": "\u8BF7\u6C42\u5931\u8D25",
       "taskSubmit.queued": "\u4EFB\u52A1\u5DF2\u52A0\u5165\u961F\u5217",
@@ -950,7 +949,7 @@
       "history.detailFailed": "Failed to load detail",
       "history.noMatches": "No matching tasks",
       "history.loadedCount": "{count} loaded",
-      "history.windowNotice": "The mounted list is limited to {count} tasks; use filters or search for older tasks.",
+      "history.windowNotice": "The mounted list is limited to {count} tasks; scroll up or down to restore adjacent tasks on demand.",
       "history.selectTask": "Select task",
       "history.viewing": "Viewing",
       "history.noPreview": "No preview images",
@@ -1261,13 +1260,11 @@
       "promptPopover.copied": "Copied",
       "taskContext.menuLabel": "Task context menu",
       "taskContext.view": "View task",
-      "taskContext.restore": "Restore to form",
       "taskContext.copyId": "Copy task ID",
       "taskContext.copyPrompt": "Copy prompt",
       "taskContext.revealOutput": "Open output folder",
       "taskContext.archive": "Archive task",
       "taskContext.delete": "Delete task",
-      "taskContext.restored": "Task parameters restored",
       "taskContext.idCopied": "Task ID copied",
       "taskContext.promptCopied": "Prompt copied",
       "taskContext.revealFailed": "Failed to open output folder",
@@ -1293,6 +1290,7 @@
       "taskList.empty": "No history yet",
       "taskList.selectSession": "Select chat",
       "taskList.unreadUpdate": "Unread update",
+      "taskList.viewing": "Viewing",
       "taskDerived.usageLimited": "Usage limited",
       "taskSubmit.requestFailed": "Request failed",
       "taskSubmit.queued": "Task added to queue",
@@ -1610,6 +1608,47 @@
     setLocale(normalizeLocale(saved), { persist: false });
   }
 
+  // codex_image/webui/frontend/src/history-window.ts
+  function historyTaskCards(root) {
+    return [...root.querySelectorAll(".history-task-card[data-history-task-card-id]")];
+  }
+  function encodeHistoryCursor(createdAt, taskId) {
+    const raw = JSON.stringify({ created_at: createdAt, task_id: taskId });
+    const bytes = new TextEncoder().encode(raw);
+    let binary = "";
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+  function historyWindowEdgeCursor(root, edge) {
+    const cards = historyTaskCards(root);
+    const card = edge === "top" ? cards[0] : cards[cards.length - 1];
+    if (!card) return "";
+    const taskId = String(card.dataset.historyTaskCardId || "");
+    const createdAt = String(card.dataset.historyCreatedAt || "");
+    return taskId && createdAt ? encodeHistoryCursor(createdAt, taskId) : "";
+  }
+  function captureHistoryScrollAnchor(root) {
+    const rootTop = root.getBoundingClientRect().top;
+    for (const card of historyTaskCards(root)) {
+      const rect = card.getBoundingClientRect();
+      if (rect.bottom < rootTop) continue;
+      const taskId = String(card.dataset.historyTaskCardId || "");
+      if (!taskId) continue;
+      return { taskId, offset: rect.top - rootTop };
+    }
+    return null;
+  }
+  function restoreHistoryScrollAnchor(root, anchor) {
+    if (!anchor) return;
+    const card = historyTaskCards(root).find((item) => String(item.dataset.historyTaskCardId || "") === anchor.taskId);
+    if (!card) return;
+    const rootTop = root.getBoundingClientRect().top;
+    const nextOffset = card.getBoundingClientRect().top - rootTop;
+    root.scrollTop += nextOffset - anchor.offset;
+  }
+
   // codex_image/webui/frontend/src/history.ts
   var HISTORY_FILTER_KEYS = ["month", "prompt_mode", "quality", "ratio", "orientation", "backend", "provider", "archived"];
   var HISTORY_RATIO_OTHER_VALUE = "__other__";
@@ -1619,6 +1658,7 @@
   var HISTORY_TASK_REUSE_HANDOFF_KEY = "codex-image-history-task-reuse-handoff";
   var HISTORY_THEME_STORAGE_KEY = "codex-image-theme-preference";
   var HISTORY_THUMBNAIL_CACHE_VERSION = "thumb-768-fit";
+  var HISTORY_GRID_DEFAULT_GAP = 14;
   var historyState = {
     q: "",
     month: "",
@@ -1632,6 +1672,7 @@
     sort: "newest",
     view: "grid",
     nextCursor: null,
+    newerExhausted: true,
     loading: false,
     exhausted: false,
     loadedTaskIds: /* @__PURE__ */ new Set(),
@@ -1643,6 +1684,7 @@
     detailTask: null,
     requestId: 0
   };
+  var historyGridLayoutFrame = 0;
   var els = {
     page: document.querySelector(".history-page"),
     total: document.querySelector("#historyTotal"),
@@ -1794,11 +1836,12 @@
       button.classList.toggle("active", button.getAttribute("data-history-archived") === historyState.archived);
     });
   }
-  function queryParams(cursor) {
+  function queryParams(cursor, direction = "next") {
     const params = new URLSearchParams();
     params.set("limit", String(HISTORY_PAGE_LIMIT));
     params.set("sort", historyState.sort);
     if (cursor) params.set("cursor", cursor);
+    if (direction !== "next") params.set("direction", direction);
     if (historyState.q) params.set("q", historyState.q);
     for (const key of HISTORY_FILTER_KEYS) {
       if (historyState[key]) params.set(key, historyState[key]);
@@ -1815,11 +1858,86 @@
       button.classList.toggle("active", active);
       button.setAttribute("aria-pressed", active ? "true" : "false");
     });
+    if (view === "grid") scheduleHistoryGridLayout();
   }
   function setHistoryViewMode(view) {
     historyState.view = view === "list" ? "list" : "grid";
     syncHistoryViewMode();
     updateHistoryUrl();
+  }
+  function historyGridLayoutSettings() {
+    if (window.matchMedia("(max-width: 760px)").matches) {
+      return { targetHeight: 176, minWidth: 132, maxWidth: 320 };
+    }
+    return { targetHeight: 220, minWidth: 150, maxWidth: 430 };
+  }
+  function scheduleHistoryGridLayout() {
+    if (historyGridLayoutFrame) window.cancelAnimationFrame(historyGridLayoutFrame);
+    historyGridLayoutFrame = window.requestAnimationFrame(() => {
+      historyGridLayoutFrame = 0;
+      layoutJustifiedHistoryGrid();
+    });
+  }
+  function parseCssPixels(value) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  function clampNumber(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+  function historyTaskCardRatio(card) {
+    const ratio = Number.parseFloat(card.style.getPropertyValue("--history-task-card-ratio"));
+    return Number.isFinite(ratio) && ratio > 0 ? clampNumber(ratio, 0.42, 3.2) : 1;
+  }
+  function applyHistoryGridRowLayout(row, options) {
+    if (!row.length) return;
+    const { fillRow, availableWidth, gap, settings } = options;
+    const gapWidth = gap * Math.max(0, row.length - 1);
+    const availableContentWidth = Math.max(1, availableWidth - gapWidth);
+    const ratioTotal = row.reduce((sum, item) => sum + item.ratio, 0) || 1;
+    const rowHeight = fillRow ? availableContentWidth / ratioTotal : settings.targetHeight;
+    let widths = row.map((item) => {
+      const naturalWidth = item.ratio * rowHeight;
+      return fillRow ? Math.max(1, Math.floor(naturalWidth)) : Math.round(clampNumber(naturalWidth, settings.minWidth, Math.min(settings.maxWidth, availableWidth)));
+    });
+    if (fillRow) {
+      let delta = Math.round(availableContentWidth - widths.reduce((sum, width) => sum + width, 0));
+      const direction = delta >= 0 ? 1 : -1;
+      delta = Math.abs(delta);
+      for (let index = 0; index < widths.length && delta > 0; index = (index + 1) % widths.length) {
+        widths[index] = (widths[index] || 1) + direction;
+        delta -= 1;
+      }
+    }
+    row.forEach((item, index) => {
+      item.card.style.setProperty("--history-task-row-height", `${Math.max(1, Math.round(rowHeight))}px`);
+      item.card.style.setProperty("--history-task-card-width", `${Math.max(1, widths[index] || 1)}px`);
+    });
+  }
+  function layoutJustifiedHistoryGrid() {
+    const root = els.taskList;
+    if (!root || historyState.view !== "grid" || !root.classList.contains("history-view-grid")) return;
+    const cards = historyTaskCards(root);
+    if (!cards.length) return;
+    const rootStyle = window.getComputedStyle(root);
+    const availableWidth = root.clientWidth - parseCssPixels(rootStyle.paddingLeft) - parseCssPixels(rootStyle.paddingRight);
+    if (availableWidth < 80) return;
+    const gap = parseCssPixels(rootStyle.columnGap || rootStyle.gap) || HISTORY_GRID_DEFAULT_GAP;
+    const settings = historyGridLayoutSettings();
+    let row = [];
+    let rowRatioTotal = 0;
+    for (const card of cards) {
+      const ratio = historyTaskCardRatio(card);
+      row.push({ card, ratio });
+      rowRatioTotal += ratio;
+      const projectedWidth = rowRatioTotal * settings.targetHeight + gap * Math.max(0, row.length - 1);
+      if (row.length > 1 && projectedWidth >= availableWidth) {
+        applyHistoryGridRowLayout(row, { fillRow: true, availableWidth, gap, settings });
+        row = [];
+        rowRatioTotal = 0;
+      }
+    }
+    applyHistoryGridRowLayout(row, { fillRow: false, availableWidth, gap, settings });
   }
   function setLoadMoreState(label, options = {}) {
     if (!els.sentinel) return;
@@ -1828,17 +1946,29 @@
     els.sentinel.toggleAttribute("aria-busy", Boolean(options.busy));
   }
   function maybeLoadMoreFromScroll() {
-    if (!els.taskList || historyState.loading || historyState.exhausted) return;
+    if (!els.taskList || historyState.loading) return;
+    if (els.taskList.scrollTop <= 320 && !historyState.newerExhausted) {
+      void loadTasks({ direction: "previous" });
+      return;
+    }
     const remaining = els.taskList.scrollHeight - els.taskList.scrollTop - els.taskList.clientHeight;
-    if (remaining <= 320) void loadTasks();
+    if (remaining <= 320 && !historyState.exhausted) void loadTasks({ direction: "next" });
   }
-  async function loadTasks({ reset = false } = {}) {
+  async function loadTasks({ reset = false, direction = "next" } = {}) {
     if (historyState.loading) return;
-    if (!reset && historyState.exhausted) return;
+    if (!reset && direction === "next" && historyState.exhausted) return;
+    if (!reset && direction === "previous" && historyState.newerExhausted) return;
+    const cursor = taskWindowCursor(reset, direction);
+    if (!reset && !cursor) {
+      if (direction === "previous") historyState.newerExhausted = true;
+      if (direction === "next") historyState.exhausted = true;
+      return;
+    }
     historyState.loading = true;
     const requestId = ++historyState.requestId;
     if (reset) {
       historyState.nextCursor = null;
+      historyState.newerExhausted = true;
       historyState.exhausted = false;
       historyState.loadedTaskIds.clear();
       historyState.selectedTaskIds.clear();
@@ -1848,32 +1978,54 @@
       renderBulkToolbar();
     }
     setLoadMoreState(translate("history.loadingMore"), { busy: true });
-    const cursor = reset ? null : historyState.nextCursor;
     try {
-      const response = await fetch(`/api/task-history/tasks?${queryParams(cursor)}`);
+      const response = await fetch(`/api/task-history/tasks?${queryParams(cursor, direction)}`);
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || translate("history.tasksFailed"));
       if (requestId !== historyState.requestId) return;
-      renderTasks(data.tasks || [], { append: !reset });
-      historyState.nextCursor = data.next_cursor || null;
-      historyState.exhausted = !historyState.nextCursor;
+      const tasks = data.tasks || [];
+      renderTasks(tasks, { position: reset ? "replace" : direction === "previous" ? "prepend" : "append" });
+      if (direction === "previous") {
+        historyState.newerExhausted = !data.previous_cursor || !tasks.length;
+      } else {
+        historyState.nextCursor = data.next_cursor || null;
+        historyState.exhausted = !historyState.nextCursor;
+        if (reset) historyState.newerExhausted = true;
+      }
       setLoadMoreState(
         historyState.exhausted ? translate("history.noMore") : "",
-        { hidden: !historyState.exhausted }
+        { hidden: !historyState.exhausted, busy: false }
       );
       window.requestAnimationFrame(maybeLoadMoreFromScroll);
     } catch (error) {
-      if (requestId === historyState.requestId) renderTaskListMessage("history-error", errorMessage(error, translate("history.tasksFailed")));
-      historyState.exhausted = false;
+      if (requestId === historyState.requestId) {
+        const message = errorMessage(error, translate("history.tasksFailed"));
+        if (els.taskList && historyTaskCards(els.taskList).length) {
+          setText(els.resultSummary, message);
+        } else {
+          renderTaskListMessage("history-error", message);
+        }
+      }
+      if (direction === "previous") {
+        historyState.newerExhausted = false;
+      } else {
+        historyState.exhausted = false;
+      }
       setLoadMoreState(translate("history.loadFailed"));
     } finally {
       if (requestId === historyState.requestId) historyState.loading = false;
     }
   }
-  function renderTasks(tasks, { append }) {
+  function taskWindowCursor(reset, direction) {
+    if (reset || !els.taskList) return null;
+    if (direction === "previous") return historyWindowEdgeCursor(els.taskList, "top");
+    return historyState.nextCursor || historyWindowEdgeCursor(els.taskList, "bottom");
+  }
+  function renderTasks(tasks, { position }) {
     if (!els.taskList) return;
     syncHistoryViewMode();
-    if (!append) els.taskList.innerHTML = "";
+    const anchor = position === "replace" ? null : captureHistoryScrollAnchor(els.taskList);
+    if (position === "replace") els.taskList.innerHTML = "";
     const html = tasks.filter((task) => {
       if (historyState.loadedTaskIds.has(task.task_id)) return false;
       historyState.loadedTaskIds.add(task.task_id);
@@ -1881,9 +2033,15 @@
     }).map(taskCardHtml).join("");
     if (html) {
       els.taskList.querySelector(".history-empty, .history-error")?.remove();
-      els.taskList.insertAdjacentHTML("beforeend", html);
+      if (position === "prepend") {
+        els.taskList.insertAdjacentHTML("afterbegin", html);
+      } else {
+        els.taskList.insertAdjacentHTML("beforeend", html);
+      }
     }
-    trimMountedTaskCards();
+    trimMountedTaskCards(position === "prepend" ? "bottom" : "top");
+    layoutJustifiedHistoryGrid();
+    restoreHistoryScrollAnchor(els.taskList, anchor);
     if (!els.taskList.querySelector(".history-task-card")) {
       renderTaskListMessage("history-empty", translate("history.noMatches"));
     }
@@ -1894,28 +2052,31 @@
     if (!els.taskList) return;
     els.taskList.innerHTML = `<div class="${className}">${escapeHtml(message)}</div>`;
   }
-  function trimMountedTaskCards() {
+  function trimMountedTaskCards(edge) {
     if (!els.taskList) return;
-    const cards = [...els.taskList.querySelectorAll(".history-task-card")];
+    const cards = historyTaskCards(els.taskList);
     const overflow = cards.length - MAX_MOUNTED_TASK_CARDS;
     if (overflow <= 0) return;
-    for (const card of cards.slice(0, overflow)) {
+    const removedCards = edge === "bottom" ? cards.slice(cards.length - overflow) : cards.slice(0, overflow);
+    for (const card of removedCards) {
       const taskId = card.dataset.historyTaskCardId || "";
+      historyState.loadedTaskIds.delete(taskId);
       historyState.selectedTaskIds.delete(taskId);
       if (historyState.selectionAnchorTaskId === taskId) historyState.selectionAnchorTaskId = "";
       card.remove();
     }
-    let notice = els.taskList.querySelector(".history-window-notice");
-    if (!notice) {
-      notice = document.createElement("div");
-      notice.className = "history-window-notice";
-      els.taskList.prepend(notice);
+    if (edge === "top") {
+      historyState.newerExhausted = false;
+    } else {
+      historyState.exhausted = false;
+      historyState.nextCursor = historyWindowEdgeCursor(els.taskList, "bottom") || historyState.nextCursor;
     }
-    notice.textContent = formatTranslation("history.windowNotice", { count: MAX_MOUNTED_TASK_CARDS });
+    els.taskList.querySelector(".history-window-notice")?.remove();
   }
   function taskCardHtml(task) {
     const taskId = escapeHtml(task.task_id);
     const thumbnailUrl = historyThumbnailUrl(task);
+    const ratioStyle = historyThumbnailRatioStyle(task);
     const thumb = thumbnailUrl ? `<img src="${escapeHtml(thumbnailUrl)}" alt="" loading="lazy" decoding="async" draggable="false">` : "";
     const counts = `${task.generated_count || 0}/${task.total_count || 0}`;
     const selected = historyState.selectedTaskIds.has(task.task_id);
@@ -1924,20 +2085,22 @@
     const promptMode = facetDisplayValue("prompt_mode", task.prompt_mode || "");
     const quality = facetDisplayValue("quality", task.quality || "");
     const metaItems = [
-      formatDate(task.created_at),
-      task.status,
-      task.size || task.ratio || task.orientation || "",
-      promptMode,
-      quality,
-      source,
-      counts
-    ].filter(Boolean);
+      { kind: "date", value: formatDate(task.created_at) },
+      { kind: "status", value: task.status },
+      { kind: "size", value: formatHistorySizeLabel(task.size || task.ratio || task.orientation || "") },
+      { kind: "prompt-mode", value: promptMode },
+      { kind: "quality", value: quality },
+      { kind: "source", value: source },
+      { kind: "count", value: counts }
+    ].filter((item) => item.value);
     return `
     <article
       class="history-task-card${active ? " active" : ""}${selected ? " selected" : ""}"
       data-history-task-card-id="${taskId}"
+      data-history-created-at="${escapeHtml(task.created_at)}"
       role="option"
       aria-selected="${active ? "true" : "false"}"
+      ${ratioStyle}
     >
       <label class="history-task-select" aria-label="${escapeHtml(translate("history.selectTask"))}">
         <input type="checkbox" data-history-task-select="${taskId}" ${selected ? "checked" : ""}>
@@ -1948,12 +2111,33 @@
         <span class="history-task-copy">
           <span class="history-task-title">${escapeHtml(task.prompt_preview || task.mode || task.task_id)}</span>
           <span class="history-task-meta">
-            ${metaItems.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
+            ${metaItems.map((item) => `<span data-history-meta-kind="${escapeHtml(item.kind)}">${escapeHtml(item.value)}</span>`).join("")}
           </span>
         </span>
       </button>
     </article>
   `;
+  }
+  function historyThumbnailRatioStyle(task) {
+    const fromSize = parseAspectRatioParts(task.size, "x");
+    const fromRatio = fromSize || parseAspectRatioParts(task.ratio, ":");
+    if (!fromRatio) return "";
+    const [width, height] = fromRatio;
+    const ratio = Math.min(3.2, Math.max(0.42, width / height));
+    return `style="--history-task-thumb-ratio: ${width} / ${height}; --history-task-card-ratio: ${ratio.toFixed(4)}"`;
+  }
+  function parseAspectRatioParts(value, separator) {
+    const text = String(value || "").trim().toLowerCase();
+    const pattern = separator === "x" ? /^(\d+)\s*x\s*(\d+)$/ : /^(\d+)\s*:\s*(\d+)$/;
+    const match = text.match(pattern);
+    if (!match) return null;
+    const width = Number.parseInt(match[1] || "", 10);
+    const height = Number.parseInt(match[2] || "", 10);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+    return [width, height];
+  }
+  function formatHistorySizeLabel(value) {
+    return String(value || "").trim().replace(/^(\d+)\s*x\s*(\d+)$/i, "$1 x $2");
   }
   function historyThumbnailUrl(task) {
     const url = String(task.thumbnail_url || "");
@@ -2599,6 +2783,7 @@
       if (target?.closest(".history-task-thumb img")) event.preventDefault();
     });
     els.taskList?.addEventListener("scroll", maybeLoadMoreFromScroll, { passive: true });
+    window.addEventListener("resize", scheduleHistoryGridLayout, { passive: true });
     document.addEventListener(LOCALE_CHANGE_EVENT, () => {
       document.title = translate("history.documentTitle");
       syncHistoryViewMode();

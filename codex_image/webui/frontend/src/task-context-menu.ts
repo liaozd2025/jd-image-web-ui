@@ -22,7 +22,6 @@ function escapeHtml(...args: any[]) { return legacyMethod("escapeHtml", ...args)
 function setStatus(...args: any[]) { return legacyMethod("setStatus", ...args); }
 function closePromptPopover(...args: any[]) { return legacyMethod("closePromptPopover", ...args); }
 function selectTask(...args: any[]) { return legacyMethod("selectTask", ...args); }
-function applyTaskToForm(...args: any[]) { return legacyMethod("applyTaskToForm", ...args); }
 function archiveTask(...args: any[]) { return legacyMethod("archiveTask", ...args); }
 function openTaskDeleteConfirm(...args: any[]) { return legacyMethod("openTaskDeleteConfirm", ...args); }
 
@@ -120,7 +119,6 @@ function taskContextMenuHtml(task: any) {
   return `
     <div class="task-context-menu-section">
       ${taskContextButton("view", translate("taskContext.view"))}
-      ${taskContextButton("restore", translate("taskContext.restore"))}
     </div>
     <div class="task-context-menu-section">
       ${taskContextButton("copy-id", translate("taskContext.copyId"))}
@@ -170,9 +168,6 @@ async function handleTaskContextMenuAction(button: HTMLButtonElement) {
   try {
     if (action === "view") {
       await selectTask(taskId);
-    } else if (action === "restore") {
-      applyTaskToForm(task);
-      setStatus(translate("taskContext.restored"), "ok");
     } else if (action === "copy-id") {
       await copyText(taskId);
       setStatus(translate("taskContext.idCopied"), "ok");

@@ -1,4 +1,12 @@
 import { LOCALE_CHANGE_EVENT, formatTranslation, restoreLocalePreference, translate } from "./i18n";
+import {
+  type HistoryWindowEdge,
+  type HistoryWindowDirection,
+  captureHistoryScrollAnchor,
+  historyTaskCards,
+  historyWindowEdgeCursor,
+  restoreHistoryScrollAnchor,
+} from "./history-window";
 
 type HistoryFacet = { value: string; count: number };
 type HistoryMonth = { month: string; count: number };
@@ -36,6 +44,8 @@ type HistoryTask = {
 };
 type HistoryFilterKey = "month" | "prompt_mode" | "quality" | "ratio" | "orientation" | "backend" | "provider" | "archived";
 type HistoryViewMode = "grid" | "list";
+type HistoryRenderPosition = "replace" | "append" | "prepend";
+type HistoryTaskPage = { tasks: HistoryTask[]; next_cursor: string | null; previous_cursor?: string | null; detail?: string };
 
 const HISTORY_FILTER_KEYS: HistoryFilterKey[] = ["month", "prompt_mode", "quality", "ratio", "orientation", "backend", "provider", "archived"];
 const HISTORY_RATIO_OTHER_VALUE = "__other__";
@@ -45,6 +55,13 @@ const HISTORY_REFERENCE_HANDOFF_KEY = "codex-image-history-reference-handoff";
 const HISTORY_TASK_REUSE_HANDOFF_KEY = "codex-image-history-task-reuse-handoff";
 const HISTORY_THEME_STORAGE_KEY = "codex-image-theme-preference";
 const HISTORY_THUMBNAIL_CACHE_VERSION = "thumb-768-fit";
+const HISTORY_GRID_DEFAULT_GAP = 14;
+
+type HistoryGridLayoutSettings = {
+  targetHeight: number;
+  minWidth: number;
+  maxWidth: number;
+};
 
 const historyState = {
   q: "",
@@ -59,6 +76,7 @@ const historyState = {
   sort: "newest",
   view: "grid" as HistoryViewMode,
   nextCursor: null as string | null,
+  newerExhausted: true,
   loading: false,
   exhausted: false,
   loadedTaskIds: new Set<string>(),
@@ -70,6 +88,8 @@ const historyState = {
   detailTask: null as any,
   requestId: 0,
 };
+
+let historyGridLayoutFrame = 0;
 
 const els = {
   page: document.querySelector<HTMLElement>(".history-page"),
@@ -244,11 +264,12 @@ function syncArchiveButtons(): void {
   });
 }
 
-function queryParams(cursor?: string | null): string {
+function queryParams(cursor?: string | null, direction: HistoryWindowDirection = "next"): string {
   const params = new URLSearchParams();
   params.set("limit", String(HISTORY_PAGE_LIMIT));
   params.set("sort", historyState.sort);
   if (cursor) params.set("cursor", cursor);
+  if (direction !== "next") params.set("direction", direction);
   if (historyState.q) params.set("q", historyState.q);
   for (const key of HISTORY_FILTER_KEYS) {
     if (historyState[key]) params.set(key, historyState[key]);
@@ -266,12 +287,105 @@ function syncHistoryViewMode(): void {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
   });
+  if (view === "grid") scheduleHistoryGridLayout();
 }
 
 function setHistoryViewMode(view: string): void {
   historyState.view = view === "list" ? "list" : "grid";
   syncHistoryViewMode();
   updateHistoryUrl();
+}
+
+function historyGridLayoutSettings(): HistoryGridLayoutSettings {
+  if (window.matchMedia("(max-width: 760px)").matches) {
+    return { targetHeight: 176, minWidth: 132, maxWidth: 320 };
+  }
+  return { targetHeight: 220, minWidth: 150, maxWidth: 430 };
+}
+
+function scheduleHistoryGridLayout(): void {
+  if (historyGridLayoutFrame) window.cancelAnimationFrame(historyGridLayoutFrame);
+  historyGridLayoutFrame = window.requestAnimationFrame(() => {
+    historyGridLayoutFrame = 0;
+    layoutJustifiedHistoryGrid();
+  });
+}
+
+function parseCssPixels(value: string): number {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function historyTaskCardRatio(card: HTMLElement): number {
+  const ratio = Number.parseFloat(card.style.getPropertyValue("--history-task-card-ratio"));
+  return Number.isFinite(ratio) && ratio > 0 ? clampNumber(ratio, 0.42, 3.2) : 1;
+}
+
+function applyHistoryGridRowLayout(
+  row: Array<{ card: HTMLElement; ratio: number }>,
+  options: { fillRow: boolean; availableWidth: number; gap: number; settings: HistoryGridLayoutSettings },
+): void {
+  if (!row.length) return;
+  const { fillRow, availableWidth, gap, settings } = options;
+  const gapWidth = gap * Math.max(0, row.length - 1);
+  const availableContentWidth = Math.max(1, availableWidth - gapWidth);
+  const ratioTotal = row.reduce((sum, item) => sum + item.ratio, 0) || 1;
+  const rowHeight = fillRow ? availableContentWidth / ratioTotal : settings.targetHeight;
+  let widths = row.map((item) => {
+    const naturalWidth = item.ratio * rowHeight;
+    return fillRow
+      ? Math.max(1, Math.floor(naturalWidth))
+      : Math.round(clampNumber(naturalWidth, settings.minWidth, Math.min(settings.maxWidth, availableWidth)));
+  });
+
+  if (fillRow) {
+    let delta = Math.round(availableContentWidth - widths.reduce((sum, width) => sum + width, 0));
+    const direction = delta >= 0 ? 1 : -1;
+    delta = Math.abs(delta);
+    for (let index = 0; index < widths.length && delta > 0; index = (index + 1) % widths.length) {
+      widths[index] = (widths[index] || 1) + direction;
+      delta -= 1;
+    }
+  }
+
+  row.forEach((item, index) => {
+    item.card.style.setProperty("--history-task-row-height", `${Math.max(1, Math.round(rowHeight))}px`);
+    item.card.style.setProperty("--history-task-card-width", `${Math.max(1, widths[index] || 1)}px`);
+  });
+}
+
+function layoutJustifiedHistoryGrid(): void {
+  const root = els.taskList;
+  if (!root || historyState.view !== "grid" || !root.classList.contains("history-view-grid")) return;
+  const cards = historyTaskCards(root);
+  if (!cards.length) return;
+  const rootStyle = window.getComputedStyle(root);
+  const availableWidth = root.clientWidth
+    - parseCssPixels(rootStyle.paddingLeft)
+    - parseCssPixels(rootStyle.paddingRight);
+  if (availableWidth < 80) return;
+  const gap = parseCssPixels(rootStyle.columnGap || rootStyle.gap) || HISTORY_GRID_DEFAULT_GAP;
+  const settings = historyGridLayoutSettings();
+  let row: Array<{ card: HTMLElement; ratio: number }> = [];
+  let rowRatioTotal = 0;
+
+  for (const card of cards) {
+    const ratio = historyTaskCardRatio(card);
+    row.push({ card, ratio });
+    rowRatioTotal += ratio;
+    const projectedWidth = (rowRatioTotal * settings.targetHeight) + (gap * Math.max(0, row.length - 1));
+    if (row.length > 1 && projectedWidth >= availableWidth) {
+      applyHistoryGridRowLayout(row, { fillRow: true, availableWidth, gap, settings });
+      row = [];
+      rowRatioTotal = 0;
+    }
+  }
+
+  applyHistoryGridRowLayout(row, { fillRow: false, availableWidth, gap, settings });
 }
 
 function setLoadMoreState(label: string, options: { hidden?: boolean; busy?: boolean } = {}): void {
@@ -282,18 +396,30 @@ function setLoadMoreState(label: string, options: { hidden?: boolean; busy?: boo
 }
 
 function maybeLoadMoreFromScroll(): void {
-  if (!els.taskList || historyState.loading || historyState.exhausted) return;
+  if (!els.taskList || historyState.loading) return;
+  if (els.taskList.scrollTop <= 320 && !historyState.newerExhausted) {
+    void loadTasks({ direction: "previous" });
+    return;
+  }
   const remaining = els.taskList.scrollHeight - els.taskList.scrollTop - els.taskList.clientHeight;
-  if (remaining <= 320) void loadTasks();
+  if (remaining <= 320 && !historyState.exhausted) void loadTasks({ direction: "next" });
 }
 
-async function loadTasks({ reset = false }: { reset?: boolean } = {}): Promise<void> {
+async function loadTasks({ reset = false, direction = "next" }: { reset?: boolean; direction?: HistoryWindowDirection } = {}): Promise<void> {
   if (historyState.loading) return;
-  if (!reset && historyState.exhausted) return;
+  if (!reset && direction === "next" && historyState.exhausted) return;
+  if (!reset && direction === "previous" && historyState.newerExhausted) return;
+  const cursor = taskWindowCursor(reset, direction);
+  if (!reset && !cursor) {
+    if (direction === "previous") historyState.newerExhausted = true;
+    if (direction === "next") historyState.exhausted = true;
+    return;
+  }
   historyState.loading = true;
   const requestId = ++historyState.requestId;
   if (reset) {
     historyState.nextCursor = null;
+    historyState.newerExhausted = true;
     historyState.exhausted = false;
     historyState.loadedTaskIds.clear();
     historyState.selectedTaskIds.clear();
@@ -303,33 +429,56 @@ async function loadTasks({ reset = false }: { reset?: boolean } = {}): Promise<v
     renderBulkToolbar();
   }
   setLoadMoreState(translate("history.loadingMore"), { busy: true });
-  const cursor = reset ? null : historyState.nextCursor;
   try {
-    const response = await fetch(`/api/task-history/tasks?${queryParams(cursor)}`);
-    const data = await response.json() as { tasks: HistoryTask[]; next_cursor: string | null; detail?: string };
+    const response = await fetch(`/api/task-history/tasks?${queryParams(cursor, direction)}`);
+    const data = await response.json() as HistoryTaskPage;
     if (!response.ok) throw new Error(data.detail || translate("history.tasksFailed"));
     if (requestId !== historyState.requestId) return;
-    renderTasks(data.tasks || [], { append: !reset });
-    historyState.nextCursor = data.next_cursor || null;
-    historyState.exhausted = !historyState.nextCursor;
+    const tasks = data.tasks || [];
+    renderTasks(tasks, { position: reset ? "replace" : direction === "previous" ? "prepend" : "append" });
+    if (direction === "previous") {
+      historyState.newerExhausted = !data.previous_cursor || !tasks.length;
+    } else {
+      historyState.nextCursor = data.next_cursor || null;
+      historyState.exhausted = !historyState.nextCursor;
+      if (reset) historyState.newerExhausted = true;
+    }
     setLoadMoreState(
       historyState.exhausted ? translate("history.noMore") : "",
-      { hidden: !historyState.exhausted },
+      { hidden: !historyState.exhausted, busy: false },
     );
     window.requestAnimationFrame(maybeLoadMoreFromScroll);
   } catch (error) {
-    if (requestId === historyState.requestId) renderTaskListMessage("history-error", errorMessage(error, translate("history.tasksFailed")));
-    historyState.exhausted = false;
+    if (requestId === historyState.requestId) {
+      const message = errorMessage(error, translate("history.tasksFailed"));
+      if (els.taskList && historyTaskCards(els.taskList).length) {
+        setText(els.resultSummary, message);
+      } else {
+        renderTaskListMessage("history-error", message);
+      }
+    }
+    if (direction === "previous") {
+      historyState.newerExhausted = false;
+    } else {
+      historyState.exhausted = false;
+    }
     setLoadMoreState(translate("history.loadFailed"));
   } finally {
     if (requestId === historyState.requestId) historyState.loading = false;
   }
 }
 
-function renderTasks(tasks: HistoryTask[], { append }: { append: boolean }): void {
+function taskWindowCursor(reset: boolean, direction: HistoryWindowDirection): string | null {
+  if (reset || !els.taskList) return null;
+  if (direction === "previous") return historyWindowEdgeCursor(els.taskList, "top");
+  return historyState.nextCursor || historyWindowEdgeCursor(els.taskList, "bottom");
+}
+
+function renderTasks(tasks: HistoryTask[], { position }: { position: HistoryRenderPosition }): void {
   if (!els.taskList) return;
   syncHistoryViewMode();
-  if (!append) els.taskList.innerHTML = "";
+  const anchor = position === "replace" ? null : captureHistoryScrollAnchor(els.taskList);
+  if (position === "replace") els.taskList.innerHTML = "";
   const html = tasks
     .filter((task) => {
       if (historyState.loadedTaskIds.has(task.task_id)) return false;
@@ -340,9 +489,15 @@ function renderTasks(tasks: HistoryTask[], { append }: { append: boolean }): voi
     .join("");
   if (html) {
     els.taskList.querySelector(".history-empty, .history-error")?.remove();
-    els.taskList.insertAdjacentHTML("beforeend", html);
+    if (position === "prepend") {
+      els.taskList.insertAdjacentHTML("afterbegin", html);
+    } else {
+      els.taskList.insertAdjacentHTML("beforeend", html);
+    }
   }
-  trimMountedTaskCards();
+  trimMountedTaskCards(position === "prepend" ? "bottom" : "top");
+  layoutJustifiedHistoryGrid();
+  restoreHistoryScrollAnchor(els.taskList, anchor);
   if (!els.taskList.querySelector(".history-task-card")) {
     renderTaskListMessage("history-empty", translate("history.noMatches"));
   }
@@ -355,29 +510,32 @@ function renderTaskListMessage(className: string, message: string): void {
   els.taskList.innerHTML = `<div class="${className}">${escapeHtml(message)}</div>`;
 }
 
-function trimMountedTaskCards(): void {
+function trimMountedTaskCards(edge: HistoryWindowEdge): void {
   if (!els.taskList) return;
-  const cards = [...els.taskList.querySelectorAll<HTMLElement>(".history-task-card")];
+  const cards = historyTaskCards(els.taskList);
   const overflow = cards.length - MAX_MOUNTED_TASK_CARDS;
   if (overflow <= 0) return;
-  for (const card of cards.slice(0, overflow)) {
+  const removedCards = edge === "bottom" ? cards.slice(cards.length - overflow) : cards.slice(0, overflow);
+  for (const card of removedCards) {
     const taskId = card.dataset.historyTaskCardId || "";
+    historyState.loadedTaskIds.delete(taskId);
     historyState.selectedTaskIds.delete(taskId);
     if (historyState.selectionAnchorTaskId === taskId) historyState.selectionAnchorTaskId = "";
     card.remove();
   }
-  let notice = els.taskList.querySelector<HTMLElement>(".history-window-notice");
-  if (!notice) {
-    notice = document.createElement("div");
-    notice.className = "history-window-notice";
-    els.taskList.prepend(notice);
+  if (edge === "top") {
+    historyState.newerExhausted = false;
+  } else {
+    historyState.exhausted = false;
+    historyState.nextCursor = historyWindowEdgeCursor(els.taskList, "bottom") || historyState.nextCursor;
   }
-  notice.textContent = formatTranslation("history.windowNotice", { count: MAX_MOUNTED_TASK_CARDS });
+  els.taskList.querySelector(".history-window-notice")?.remove();
 }
 
 function taskCardHtml(task: HistoryTask): string {
   const taskId = escapeHtml(task.task_id);
   const thumbnailUrl = historyThumbnailUrl(task);
+  const ratioStyle = historyThumbnailRatioStyle(task);
   const thumb = thumbnailUrl
     ? `<img src="${escapeHtml(thumbnailUrl)}" alt="" loading="lazy" decoding="async" draggable="false">`
     : "";
@@ -388,20 +546,22 @@ function taskCardHtml(task: HistoryTask): string {
   const promptMode = facetDisplayValue("prompt_mode", task.prompt_mode || "");
   const quality = facetDisplayValue("quality", task.quality || "");
   const metaItems = [
-    formatDate(task.created_at),
-    task.status,
-    task.size || task.ratio || task.orientation || "",
-    promptMode,
-    quality,
-    source,
-    counts,
-  ].filter(Boolean);
+    { kind: "date", value: formatDate(task.created_at) },
+    { kind: "status", value: task.status },
+    { kind: "size", value: formatHistorySizeLabel(task.size || task.ratio || task.orientation || "") },
+    { kind: "prompt-mode", value: promptMode },
+    { kind: "quality", value: quality },
+    { kind: "source", value: source },
+    { kind: "count", value: counts },
+  ].filter((item) => item.value);
   return `
     <article
       class="history-task-card${active ? " active" : ""}${selected ? " selected" : ""}"
       data-history-task-card-id="${taskId}"
+      data-history-created-at="${escapeHtml(task.created_at)}"
       role="option"
       aria-selected="${active ? "true" : "false"}"
+      ${ratioStyle}
     >
       <label class="history-task-select" aria-label="${escapeHtml(translate("history.selectTask"))}">
         <input type="checkbox" data-history-task-select="${taskId}" ${selected ? "checked" : ""}>
@@ -412,12 +572,36 @@ function taskCardHtml(task: HistoryTask): string {
         <span class="history-task-copy">
           <span class="history-task-title">${escapeHtml(task.prompt_preview || task.mode || task.task_id)}</span>
           <span class="history-task-meta">
-            ${metaItems.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
+            ${metaItems.map((item) => `<span data-history-meta-kind="${escapeHtml(item.kind)}">${escapeHtml(item.value)}</span>`).join("")}
           </span>
         </span>
       </button>
     </article>
   `;
+}
+
+function historyThumbnailRatioStyle(task: HistoryTask): string {
+  const fromSize = parseAspectRatioParts(task.size, "x");
+  const fromRatio = fromSize || parseAspectRatioParts(task.ratio, ":");
+  if (!fromRatio) return "";
+  const [width, height] = fromRatio;
+  const ratio = Math.min(3.2, Math.max(0.42, width / height));
+  return `style="--history-task-thumb-ratio: ${width} / ${height}; --history-task-card-ratio: ${ratio.toFixed(4)}"`;
+}
+
+function parseAspectRatioParts(value: unknown, separator: "x" | ":"): [number, number] | null {
+  const text = String(value || "").trim().toLowerCase();
+  const pattern = separator === "x" ? /^(\d+)\s*x\s*(\d+)$/ : /^(\d+)\s*:\s*(\d+)$/;
+  const match = text.match(pattern);
+  if (!match) return null;
+  const width = Number.parseInt(match[1] || "", 10);
+  const height = Number.parseInt(match[2] || "", 10);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+  return [width, height];
+}
+
+function formatHistorySizeLabel(value: unknown): string {
+  return String(value || "").trim().replace(/^(\d+)\s*x\s*(\d+)$/i, "$1 x $2");
 }
 
 function historyThumbnailUrl(task: HistoryTask): string {
@@ -1114,6 +1298,7 @@ function bindEvents(): void {
     if (target?.closest(".history-task-thumb img")) event.preventDefault();
   });
   els.taskList?.addEventListener("scroll", maybeLoadMoreFromScroll, { passive: true });
+  window.addEventListener("resize", scheduleHistoryGridLayout, { passive: true });
   document.addEventListener(LOCALE_CHANGE_EVENT, () => {
     document.title = translate("history.documentTitle");
     syncHistoryViewMode();

@@ -562,7 +562,7 @@
       "history.detailFailed": "\u8BE6\u60C5\u8F7D\u5165\u5931\u8D25",
       "history.noMatches": "\u6682\u65E0\u5339\u914D\u4EFB\u52A1",
       "history.loadedCount": "{count} \u6761\u5DF2\u8F7D\u5165",
-      "history.windowNotice": "\u5217\u8868\u7A97\u53E3\u5DF2\u9650\u5236\u4E3A {count} \u6761\uFF1B\u7EE7\u7EED\u7528\u7B5B\u9009\u6216\u641C\u7D22\u5B9A\u4F4D\u66F4\u65E9\u4EFB\u52A1",
+      "history.windowNotice": "\u5217\u8868\u7A97\u53E3\u5DF2\u9650\u5236\u4E3A {count} \u6761\uFF1B\u4E0A\u4E0B\u6EDA\u52A8\u4F1A\u6309\u9700\u6062\u590D\u76F8\u90BB\u4EFB\u52A1",
       "history.selectTask": "\u9009\u62E9\u4EFB\u52A1",
       "history.viewing": "\u67E5\u770B\u4E2D",
       "history.noPreview": "\u6682\u65E0\u53EF\u9884\u89C8\u56FE\u7247",
@@ -873,13 +873,11 @@
       "promptPopover.copied": "\u5DF2\u590D\u5236",
       "taskContext.menuLabel": "\u4EFB\u52A1\u53F3\u952E\u83DC\u5355",
       "taskContext.view": "\u67E5\u770B\u4EFB\u52A1",
-      "taskContext.restore": "\u6062\u590D\u5230\u8868\u5355",
       "taskContext.copyId": "\u590D\u5236\u4EFB\u52A1 ID",
       "taskContext.copyPrompt": "\u590D\u5236\u63D0\u793A\u8BCD",
       "taskContext.revealOutput": "\u6253\u5F00\u8F93\u51FA\u76EE\u5F55",
       "taskContext.archive": "\u5F52\u6863\u4EFB\u52A1",
       "taskContext.delete": "\u5220\u9664\u4EFB\u52A1",
-      "taskContext.restored": "\u5DF2\u6062\u590D\u4EFB\u52A1\u53C2\u6570",
       "taskContext.idCopied": "\u4EFB\u52A1 ID \u5DF2\u590D\u5236",
       "taskContext.promptCopied": "\u63D0\u793A\u8BCD\u5DF2\u590D\u5236",
       "taskContext.revealFailed": "\u6253\u5F00\u8F93\u51FA\u76EE\u5F55\u5931\u8D25",
@@ -905,6 +903,7 @@
       "taskList.empty": "\u6682\u65E0\u5386\u53F2\u4EFB\u52A1",
       "taskList.selectSession": "\u9009\u62E9\u4F1A\u8BDD",
       "taskList.unreadUpdate": "\u672A\u8BFB\u66F4\u65B0",
+      "taskList.viewing": "\u67E5\u770B\u4E2D",
       "taskDerived.usageLimited": "\u7528\u91CF\u53D7\u9650",
       "taskSubmit.requestFailed": "\u8BF7\u6C42\u5931\u8D25",
       "taskSubmit.queued": "\u4EFB\u52A1\u5DF2\u52A0\u5165\u961F\u5217",
@@ -1323,7 +1322,7 @@
       "history.detailFailed": "Failed to load detail",
       "history.noMatches": "No matching tasks",
       "history.loadedCount": "{count} loaded",
-      "history.windowNotice": "The mounted list is limited to {count} tasks; use filters or search for older tasks.",
+      "history.windowNotice": "The mounted list is limited to {count} tasks; scroll up or down to restore adjacent tasks on demand.",
       "history.selectTask": "Select task",
       "history.viewing": "Viewing",
       "history.noPreview": "No preview images",
@@ -1634,13 +1633,11 @@
       "promptPopover.copied": "Copied",
       "taskContext.menuLabel": "Task context menu",
       "taskContext.view": "View task",
-      "taskContext.restore": "Restore to form",
       "taskContext.copyId": "Copy task ID",
       "taskContext.copyPrompt": "Copy prompt",
       "taskContext.revealOutput": "Open output folder",
       "taskContext.archive": "Archive task",
       "taskContext.delete": "Delete task",
-      "taskContext.restored": "Task parameters restored",
       "taskContext.idCopied": "Task ID copied",
       "taskContext.promptCopied": "Prompt copied",
       "taskContext.revealFailed": "Failed to open output folder",
@@ -1666,6 +1663,7 @@
       "taskList.empty": "No history yet",
       "taskList.selectSession": "Select chat",
       "taskList.unreadUpdate": "Unread update",
+      "taskList.viewing": "Viewing",
       "taskDerived.usageLimited": "Usage limited",
       "taskSubmit.requestFailed": "Request failed",
       "taskSubmit.queued": "Task added to queue",
@@ -2493,6 +2491,7 @@
     renderArchiveModal: proxy("renderArchiveModal"),
     renderAuthSource: proxy("renderAuthSource"),
     renderBatchToolbar: proxy("renderBatchToolbar"),
+    ensureSelectedTaskDetail: proxy("ensureSelectedTaskDetail"),
     renderGalleryCategoryControls: proxy("renderGalleryCategoryControls"),
     renderImageStrip: proxy("renderImageStrip"),
     renderPreview: proxy("renderPreview"),
@@ -11244,7 +11243,8 @@ ${galleryText}`;
   var taskRuntimeText2 = (...args) => legacyMethod29("taskRuntimeText", ...args);
   var taskCompletionTimestampTitle = (...args) => legacyMethod29("taskCompletionTimestampTitle", ...args);
   var timestampMs2 = (...args) => legacyMethod29("timestampMs", ...args);
-  function renderTasks2() {
+  function renderTasks2(options = {}) {
+    const scrollAnchor = options.preserveScroll ? captureTaskListScrollAnchor() : null;
     const query = taskSearchQuery();
     const filters = taskFilterValues();
     const visibleTasks = state19.tasks.filter((task) => !isTaskArchived(task.task_id));
@@ -11261,6 +11261,7 @@ ${galleryText}`;
     const nextRenderKey = taskListRenderKey(tasks, query, layout, filters, activeGroup);
     if (state19.tasksRenderKey === nextRenderKey) {
       updateTaskElapsedDisplays2();
+      restoreTaskListScrollAnchor(scrollAnchor);
       return;
     }
     state19.tasksRenderKey = nextRenderKey;
@@ -11272,18 +11273,67 @@ ${galleryText}`;
       expandedTaskGroupRenderToken += 1;
       els28.taskList.innerHTML = `<div class="task-meta">${escapeHtml13(translate("taskList.empty"))}</div>`;
       updateDocumentTitle();
+      restoreTaskListScrollAnchor(scrollAnchor);
       return;
     }
     if (!layout.expandedGroup) {
       expandedTaskGroupRenderToken += 1;
       els28.taskList.innerHTML = "";
       updateDocumentTitle();
+      restoreTaskListScrollAnchor(scrollAnchor);
       return;
     }
     const group = layout.expandedGroup;
     els28.taskList.innerHTML = renderExpandedTaskGroupShellHtml(group);
     scheduleExpandedTaskGroupItemsRender(group, layout.expandedKey || group?.key || null);
     updateDocumentTitle();
+    restoreTaskListScrollAnchor(scrollAnchor);
+  }
+  function taskListScrollContainer() {
+    return els28.sidebarContent || els28.taskHistoryShell || els28.taskList || null;
+  }
+  function captureTaskListScrollAnchor() {
+    const scroller = taskListScrollContainer();
+    const root = taskCardRoot();
+    if (!scroller || !root) return null;
+    const scrollerRect = scroller.getBoundingClientRect();
+    const cards = Array.from(root.querySelectorAll(".task-card[data-task-id]"));
+    const visibleCard = cards.find((card) => {
+      const rect2 = card.getBoundingClientRect();
+      return rect2.bottom > scrollerRect.top && rect2.top < scrollerRect.bottom;
+    });
+    if (!visibleCard) return { scroller, scrollTop: scroller.scrollTop };
+    const rect = visibleCard.getBoundingClientRect();
+    const anchor = {
+      scroller,
+      scrollTop: scroller.scrollTop,
+      offsetTop: rect.top - scrollerRect.top
+    };
+    if (visibleCard.dataset.taskId) anchor.taskId = visibleCard.dataset.taskId;
+    return anchor;
+  }
+  function restoreTaskListScrollAnchor(anchor) {
+    if (!anchor?.scroller) return;
+    let attempts = 12;
+    const restore = () => {
+      if (!anchor.scroller.isConnected) return;
+      if (anchor.taskId) {
+        const card = taskCardElement(anchor.taskId);
+        if (card instanceof HTMLElement) {
+          const scrollerRect = anchor.scroller.getBoundingClientRect();
+          const rect = card.getBoundingClientRect();
+          anchor.scroller.scrollTop += rect.top - scrollerRect.top - (anchor.offsetTop || 0);
+          return;
+        }
+      }
+      if (anchor.taskId && attempts > 0) {
+        attempts -= 1;
+        requestAnimationFrame(restore);
+        return;
+      }
+      anchor.scroller.scrollTop = anchor.scrollTop;
+    };
+    requestAnimationFrame(restore);
   }
   function renderHistoryLibraryGroup(tasks, query) {
     if (!els28.taskHistoryLibrarySlot) return;
@@ -11432,11 +11482,14 @@ ${galleryText}`;
     root.querySelectorAll(".task-card.active").forEach((card) => {
       if (String(card.dataset.taskId || "") !== selectedId) {
         card.classList.remove("active");
+        card.removeAttribute("aria-current");
       }
     });
     const selectedCard = taskCardElement(taskId);
     if (selectedCard) {
       selectedCard.classList.add("active");
+      selectedCard.setAttribute("aria-current", "true");
+      selectedCard.dataset.activeLabel = translate("taskList.viewing");
       selectedCard.classList.remove("unread");
       selectedCard.dataset.taskUnread = "false";
       selectedCard.querySelector(".task-unread-dot")?.remove();
@@ -11736,6 +11789,7 @@ ${galleryText}`;
   function taskCardHtml(task) {
     const image = taskThumbHtml(task);
     const active = String(task.task_id) === String(state19.selectedTaskId) ? " active" : "";
+    const activeCurrent = active ? ' aria-current="true"' : "";
     const unread = taskHasUnreadUpdate(task);
     const unreadClass = unread ? " unread" : "";
     const statusClass = task.status ? ` ${escapeHtml13(task.status)}` : "";
@@ -11766,8 +11820,9 @@ ${galleryText}`;
       </button>
     ` : "";
     const unreadDot = unread ? `<span class="task-unread-dot" aria-label="${escapeHtml13(translate("taskList.unreadUpdate"))}"></span>` : "";
+    const activeLabel = escapeHtml13(translate("taskList.viewing"));
     return `
-    <div class="task-card${active}${unreadClass}${statusClass}${batchClass}${batchSelectedClass}${queueClass}" role="button" tabindex="0" data-task-id="${taskId}" data-task-unread="${unread ? "true" : "false"}"${queueTaskData}>
+    <div class="task-card${active}${unreadClass}${statusClass}${batchClass}${batchSelectedClass}${queueClass}" role="button" tabindex="0" data-task-id="${taskId}" data-task-unread="${unread ? "true" : "false"}" data-active-label="${activeLabel}"${activeCurrent}${queueTaskData}>
       ${batchSelect}
       ${image}
       <div class="task-info">
@@ -12951,7 +13006,7 @@ ${galleryText}`;
       const updatedTask = data.task;
       updateTaskInState2(updatedTask);
       state23.selectedTaskId = updatedTask.task_id;
-      renderTasks5();
+      renderTasks5({ preserveScroll: true });
       renderArchiveButton3();
       renderArchiveModal3();
       renderPreview3(updatedTask);
@@ -13054,7 +13109,7 @@ ${galleryText}`;
       const updatedTask = data.task;
       updateTaskInState2(updatedTask);
       state23.selectedTaskId = updatedTask.task_id;
-      renderTasks5();
+      renderTasks5({ preserveScroll: true });
       renderArchiveButton3();
       renderArchiveModal3();
       renderPreview3(updatedTask);
@@ -14040,8 +14095,9 @@ ${galleryText}`;
       ...Array.isArray(queue?.running) ? queue.running : []
     ];
     const queueTaskIds = new Set(tasks.map((task) => String(task.task_id)));
+    const needsTaskReconcile = activeTasksNeedQueueReconcile(queueTaskIds);
     if (!tasks.length) {
-      if (selectedTaskNeedsQueueReconcile(queueTaskIds)) {
+      if (needsTaskReconcile) {
         void bridge39.methods.refreshTasks();
       }
       return;
@@ -14055,24 +14111,29 @@ ${galleryText}`;
         void bridge39.methods.markTaskViewed(task.task_id);
       }
     });
-    if (!changed) return;
+    if (!changed) {
+      if (needsTaskReconcile) {
+        void bridge39.methods.refreshTasks();
+      }
+      return;
+    }
     bridge39.methods.cleanupSessionSelections();
     bridge39.methods.renderTasks();
     bridge39.methods.renderArchiveButton();
     bridge39.methods.renderArchiveModal();
     bridge39.methods.renderPreview();
-    if (selectedTaskNeedsQueueReconcile(queueTaskIds)) {
+    if (needsTaskReconcile) {
       void bridge39.methods.refreshTasks();
     }
   }
-  function selectedTaskNeedsQueueReconcile(queueTaskIds) {
+  function activeTasksNeedQueueReconcile(queueTaskIds) {
     const bridge39 = getLegacyBridge();
-    const selectedTaskId = String(bridge39.state.selectedTaskId || "");
-    if (!selectedTaskId || queueTaskIds.has(selectedTaskId)) return false;
-    const selectedTask = bridge39.state.tasks.find((task) => String(task.task_id) === selectedTaskId);
-    if (!selectedTask || selectedTask.local_pending) return false;
-    const status = String(selectedTask.status || "");
-    return ["submitting", "queued", "running"].includes(status);
+    return bridge39.state.tasks.some((task) => {
+      const taskId = String(task?.task_id || "");
+      if (!taskId || queueTaskIds.has(taskId) || task?.local_pending) return false;
+      const status = String(task?.status || "");
+      return status === "submitting" || status === "queued" || status === "running";
+    });
   }
   function updateQueueElapsedDisplays() {
     getLegacyBridge().methods.updateTaskElapsedDisplays?.();
@@ -14315,9 +14376,6 @@ ${galleryText}`;
   function selectTask(...args) {
     return legacyMethod36("selectTask", ...args);
   }
-  function applyTaskToForm2(...args) {
-    return legacyMethod36("applyTaskToForm", ...args);
-  }
   function archiveTask3(...args) {
     return legacyMethod36("archiveTask", ...args);
   }
@@ -14408,7 +14466,6 @@ ${galleryText}`;
     return `
     <div class="task-context-menu-section">
       ${taskContextButton("view", translate("taskContext.view"))}
-      ${taskContextButton("restore", translate("taskContext.restore"))}
     </div>
     <div class="task-context-menu-section">
       ${taskContextButton("copy-id", translate("taskContext.copyId"))}
@@ -14453,9 +14510,6 @@ ${galleryText}`;
     try {
       if (action === "view") {
         await selectTask(taskId);
-      } else if (action === "restore") {
-        applyTaskToForm2(task);
-        setStatus18(translate("taskContext.restored"), "ok");
       } else if (action === "copy-id") {
         await copyText(taskId);
         setStatus18(translate("taskContext.idCopied"), "ok");
@@ -15238,6 +15292,8 @@ ${galleryText}`;
     const total = taskTotalCount(task);
     const records = taskOutputRecordsByIndex(task);
     const status = String(task?.status || "");
+    const countStates = !records.size ? taskImageBlockStatesFromCounts(task, total, status) : [];
+    if (countStates.length) return countStates;
     const states = [];
     let runningAssigned = false;
     const hasExplicitRunningRecords = Array.from(records.values()).some((record) => record?.status === "running");
@@ -15266,10 +15322,44 @@ ${galleryText}`;
     }
     return states;
   }
+  function taskImageBlockStatesFromCounts(task, total, status) {
+    const generatedValue = nonnegativeInt(task?.generated_count);
+    const failedValue = nonnegativeInt(task?.failed_count);
+    if (generatedValue === null && failedValue === null) return [];
+    let completed = Math.min(total, generatedValue ?? 0);
+    let failed = Math.min(Math.max(0, total - completed), failedValue ?? 0);
+    let remaining = Math.max(0, total - completed - failed);
+    let running = 0;
+    let queued = 0;
+    let waiting = remaining;
+    if (status === "completed" && remaining) {
+      completed += remaining;
+      waiting = 0;
+    } else if ((status === "failed" || status === "partial_failed") && failed === 0 && remaining) {
+      failed = remaining;
+      waiting = 0;
+    } else if (status === "running" && remaining) {
+      running = 1;
+      waiting -= 1;
+    } else if (status === "queued" || status === "submitting") {
+      queued = remaining;
+      waiting = 0;
+    }
+    return [
+      ...Array(completed).fill("completed"),
+      ...Array(failed).fill("failed"),
+      ...Array(running).fill("running"),
+      ...Array(queued).fill("queued"),
+      ...Array(waiting).fill("waiting")
+    ];
+  }
   function taskVisibleCompletedCount(task) {
     if (!task) return 0;
     const completedRecords = [...taskOutputRecordsByIndex(task).values()].filter((record) => record?.status === "completed" && taskOutputRecordHasDisplayableImage(record)).length;
     return Math.max(completedRecords, taskOutputUrls2(task).length);
+  }
+  function taskRetrySuccessfulCount(task) {
+    return Math.max(taskVisibleCompletedCount(task), nonnegativeInt(task?.generated_count) ?? 0);
   }
   function taskOutputRecordHasDisplayableImage(record) {
     return Boolean(record?.url);
@@ -15337,6 +15427,10 @@ ${galleryText}`;
     const parsed = Number.parseInt(value ?? "", 10);
     return !Number.isNaN(parsed) && parsed > 0 ? parsed : null;
   }
+  function nonnegativeInt(value) {
+    const parsed = Number.parseInt(value ?? "", 10);
+    return !Number.isNaN(parsed) && parsed >= 0 ? parsed : null;
+  }
   function taskFailureMessage2(task) {
     if (!task || task.status !== "failed" && task.status !== "partial_failed") return "";
     return String(task.error || task.last_error || "").trim();
@@ -15344,7 +15438,7 @@ ${galleryText}`;
   function canRetryFailedTask2(task) {
     if (!task || task.local_pending) return false;
     if (!["failed", "partial_failed"].includes(task.status)) return false;
-    if (taskHasNonRetryableError(task)) return false;
+    if (taskHasNonRetryableError(task) && !taskPartialFailureCanRetryGenericInvalidRequest(task)) return false;
     const states = taskImageBlockStates2(task);
     return states.includes("failed");
   }
@@ -15388,7 +15482,7 @@ ${galleryText}`;
       });
     }
     if (["failed", "partial_failed"].includes(task.status)) {
-      if (taskHasNonRetryableError(task)) {
+      if (taskHasNonRetryableError(task) && !taskPartialFailureCanRetryGenericInvalidRequest(task)) {
         return formatTranslation("taskStatus.nonRetryableAttempt", {
           attempt: Math.max(1, attempts),
           max: maxAttempts
@@ -15411,6 +15505,12 @@ ${galleryText}`;
       "expected a base64-encoded data url",
       "unsupported mime type"
     ].some((token) => message.includes(token));
+  }
+  function taskPartialFailureCanRetryGenericInvalidRequest(task) {
+    if (!task || task.status !== "partial_failed") return false;
+    if (taskRetrySuccessfulCount(task) <= 0) return false;
+    const message = String(task?.error || task?.last_error || "").toLowerCase();
+    return message.includes("http 400") && message.includes("invalid_request_error") && !message.includes("invalid_value") && !message.includes("expected a base64-encoded data url") && !message.includes("unsupported mime type") && !message.includes("reference asset");
   }
   function taskRuntimeText3(task) {
     if (!task || !["completed", "failed", "partial_failed"].includes(task.status)) return "";
@@ -15567,6 +15667,7 @@ ${galleryText}`;
       taskRetryReasonText,
       taskRetryStateText: taskRetryStateText3,
       taskHasNonRetryableError,
+      taskPartialFailureCanRetryGenericInvalidRequest,
       taskRuntimeText: taskRuntimeText3,
       taskCompletionTimestampText,
       taskCompletionTimestampTitle: taskCompletionTimestampTitle2,
@@ -16481,6 +16582,7 @@ ${galleryText}`;
   var revokeTaskUploadPreviewUrls3 = (...args) => legacyMethod39("revokeTaskUploadPreviewUrls", ...args);
   var taskHasViewableUpdate2 = (...args) => legacyMethod39("taskHasViewableUpdate", ...args);
   var markTaskViewed2 = (...args) => legacyMethod39("markTaskViewed", ...args);
+  var ensureSelectedTaskDetail = (...args) => legacyMethod39("ensureSelectedTaskDetail", ...args);
   async function refreshTasks({ migrateLegacyArchives = false } = {}) {
     const requestSeq = ++state29.tasksRequestSeq;
     const response = await fetch("/api/tasks/recent?limit=200");
@@ -16507,9 +16609,9 @@ ${galleryText}`;
     renderTasks8();
     renderArchiveButton4();
     renderArchiveModal4();
-    renderPreview6();
+    await renderSelectedTaskPreview(requestSeq);
   }
-  function applyTaskUpdate(task) {
+  async function applyTaskUpdate(task) {
     if (!updateTaskInState4(task)) return;
     if (String(task.task_id) === String(state29.selectedTaskId) && taskHasViewableUpdate2(task)) {
       void markTaskViewed2(task.task_id);
@@ -16518,6 +16620,23 @@ ${galleryText}`;
     renderTasks8();
     renderArchiveButton4();
     renderArchiveModal4();
+    await renderSelectedTaskPreview();
+  }
+  async function renderSelectedTaskPreview(requestSeq = null) {
+    const selectedTask = state29.tasks.find((item) => String(item.task_id) === String(state29.selectedTaskId));
+    if (selectedTask?.summary_only) {
+      try {
+        const detailedTask = await ensureSelectedTaskDetail(selectedTask.task_id);
+        if (requestSeq !== null && requestSeq !== state29.tasksRequestSeq) return;
+        if (detailedTask) {
+          renderPreview6(detailedTask);
+          return;
+        }
+      } catch (error) {
+        console.warn(error);
+        if (requestSeq !== null && requestSeq !== state29.tasksRequestSeq) return;
+      }
+    }
     renderPreview6();
   }
   function initTaskFeature() {
@@ -16534,6 +16653,7 @@ ${galleryText}`;
   var els39 = bridge36.els;
   var taskSelectionInitialized = false;
   var HISTORY_TASK_REUSE_HANDOFF_KEY = "codex-image-history-task-reuse-handoff";
+  var selectedTaskDetailRequestSeq = 0;
   function legacyMethod40(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -16550,7 +16670,7 @@ ${galleryText}`;
   function markTaskViewed3(taskId) {
     return legacyMethod40("markTaskViewed", taskId);
   }
-  function applyTaskToForm3(task) {
+  function applyTaskToForm2(task) {
     legacyMethod40("applyTaskToForm", task);
   }
   function updateTaskSelectionVisuals3(taskId) {
@@ -16639,6 +16759,18 @@ ${galleryText}`;
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.detail || translate("notifications.taskMissing"));
     return data.task;
+  }
+  async function ensureSelectedTaskDetail2(taskId = state30.selectedTaskId) {
+    const normalizedTaskId = String(taskId || "").trim();
+    if (!normalizedTaskId) return null;
+    const task = state30.tasks.find((item) => String(item.task_id) === normalizedTaskId);
+    if (!task) return null;
+    if (!task.summary_only) return task;
+    const detailSeq = ++selectedTaskDetailRequestSeq;
+    const fullTask = await loadFullTaskDetail(normalizedTaskId);
+    if (detailSeq !== selectedTaskDetailRequestSeq) return null;
+    if (String(state30.selectedTaskId) !== normalizedTaskId) return null;
+    return replaceSelectedTaskDetail(normalizedTaskId, fullTask);
   }
   function replaceSelectedTaskDetail(taskId, task) {
     if (!task?.task_id) return task;
@@ -16753,7 +16885,7 @@ ${galleryText}`;
     }
     const restoreSeq = ++state30.taskInputRestoreSeq;
     void markTaskViewed3(taskId);
-    applyTaskToForm3(task);
+    applyTaskToForm2(task);
     renderSelectedTask(task, taskId);
     try {
       await restoreTaskInputs(task, { taskId, restoreSeq });
@@ -16786,7 +16918,7 @@ ${galleryText}`;
       state30.selectedTaskId = taskId;
       replaceSelectedTaskDetail(taskId, task);
       const restoreSeq = ++state30.taskInputRestoreSeq;
-      applyTaskToForm3(task);
+      applyTaskToForm2(task);
       renderSelectedTask(task, taskId);
       try {
         await restoreTaskInputs(task, { taskId, restoreSeq });
@@ -16811,6 +16943,7 @@ ${galleryText}`;
     if (taskSelectionInitialized) return;
     taskSelectionInitialized = true;
     Object.assign(getLegacyBridge().methods, {
+      ensureSelectedTaskDetail: ensureSelectedTaskDetail2,
       selectTask: selectTask2,
       restoreHistoryTaskReuseHandoff
     });

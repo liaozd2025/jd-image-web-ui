@@ -41,7 +41,7 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertIn('id="historyMonthList"', history_html)
         self.assertIn('id="historyTaskList"', history_html)
         self.assertIn('id="historyDetail"', history_html)
-        self.assertIn('/static/history.js?v=history-12', history_html)
+        self.assertIn('/static/history.js?v=history-16', history_html)
         self.assertIn('fetch("/api/task-history/summary")', history_source)
         self.assertIn('new URLSearchParams', history_source)
         self.assertIn('/api/task-history/tasks?', history_source)
@@ -262,7 +262,7 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
 
         for marker in [
             "export function initTaskListRenderFeature",
-            "function renderTasks()",
+            "function renderTasks(options: { preserveScroll?: boolean } = {})",
             "function taskSearchQuery()",
             "function filteredVisibleTasks(",
             "function taskCardHtml(",
@@ -577,7 +577,12 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertRegex(styles, r"\.task-image-progress\s*\{[^}]*grid-template-columns:\s*repeat\(var\(--task-block-count\)")
         self.assertRegex(styles, r"\.task-card\.failed\s*,\s*\.task-card\.partial_failed\s*\{")
         self.assertRegex(styles, r"\.task-card\.active\s*\{[^}]*box-shadow")
+        self.assertRegex(styles, r"\.task-card\.active::after\s*\{[^}]*content:\s*attr\(data-active-label\)")
+        self.assertRegex(styles, r"\.task-card\.active::after\s*\{[^}]*right:\s*40px")
+        self.assertRegex(styles, r"\.task-card\.active::after\s*\{[^}]*background:\s*var\(--primary\)")
+        self.assertRegex(styles, r"\.task-card\.active\.queue-waiting::after\s*,\s*\.task-card\.active\.queue-running::after\s*,\s*\.task-card\.active\.batch-mode::after\s*\{[^}]*right:\s*8px")
         self.assertRegex(styles, r"\.task-card\.active\.running\s*\{[^}]*var\(--status-blue\)")
+        self.assertRegex(styles, r"\.task-card\.active\.failed\s*,\s*\.task-card\.active\.partial_failed\s*\{[^}]*background:\s*var\(--danger-soft\)")
     def test_history_image_summary_counts_explicit_running_slots(self) -> None:
         node = shutil.which("node")
         if node is None:
@@ -590,6 +595,7 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
                 self._extract_javascript_function(script, "taskSelectedOutputIndexes"),
                 self._extract_javascript_function(script, "taskTotalCount"),
                 self._extract_javascript_function(script, "positiveInt"),
+                self._extract_javascript_function(script, "nonnegativeInt"),
                 self._extract_javascript_function(script, "taskOutputRecordIsDeleted"),
                 self._extract_javascript_function(script, "taskOutputRecordMatchesUrl"),
                 self._extract_javascript_function(script, "taskOutputRecordHasDisplayableImage"),
@@ -598,6 +604,8 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
                 self._extract_javascript_function(script, "taskOutputSelected"),
                 self._extract_javascript_function(script, "taskVisibleCompletedCount"),
                 self._extract_javascript_function(script, "taskGeneratedCount"),
+                self._extract_javascript_function(script, "nonnegativeInt"),
+                self._extract_javascript_function(script, "taskImageBlockStatesFromCounts"),
                 self._extract_javascript_function(script, "taskImageBlockStates"),
                 self._extract_javascript_function(script, "taskImageStatusCounts"),
                 self._extract_javascript_function(script, "taskImageSummaryText"),
@@ -622,6 +630,20 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
                 });
                 if (summary !== "4 张 · 成功 0 · 失败 0 · 生成中 2 · 等待 2") {
                   throw new Error(`unexpected summary: ${summary}`);
+                }
+                const summaryOnlyPartial = {
+                  status: "partial_failed",
+                  total_count: 2,
+                  generated_count: 1,
+                  failed_count: 1,
+                };
+                const summaryOnlyPartialStates = taskImageBlockStates(summaryOnlyPartial).join("|");
+                if (summaryOnlyPartialStates !== "completed|failed") {
+                  throw new Error(`summary-only partial failure should use count fields, got ${summaryOnlyPartialStates}`);
+                }
+                const summaryOnlyPartialText = taskImageSummaryText(summaryOnlyPartial);
+                if (summaryOnlyPartialText !== "2 张 · 成功 1 · 失败 1") {
+                  throw new Error(`summary-only partial failure should count one success and one failure, got ${summaryOnlyPartialText}`);
                 }
                 const staleProgressTask = {
                   status: "running",
@@ -834,13 +856,18 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertIn('call(methods, "refreshTasks", { migrateLegacyArchives: true })', boot_source)
         self.assertIn("void getLegacyBridge().methods.refreshTasks({ migrateLegacyArchives: shouldMigrateArchives });", queue_source)
         self.assertIn("applyQueueState(payload.queue)", queue_source)
-        self.assertIn("function selectedTaskNeedsQueueReconcile(", queue_source)
-        self.assertIn('["submitting", "queued", "running"].includes(status)', queue_source)
-        self.assertIn("selectedTaskNeedsQueueReconcile(queueTaskIds)", queue_source)
+        self.assertIn("function activeTasksNeedQueueReconcile(", queue_source)
+        self.assertIn('status === "submitting" || status === "queued" || status === "running"', queue_source)
+        self.assertIn("activeTasksNeedQueueReconcile(queueTaskIds)", queue_source)
+        self.assertNotIn("function selectedTaskNeedsQueueReconcile(", queue_source)
         self.assertIn("void bridge.methods.refreshTasks();", queue_source)
         self.assertRegex(
             queue_source,
-            r"if \(!tasks\.length\) \{[\s\S]*selectedTaskNeedsQueueReconcile\(queueTaskIds\)[\s\S]*refreshTasks",
+            r"if \(!tasks\.length\) \{[\s\S]*needsTaskReconcile[\s\S]*refreshTasks",
+        )
+        self.assertRegex(
+            queue_source,
+            r"if \(!changed\) \{[\s\S]*needsTaskReconcile[\s\S]*refreshTasks",
         )
         self.assertIn("@app.get(\"/api/events\", response_model=None)", queue_routes)
         self.assertIn("stream: bool = False", queue_routes)
@@ -1056,9 +1083,14 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
             "export function initTaskFeature",
             "async function refreshTasks",
             "async function applyTasksSnapshot",
-            "function applyTaskUpdate",
+            "async function applyTaskUpdate",
+            "async function renderSelectedTaskPreview",
         ]:
             self.assertIn(marker, task_source)
+        self.assertIn("ensureSelectedTaskDetail(selectedTask.task_id)", task_source)
+        self.assertIn("renderPreview(detailedTask)", task_source)
+        self.assertIn("await renderSelectedTaskPreview(requestSeq)", task_source)
+        self.assertIn("await renderSelectedTaskPreview()", task_source)
 
         for function_name in [
             "renderTasks",
@@ -1163,12 +1195,14 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
             "applySelectedTaskRequestPreview",
             "applyTaskInputRestoreSources",
             "renderSelectedTask",
+            "ensureSelectedTaskDetail",
             "restoreTaskInputs",
             "selectTask",
         ]:
             self.assertRegex(task_selection_source, rf"\n(?:async\s+)?function {function_name}\(")
             self.assertNotRegex(legacy_source, rf"\n(?:async\s+)?function {function_name}\(")
         self.assertIn("Object.assign(getLegacyBridge().methods", task_selection_source)
+        self.assertIn('ensureSelectedTaskDetail: proxy("ensureSelectedTaskDetail")', legacy_source)
         self.assertIn('selectTask: proxy("selectTask")', legacy_source)
         self.assertIn("task.summary_only", task_selection_source)
         self.assertIn("/api/tasks/${encodeURIComponent(taskId)}", task_selection_source)
@@ -1380,7 +1414,7 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertIn('event.key !== "ContextMenu"', script)
         self.assertIn('event.shiftKey && event.key === "F10"', script)
         self.assertIn('taskContextButton("view", translate("taskContext.view"))', script)
-        self.assertIn('taskContextButton("restore", translate("taskContext.restore"))', script)
+        self.assertNotIn('taskContextButton("restore"', script)
         self.assertIn('taskContextButton("copy-id", translate("taskContext.copyId"))', script)
         self.assertIn('taskContextButton("copy-prompt", translate("taskContext.copyPrompt")', script)
         self.assertIn('taskContextButton("reveal-output", translate("taskContext.revealOutput")', script)
@@ -1431,8 +1465,21 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertIn('["failed", "partial_failed"].includes(task.status)', script)
         self.assertIn('fetch(`/api/tasks/${encodeURIComponent(taskId)}/accept-successes`', script)
         self.assertIn("updateTaskInState(updatedTask)", task_actions)
+        self.assertIn("renderTasks({ preserveScroll: true })", task_actions)
         self.assertIn("isTaskActionConflict(error) && await refreshTaskAfterActionConflict(taskId)", task_actions)
         self.assertIn('translate("preview.acceptSuccesses")', script)
+
+    def test_task_list_rerender_can_preserve_scroll_position(self) -> None:
+        render_source = self._task_list_render_source()
+        task_actions = self._task_actions_source()
+
+        self.assertIn("function renderTasks(options: { preserveScroll?: boolean } = {})", render_source)
+        self.assertIn("function captureTaskListScrollAnchor()", render_source)
+        self.assertIn("function restoreTaskListScrollAnchor(anchor", render_source)
+        self.assertIn("function taskListScrollContainer()", render_source)
+        self.assertIn("requestAnimationFrame(restore)", render_source)
+        self.assertIn('".task-card[data-task-id]"', render_source)
+        self.assertIn("renderTasks({ preserveScroll: true })", task_actions)
     def test_retry_attempt_state_is_visible_in_cards_queue_and_preview(self) -> None:
         script = self._frontend_script_source()
         render_source = self._task_list_render_source()
@@ -1455,7 +1502,18 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         harness = "\n".join(
             [
                 self._extract_javascript_function(script, "positiveInt"),
+                self._extract_javascript_function(script, "nonnegativeInt"),
+                self._extract_javascript_function(script, "taskOutputRecordIsDeleted"),
+                self._extract_javascript_function(script, "taskOutputRecordMatchesUrl"),
+                self._extract_javascript_function(script, "taskOutputIndexFromUrl"),
+                self._extract_javascript_function(script, "taskDeletedOutputIndexes"),
+                self._extract_javascript_function(script, "taskOutputUrls"),
+                self._extract_javascript_function(script, "taskOutputRecordHasDisplayableImage"),
+                self._extract_javascript_function(script, "taskOutputRecordsByIndex"),
+                self._extract_javascript_function(script, "taskVisibleCompletedCount"),
                 self._extract_javascript_function(script, "taskHasNonRetryableError"),
+                self._extract_javascript_function(script, "taskRetrySuccessfulCount"),
+                self._extract_javascript_function(script, "taskPartialFailureCanRetryGenericInvalidRequest"),
                 self._extract_javascript_function(script, "taskRetryReasonText"),
                 self._extract_javascript_function(script, "taskRetryStateText"),
                 """
@@ -1492,6 +1550,35 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
                 const queuedRetry = taskRetryStateText({ status: "queued", attempts: 1, max_attempts: 2, last_error: "temporary server failure" });
                 const usageLimitFailure = taskRetryStateText({ status: "failed", attempts: 1, max_attempts: 2, last_error: "Codex usage limit reached" });
                 const failedManualRetry = taskRetryStateText({ status: "failed", attempts: 1, max_attempts: 2, last_error: "temporary server failure" });
+                const partialGenericInvalidRequest = taskRetryStateText({
+                  status: "partial_failed",
+                  attempts: 1,
+                  max_attempts: 2,
+                  generated_count: 1,
+                  failed_count: 1,
+                  total_count: 2,
+                  outputs: [
+                    { index: 1, status: "completed", url: "/outputs/task-image-1.png" },
+                    { index: 2, status: "failed", error: "OpenAI-compatible images request failed: HTTP 400: {\\\"error\\\":{\\\"message\\\":\\\"err\\\",\\\"type\\\":\\\"invalid_request_error\\\",\\\"param\\\":\\\"\\\",\\\"code\\\":\\\"ERR-99E8C62955\\\"}}" },
+                  ],
+                  last_error: "1 of 2 images failed: OpenAI-compatible images request failed: HTTP 400: {\\\"error\\\":{\\\"message\\\":\\\"err\\\",\\\"type\\\":\\\"invalid_request_error\\\",\\\"param\\\":\\\"\\\",\\\"code\\\":\\\"ERR-99E8C62955\\\"}}"
+                });
+                const lightweightPartialGenericInvalidRequest = taskRetryStateText({
+                  status: "partial_failed",
+                  attempts: 1,
+                  max_attempts: 2,
+                  generated_count: 1,
+                  failed_count: 1,
+                  total_count: 2,
+                  thumbnail_urls: ["/outputs/task-image-1-thumb.png"],
+                  last_error: "1 of 2 images failed: OpenAI-compatible images request failed: HTTP 400: {\\\"error\\\":{\\\"message\\\":\\\"err\\\",\\\"type\\\":\\\"invalid_request_error\\\",\\\"param\\\":\\\"\\\",\\\"code\\\":\\\"ERR-99E8C62955\\\"}}"
+                });
+                const fullInvalidValueFailure = taskRetryStateText({
+                  status: "failed",
+                  attempts: 1,
+                  max_attempts: 2,
+                  last_error: "HTTP 400: {\\\"error\\\":{\\\"type\\\":\\\"invalid_request_error\\\",\\\"code\\\":\\\"invalid_value\\\"}}"
+                });
                 if (firstRun !== "") {
                   throw new Error(`expected first run to have no retry label, got ${firstRun}`);
                 }
@@ -1512,6 +1599,15 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
                 }
                 if (failedManualRetry !== "已停止，可手动重试失败图片") {
                   throw new Error(`expected manual retry label, got ${failedManualRetry}`);
+                }
+                if (partialGenericInvalidRequest !== "已停止，可手动重试失败图片") {
+                  throw new Error(`expected partial generic invalid request to be manually retryable, got ${partialGenericInvalidRequest}`);
+                }
+                if (lightweightPartialGenericInvalidRequest !== "已停止，可手动重试失败图片") {
+                  throw new Error(`expected lightweight partial generic invalid request to be manually retryable, got ${lightweightPartialGenericInvalidRequest}`);
+                }
+                if (fullInvalidValueFailure !== "第 1/2 次，不可重试") {
+                  throw new Error(`expected invalid value failure to remain non-retryable, got ${fullInvalidValueFailure}`);
                 }
                 """,
             ]
@@ -1796,6 +1892,9 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertIn('root.querySelectorAll(".task-card.active")', render_source)
         self.assertIn("updateTaskSelectionVisuals(taskId)", selection_source)
         self.assertIn("updateTaskSelectionVisuals(taskId)", actions_source)
+        self.assertIn('data-active-label="${activeLabel}"', render_source)
+        self.assertIn('selectedCard.setAttribute("aria-current", "true")', render_source)
+        self.assertIn('card.removeAttribute("aria-current")', render_source)
         self.assertIn("function bindTaskListEvents", script)
         self.assertIn("const interactiveRoot = els.taskHistoryShell || els.sidebarContent || els.taskList;", script)
         self.assertIn("interactiveRoot?.addEventListener(\"click\", handleTaskListClick)", script)
@@ -1825,6 +1924,8 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertIn('/api/tasks/${encodeURIComponent(taskId)}/viewed', script)
         self.assertIn("data-task-unread", script)
         self.assertIn("task-unread-dot", script)
+        self.assertIn('"taskList.viewing": "查看中"', script)
+        self.assertIn('"taskList.viewing": "Viewing"', script)
         self.assertRegex(styles, r"\.task-card\.unread\s*\{[^}]*border-color:")
         self.assertRegex(styles, r"\.task-unread-dot\s*\{[^}]*border-radius:\s*999px")
     def test_preview_outputs_can_be_collected_into_floating_reference_bar(self) -> None:

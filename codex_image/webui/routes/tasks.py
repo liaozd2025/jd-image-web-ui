@@ -80,6 +80,7 @@ def register_task_routes(app: FastAPI, ctx: WebUIContext) -> None:
         provider: str = Query(""),
         archived: bool | None = Query(None),
         sort: str = Query("newest"),
+        direction: str = Query("next"),
     ) -> dict[str, Any]:
         return ctx.storage.query_task_history(
             limit=limit,
@@ -96,6 +97,7 @@ def register_task_routes(app: FastAPI, ctx: WebUIContext) -> None:
             provider=provider,
             archived=archived,
             sort=sort,
+            direction=direction,
         )
 
     @app.get("/api/tasks/{task_id}")

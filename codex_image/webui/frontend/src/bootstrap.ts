@@ -126,6 +126,7 @@ const bridgeMethods: LegacyMethods = {
   renderArchiveModal: proxy("renderArchiveModal"),
   renderAuthSource: proxy("renderAuthSource"),
   renderBatchToolbar: proxy("renderBatchToolbar"),
+  ensureSelectedTaskDetail: proxy("ensureSelectedTaskDetail"),
   renderGalleryCategoryControls: proxy("renderGalleryCategoryControls"),
   renderImageStrip: proxy("renderImageStrip"),
   renderPreview: proxy("renderPreview"),

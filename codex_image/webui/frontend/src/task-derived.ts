@@ -295,6 +295,8 @@ function taskImageBlockStates(task: any) {
   const total = taskTotalCount(task);
   const records = taskOutputRecordsByIndex(task);
   const status = String(task?.status || "");
+  const countStates = !records.size ? taskImageBlockStatesFromCounts(task, total, status) : [];
+  if (countStates.length) return countStates;
   const states = [];
   let runningAssigned = false;
   const hasExplicitRunningRecords = Array.from(records.values()).some((record: any) => record?.status === "running");
@@ -324,12 +326,48 @@ function taskImageBlockStates(task: any) {
   return states;
 }
 
+function taskImageBlockStatesFromCounts(task: any, total: number, status: string) {
+  const generatedValue = nonnegativeInt(task?.generated_count);
+  const failedValue = nonnegativeInt(task?.failed_count);
+  if (generatedValue === null && failedValue === null) return [];
+  let completed = Math.min(total, generatedValue ?? 0);
+  let failed = Math.min(Math.max(0, total - completed), failedValue ?? 0);
+  let remaining = Math.max(0, total - completed - failed);
+  let running = 0;
+  let queued = 0;
+  let waiting = remaining;
+  if (status === "completed" && remaining) {
+    completed += remaining;
+    waiting = 0;
+  } else if ((status === "failed" || status === "partial_failed") && failed === 0 && remaining) {
+    failed = remaining;
+    waiting = 0;
+  } else if (status === "running" && remaining) {
+    running = 1;
+    waiting -= 1;
+  } else if (status === "queued" || status === "submitting") {
+    queued = remaining;
+    waiting = 0;
+  }
+  return [
+    ...Array(completed).fill("completed"),
+    ...Array(failed).fill("failed"),
+    ...Array(running).fill("running"),
+    ...Array(queued).fill("queued"),
+    ...Array(waiting).fill("waiting"),
+  ];
+}
+
 function taskVisibleCompletedCount(task: any) {
   if (!task) return 0;
   const completedRecords = [...taskOutputRecordsByIndex(task).values()]
     .filter((record: any) => record?.status === "completed" && taskOutputRecordHasDisplayableImage(record))
     .length;
   return Math.max(completedRecords, taskOutputUrls(task).length);
+}
+
+function taskRetrySuccessfulCount(task: any) {
+  return Math.max(taskVisibleCompletedCount(task), nonnegativeInt(task?.generated_count) ?? 0);
 }
 
 function taskOutputRecordHasDisplayableImage(record: any) {
@@ -405,6 +443,11 @@ function positiveInt(value: any) {
   return !Number.isNaN(parsed) && parsed > 0 ? parsed : null;
 }
 
+function nonnegativeInt(value: any) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return !Number.isNaN(parsed) && parsed >= 0 ? parsed : null;
+}
+
 function taskFailureMessage(task: any) {
   if (!task || (task.status !== "failed" && task.status !== "partial_failed")) return "";
   return String(task.error || task.last_error || "").trim();
@@ -413,7 +456,7 @@ function taskFailureMessage(task: any) {
 function canRetryFailedTask(task: any) {
   if (!task || task.local_pending) return false;
   if (!["failed", "partial_failed"].includes(task.status)) return false;
-  if (taskHasNonRetryableError(task)) return false;
+  if (taskHasNonRetryableError(task) && !taskPartialFailureCanRetryGenericInvalidRequest(task)) return false;
   const states = taskImageBlockStates(task);
   return states.includes("failed");
 }
@@ -460,7 +503,7 @@ function taskRetryStateText(task: any) {
     });
   }
   if (["failed", "partial_failed"].includes(task.status)) {
-    if (taskHasNonRetryableError(task)) {
+    if (taskHasNonRetryableError(task) && !taskPartialFailureCanRetryGenericInvalidRequest(task)) {
       return formatTranslation("taskStatus.nonRetryableAttempt", {
         attempt: Math.max(1, attempts),
         max: maxAttempts,
@@ -484,6 +527,20 @@ function taskHasNonRetryableError(task: any) {
     "expected a base64-encoded data url",
     "unsupported mime type",
   ].some((token: any) => message.includes(token));
+}
+
+function taskPartialFailureCanRetryGenericInvalidRequest(task: any) {
+  if (!task || task.status !== "partial_failed") return false;
+  if (taskRetrySuccessfulCount(task) <= 0) return false;
+  const message = String(task?.error || task?.last_error || "").toLowerCase();
+  return (
+    message.includes("http 400")
+    && message.includes("invalid_request_error")
+    && !message.includes("invalid_value")
+    && !message.includes("expected a base64-encoded data url")
+    && !message.includes("unsupported mime type")
+    && !message.includes("reference asset")
+  );
 }
 
 function taskRuntimeText(task: any) {
@@ -669,6 +726,7 @@ export function initTaskDerivedFeature() {
     taskRetryReasonText,
     taskRetryStateText,
     taskHasNonRetryableError,
+    taskPartialFailureCanRetryGenericInvalidRequest,
     taskRuntimeText,
     taskCompletionTimestampText,
     taskCompletionTimestampTitle,

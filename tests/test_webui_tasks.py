@@ -105,6 +105,16 @@ class WebUITaskTests(unittest.TestCase):
             size = client.get("/api/task-history/tasks", params={"size": "1152x2048", "limit": 10}).json()
             quality = client.get("/api/task-history/tasks", params={"quality": "high", "limit": 10}).json()
             oldest = client.get("/api/task-history/tasks", params={"sort": "oldest", "limit": 1}).json()
+            from codex_image.webui.task_index import _encode_cursor
+            previous = client.get(
+                "/api/task-history/tasks",
+                params={
+                    "month": "2026-05",
+                    "limit": 1,
+                    "cursor": _encode_cursor("2026-05-10T10:10:10+00:00", "20260510101010-aaaaaaaa"),
+                    "direction": "previous",
+                },
+            ).json()
             recent = client.get("/api/tasks/recent", params={"limit": 1}).json()
 
         self.assertEqual(summary["total"], 3)
@@ -128,6 +138,7 @@ class WebUITaskTests(unittest.TestCase):
         self.assertEqual(first["tasks"][0]["prompt_mode"], "strict")
         self.assertEqual(first["tasks"][0]["quality"], "high")
         self.assertEqual([task["task_id"] for task in oldest["tasks"]], ["20260409101010-cccccccc"])
+        self.assertEqual([task["task_id"] for task in previous["tasks"]], ["20260510101010-bbbbbbbb"])
         self.assertNotIn("outputs", first["tasks"][0])
         self.assertNotIn("prompt_for_model", first["tasks"][0])
         self.assertEqual(len(recent["tasks"]), 1)
@@ -150,10 +161,17 @@ class WebUITaskTests(unittest.TestCase):
                     "updated_at": "2026-05-10T10:11:10+00:00",
                     "viewed_at": "2026-05-10T10:10:30+00:00",
                     "status": "completed",
-                    "mode": "generate",
+                    "mode": "edit",
                     "prompt": "sidebar card prompt",
                     "prompt_for_model": "expanded prompt should not ship to the main sidebar",
                     "params": {"size": "1152x2048", "n": 2},
+                    "input_sources": [
+                        {
+                            "kind": "asset",
+                            "id": "asset-1",
+                            "image_url": "/api/reference-assets/asset-1/image",
+                        }
+                    ],
                     "outputs": [
                         {"index": 1, "status": "completed", "url": output_url(task_id, 1), "thumbnail_url": "/thumb-1.jpg"},
                         {"index": 2, "status": "completed", "url": output_url(task_id, 2), "thumbnail_url": "/thumb-2.jpg"},
@@ -173,10 +191,12 @@ class WebUITaskTests(unittest.TestCase):
         self.assertEqual(task["prompt"], "sidebar card prompt")
         self.assertEqual(task["output_size"], "1152x2048")
         self.assertEqual(task["thumbnail_urls"], [f"/api/tasks/{task_id}/outputs/1/thumbnail"])
+        self.assertEqual(task["input_thumbnail_urls"], ["/api/reference-assets/asset-1/image"])
         self.assertEqual(task["generated_count"], 2)
         self.assertTrue(task["summary_only"])
         self.assertNotIn("outputs", task)
         self.assertNotIn("output_urls", task)
+        self.assertNotIn("input_sources", task)
         self.assertNotIn("prompt_for_model", task)
         self.assertNotIn("request", task)
 
@@ -809,6 +829,8 @@ class WebUITaskTests(unittest.TestCase):
         self.assertEqual(accepted["original_total_count"], 4)
         self.assertEqual(accepted["cleared_failed_count"], 2)
         self.assertIn("partial_failure_cleared_at", accepted)
+        self.assertEqual(accepted["viewed_at"], accepted["updated_at"])
+        self.assertEqual(accepted["partial_failure_cleared_at"], accepted["updated_at"])
         self.assertNotIn("error", accepted)
         self.assertNotIn("last_error", accepted)
         self.assertNotIn("retrying_failed_slots", accepted)
@@ -822,6 +844,7 @@ class WebUITaskTests(unittest.TestCase):
         )
         self.assertEqual(stored["status"], "completed")
         self.assertEqual(stored["total_count"], 2)
+        self.assertEqual(stored["viewed_at"], stored["updated_at"])
         self.assertEqual(output_files_exist, [True, False, False, True])
     def test_accept_failed_task_successes_after_interruption(self) -> None:
         from codex_image.webui.app import create_app
@@ -996,6 +1019,67 @@ class WebUITaskTests(unittest.TestCase):
             [(1, "completed"), (2, "completed"), (3, "completed"), (4, "completed")],
         )
         self.assertEqual(output_files_exist, [True, True, True, True])
+    def test_retry_failed_outputs_allows_partial_generic_invalid_request(self) -> None:
+        from codex_image.webui.app import create_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app = create_app(
+                output_root=root,
+                client_factory=lambda: FakeImageClient(),
+                auth_checker=lambda: True,
+                batch_delay_seconds=0,
+                auto_start_queue=False,
+            )
+            storage = app.state.storage
+            task_id = "20260611065711-19806368"
+            output_path = storage.write_output(task_id, b"generated-1", "png", index=1)
+            generic_error = (
+                'OpenAI-compatible images request failed: HTTP 400: {"error":'
+                '{"message":"err","type":"invalid_request_error","param":"","code":"ERR-99E8C62955"}}'
+            )
+            storage.write_metadata(
+                task_id,
+                {
+                    "task_id": task_id,
+                    "created_at": "2026-06-11T06:57:11+00:00",
+                    "updated_at": "2026-06-11T06:59:08+00:00",
+                    "mode": "generate",
+                    "status": "partial_failed",
+                    "prompt": "retry generic invalid request",
+                    "prompt_for_model": "retry generic invalid request",
+                    "params": {"size": "1024x1024", "quality": "low", "n": 2},
+                    "input_files": [],
+                    "gallery_refs": [],
+                    "reference_assets": [],
+                    "generated_count": 1,
+                    "failed_count": 1,
+                    "total_count": 2,
+                    "output_file": storage.output_file(output_path),
+                    "output_files": [storage.output_file(output_path)],
+                    "output_url": output_url(task_id, 1),
+                    "output_urls": [output_url(task_id, 1)],
+                    "outputs": [
+                        {"index": 1, "status": "completed", "file": storage.output_file(output_path), "url": output_url(task_id, 1)},
+                        {"index": 2, "status": "failed", "error": generic_error, "attempts": 1},
+                    ],
+                    "last_error": f"1 of 2 images failed: {generic_error}",
+                },
+            )
+            client = TestClient(app)
+            partial = client.get(f"/api/tasks/{task_id}").json()["task"]
+            retry_response = client.post(f"/api/tasks/{task_id}/retry-failed")
+            queued = retry_response.json()["task"]
+            queue_after_retry = app.state.queue_storage.read_state()
+
+        self.assertEqual(partial["status"], "partial_failed")
+        self.assertEqual(partial["generated_count"], 1)
+        self.assertEqual(partial["failed_count"], 1)
+        self.assertIn("invalid_request_error", partial["last_error"])
+        self.assertEqual(retry_response.status_code, 200, retry_response.text)
+        self.assertEqual(queued["status"], "queued")
+        self.assertEqual(queued["retrying_failed_slots"], [2])
+        self.assertEqual(queue_after_retry["waiting"], [task_id])
     def test_task_metadata_accept_successes_reindexes_completed_outputs(self) -> None:
         from codex_image.webui.task_metadata import _accept_partial_task_successes
         from codex_image.webui.storage import TaskStorage
@@ -1007,6 +1091,7 @@ class WebUITaskTests(unittest.TestCase):
                 "task_id": task.task_id,
                 "created_at": "2026-05-21T00:00:00Z",
                 "updated_at": "2026-05-21T00:00:00Z",
+                "viewed_at": "2026-05-21T00:00:00Z",
                 "mode": "generate",
                 "status": "partial_failed",
                 "prompt": "test",
@@ -1031,6 +1116,8 @@ class WebUITaskTests(unittest.TestCase):
         self.assertEqual([item["index"] for item in accepted["outputs"]], [1, 2])
         self.assertEqual(accepted["original_total_count"], 3)
         self.assertEqual(accepted["cleared_failed_count"], 1)
+        self.assertEqual(accepted["viewed_at"], accepted["updated_at"])
+        self.assertEqual(accepted["partial_failure_cleared_at"], accepted["updated_at"])
     def test_retry_failed_orphaned_running_task_requeues_missing_slots_only(self) -> None:
         from codex_image.webui.app import create_app
 

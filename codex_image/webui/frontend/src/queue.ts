@@ -483,8 +483,9 @@ export function applyQueueTasks(queue: QueueState | null | undefined): void {
     ...(Array.isArray(queue?.running) ? queue.running : []),
   ];
   const queueTaskIds = new Set(tasks.map((task) => String(task.task_id)));
+  const needsTaskReconcile = activeTasksNeedQueueReconcile(queueTaskIds);
   if (!tasks.length) {
-    if (selectedTaskNeedsQueueReconcile(queueTaskIds)) {
+    if (needsTaskReconcile) {
       void bridge.methods.refreshTasks();
     }
     return;
@@ -498,25 +499,30 @@ export function applyQueueTasks(queue: QueueState | null | undefined): void {
       void bridge.methods.markTaskViewed(task.task_id);
     }
   });
-  if (!changed) return;
+  if (!changed) {
+    if (needsTaskReconcile) {
+      void bridge.methods.refreshTasks();
+    }
+    return;
+  }
   bridge.methods.cleanupSessionSelections();
   bridge.methods.renderTasks();
   bridge.methods.renderArchiveButton();
   bridge.methods.renderArchiveModal();
   bridge.methods.renderPreview();
-  if (selectedTaskNeedsQueueReconcile(queueTaskIds)) {
+  if (needsTaskReconcile) {
     void bridge.methods.refreshTasks();
   }
 }
 
-function selectedTaskNeedsQueueReconcile(queueTaskIds: Set<string>): boolean {
+function activeTasksNeedQueueReconcile(queueTaskIds: Set<string>): boolean {
   const bridge = getLegacyBridge();
-  const selectedTaskId = String(bridge.state.selectedTaskId || "");
-  if (!selectedTaskId || queueTaskIds.has(selectedTaskId)) return false;
-  const selectedTask = bridge.state.tasks.find((task) => String(task.task_id) === selectedTaskId);
-  if (!selectedTask || selectedTask.local_pending) return false;
-  const status = String(selectedTask.status || "");
-  return ["submitting", "queued", "running"].includes(status);
+  return bridge.state.tasks.some((task) => {
+    const taskId = String(task?.task_id || "");
+    if (!taskId || queueTaskIds.has(taskId) || task?.local_pending) return false;
+    const status = String(task?.status || "");
+    return status === "submitting" || status === "queued" || status === "running";
+  });
 }
 
 export function updateQueueElapsedDisplays(): void {

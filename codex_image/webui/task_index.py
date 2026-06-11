@@ -352,9 +352,11 @@ class SQLiteTaskIndex:
         provider: str = "",
         archived: bool | None = None,
         sort: str = "newest",
+        direction: str = "next",
     ) -> dict[str, Any]:
         safe_limit = min(100, max(1, int(limit or 50)))
         sort_order = "oldest" if sort == "oldest" else "newest"
+        page_direction = "previous" if direction == "previous" else "next"
         where: list[str] = []
         params: list[Any] = []
         if month:
@@ -394,7 +396,12 @@ class SQLiteTaskIndex:
         cursor_values = _decode_cursor(cursor)
         if cursor_values is not None:
             cursor_created_at, cursor_task_id = cursor_values
-            if sort_order == "oldest":
+            if page_direction == "previous":
+                if sort_order == "oldest":
+                    where.append("(created_at < ? or (created_at = ? and task_id < ?))")
+                else:
+                    where.append("(created_at > ? or (created_at = ? and task_id > ?))")
+            elif sort_order == "oldest":
                 where.append("(created_at > ? or (created_at = ? and task_id > ?))")
             else:
                 where.append("(created_at < ? or (created_at = ? and task_id < ?))")
@@ -414,7 +421,10 @@ class SQLiteTaskIndex:
         )
         if where:
             sql += " where " + " and ".join(where)
-        order_clause = " order by created_at asc, task_id asc limit ?" if sort_order == "oldest" else " order by created_at desc, task_id desc limit ?"
+        if page_direction == "previous":
+            order_clause = " order by created_at desc, task_id desc limit ?" if sort_order == "oldest" else " order by created_at asc, task_id asc limit ?"
+        else:
+            order_clause = " order by created_at asc, task_id asc limit ?" if sort_order == "oldest" else " order by created_at desc, task_id desc limit ?"
         sql += order_clause
         params.append(safe_limit + 1)
         try:
@@ -433,10 +443,14 @@ class SQLiteTaskIndex:
             rows = self._history_rows(fallback_sql, params)
         has_more = len(rows) > safe_limit
         page_rows = rows[:safe_limit]
-        next_cursor = _encode_cursor(str(page_rows[-1]["created_at"]), str(page_rows[-1]["task_id"])) if has_more and page_rows else None
+        if page_direction == "previous":
+            page_rows = list(reversed(page_rows))
+        next_cursor = _encode_cursor(str(page_rows[-1]["created_at"]), str(page_rows[-1]["task_id"])) if page_direction == "next" and has_more and page_rows else None
+        previous_cursor = _encode_cursor(str(page_rows[0]["created_at"]), str(page_rows[0]["task_id"])) if page_direction == "previous" and has_more and page_rows else None
         return {
             "tasks": [_history_row_response(row) for row in page_rows],
             "next_cursor": next_cursor,
+            "previous_cursor": previous_cursor,
         }
 
     def _history_rows(self, sql: str, params: list[Any]) -> list[sqlite3.Row]:

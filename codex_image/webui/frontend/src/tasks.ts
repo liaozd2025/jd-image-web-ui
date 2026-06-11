@@ -22,6 +22,7 @@ const migrateLegacyArchivedTasks = (...args: any[]) => legacyMethod("migrateLega
 const revokeTaskUploadPreviewUrls = (...args: any[]) => legacyMethod("revokeTaskUploadPreviewUrls", ...args);
 const taskHasViewableUpdate = (...args: any[]) => legacyMethod("taskHasViewableUpdate", ...args);
 const markTaskViewed = (...args: any[]) => legacyMethod("markTaskViewed", ...args);
+const ensureSelectedTaskDetail = (...args: any[]) => legacyMethod("ensureSelectedTaskDetail", ...args);
 
 async function refreshTasks({ migrateLegacyArchives = false }: any = {}) {
   const requestSeq = ++state.tasksRequestSeq;
@@ -50,10 +51,10 @@ async function applyTasksSnapshot(tasks: any, { migrateLegacyArchives = false, r
   renderTasks();
   renderArchiveButton();
   renderArchiveModal();
-  renderPreview();
+  await renderSelectedTaskPreview(requestSeq);
 }
 
-function applyTaskUpdate(task: any) {
+async function applyTaskUpdate(task: any) {
   if (!updateTaskInState(task)) return;
   if (String(task.task_id) === String(state.selectedTaskId) && taskHasViewableUpdate(task)) {
     void markTaskViewed(task.task_id);
@@ -62,6 +63,24 @@ function applyTaskUpdate(task: any) {
   renderTasks();
   renderArchiveButton();
   renderArchiveModal();
+  await renderSelectedTaskPreview();
+}
+
+async function renderSelectedTaskPreview(requestSeq: number | null = null) {
+  const selectedTask = state.tasks.find((item: any) => String(item.task_id) === String(state.selectedTaskId));
+  if (selectedTask?.summary_only) {
+    try {
+      const detailedTask = await ensureSelectedTaskDetail(selectedTask.task_id);
+      if (requestSeq !== null && requestSeq !== state.tasksRequestSeq) return;
+      if (detailedTask) {
+        renderPreview(detailedTask);
+        return;
+      }
+    } catch (error) {
+      console.warn(error);
+      if (requestSeq !== null && requestSeq !== state.tasksRequestSeq) return;
+    }
+  }
   renderPreview();
 }
 
