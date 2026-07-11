@@ -1016,6 +1016,36 @@
   text-align: right;
 }
 
+.task-card-running-timer {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 3px;
+  max-width: 102px;
+  color: var(--status-blue);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+
+.task-card-running-timer .elapsed-timer {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
+  color: inherit;
+  font-size: 10.5px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.task-card-running-timer .elapsed-main {
+  min-width: 4.4ch;
+}
+
+.task-card-running-timer .elapsed-ms {
+  min-width: 1.6ch;
+  opacity: 0.72;
+}
+
 .task-card.failed .task-retry-state,
 .task-card.partial_failed .task-retry-state {
   color: color-mix(in srgb, var(--danger) 72%, var(--text-secondary));

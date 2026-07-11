@@ -1,6 +1,7 @@
 import { getEls } from "./dom";
 import { formatTranslation, LOCALE_CHANGE_EVENT, translate } from "./i18n";
 import { getLegacyBridge, getState } from "./state";
+import { addReferenceFileInput, partitionReferenceDropFiles } from "./reference-file-inputs";
 
 let inputSourcesFeatureInitialized = false;
 const HISTORY_REFERENCE_HANDOFF_KEY = "codex-image-history-reference-handoff";
@@ -177,6 +178,28 @@ function addImageFiles(files: any, options: any = {}) {
   return true;
 }
 
+export function addMixedInputFiles(
+  files: Iterable<File> | ArrayLike<File>,
+  options: { imageSuccessMessage?: string | ((count: number) => string) } = {},
+): { imageCount: number; referenceCount: number; unsupportedCount: number } {
+  const partitioned = partitionReferenceDropFiles(files);
+  if (partitioned.images.length) {
+    addImageFiles(partitioned.images, { successMessage: options.imageSuccessMessage });
+  }
+  const referenceCount = partitioned.referenceFiles.reduce(
+    (count, file) => count + (addReferenceFileInput(file) ? 1 : 0),
+    0,
+  );
+  if (partitioned.unsupported.length) {
+    setStatus(translate("referenceFiles.errorUnsupported"), "error");
+  }
+  return {
+    imageCount: partitioned.images.length,
+    referenceCount,
+    unsupportedCount: partitioned.unsupported.length,
+  };
+}
+
 function clipboardImageFilename(type: any, index: number) {
   const extensionByType: Record<string, string> = {
     "image/gif": "gif",
@@ -247,12 +270,13 @@ function dataTransferHasFile(dataTransfer: any) {
   return Array.from(dataTransfer.items || []).some((item: any) => item?.kind === "file");
 }
 
-function dataTransferHasImageFile(dataTransfer: any) {
-  const files = Array.from(dataTransfer?.files || []);
-  if (files.some(isImageFile)) return true;
-  return Array.from(dataTransfer?.items || []).some((item: any) => (
-    item?.kind === "file" && (!item.type || item.type.startsWith("image/"))
-  ));
+function dataTransferFiles(dataTransfer: any): File[] {
+  const files = Array.from(dataTransfer?.files || []) as File[];
+  if (files.length) return files;
+  return Array.from(dataTransfer?.items || [])
+    .filter((item: any) => item?.kind === "file")
+    .map((item: any) => item.getAsFile?.())
+    .filter(Boolean) as File[];
 }
 
 function setImageDropActive(active: boolean) {
@@ -263,16 +287,15 @@ function handleImageDragEnter(event: DragEvent) {
   if (!dataTransferHasFile(event.dataTransfer)) return;
   event.preventDefault();
   event.stopPropagation();
-  setImageDropActive(dataTransferHasImageFile(event.dataTransfer));
+  setImageDropActive(true);
 }
 
 function handleImageDragOver(event: DragEvent) {
   if (!dataTransferHasFile(event.dataTransfer)) return;
   event.preventDefault();
   event.stopPropagation();
-  const acceptsImage = dataTransferHasImageFile(event.dataTransfer);
-  if (event.dataTransfer) event.dataTransfer.dropEffect = acceptsImage ? "copy" : "none";
-  setImageDropActive(acceptsImage);
+  if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+  setImageDropActive(true);
 }
 
 function handleImageDragLeave(event: DragEvent) {
@@ -287,11 +310,13 @@ function handleImageDrop(event: DragEvent) {
   event.preventDefault();
   event.stopPropagation();
   setImageDropActive(false);
-  const files = imageFilesFromDataTransfer(event.dataTransfer);
-  addImageFiles(files, {
-    emptyMessage: translate("inputSource.dropImagesOnly"),
-    successMessage: (count: number) => formatTranslation("inputSource.droppedCount", { count }),
+  const files = dataTransferFiles(event.dataTransfer);
+  const result = addMixedInputFiles(files, {
+    imageSuccessMessage: (count: number) => formatTranslation("inputSource.droppedCount", { count }),
   });
+  if (!result.imageCount && !result.referenceCount && !result.unsupportedCount) {
+    setStatus(translate("inputSource.dropImagesOnly"), "error");
+  }
 }
 
 async function readClipboardImageFiles() {
@@ -487,21 +512,70 @@ async function restoreHistoryReferenceHandoff() {
   try {
     raw = localStorage.getItem(HISTORY_REFERENCE_HANDOFF_KEY) || "";
     if (!raw) return;
-    localStorage.removeItem(HISTORY_REFERENCE_HANDOFF_KEY);
     const parsed = JSON.parse(raw);
     const items = Array.isArray(parsed) ? parsed : [];
-    const files: File[] = [];
-    for (const [index, item] of items.entries()) {
-      if (!item?.url) continue;
-      files.push(await imageFileFromUrl(item.url, `history-reference-${index + 1}.png`));
+    const imageItems = items.filter((item) => item?.url);
+    const referenceFileItems = items.filter((item) => item?.reference_file_id || item?.id);
+    let handoffError: Error | null = null;
+    try {
+      const files: File[] = [];
+      for (const [index, item] of imageItems.entries()) {
+        files.push(await imageFileFromUrl(item.url, `history-reference-${index + 1}.png`));
+      }
+      if (files.length) {
+        addImageFiles(files, {
+          successMessage: (count: number) => formatTranslation("referenceCollector.added", { count }),
+        });
+      }
+    } catch (error: any) {
+      handoffError = error;
     }
-    if (!files.length) return;
-    addImageFiles(files, {
-      successMessage: (count: number) => formatTranslation("referenceCollector.added", { count }),
-    });
+
+    try {
+      if (referenceFileItems.length) {
+        const requestedBackend = String(referenceFileItems[0]?.requested_backend || "");
+        const providerId = String(referenceFileItems[0]?.api_provider_id || "");
+        const samePath = referenceFileItems.every((item) => (
+          String(item?.requested_backend || "") === requestedBackend
+          && String(item?.api_provider_id || "") === providerId
+        ));
+        if (!samePath) throw new Error(translate("referenceFiles.historyPathMismatch"));
+
+        if (requestedBackend === "codex_responses") {
+          const modeSelected = await Promise.resolve(legacyMethod("selectCodexMode", "responses"));
+          if (modeSelected === false) throw new Error(translate("referenceFiles.historyPathMismatch"));
+          const authSelected = await Promise.resolve(legacyMethod("setAuthSource", "codex"));
+          if (authSelected === false) throw new Error(translate("auth.switchFailed"));
+        } else if (requestedBackend === "openai_responses") {
+          const provider = getState().apiSettings?.providers?.find?.((item: any) => item.id === providerId);
+          if (!provider || provider.api_mode !== "responses") {
+            legacyMethod("openApiSettingsModal");
+            throw new Error(translate("referenceFiles.providerMissing"));
+          }
+          const providerSelected = await Promise.resolve(legacyMethod("selectApiProvider", providerId));
+          if (providerSelected === false) throw new Error(translate("referenceFiles.providerMissing"));
+          const authSelected = await Promise.resolve(legacyMethod("setAuthSource", "api"));
+          if (authSelected === false) throw new Error(translate("auth.switchFailed"));
+        } else {
+          throw new Error(translate("referenceFiles.requiresResponses"));
+        }
+
+        referenceFileItems.forEach((item) => addReferenceFileInput({
+          id: item.reference_file_id || item.id,
+          filename: item.filename,
+          mime_type: item.mime_type,
+          size_bytes: item.size_bytes,
+          family: item.family,
+        }));
+      }
+    } catch (error: any) {
+      handoffError = error;
+    }
+    if (handoffError) throw handoffError;
   } catch (error: any) {
-    localStorage.removeItem(HISTORY_REFERENCE_HANDOFF_KEY);
     setStatus(error.message || translate("referenceCollector.addFailed"), "error");
+  } finally {
+    if (raw) localStorage.removeItem(HISTORY_REFERENCE_HANDOFF_KEY);
   }
 }
 
@@ -534,6 +608,7 @@ export function initInputSourcesFeature() {
     referenceAssetInputs,
     uploadInputs,
     addImageFiles,
+    addMixedInputFiles,
     handleImagePaste,
     handleImageDrop,
     pasteClipboardImages,

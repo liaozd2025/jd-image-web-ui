@@ -523,14 +523,42 @@
   justify-content: flex-end;
 }
 
-.preview-heading-actions > .ghost-button {
-  height: 32px;
-  min-height: 32px;
-  padding: 0 12px;
+.preview-heading-actions .ghost-button {
+  height: 34px;
+  min-height: 34px;
+  min-width: 112px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 72%, var(--surface-soft));
+  border-color: color-mix(in srgb, var(--line) 88%, var(--text-secondary));
   gap: 6px;
   font-size: 13px;
+  font-weight: 650;
   line-height: 1;
   text-decoration: none;
+  white-space: nowrap;
+}
+
+.preview-heading-actions .ghost-button:hover,
+.preview-heading-actions .ghost-button:focus-visible {
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--line));
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.preview-heading-actions .danger-action {
+  border-color: color-mix(in srgb, var(--danger) 34%, var(--line));
+}
+
+.preview-delete-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .preview-selection-actions {

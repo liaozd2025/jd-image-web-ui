@@ -13,6 +13,7 @@ export function bootWebUI(state: WebUIState, els: WebUIElements, methods: Legacy
   call(methods, "restoreSidebarWidth");
   call(methods, "restoreMainModel");
   call(methods, "restoreApiSettings");
+  call(methods, "syncReferenceFileAvailability");
   call(methods, "refreshColorPalette");
   call(methods, "refreshPromptSnippets");
   call(methods, "refreshPromptTemplates");

@@ -7,6 +7,7 @@ from typing import Any, Callable
 from fastapi import FastAPI
 
 from .queue import QueueManager
+from .reference_files import ReferenceFileStorage
 from .settings_store import ApiSettings, AuthSettings, ColorPaletteSettings, PromptSnippetSettings, PromptTemplateSettings, WebUISettings
 from .storage import GalleryStorage, QueueStorage, ReferenceAssetStorage, SQLiteQueueStorage, TaskStorage
 
@@ -20,6 +21,7 @@ class WebUIContext:
     storage: TaskStorage
     gallery_storage: GalleryStorage
     reference_asset_storage: ReferenceAssetStorage
+    reference_file_storage: ReferenceFileStorage
     queue_storage: QueueStorage | SQLiteQueueStorage
     webui_settings: WebUISettings
     auth_settings: AuthSettings
@@ -33,12 +35,15 @@ class WebUIContext:
     output_root: Path
     gallery_root: Path
     reference_asset_root: Path
+    reference_file_root: Path
     source_data_root: Path
     auto_start_queue: bool
     queue_manager: QueueManager | None = None
     active_task_ids: set[str] = field(default_factory=set)
     running_worker_tasks: dict[str, Any] = field(default_factory=dict)
     api_request_semaphores: dict[str, dict[str, Any]] = field(default_factory=dict)
+    api_task_slot_reservations: dict[str, dict[str, Any]] = field(default_factory=dict)
+    responses_file_unsupported_keys: set[tuple[str, str, str, str]] = field(default_factory=set)
     route_helpers: dict[str, Any] = field(default_factory=dict)
 
     def install_on_app_state(self) -> None:
@@ -46,12 +51,14 @@ class WebUIContext:
         self.app.state.storage = self.storage
         self.app.state.gallery_storage = self.gallery_storage
         self.app.state.reference_asset_storage = self.reference_asset_storage
+        self.app.state.reference_file_storage = self.reference_file_storage
         self.app.state.queue_storage = self.queue_storage
         self.app.state.webui_settings = self.webui_settings
         self.app.state.input_root = self.input_root
         self.app.state.output_root = self.output_root
         self.app.state.gallery_root = self.gallery_root
         self.app.state.reference_asset_root = self.reference_asset_root
+        self.app.state.reference_file_root = self.reference_file_root
         self.app.state.source_data_root = self.source_data_root
         self.app.state.auto_start_queue = self.auto_start_queue
         self.app.state.auth_settings = self.auth_settings
@@ -62,6 +69,8 @@ class WebUIContext:
         self.app.state.active_task_ids = self.active_task_ids
         self.app.state.running_worker_tasks = self.running_worker_tasks
         self.app.state.api_request_semaphores = self.api_request_semaphores
+        self.app.state.api_task_slot_reservations = self.api_task_slot_reservations
+        self.app.state.responses_file_unsupported_keys = self.responses_file_unsupported_keys
         self.app.state.route_helpers = self.route_helpers
         if self.queue_manager is not None:
             self.app.state.queue_manager = self.queue_manager

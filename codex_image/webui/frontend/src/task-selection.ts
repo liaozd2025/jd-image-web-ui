@@ -119,6 +119,32 @@ function replaceSelectedTaskDetail(taskId, task) {
   return task;
 }
 
+async function restoreTaskReferenceFiles(task, options = {}) {
+  const taskId = options.taskId ?? task?.task_id;
+  const restoreSeq = options.restoreSeq;
+  const referenceFiles = Array.isArray(task?.reference_files) ? task.reference_files : [];
+  if (!selectedTaskInputRestoreCurrent(taskId, restoreSeq)) return false;
+  state.referenceFiles = [];
+  legacyMethod("renderReferenceFiles");
+  if (!referenceFiles.length) {
+    updateRequestPreview();
+    return true;
+  }
+
+  state.referenceFiles = referenceFiles.map((item) => ({
+    kind: "asset",
+    id: String(item?.id || item?.reference_file_id || ""),
+    filename: String(item?.filename || ""),
+    mime_type: String(item?.mime_type || "application/octet-stream"),
+    size_bytes: Number(item?.size_bytes || 0),
+    family: item?.family,
+    missing: Boolean(item?.missing),
+  })).filter((item) => item.id && ["pdf", "spreadsheet", "document", "text"].includes(item.family));
+  legacyMethod("renderReferenceFiles");
+  updateRequestPreview();
+  return true;
+}
+
 async function fetchHistoryInputBlob(candidateUrls, sourceUrl) {
   for (const url of candidateUrls) {
     const response = await fetch(url);
@@ -230,6 +256,8 @@ async function selectTask(taskId) {
   const restoreSeq = ++state.taskInputRestoreSeq;
   void markTaskViewed(taskId);
   applyTaskToForm(task);
+  await restoreTaskReferenceFiles(task, { taskId, restoreSeq });
+  if (!selectedTaskInputRestoreCurrent(taskId, restoreSeq)) return;
   renderSelectedTask(task, taskId);
   try {
     await restoreTaskInputs(task, { taskId, restoreSeq });
@@ -264,6 +292,8 @@ async function restoreHistoryTaskReuseHandoff() {
     replaceSelectedTaskDetail(taskId, task);
     const restoreSeq = ++state.taskInputRestoreSeq;
     applyTaskToForm(task);
+    await restoreTaskReferenceFiles(task, { taskId, restoreSeq });
+    if (!selectedTaskInputRestoreCurrent(taskId, restoreSeq)) return;
     renderSelectedTask(task, taskId);
     try {
       await restoreTaskInputs(task, { taskId, restoreSeq });

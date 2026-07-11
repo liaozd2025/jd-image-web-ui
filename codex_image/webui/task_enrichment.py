@@ -6,6 +6,7 @@ from urllib.parse import quote, unquote, urlsplit
 
 from codex_image.client import DEFAULT_MAIN_MODEL
 
+from .reference_files import ReferenceFileStorage, reference_file_task_record
 from .storage import GalleryStorage, ReferenceAssetStorage
 
 
@@ -126,6 +127,35 @@ def _enrich_reference_assets(reference_assets: Any, storage: ReferenceAssetStora
             enriched.append(fallback)
             continue
         enriched.append(_reference_asset_response(stored))
+    return enriched
+
+
+def _enrich_reference_files(
+    task_id: str,
+    reference_files: Any,
+    storage: ReferenceFileStorage | None,
+) -> list[dict[str, Any]]:
+    if not isinstance(reference_files, list):
+        return []
+    enriched: list[dict[str, Any]] = []
+    encoded_task_id = quote(task_id, safe="")
+    for index, item in enumerate(reference_files, start=1):
+        if not isinstance(item, dict):
+            continue
+        record = dict(item)
+        missing = storage is None
+        if storage is not None:
+            try:
+                task_record = reference_file_task_record(record)
+                storage.verified_file_path(
+                    str(task_record["id"]),
+                    expected_size=int(task_record["size_bytes"]),
+                )
+            except (FileNotFoundError, OSError, ValueError):
+                missing = True
+        record["missing"] = missing
+        record["download_url"] = f"/api/tasks/{encoded_task_id}/reference-files/{index}/download"
+        enriched.append(record)
     return enriched
 
 
@@ -316,6 +346,7 @@ def _with_file_urls(
     active_task_ids: set[str] | None = None,
     gallery_storage: GalleryStorage | None = None,
     reference_asset_storage: ReferenceAssetStorage | None = None,
+    reference_file_storage: ReferenceFileStorage | None = None,
     *,
     include_request: bool = True,
 ) -> dict[str, Any]:
@@ -350,8 +381,15 @@ def _with_file_urls(
     gallery_refs = _enrich_gallery_refs(raw_gallery_refs, gallery_storage)
 
     reference_assets = _enrich_reference_assets(metadata.get("reference_assets"), reference_asset_storage)
+    reference_files = _enrich_reference_files(task_id, metadata.get("reference_files"), reference_file_storage)
     if reference_assets:
         enriched["reference_assets"] = reference_assets
+    if reference_files:
+        enriched["reference_files"] = reference_files
+        enriched["reference_file_count"] = len(reference_files)
+    else:
+        enriched.pop("reference_files", None)
+        enriched.pop("reference_file_count", None)
     if gallery_refs:
         enriched["gallery_refs"] = gallery_refs
     if reference_assets or gallery_refs:

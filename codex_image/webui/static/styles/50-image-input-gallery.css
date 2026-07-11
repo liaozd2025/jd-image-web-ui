@@ -89,6 +89,101 @@
   height: var(--image-input-action-height);
   min-height: var(--image-input-action-height);
   min-width: 0;
+  position: relative;
+}
+
+.image-thumb-items,
+.reference-file-selection {
+  display: contents;
+}
+
+.reference-file-selection.hidden {
+  display: none;
+}
+
+.reference-file-thumb.is-missing {
+  color: var(--muted);
+}
+
+.reference-file-thumb {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: stretch;
+  padding: 8px 8px 7px;
+}
+
+.reference-file-thumb .reference-file-icon {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+}
+
+.reference-file-thumb .reference-file-format-icon {
+  display: block;
+  width: 44px;
+  height: 50px;
+}
+
+.reference-file-name {
+  display: -webkit-box;
+  min-height: 31px;
+  overflow: hidden;
+  padding-top: 5px;
+  border-top: 1px solid color-mix(in srgb, var(--text-secondary) 12%, transparent);
+  color: var(--text-primary);
+  font-size: 10.5px;
+  line-height: 1.25;
+  text-align: center;
+  word-break: break-all;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.reference-file-thumb .reference-file-remove {
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.reference-file-thumb:hover .reference-file-remove,
+.reference-file-thumb:focus-within .reference-file-remove,
+.reference-file-thumb:focus-visible .reference-file-remove {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .reference-file-thumb .reference-file-remove {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.reference-file-requirement {
+  position: absolute;
+  z-index: 18;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: var(--shadow-popover);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.reference-file-requirement > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .image-input-actions .ghost-button,
@@ -104,7 +199,7 @@
   padding: 12px;
 }
 
-.image-uploader-grid.has-images .image-strip {
+.image-uploader-grid.has-inputs .image-strip {
   grid-template-columns: minmax(0, 1fr) var(--image-upload-source-compact-width);
 }
 
@@ -220,7 +315,7 @@
   scrollbar-width: none;
 }
 
-.image-uploader-grid.has-images .image-thumb-list {
+.image-uploader-grid.has-inputs .image-thumb-list {
   display: flex;
 }
 
@@ -515,65 +610,38 @@
   font-size: 11px;
 }
 
-.image-uploader-grid.has-images .upload-tile {
+.image-uploader-grid.has-inputs .upload-tile {
   gap: 6px;
   padding: 8px;
 }
 
-.image-uploader-grid.has-images .upload-title-full {
+.image-uploader-grid.has-inputs .upload-title-full {
   display: none;
 }
 
-.image-uploader-grid.has-images .upload-title-compact {
+.image-uploader-grid.has-inputs .upload-title-compact {
   display: inline;
 }
 
-.image-uploader-grid.has-images .upload-subtitle {
+.image-uploader-grid.has-inputs .upload-subtitle {
   display: none;
 }
 
 .image-uploader-grid.compact-grid .image-strip {
-  grid-template-columns: none;
+  grid-template-columns: minmax(0, 1fr) var(--image-input-compact-thumb-size);
   grid-template-rows: var(--image-input-compact-thumb-size);
-  grid-auto-flow: column;
-  grid-auto-columns: var(--image-input-compact-thumb-size);
   align-content: center;
   align-items: stretch;
-  justify-content: start;
   gap: 6px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  overflow: hidden;
 }
 
 .image-uploader-grid.compact-grid {
   padding: 8px;
 }
 
-.image-uploader-grid.compact-grid .image-strip::-webkit-scrollbar {
-  height: 8px;
-}
-
-.image-uploader-grid.compact-grid .image-strip::-webkit-scrollbar-track {
-  background: var(--scrollbar-track);
-  border-radius: 999px;
-}
-
-.image-uploader-grid.compact-grid .image-strip::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background: var(--scrollbar-thumb);
-  background-clip: content-box;
-}
-
-.image-uploader-grid.compact-grid .image-strip::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
-  background-clip: content-box;
-}
-
 .image-uploader-grid.compact-grid .image-thumb-list {
-  display: contents;
+  display: flex;
 }
 
 .image-uploader-grid.compact-grid .thumb,
@@ -605,6 +673,10 @@
 }
 
 .image-uploader-grid.compact-grid .thumb-badge {
+  display: none;
+}
+
+.image-uploader-grid.compact-grid .reference-file-name {
   display: none;
 }
 

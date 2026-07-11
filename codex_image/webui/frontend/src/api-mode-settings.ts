@@ -68,4 +68,5 @@ export function updateModeSpecificSettings(authSource: any = currentAuthSource()
     || (authSource === "codex" && currentCodexMode() !== "responses");
   setModeSettingsVariant(isDirectApi);
   updateWebSearchAvailability(authSource);
+  legacyMethod("syncReferenceFileAvailability");
 }

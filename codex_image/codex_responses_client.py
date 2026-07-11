@@ -10,14 +10,22 @@ from pathlib import Path
 from typing import Any
 
 from .auth import AuthState, refresh_auth_state
-from .client_errors import _format_codex_usage_limit_error, _response_body_text, _usage_limit_error
+from .client_errors import _format_codex_usage_limit_error, _usage_limit_error
 from .client_types import (
     DEFAULT_IMAGE_MODEL,
     DEFAULT_MAIN_MODEL,
     DEFAULT_RESPONSES_URL,
+    RESPONSES_ERROR_MESSAGE_LIMIT,
     AuthProvider,
     ImageResult,
+    ResponsesInputFile,
+    ResponsesRequestError,
+    RESPONSES_SENSITIVE_MARKER,
+    _collect_responses_file_data_values,
+    _redact_responses_value,
+    _redact_responses_text,
     image_model_supports_input_fidelity,
+    safe_responses_error_message,
 )
 from .http import HTTPResponse, Transport, UrllibTransport
 
@@ -61,6 +69,7 @@ class CodexImageClient:
         main_model: str = DEFAULT_MAIN_MODEL,
         model: str = DEFAULT_IMAGE_MODEL,
         reference_images: list[str] | None = None,
+        reference_files: list[ResponsesInputFile] | None = None,
         size: str | None = None,
         quality: str | None = None,
         background: str | None = None,
@@ -78,6 +87,7 @@ class CodexImageClient:
             main_model=main_model,
             model=model,
             input_images=reference_images or [],
+            input_files=reference_files,
             size=size,
             quality=quality,
             background=background,
@@ -89,14 +99,25 @@ class CodexImageClient:
         )
         response = self._responses_request_with_auth_retry(payload)
         if response.status < 200 or response.status >= 300:
-            raise RuntimeError(self._format_http_error(response))
-        return self.parse_sse_response(response.body, debug_sse_path=debug_sse_path)
+            body_text = response.body.decode("utf-8", errors="replace")
+            raise ResponsesRequestError(
+                self._format_http_error(response),
+                status=response.status,
+                body=body_text,
+                sensitive_values=_collect_responses_file_data_values(payload),
+            )
+        return self.parse_sse_response(
+            response.body,
+            debug_sse_path=debug_sse_path,
+            sensitive_values=_collect_responses_file_data_values(payload),
+        )
 
     def edit_image(
         self,
         *,
         prompt: str,
         images: list[str],
+        reference_files: list[ResponsesInputFile] | None = None,
         mask_image: str | None = None,
         instructions: str | None = None,
         main_model: str = DEFAULT_MAIN_MODEL,
@@ -122,6 +143,7 @@ class CodexImageClient:
             main_model=main_model,
             model=model,
             input_images=images,
+            input_files=reference_files,
             mask_image=mask_image,
             size=size,
             quality=quality,
@@ -135,8 +157,18 @@ class CodexImageClient:
         )
         response = self._responses_request_with_auth_retry(payload)
         if response.status < 200 or response.status >= 300:
-            raise RuntimeError(self._format_http_error(response))
-        return self.parse_sse_response(response.body, debug_sse_path=debug_sse_path)
+            body_text = response.body.decode("utf-8", errors="replace")
+            raise ResponsesRequestError(
+                self._format_http_error(response),
+                status=response.status,
+                body=body_text,
+                sensitive_values=_collect_responses_file_data_values(payload),
+            )
+        return self.parse_sse_response(
+            response.body,
+            debug_sse_path=debug_sse_path,
+            sensitive_values=_collect_responses_file_data_values(payload),
+        )
 
     def build_payload(
         self,
@@ -147,6 +179,7 @@ class CodexImageClient:
         main_model: str = DEFAULT_MAIN_MODEL,
         model: str = DEFAULT_IMAGE_MODEL,
         input_images: list[str] | None = None,
+        input_files: list[ResponsesInputFile] | None = None,
         mask_image: str | None = None,
         size: str | None = None,
         quality: str | None = None,
@@ -181,9 +214,11 @@ class CodexImageClient:
         if mask_image:
             tool["input_image_mask"] = {"image_url": mask_image}
 
-        content: list[dict[str, str]] = [{"type": "input_text", "text": prompt}]
+        content: list[dict[str, Any]] = [{"type": "input_text", "text": prompt}]
         for image_url in input_images or []:
             content.append({"type": "input_image", "image_url": image_url})
+        for input_file in input_files or []:
+            content.append(input_file.to_content_part())
 
         tools: list[dict[str, Any]] = [tool]
         tool_choice: Any = {"type": "image_generation"}
@@ -219,7 +254,13 @@ class CodexImageClient:
             return base
         return f"{base}\n\n{WEB_SEARCH_INSTRUCTIONS}".strip()
 
-    def parse_sse_response(self, body: bytes, *, debug_sse_path: str | PathLike[str] | None = None) -> ImageResult:
+    def parse_sse_response(
+        self,
+        body: bytes,
+        *,
+        debug_sse_path: str | PathLike[str] | None = None,
+        sensitive_values: set[str] | None = None,
+    ) -> ImageResult:
         output_items_by_index: dict[int, dict[str, Any]] = {}
         output_items_fallback: list[dict[str, Any]] = []
 
@@ -232,14 +273,30 @@ class CodexImageClient:
                 continue
             event = json.loads(payload.decode("utf-8"))
             if debug_sse_path is not None:
-                self._write_sse_debug_event(debug_sse_path, event)
+                self._write_sse_debug_event(
+                    debug_sse_path,
+                    event,
+                    sensitive_values=sensitive_values,
+                )
             event_type = event.get("type")
 
             if event_type == "error":
-                raise RuntimeError(self._format_sse_error(event))
+                raw_event_body = payload.decode("utf-8", errors="replace")
+                raise ResponsesRequestError(
+                    safe_responses_error_message(200, raw_event_body),
+                    status=200,
+                    body=raw_event_body,
+                    sensitive_values=sensitive_values,
+                )
 
             if event_type in {"response.failed", "response.incomplete"}:
-                raise RuntimeError(self._format_response_terminal_error(event))
+                raw_event_body = payload.decode("utf-8", errors="replace")
+                raise ResponsesRequestError(
+                    safe_responses_error_message(200, raw_event_body),
+                    status=200,
+                    body=raw_event_body,
+                    sensitive_values=sensitive_values,
+                )
 
             if event_type == "response.output_item.done":
                 item = event.get("item")
@@ -259,7 +316,12 @@ class CodexImageClient:
             output = response.get("output") or self._reconstruct_output(output_items_by_index, output_items_fallback)
             result = self._extract_image_call(output)
             if result is None:
-                raise RuntimeError(self._format_missing_image_call_error(output))
+                raise RuntimeError(
+                    _redact_responses_text(
+                        self._format_missing_image_call_error(output),
+                        set(sensitive_values or ()),
+                    )
+                )
             image_bytes = base64.b64decode(result["result"])
             usage: dict[str, Any] = {}
             tool_usage = response.get("tool_usage")
@@ -334,8 +396,14 @@ class CodexImageClient:
     def _format_http_error(response: HTTPResponse) -> str:
         usage_error = _usage_limit_error(response)
         if usage_error is not None:
-            return _format_codex_usage_limit_error(usage_error)
-        return f"Codex responses request failed: HTTP {response.status}: {_response_body_text(response)}"
+            redacted_usage_error = _redact_responses_value(usage_error)
+            if isinstance(redacted_usage_error, dict):
+                message = _format_codex_usage_limit_error(redacted_usage_error)
+                if len(message) > RESPONSES_ERROR_MESSAGE_LIMIT:
+                    return f"{message[: RESPONSES_ERROR_MESSAGE_LIMIT - 3]}..."
+                return message
+        body_text = response.body.decode("utf-8", errors="replace")
+        return safe_responses_error_message(response.status, body_text)
 
     def _build_headers(self) -> dict[str, str]:
         headers = {
@@ -492,24 +560,55 @@ class CodexImageClient:
         return " ".join(unique_parts)
 
     @classmethod
-    def _write_sse_debug_event(cls, path: str | PathLike[str], event: dict[str, Any]) -> None:
+    def _write_sse_debug_event(
+        cls,
+        path: str | PathLike[str],
+        event: dict[str, Any],
+        *,
+        sensitive_values: set[str] | None = None,
+    ) -> None:
         debug_path = Path(path)
         debug_path.parent.mkdir(parents=True, exist_ok=True)
+        combined_sensitive_values = set(sensitive_values or ())
+        combined_sensitive_values.update(_collect_responses_file_data_values(event))
         record = {
             "logged_at": datetime.now(UTC).isoformat(),
-            "event": cls._redact_debug_value(event),
+            "event": cls._redact_debug_value(event, sensitive_values=combined_sensitive_values),
         }
         with debug_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")))
             handle.write("\n")
 
     @classmethod
-    def _redact_debug_value(cls, value: Any, *, key: str | None = None) -> Any:
+    def _redact_debug_value(
+        cls,
+        value: Any,
+        *,
+        key: str | None = None,
+        sensitive_values: set[str] | None = None,
+    ) -> Any:
+        if sensitive_values is None:
+            sensitive_values = _collect_responses_file_data_values(value)
+        if key is not None and key.lower() == "file_data":
+            return RESPONSES_SENSITIVE_MARKER
         if isinstance(value, dict):
-            return {str(item_key): cls._redact_debug_value(item_value, key=str(item_key)) for item_key, item_value in value.items()}
+            return {
+                str(item_key): cls._redact_debug_value(
+                    item_value,
+                    key=str(item_key),
+                    sensitive_values=sensitive_values,
+                )
+                for item_key, item_value in value.items()
+            }
         if isinstance(value, list):
-            return [cls._redact_debug_value(item) for item in value]
+            return [
+                cls._redact_debug_value(item, sensitive_values=sensitive_values)
+                for item in value
+            ]
         if isinstance(value, str):
+            safely_redacted = _redact_responses_text(value, sensitive_values)
+            if safely_redacted != value:
+                return safely_redacted
             if key == "result" or key in {"partial_image_b64", "image_b64"}:
                 return f"<redacted image base64, {len(value)} chars>"
             if value.startswith("data:image/"):

@@ -56,6 +56,18 @@ class ClientTests(unittest.TestCase):
         self.addCleanup(self.tmpdir.cleanup)
         self.auth_path = Path(self.tmpdir.name) / "auth.json"
 
+    def test_openai_base_url_preserves_explicit_root_and_known_paths(self) -> None:
+        from codex_image.client_types import DEFAULT_OPENAI_API_BASE_URL, normalize_openai_base_url
+
+        self.assertEqual(normalize_openai_base_url("https://api.example.com"), "https://api.example.com")
+        self.assertEqual(normalize_openai_base_url("https://api.example.com/"), "https://api.example.com")
+        self.assertEqual(normalize_openai_base_url("https://api.example.com/v1"), "https://api.example.com/v1")
+        self.assertEqual(
+            normalize_openai_base_url("https://api.example.com/v1/responses"),
+            "https://api.example.com/v1",
+        )
+        self.assertEqual(normalize_openai_base_url(""), DEFAULT_OPENAI_API_BASE_URL)
+
     def test_urllib_transport_uses_configured_timeout(self) -> None:
         from unittest.mock import patch
 
@@ -380,7 +392,7 @@ class ClientTests(unittest.TestCase):
             ]
         )
 
-        from codex_image.client import OpenAIImagesImageClient
+        from codex_image.client import OPENAI_COMPATIBLE_USER_AGENT, OpenAIImagesImageClient
 
         client = OpenAIImagesImageClient(
             api_key="test-api-key-test-secret",
@@ -411,6 +423,7 @@ class ClientTests(unittest.TestCase):
         payload = json.loads(request["body"].decode("utf-8"))
         self.assertEqual(request["url"], "https://api.example.com/v1/images/generations")
         self.assertEqual(request["headers"]["Authorization"], "Bearer test-api-key-test-secret")
+        self.assertEqual(request["headers"]["User-Agent"], OPENAI_COMPATIBLE_USER_AGENT)
         self.assertEqual(payload["model"], "gpt-image-2")
         self.assertNotIn("main_model", payload)
         self.assertNotIn("stream", payload)
@@ -507,7 +520,7 @@ class ClientTests(unittest.TestCase):
             ]
         )
 
-        from codex_image.client import OpenAIResponsesImageClient
+        from codex_image.client import OPENAI_COMPATIBLE_USER_AGENT, OpenAIResponsesImageClient
 
         client = OpenAIResponsesImageClient(
             api_key="test-api-key-responses-secret",
@@ -536,6 +549,7 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(request["url"], "https://api.example.com/v1/responses")
         self.assertEqual(request["headers"]["Authorization"], "Bearer test-api-key-responses-secret")
         self.assertEqual(request["headers"]["Accept"], "text/event-stream")
+        self.assertEqual(request["headers"]["User-Agent"], OPENAI_COMPATIBLE_USER_AGENT)
         self.assertNotIn("Originator", request["headers"])
         self.assertNotIn("Chatgpt-Account-Id", request["headers"])
         self.assertNotIn("Session_id", request["headers"])
@@ -643,6 +657,39 @@ class ClientTests(unittest.TestCase):
         self.assertIn("First call web_search", payload["instructions"])
         self.assertIn("explicit exception to original or strict prompt-fidelity rules", payload["instructions"])
 
+    def test_openai_responses_client_surfaces_missing_image_call_error(self) -> None:
+        missing_image_event = {
+            "type": "response.completed",
+            "response": {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [{"type": "output_text", "text": "image tool did not return an image"}],
+                    }
+                ]
+            },
+        }
+        transport = FakeTransport(
+            [
+                FakeResponse(
+                    status=200,
+                    body=f"data: {json.dumps(missing_image_event)}\n\n".encode("utf-8"),
+                    headers={"Content-Type": "text/event-stream"},
+                )
+            ]
+        )
+
+        from codex_image.client import OpenAIResponsesImageClient
+
+        client = OpenAIResponsesImageClient(
+            api_key="test-api-key-responses-secret",
+            base_url="https://api.example.com/v1",
+            image_model="gpt-image-2",
+            transport=transport,
+        )
+        with self.assertRaisesRegex(RuntimeError, "OpenAI-compatible responses image generation failed: image tool did not return an image"):
+            client.generate_image(prompt="draw missing image", size="1024x1024", quality="low")
+
     def test_openai_responses_client_posts_edit_request_with_images_and_mask(self) -> None:
         image_b64 = base64.b64encode(b"responses-edited-image").decode("ascii")
         transport = FakeTransport(
@@ -676,7 +723,7 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(result.revised_prompt, "responses edit revised")
 
         payload = json.loads(transport.requests[0]["body"].decode("utf-8"))
-        self.assertEqual(transport.requests[0]["url"], "https://api.example.com/v1/responses")
+        self.assertEqual(transport.requests[0]["url"], "https://api.example.com/responses")
         self.assertEqual(payload["model"], "gpt-5.4-mini")
         self.assertEqual(payload["tools"][0]["action"], "edit")
         self.assertEqual(payload["tools"][0]["input_image_mask"], {"image_url": "data:image/png;base64,bWFzaw=="})
@@ -711,7 +758,7 @@ class ClientTests(unittest.TestCase):
         )
 
         request = transport.requests[0]
-        self.assertEqual(request["url"], "https://api.example.com/v1/images/edits")
+        self.assertEqual(request["url"], "https://api.example.com/images/edits")
         self.assertIn("multipart/form-data", request["headers"]["Content-Type"])
         self.assertNotIn("gpt-5.4-mini", request["body"].decode("utf-8", errors="replace"))
         self.assertIn('name="model"', request["body"].decode("utf-8", errors="replace"))

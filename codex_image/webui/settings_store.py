@@ -4,9 +4,12 @@ import json
 import re
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
 
-from codex_image.client import DEFAULT_IMAGE_MODEL, DEFAULT_OPENAI_API_BASE_URL
+from codex_image.client_types import (
+    DEFAULT_IMAGE_MODEL,
+    DEFAULT_OPENAI_API_BASE_URL,
+    normalize_openai_base_url,
+)
 
 from .color_settings import (
     DEFAULT_COLOR_FAVORITES,
@@ -500,20 +503,7 @@ class ApiSettings:
 
     @staticmethod
     def _normalize_base_url(value: Any) -> str:
-        raw = str(value or DEFAULT_OPENAI_API_BASE_URL).strip().rstrip("/")
-        if not raw:
-            raw = DEFAULT_OPENAI_API_BASE_URL
-        parts = urlsplit(raw)
-        if not parts.scheme or not parts.netloc:
-            raise ValueError("OpenAI-compatible base_url must be an absolute URL")
-        path = parts.path.rstrip("/")
-        for suffix in ("/responses", "/images/generations", "/images/edits"):
-            if path.endswith(suffix):
-                path = path[: -len(suffix)]
-                break
-        if not path:
-            path = "/v1"
-        return urlunsplit((parts.scheme, parts.netloc, path, "", ""))
+        return normalize_openai_base_url(value)
 
     @staticmethod
     def _normalize_image_model(value: Any) -> str:

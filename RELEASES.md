@@ -1,41 +1,57 @@
 # 下载 / Releases
 
-当前正式版本：[v0.5.7](https://github.com/kadevin/ilab-gpt-conjure/releases/tag/v0.5.7)
+当前正式版本：[v0.6.0](https://github.com/kadevin/ilab-gpt-conjure/releases/tag/v0.6.0)
 
 ## 版本说明
 
-当前版本：`v0.5.7`。这是标准 App 更新链路热修版本，补齐 macOS / Windows 标准包的版本识别、signed manifest 下载入口和 WebUI 更新弹窗文案。新用户建议下载标准包：macOS 使用 DMG，Windows 使用独立 App ZIP；老用户和调试用户仍可下载 portable zip 继续沿用同目录 `data/` 工作流。
+当前版本：`v0.6.0`。本版加入 GPT-5.6 主模型与 Responses 参考文件输入，升级历史库多图缩略图和大图浏览，并重新设计 API 供应商设置与提示词处理。新用户建议下载标准包：macOS 使用 DMG，Windows 使用独立 App ZIP；老用户和调试用户仍可下载 portable zip 继续沿用同目录 `data/` 工作流。
 
-本版重点：0.5.7 补齐标准 App 更新检查链路。macOS / Windows 标准 App 不再被 WebUI 误判成“源码运行”；检查更新会校验 signed `latest.json` 中的标准包下载信息，发现新版时直接提供对应 DMG / App ZIP 下载入口。portable 包的静默自替换更新器保持原逻辑不变。
+本版重点：0.6.0 新增 Responses 参考文件输入，加入 GPT-5.6 Sol、Terra、Luna 三个主模型，升级历史库多图任务浏览体验，并完成 API Responses 并发调度和 API 供应商设置重构。
 
 本版详情：
 
 ### 升级必读
 
-- 已安装 `0.5.6` 标准 App 的用户需要先从 Release 页面手动下载 `0.5.7` 标准包覆盖安装；升级到 `0.5.7` 后，后续“检查更新”会直接给出对应新版 DMG / App ZIP 下载入口。
+- 已安装 `0.5.7` 标准 App 的用户可以通过“检查更新”获取 `0.6.0` 标准包下载入口；仍在使用 `0.5.6` 标准 App 的用户需要从 Release 页面手动下载 `0.6.0` 覆盖安装。
 - `v0.5.4` 及更早 portable 用户首次升级到 `0.5.5` 或更新版本时，建议手动下载完整标准包或完整 portable 包；旧 updater 只保证升级 WebUI/依赖，不保证安装新的小兔子启动器、标准 `.app` / `.exe` 入口和迁移助手。
 - 新用户建议优先下载标准包。标准包把用户数据写入系统应用数据目录；portable 包继续把数据写在同级 `data/`，用于老用户过渡、调试和临时工作流。
 - 标准包检查更新会校验 signed `latest.json` 并直达新版 DMG / App ZIP 下载；未签名 `.app` 和 Windows ZIP 的静默自替换更新器延后，避免扩大文件替换风险。
 - macOS 标准 DMG 和 portable zip 都暂未签名、未 notarize，首次启动可能需要右键或 Control-click 选择 Open。
 
-### 标准 App 更新修复
+### GPT-5.6 主模型
 
-- 启动器会把标准 App 的真实资源目录传给 WebUI，`/api/app-version` 会读取包内 `app-version.txt`，运行方式显示为“标准 App”，不再回退成“源码运行”。
-- `latest.json` 新增 `standard_platforms` 和 `standard_signature`，分别声明 macOS Apple Silicon DMG、macOS Intel DMG 和 Windows x64 标准 App ZIP；旧 portable 字段和签名保持兼容。
-- 标准 App 检查更新时会校验标准包签名数据，发现新版后写入 `standard_download_url`，WebUI 版本弹窗展示“下载新版”入口，而不是不可用的 portable 更新器按钮。
-- 标准包仍不在运行中的 `.app` / `.exe` 内静默替换自身；下载完成后退出当前 App，再用新版 DMG / App ZIP 覆盖安装。
+- OpenAI 于 2026 年 7 月 9 日发布 GPT-5.6 模型系列；Responses 主模型列表新增 `gpt-5.6-sol`、`gpt-5.6-terra` 和 `gpt-5.6-luna`。
 
-### portable 过渡包与自动更新
+### Responses 参考文件输入
 
-- 继续保留三种 portable zip：Windows x64、macOS Apple Silicon、macOS Intel；portable 数据仍保存在包内同级 `data/`。
-- portable 包包含 `Start iLab GPT CONJURE.exe` / `Start iLab GPT CONJURE.app` 启动器，旧的 `Start WebUI Portable` 脚本继续保留作为终端调试入口。
-- `latest.json` 同时声明 portable 三平台 zip 和标准包下载信息；portable 自动更新使用 Ed25519 签名校验、SHA256 校验、`.backup/` 备份和更新后重启，标准 App 检查更新会直达新版 DMG / App ZIP 下载但不静默自覆盖。
-- 更新器只替换一键包目录内由程序管理的文件，保留本地 `data/`，并在执行前显示所选资产和 manifest SHA256。
+- 参考输入区支持图片与文件混合选择和拖放；Responses 主模型可以读取 PDF、Word、Excel、PowerPoint、Markdown、文本和常见代码文件后参与图像生成。
+- 支持 65 种扩展名，每种格式使用专属 SVG 图标；缩略图空间充足时显示文件名摘要，输入过多时只保留图标。
+- 历史任务可以恢复、显示并下载原始参考文件；文件任务会记录并显示真实执行供应商。
+- 文件上传包含类型、签名、大小和损坏检测，Responses 错误与调试记录会自动隐藏文件正文和 Base64 数据。
 
-### 结构维护与发布工作流
+### 历史库多图体验
 
-- 补充 manifest 生成、标准 App 版本接口、启动器更新选择、WebUI 更新弹窗和公开导出的回归测试。
-- 公开 README、SECURITY、RELEASES 和 Release workflow 文案同步说明：`latest.json` 同时服务 portable 自动更新和标准 App 安装包下载。
+- 多图任务使用一张真实封面加最多三层 D2 石墨灰实体底卡，无需加载额外底部缩略图即可表达相册层次。
+- 双击多图任务进入非循环三槽轮播：相邻图片贴近屏幕边缘露出一部分，点击边缘图后与中央大图完成放大、缩小和位置交换。
+- 大图模式下 `←/→` 切换同任务图片，`↑/↓` 切换上一条或下一条可预览任务，并自动跳过失败或无图任务。
+- 历史库排序、筛选、三栏拖拽、任务标题、提示词排版和详情操作布局同步优化。
+
+### API 设置与提示词处理
+
+- API 设置区分供应商选择、只读详情和独立编辑状态；供应商超过 10 个时提供搜索并自动定位当前卡片。
+- Base URL 按用户输入保存，不再隐式补 `/v1`；模型和并发移入默认收起的高级设置，最终请求地址独立展示。
+- 旧版“提示词模式”的“原始 / 保真 / 创意”修正为“提示词处理”的“原文 / 保真 / 自动”，并分别说明 Images 直连与 Responses 主模型参与时的真实处理差异。
+
+### 并发与任务状态修复
+
+- API Responses 支持单任务多图并发；同一供应商的多个任务共享输出槽，不同供应商使用独立并发池。
+- 修复任务尚未取得并发槽就提前显示运行、供应商满载阻塞其他供应商任务、重试等待时间被计入最终耗时等问题。
+- 运行中任务卡新增实时耗时显示。
+
+### portable 与标准 App
+
+- 继续提供 Windows x64、macOS Apple Silicon、macOS Intel 三种 portable zip，以及 macOS 双架构 DMG 和 Windows 标准 App ZIP。
+- `latest.json` 同时服务 portable 自动更新和标准 App 下载；portable 使用 Ed25519 与 SHA256 校验并保留本地 `data/`，标准 App 仍不在运行中静默替换自身。
 
 ### 发布工作流
 
@@ -46,9 +62,9 @@
 
 | 平台 | 推荐给 | 下载 | SHA256 |
 | --- | --- | --- | --- |
-| macOS Apple Silicon | 新用户，M1/M2/M3/M4 | [iLab-GPT-CONJURE-macos-arm64-0.5.7.dmg](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.5.7/iLab-GPT-CONJURE-macos-arm64-0.5.7.dmg) | [sha256](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.5.7/iLab-GPT-CONJURE-macos-arm64-0.5.7.dmg.sha256.txt) |
-| macOS Intel | 新用户，Intel x64 | [iLab-GPT-CONJURE-macos-x64-0.5.7.dmg](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.5.7/iLab-GPT-CONJURE-macos-x64-0.5.7.dmg) | [sha256](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.5.7/iLab-GPT-CONJURE-macos-x64-0.5.7.dmg.sha256.txt) |
-| Windows x64 | 新用户，Windows 10/11 x64 | [iLab-GPT-CONJURE-windows-x64_0.5.7.zip](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.5.7/iLab-GPT-CONJURE-windows-x64_0.5.7.zip) | [sha256](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.5.7/iLab-GPT-CONJURE-windows-x64_0.5.7.zip.sha256.txt) |
+| macOS Apple Silicon | 新用户，M1/M2/M3/M4 | [iLab-GPT-CONJURE-macos-arm64-0.6.0.dmg](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.6.0/iLab-GPT-CONJURE-macos-arm64-0.6.0.dmg) | [sha256](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.6.0/iLab-GPT-CONJURE-macos-arm64-0.6.0.dmg.sha256.txt) |
+| macOS Intel | 新用户，Intel x64 | [iLab-GPT-CONJURE-macos-x64-0.6.0.dmg](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.6.0/iLab-GPT-CONJURE-macos-x64-0.6.0.dmg) | [sha256](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.6.0/iLab-GPT-CONJURE-macos-x64-0.6.0.dmg.sha256.txt) |
+| Windows x64 | 新用户，Windows 10/11 x64 | [iLab-GPT-CONJURE-windows-x64_0.6.0.zip](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.6.0/iLab-GPT-CONJURE-windows-x64_0.6.0.zip) | [sha256](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.6.0/iLab-GPT-CONJURE-windows-x64_0.6.0.zip.sha256.txt) |
 
 标准包数据目录：
 
@@ -61,13 +77,13 @@
 
 | 平台 | 适用设备 | 下载 | SHA256 |
 | --- | --- | --- | --- |
-| Windows x64 | Windows 10/11 x64 | [ilab-gpt-conjure_windows_portable_x64_0.5.7.zip](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.5.7/ilab-gpt-conjure_windows_portable_x64_0.5.7.zip) | [sha256](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.5.7/ilab-gpt-conjure_windows_portable_x64_0.5.7.zip.sha256.txt) |
-| macOS Apple Silicon | M1/M2/M3/M4 | [ilab-gpt-conjure_macos_portable_arm64_0.5.7.zip](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.5.7/ilab-gpt-conjure_macos_portable_arm64_0.5.7.zip) | [sha256](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.5.7/ilab-gpt-conjure_macos_portable_arm64_0.5.7.zip.sha256.txt) |
-| macOS Intel | Intel x64 | [ilab-gpt-conjure_macos_portable_x64_0.5.7.zip](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.5.7/ilab-gpt-conjure_macos_portable_x64_0.5.7.zip) | [sha256](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.5.7/ilab-gpt-conjure_macos_portable_x64_0.5.7.zip.sha256.txt) |
+| Windows x64 | Windows 10/11 x64 | [ilab-gpt-conjure_windows_portable_x64_0.6.0.zip](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.6.0/ilab-gpt-conjure_windows_portable_x64_0.6.0.zip) | [sha256](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.6.0/ilab-gpt-conjure_windows_portable_x64_0.6.0.zip.sha256.txt) |
+| macOS Apple Silicon | M1/M2/M3/M4 | [ilab-gpt-conjure_macos_portable_arm64_0.6.0.zip](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.6.0/ilab-gpt-conjure_macos_portable_arm64_0.6.0.zip) | [sha256](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.6.0/ilab-gpt-conjure_macos_portable_arm64_0.6.0.zip.sha256.txt) |
+| macOS Intel | Intel x64 | [ilab-gpt-conjure_macos_portable_x64_0.6.0.zip](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.6.0/ilab-gpt-conjure_macos_portable_x64_0.6.0.zip) | [sha256](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.6.0/ilab-gpt-conjure_macos_portable_x64_0.6.0.zip.sha256.txt) |
 
 portable 自动更新 manifest：
 
-- [latest.json](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.5.7/latest.json)
+- [latest.json](https://github.com/kadevin/ilab-gpt-conjure/releases/download/v0.6.0/latest.json)
 
 使用方式：
 

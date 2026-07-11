@@ -140,6 +140,10 @@ function updateTaskElapsedCard(card: HTMLElement, task: any): void {
 
   const retryElement = card.querySelector("[data-task-retry-id]");
   if (retryElement) setTextIfChanged(retryElement, taskRetryStateText(task));
+
+  card.querySelectorAll("[data-preview-elapsed]").forEach((element: any) => {
+    updateElapsedTimerElement(element, elapsedMillisecondsSince(element.dataset.previewStart));
+  });
 }
 
 export function updateTaskElapsedDisplays(): void {

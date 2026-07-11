@@ -5,6 +5,7 @@ from typing import Any, Literal, TypedDict
 from .task_enrichment import (
     _dedupe_preserve_order,
     _enrich_gallery_refs,
+    _enrich_reference_files,
     _enrich_reference_assets,
     _gallery_category_response,
     _gallery_item_response,
@@ -87,6 +88,8 @@ class TaskMetadata(TypedDict, total=False):
     input_thumbnail_urls: list[str]
     gallery_refs: list[dict[str, Any]]
     reference_assets: list[dict[str, Any]]
+    reference_files: list[dict[str, Any]]
+    reference_file_count: int
     input_sources: list[dict[str, Any]]
     generated_count: int
     failed_count: int

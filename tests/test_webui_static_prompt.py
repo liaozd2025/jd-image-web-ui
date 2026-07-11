@@ -59,13 +59,13 @@ class WebUIStaticPromptTests(WebUIStaticTestCase):
         self.assertIn('id="promptFidelity"', html)
         self.assertRegex(
             html,
-            r'data-val="original" type="button"[^>]*>原始模式</button>\s*<button class="radio-btn active" data-val="strict" type="button"[^>]*>保真模式</button>',
+            r'data-val="original" type="button"[^>]*>原文</button>\s*<button class="radio-btn active" data-val="strict" type="button"[^>]*>保真</button>',
         )
         self.assertIn('value="strict" selected', html)
         self.assertIn('value="original"', html)
         self.assertIn('data-val="original"', html)
-        self.assertRegex(html, r'data-val="off" type="button"[^>]*>创意模式</button>')
-        self.assertRegex(html, r'<option value="off"[^>]*>创意模式</option>')
+        self.assertRegex(html, r'data-val="off" type="button"[^>]*>自动</button>')
+        self.assertRegex(html, r'<option value="off"[^>]*>自动</option>')
         self.assertNotIn('<option value="off">关闭</option>', html)
         self.assertIn("promptFidelity: document.querySelector", script)
         self.assertIn("function currentPromptFidelity()", script)
@@ -73,6 +73,51 @@ class WebUIStaticPromptTests(WebUIStaticTestCase):
         self.assertIn('currentPromptFidelity() === "original" ? expandPromptSnippets(getPromptText()) : buildPromptForModel()', script)
         self.assertIn("prompt_fidelity: currentPromptFidelity()", script)
         self.assertIn('form.append("prompt_fidelity", currentPromptFidelity())', script)
+
+    def test_prompt_fidelity_help_explains_each_transport_without_adding_a_layout_row(self) -> None:
+        html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
+        source = Path("codex_image/webui/frontend/src/prompt-fidelity-help.ts").read_text(encoding="utf-8")
+        main_source = Path("codex_image/webui/frontend/src/main.ts").read_text(encoding="utf-8")
+        styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('data-i18n="output.promptMode">提示词处理</span>', html)
+        self.assertIn('id="promptFidelityHelpButton"', html)
+        self.assertIn('aria-controls="promptFidelityHelpPopover"', html)
+        self.assertIn('aria-describedby="promptFidelityHelpPopover"', html)
+        self.assertIn('import { initPromptFidelityHelpFeature } from "./prompt-fidelity-help"', main_source)
+        self.assertIn("initPromptFidelityHelpFeature();", main_source)
+        self.assertIn('return currentApiMode() === "responses" ? "responses" : "images";', source)
+        self.assertIn('return currentCodexMode() === "responses" ? "responses" : "images";', source)
+        self.assertIn('return `output.promptHelp.${transport}.${modeKey}`;', source)
+        dictionaries = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in sorted(Path("codex_image/webui/frontend/src/i18n").glob("*.ts"))
+            if path.name not in {"dictionaries.ts", "types.ts"}
+        )
+        for key in [
+            "output.promptHelp.responses.original",
+            "output.promptHelp.responses.strict",
+            "output.promptHelp.responses.automatic",
+            "output.promptHelp.images.original",
+            "output.promptHelp.images.strict",
+            "output.promptHelp.images.automatic",
+        ]:
+            self.assertIn(key, dictionaries)
+        self.assertIn('trigger.addEventListener("pointerenter"', source)
+        self.assertIn('trigger.addEventListener("focus"', source)
+        self.assertIn('trigger.addEventListener("click"', source)
+        self.assertIn('event.key !== "Escape"', source)
+        self.assertRegex(styles, r"\.prompt-fidelity-help-popover\s*\{[^}]*position:\s*fixed")
+        self.assertRegex(styles, r"\.prompt-fidelity-help-popover\s*\{[^}]*z-index:\s*1400")
+        self.assertRegex(styles, r"\.prompt-fidelity-help-button\s*\{[^}]*border-radius:\s*50%")
+        self.assertRegex(styles, r"\.prompt-fidelity-help-button\s*\{[^}]*box-shadow:\s*none")
+        self.assertRegex(
+            styles,
+            r"\.prompt-fidelity-help-button:hover,\s*\.prompt-fidelity-help-button:focus-visible,\s*"
+            r"\.prompt-fidelity-help-button\[aria-expanded=\"true\"\]\s*\{[^}]*"
+            r"background:\s*transparent[^}]*box-shadow:\s*none",
+        )
+        self.assertNotIn("prompt-fidelity-help-panel", html)
     def test_prompt_chip_logic_has_typescript_source_contract(self) -> None:
         prompt_source = self._prompt_source()
         core_source = "\n".join(
@@ -1164,14 +1209,19 @@ console.log(cases.map((color) => readableTextColor(color)).join("\\n"));
         self.assertIn('id="mainModelToggle"', html)
         self.assertIn('id="mainModelOptions"', html)
         self.assertIn('role="listbox"', html)
-        self.assertIn('/static/app.js?v=runtime-433', html)
-        self.assertIn('/static/styles.css?v=runtime-433', html)
+        self.assertIn('/static/app.js?v=runtime-491', html)
+        self.assertIn('/static/styles.css?v=runtime-491', html)
         self.assertIn("mainModel: document.querySelector", script)
         self.assertIn("mainModelCombobox: document.querySelector", script)
         self.assertIn("mainModelToggle: document.querySelector", script)
         self.assertIn("mainModelOptions: document.querySelector", script)
         self.assertIn("mainModelShowAllOptions: false", script)
-        self.assertIn('const MAIN_MODEL_OPTIONS = ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex", "gpt-5.2"];', script)
+        self.assertIn('"gpt-5.6-sol",', script)
+        self.assertIn('"gpt-5.6-terra",', script)
+        self.assertIn('"gpt-5.6-luna",', script)
+        self.assertLess(script.index('"gpt-5.6-sol"'), script.index('"gpt-5.6-terra"'))
+        self.assertLess(script.index('"gpt-5.6-terra"'), script.index('"gpt-5.6-luna"'))
+        self.assertLess(script.index('"gpt-5.6-luna"'), script.index('"gpt-5.5"'))
         self.assertIn('const RETIRED_MAIN_MODEL_OPTIONS = new Set(["gpt-5.3-codex-spark"]);', script)
         self.assertIn("function mainModelOptionsForQuery", script)
         self.assertIn("function openMainModelCombobox", script)
@@ -1200,11 +1250,16 @@ console.log(cases.map((color) => readableTextColor(color)).join("\\n"));
         script = Path("codex_image/webui/frontend/src/main-model-combobox.ts").read_text(encoding="utf-8")
         harness = "\n".join(
             [
-                'const MAIN_MODEL_OPTIONS = ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex", "gpt-5.2"];',
+                'const MAIN_MODEL_OPTIONS = ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex", "gpt-5.2"];',
                 self._extract_javascript_function(script, "mainModelOptionsForQuery"),
                 """
                 const codexMatches = mainModelOptionsForQuery("codex");
+                const gpt56Matches = mainModelOptionsForQuery("gpt-5.6");
                 const customMatches = mainModelOptionsForQuery("future-model-x");
+                const expectedGpt56 = ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"];
+                if (JSON.stringify(gpt56Matches) !== JSON.stringify(expectedGpt56)) {
+                  throw new Error(`expected GPT-5.6 model family, got ${gpt56Matches.join(",")}`);
+                }
                 if (!codexMatches.includes("gpt-5.3-codex")) {
                   throw new Error(`expected codex model matches, got ${codexMatches.join(",")}`);
                 }
@@ -1261,6 +1316,7 @@ console.log(cases.map((color) => readableTextColor(color)).join("\\n"));
     def test_api_direct_mode_hides_non_applicable_main_model_but_keeps_prompt_fidelity(self) -> None:
         html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
         script = self._frontend_script_source()
+        auth_source = Path("codex_image/webui/frontend/src/auth-source.ts").read_text(encoding="utf-8")
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
         self.assertIn('id="mainModelField"', html)
@@ -1276,7 +1332,7 @@ console.log(cases.map((color) => readableTextColor(color)).join("\\n"));
             html,
             r'id="modeSpecificSettings"[\s\S]*id="mainModelField"[\s\S]*id="apiDirectSettingsNotice"[\s\S]*id="promptFidelityField"',
         )
-        self.assertIn("使用 API 图像工具模型", html)
+        self.assertIn("使用 API 图像生成模型", html)
         self.assertIn("API 设置", html)
         self.assertIn("不参与本次请求", html)
         self.assertNotIn("原始/保真/创意可用，保真规则随 prompt 发送", html)
@@ -1300,15 +1356,15 @@ console.log(cases.map((color) => readableTextColor(color)).join("\\n"));
         self.assertNotIn("slot.style.height = `${targetHeight}px`;", script)
         self.assertNotIn("modeTransitionTimers", script)
         self.assertRegex(
-            script,
-            r"async function setAuthSource\(source[^)]*\)[^{]*\{[\s\S]*state\.pendingAuthSource = source;[\s\S]*applyAuthSourceSelection\(source\);[\s\S]*const response = await fetch",
+            auth_source,
+            r"async function applyAuthSource\(source[^)]*\)[^{]*\{[\s\S]*state\.pendingAuthSource = source;[\s\S]*applyAuthSourceSelection\(source\);[\s\S]*const response = await fetch",
         )
         self.assertRegex(
             script,
             r"function applyModeSettingsVisibility\(isDirectApi[^)]*\)[\s\S]*setModeSpecificElementVisibility\(els\.mainModelField,\s*!isDirectApi\);[\s\S]*setModeSpecificElementVisibility\(els\.apiDirectSettingsNotice,\s*isDirectApi\);[\s\S]*setModeSpecificElementVisibility\(els\.promptFidelityField,\s*true\);",
         )
-        self.assertIn("state.pendingAuthSource = null;", script)
-        self.assertIn("renderAuthSource(state.authStatus);", script)
+        self.assertIn("state.pendingAuthSource = null;", auth_source)
+        self.assertIn("renderAuthSource(state.authStatus);", auth_source)
         self.assertNotIn('element.classList.toggle("hidden", isDirectApi)', script)
         self.assertNotIn('els.apiDirectSettingsNotice?.classList.toggle("hidden", !isDirectApi)', script)
         self.assertNotIn('if (isDirectApiMode()) return "off";', script)

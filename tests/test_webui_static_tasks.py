@@ -45,7 +45,7 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertIn('id="historyMonthList"', history_html)
         self.assertIn('id="historyTaskList"', history_html)
         self.assertIn('id="historyDetail"', history_html)
-        self.assertIn('/static/history.js?v=history-42', history_html)
+        self.assertIn('/static/history.js?v=history-67', history_html)
         self.assertIn('fetch("/api/task-history/summary")', history_source)
         self.assertIn('new URLSearchParams', history_source)
         self.assertIn('/api/task-history/tasks?', history_source)
@@ -697,6 +697,7 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertRegex(styles, r"\.task-card:hover\s+\.task-thumb-output\s*,[\s\S]*\.archive-card:hover\s+\.task-thumb-output\s*\{[^}]*opacity:\s*0\.24")
     def test_history_cards_show_status_labels_and_image_blocks(self) -> None:
         script = self._frontend_script_source()
+        render_source = self._task_list_render_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
         self.assertIn("taskStatusLabelHtml(task)", script)
@@ -720,6 +721,13 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertIn("task-image-progress", script)
         self.assertIn('class="task-image-summary"', script)
         self.assertIn('class="task-card-time"', script)
+        self.assertIn("function taskCardRunningTimerHtml(task: any, taskId: string)", render_source)
+        self.assertIn("const startedAt = taskProgressStartValue(task);", render_source)
+        self.assertIn('const elapsed = elapsedTimerSpan("task-card-running", startedAt);', render_source)
+        self.assertIn('taskCardElapsedLineHtml("preview.elapsedLine"', render_source)
+        self.assertIn('class="task-card-time task-card-running-timer"', render_source)
+        self.assertIn("const runningTimerHtml = taskCardRunningTimerHtml(task, taskId);", render_source)
+        self.assertIn("const detailRightHtml = runningTimerHtml || retryHtml || timeHtml;", render_source)
         self.assertIn('const imageSummaryHtml = imageSummary ? `<span class="task-image-summary">${imageSummary}</span>` : "";', script)
         self.assertIn('${imageBlocks}\n            <span class="task-status-row task-status-inline"', script)
 
@@ -749,6 +757,9 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertRegex(styles, r"\.task-retry-state\s*\{[^}]*text-align:\s*right")
         self.assertRegex(styles, r"\.task-card-time\s*\{[^}]*justify-self:\s*end")
         self.assertRegex(styles, r"\.task-card-time\s*\{[^}]*text-align:\s*right")
+        self.assertRegex(styles, r"\.task-card-running-timer\s*\{[^}]*font-variant-numeric:\s*tabular-nums")
+        self.assertRegex(styles, r"\.task-card-running-timer\s+\.elapsed-timer\s*\{[^}]*font-size:\s*10\.5px")
+        self.assertRegex(styles, r"\.task-card-running-timer\s+\.elapsed-main\s*\{[^}]*min-width:\s*4\.4ch")
         self.assertRegex(styles, r"\.task-list\s*\{[^}]*gap:\s*4px")
         self.assertRegex(styles, r"\.task-group-items\s*\{[^}]*gap:\s*4px")
         self.assertRegex(styles, r"\.task-group-active \.task-group-items-expanded\s*\{[^}]*gap:\s*4px")
@@ -1758,6 +1769,44 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertRegex(styles, r"\.task-meta-row\s*\{[^}]*color:\s*var\(--muted\)")
         self.assertRegex(styles, r"\.task-runtime\s*\{[^}]*white-space:\s*nowrap")
 
+    def test_retry_terminal_runtime_excludes_idle_gap_between_attempts(self) -> None:
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("node is required for frontend behavior checks")
+        script = self._frontend_script_source()
+        harness = "\n".join(
+            [
+                self._extract_javascript_function(script, "timestampMs"),
+                self._extract_javascript_function(script, "taskDurationStartMs"),
+                self._extract_javascript_function(script, "taskDurationSeconds"),
+                """
+                const retriedTask = {
+                  status: "partial_failed",
+                  created_at: "2026-07-08T11:02:47.343806+00:00",
+                  started_at: "2026-07-08T11:02:47.759477+00:00",
+                  attempt_started_at: "2026-07-08T11:55:34.567647+00:00",
+                  updated_at: "2026-07-08T11:57:08.660614+00:00",
+                };
+                const seconds = taskDurationSeconds(retriedTask);
+                if (seconds !== 94) {
+                  throw new Error(`retry terminal runtime should use the latest attempt window, got ${seconds}`);
+                }
+                const firstAttemptTask = {
+                  status: "completed",
+                  created_at: "2026-07-08T11:02:47.343806+00:00",
+                  started_at: "2026-07-08T11:02:47.759477+00:00",
+                  updated_at: "2026-07-08T11:10:14.179582+00:00",
+                };
+                const firstAttemptSeconds = taskDurationSeconds(firstAttemptTask);
+                if (firstAttemptSeconds !== 446) {
+                  throw new Error(`non-retry terminal runtime should keep started_at, got ${firstAttemptSeconds}`);
+                }
+                """,
+            ]
+        )
+        result = subprocess.run([node, "-e", harness], check=False, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_task_cards_have_scoped_context_menu_actions(self) -> None:
         script = self._frontend_script_source()
         context_source = Path("codex_image/webui/frontend/src/task-context-menu.ts").read_text(encoding="utf-8")
@@ -2022,6 +2071,12 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertIn("打包下载", html)
         self.assertIn("只下载精选", html)
         self.assertIn("删除未精选", html)
+        self.assertLess(html.index('id="previewSelectionCount"'), html.index('id="deleteUnselectedOutputsButton"'))
+        self.assertLess(html.index('id="deleteUnselectedOutputsButton"'), html.index('id="downloadSelectedButton"'))
+        self.assertLess(html.index('id="downloadSelectedButton"'), html.index('id="downloadAllButton"'))
+        self.assertIn('class="preview-delete-icon"', html)
+        self.assertIn('data-i18n-attr="aria-label:preview.deleteUnselected;title:preview.deleteUnselected"', html)
+        self.assertNotIn('id="deleteUnselectedOutputsButton" class="ghost-button text-sm danger-action hidden" type="button" data-i18n="preview.deleteUnselected"', html)
         self.assertIn("taskOutputUrls", script)
         self.assertIn("taskSelectedOutputIndexes", script)
         self.assertIn("taskOutputSelected", script)
@@ -2050,9 +2105,14 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertIn("下载该图片", script)
         self.assertNotIn("新标签页打开", script)
         self.assertRegex(styles, r"\.preview-heading-actions\s*\{[^}]*display:\s*flex")
-        self.assertRegex(styles, r"\.preview-heading-actions\s*>\s*\.ghost-button\s*\{[^}]*height:\s*32px")
-        self.assertRegex(styles, r"\.preview-heading-actions\s*>\s*\.ghost-button\s*\{[^}]*font-size:\s*13px")
-        self.assertRegex(styles, r"\.preview-heading-actions\s*>\s*\.ghost-button\s*\{[^}]*text-decoration:\s*none")
+        self.assertRegex(styles, r"\.preview-heading-actions\s+\.ghost-button\s*\{[^}]*height:\s*34px")
+        self.assertRegex(styles, r"\.preview-heading-actions\s+\.ghost-button\s*\{[^}]*min-width:\s*112px")
+        self.assertRegex(styles, r"\.preview-heading-actions\s+\.ghost-button\s*\{[^}]*border-radius:\s*8px")
+        self.assertRegex(styles, r"\.preview-heading-actions\s+\.ghost-button\s*\{[^}]*font-size:\s*13px")
+        self.assertRegex(styles, r"\.preview-heading-actions\s+\.ghost-button\s*\{[^}]*text-decoration:\s*none")
+        self.assertRegex(styles, r"\.preview-heading-actions\s+\.danger-action\s*\{[^}]*border-color:\s*color-mix\(in srgb,\s*var\(--danger\)")
+        self.assertRegex(styles, r"\.preview-delete-icon\s*\{[^}]*width:\s*14px")
+        self.assertRegex(styles, r"\.preview-delete-icon\s*\{[^}]*stroke-width:\s*2")
         self.assertRegex(styles, r"\.preview-selection-actions\s*\{[^}]*display:\s*flex")
         self.assertRegex(styles, r"\.preview-select-button\s*\{[^}]*position:\s*absolute")
         self.assertRegex(styles, r"\.preview-select-button\[hidden\]\s*,\s*\.preview-card:not\(\.can-select-output\)\s+\.preview-select-button\s*,\s*\.preview-grid:not\(\.multi-output\)\s+\.preview-select-button\s*\{[^}]*display:\s*none")
@@ -2275,6 +2335,8 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertIn('statusRow.setAttribute("aria-label", accessibleLabel)', runtime_feedback_source)
         self.assertIn("if (metaElement) setTextIfChanged(metaElement, taskMetaDetailsText(task));", runtime_feedback_source)
         self.assertIn("if (runtimeElement) setTextIfChanged(runtimeElement, taskCardRuntimeText(task));", runtime_feedback_source)
+        self.assertIn('card.querySelectorAll("[data-preview-elapsed]").forEach((element: any) => {', runtime_feedback_source)
+        self.assertIn("updateElapsedTimerElement(element, elapsedMillisecondsSince(element.dataset.previewStart));", runtime_feedback_source)
         self.assertIn("function taskNeedsElapsedTick(", runtime_feedback_source)
         self.assertIn("if (!activeTasks.length) return;", runtime_feedback_source)
         self.assertIn("function setTextIfChanged(", runtime_feedback_source)

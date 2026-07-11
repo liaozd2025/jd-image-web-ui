@@ -51,6 +51,8 @@ def _api_client_from_settings(settings: dict[str, Any], *, api_mode: str | None 
     client_class = OpenAIResponsesImageClient if mode == "responses" else OpenAIImagesImageClient
     if mode == "images":
         _executor.OpenAIImagesImageClient = OpenAIImagesImageClient
+    else:
+        _executor.OpenAIResponsesImageClient = OpenAIResponsesImageClient
     return client_class(
         api_key=str(settings["api_key"]),
         base_url=str(settings["base_url"]),
@@ -172,10 +174,7 @@ def _apply_retry_api_provider(
         params["api_provider_name"] = provider_name
     else:
         params.pop("api_provider_name", None)
-    if api_mode == "images":
-        params["api_images_concurrency"] = _request_api_images_concurrency("api", api_settings, provider_id)
-    else:
-        params.pop("api_images_concurrency", None)
+    params["api_images_concurrency"] = _request_api_images_concurrency("api", api_settings, provider_id)
     metadata["params"] = params
     metadata["requested_backend"] = _backend_for_submit("api", api_mode)
     metadata["api_provider_id"] = provider_id
@@ -183,6 +182,44 @@ def _apply_retry_api_provider(
         metadata["api_provider_name"] = provider_name
     else:
         metadata.pop("api_provider_name", None)
+    _apply_api_images_concurrency_metadata(metadata, params)
+    _update_stored_request_api_provider(storage, task_id, params)
+
+
+def _apply_api_execution_snapshot(
+    storage: TaskStorage,
+    task_id: str,
+    metadata: dict[str, Any],
+    api_settings: ApiSettings,
+    api_provider_id: str | None = None,
+) -> None:
+    settings = api_settings.read()
+    existing_params = metadata.get("params") if isinstance(metadata.get("params"), dict) else {}
+    provider = api_settings.provider_settings(
+        api_provider_id
+        or str(existing_params.get("api_provider_id") or "")
+        or str(settings.get("active_provider_id") or "")
+    )
+    provider_id = str(provider["id"])
+    provider_name = str(existing_params.get("api_provider_name") or provider.get("name") or "")
+    api_mode = _normalize_api_mode(existing_params.get("api_mode") or provider.get("api_mode"))
+    params = dict(existing_params)
+    params["api_provider_id"] = provider_id
+    params["api_mode"] = api_mode
+    params["api_images_concurrency"] = _normalize_api_images_concurrency(
+        existing_params.get("api_images_concurrency") or provider.get("images_concurrency")
+    )
+    if provider_name:
+        params["api_provider_name"] = provider_name
+    else:
+        params.pop("api_provider_name", None)
+    metadata["params"] = params
+    metadata["api_provider_id"] = provider_id
+    if provider_name:
+        metadata["api_provider_name"] = provider_name
+    else:
+        metadata.pop("api_provider_name", None)
+    metadata["backend"] = _backend_for_api_mode(api_mode)
     _apply_api_images_concurrency_metadata(metadata, params)
     _update_stored_request_api_provider(storage, task_id, params)
 
@@ -201,7 +238,7 @@ def _update_stored_request_api_provider(storage: TaskStorage, task_id: str, para
         request_payload["webui_api_provider_name"] = params.get("api_provider_name")
     else:
         request_payload.pop("webui_api_provider_name", None)
-    if api_mode == "images" and params.get("api_images_concurrency") is not None:
+    if params.get("api_images_concurrency") is not None:
         request_payload["webui_api_images_concurrency"] = _normalize_api_images_concurrency(params.get("api_images_concurrency"))
     else:
         request_payload.pop("webui_api_images_concurrency", None)
@@ -224,7 +261,8 @@ def _api_queue_channel_count(api_settings: ApiSettings | None = None) -> int:
     if api_settings is None:
         return DEFAULT_API_IMAGES_CONCURRENCY
     settings = api_settings.read()
-    return _normalize_api_images_concurrency(settings.get("images_concurrency"))
+    provider = api_settings.provider_settings(str(settings.get("active_provider_id") or ""))
+    return _normalize_api_images_concurrency(provider.get("images_concurrency"))
 
 
 def _queue_channels_for_source(source: str, *, api_settings: ApiSettings | None = None) -> list[QueueChannel]:

@@ -43,7 +43,7 @@ export async function refreshHealth(): Promise<void> {
   }
 }
 
-export async function setAuthSource(source: any): Promise<void> {
+async function applyAuthSource(source: any): Promise<boolean> {
   state.pendingAuthSource = source;
   applyAuthSourceSelection(source);
   updateRequestPreview();
@@ -65,19 +65,26 @@ export async function setAuthSource(source: any): Promise<void> {
     els.runButton.disabled = !state.authAvailable;
     setStatus(authSourceDetailText(data), state.authAvailable ? "ok" : "error");
     updateRequestPreview();
+    return true;
   } catch (error: any) {
     state.pendingAuthSource = null;
     renderAuthSource(state.authStatus);
     updateRequestPreview();
     setStatus(error.message || translate("auth.switchFailed"), "error");
+    return false;
   }
+}
+
+export async function setAuthSource(source: any, _anchor?: HTMLElement | null): Promise<boolean> {
+  const normalized = source === "api" ? "api" : "codex";
+  return await applyAuthSource(normalized);
 }
 
 export function handleAuthSourceClick(event: any): void {
   const button = event.target.closest?.("[data-auth-source]");
   if (!button) return;
   const source = button.dataset.authSource;
-  setAuthSource(source);
+  void setAuthSource(source, button);
 }
 
 export function renderAuthSource(auth: any): void {

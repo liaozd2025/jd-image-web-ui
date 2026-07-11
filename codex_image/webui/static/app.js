@@ -70,6 +70,7 @@
     els43.apiProvider?.addEventListener("change", () => {
       call(methods, "selectApiProvider", els43.apiProvider?.value || call(methods, "currentApiProviderId"));
     });
+    els43.apiProviderSearch?.addEventListener("input", () => call(methods, "renderApiProviderList"));
     els43.apiProviderList?.addEventListener("click", (event) => {
       const sortButton = event.target?.closest?.("[data-api-provider-sort]");
       if (sortButton) {
@@ -97,6 +98,8 @@
     });
     els43.apiKeyRevealButton?.addEventListener("keyup", () => call(methods, "hideApiKeyReveal"));
     els43.apiKey?.addEventListener("input", () => call(methods, "updateApiKeyRevealButton"));
+    els43.apiBaseUrl?.addEventListener("input", () => call(methods, "updateApiRequestEndpointPreview"));
+    els43.apiMode?.addEventListener("change", () => call(methods, "updateApiRequestEndpointPreview"));
     [els43.codexMode].filter(Boolean).forEach((element2) => {
       element2?.addEventListener("input", () => {
         call(methods, "readApiSettingsForm");
@@ -128,6 +131,7 @@
     call2(methods, "restoreSidebarWidth");
     call2(methods, "restoreMainModel");
     call2(methods, "restoreApiSettings");
+    call2(methods, "syncReferenceFileAvailability");
     call2(methods, "refreshColorPalette");
     call2(methods, "refreshPromptSnippets");
     call2(methods, "refreshPromptTemplates");
@@ -256,6 +260,7 @@
       apiProvider: document.querySelector("#apiProvider"),
       apiProviderSection: document.querySelector("#apiProviderSection"),
       apiProviderCount: document.querySelector("#apiProviderCount"),
+      apiProviderSearch: document.querySelector("#apiProviderSearch"),
       apiProviderList: document.querySelector("#apiProviderList"),
       apiProviderDetail: document.querySelector("#apiProviderDetail"),
       apiProviderDetailBaseUrl: document.querySelector("#apiProviderDetailBaseUrl"),
@@ -273,6 +278,7 @@
       cancelApiProviderEditButton: document.querySelector("#cancelApiProviderEditButton"),
       saveApiProviderEditButton: document.querySelector("#saveApiProviderEditButton"),
       apiBaseUrl: document.querySelector("#apiBaseUrl"),
+      apiRequestEndpointPreview: document.querySelector("#apiRequestEndpointPreview"),
       apiKey: document.querySelector("#apiKey"),
       apiKeyRevealButton: document.querySelector("#apiKeyRevealButton"),
       apiMode: document.querySelector("#apiMode"),
@@ -280,6 +286,7 @@
       apiImagesConcurrency: document.querySelector("#apiImagesConcurrency"),
       newTaskButton: document.querySelector("#newTaskButton"),
       imageInput: document.querySelector("#imageInput"),
+      referenceFileSelection: document.querySelector("#referenceFileSelection"),
       imageEditorModal: document.querySelector("#imageEditorModal"),
       imageEditorClose: document.querySelector("#imageEditorClose"),
       imageEditorSubtitle: document.querySelector("#imageEditorSubtitle"),
@@ -312,6 +319,7 @@
       referenceCollector: document.querySelector("#referenceCollector"),
       imageStrip: document.querySelector("#imageStrip"),
       imageThumbList: document.querySelector("#imageThumbList"),
+      imageThumbItems: document.querySelector("#imageThumbItems"),
       imageUploaderGrid: document.querySelector(".image-uploader-grid"),
       imageUploadSource: document.querySelector("#imageUploadSource"),
       quickGalleryDock: document.querySelector("#quickGalleryDock"),
@@ -594,9 +602,13 @@
     "history.search": "Search",
     "history.searchPlaceholder": "Search prompts or task ID",
     "history.clear": "Clear",
+    "history.type": "Type",
+    "history.allTypes": "All types",
+    "history.type.textToImage": "Text to image",
+    "history.type.imageToImage": "Image to image",
     "history.month": "Month",
     "history.status": "Status",
-    "history.promptMode": "Prompt mode",
+    "history.promptMode": "Prompt handling",
     "history.size": "Size",
     "history.quality": "Quality",
     "history.ratio": "Ratio",
@@ -650,6 +662,7 @@
     "history.viewing": "Viewing",
     "history.noPreview": "No preview images",
     "history.downloadAll": "Download ZIP",
+    "history.downloadImage": "Download image",
     "history.downloadSelected": "Download selected",
     "history.deleteUnselected": "Delete unselected",
     "history.confirmDeleteUnselected": "Confirm delete unselected",
@@ -692,9 +705,9 @@
     "history.outputRevisedPromptTitle": "Image {index} revised prompt",
     "history.outputRevisedPromptNotice": "Each image has its own revised prompt below the image.",
     "history.promptEmpty": "No content",
-    "history.promptMode.strict": "Strict",
+    "history.promptMode.strict": "Faithful",
     "history.promptMode.original": "Original",
-    "history.promptMode.off": "Creative",
+    "history.promptMode.off": "Automatic",
     "history.quality.high": "High",
     "history.quality.medium": "Medium",
     "history.quality.low": "Low",
@@ -778,10 +791,10 @@
     "api.settings": "System Settings",
     "api.provider": "API provider",
     "imageInput.title": "Images",
-    "imageInput.uploadAria": "Click, drop, or paste images",
-    "imageInput.uploadFull": "Click, drop, or paste images",
-    "imageInput.uploadCompact": "Add image",
-    "imageInput.uploadSubtitle": "Multiple reference images supported",
+    "imageInput.uploadAria": "Click, drop, or paste images and files",
+    "imageInput.uploadFull": "Click, drop, or paste images and files",
+    "imageInput.uploadCompact": "Add input",
+    "imageInput.uploadSubtitle": "Supports images and Responses reference files",
     "imageInput.recent": "Recent uploads",
     "imageInput.recentBadge": "Recent",
     "imageInput.uploadBadge": "Upload",
@@ -911,15 +924,25 @@
     "output.selectMainModel": "Select main model",
     "output.mainModelCustomForInput": "Use a custom model for the current input",
     "output.apiDirect": "API Direct",
-    "output.apiToolModel": "Using API image model",
+    "output.apiToolModel": "Using API image generation model",
     "output.mainModelUnused": "Main model is not used for this request",
     "output.webSearch": "Web search",
     "output.webSearchToggle": "On",
     "output.webSearchTitle": "Search the web first, then use it for this generation; Codex and API Responses only",
-    "output.promptMode": "Prompt mode",
+    "output.promptMode": "Prompt handling",
     "output.modeOriginal": "Original",
     "output.modeStrict": "Faithful",
-    "output.modeCreative": "Creative",
+    "output.modeCreative": "Automatic",
+    "output.promptHelp": "Explain prompt handling",
+    "output.promptHelpTitle": "Prompt handling",
+    "output.promptHelp.responsesChannel": "Responses \xB7 main model involved",
+    "output.promptHelp.imagesChannel": "Images \xB7 direct generation",
+    "output.promptHelp.responses.original": "Sends your original text to the main model and asks the image tool to preserve it; the main model may still produce a revised prompt.",
+    "output.promptHelp.responses.strict": "Lets the main model organize or expand the prompt, while preserving hard constraints such as subjects, text, colors, and composition.",
+    "output.promptHelp.responses.automatic": "Adds no extra constraints, allowing the main model to interpret and optimize the prompt before calling the image tool.",
+    "output.promptHelp.images.original": "Adds no app-level prompt rules and submits your original text directly to the image endpoint.",
+    "output.promptHelp.images.strict": "Submits fidelity rules together with the original prompt to emphasize every hard constraint.",
+    "output.promptHelp.images.automatic": "Uses the image endpoint's default handling; required gallery-reference notes are still included.",
     "output.sizeMode": "Size mode",
     "output.sizePreset": "Preset",
     "output.sizeCustom": "Custom",
@@ -1221,9 +1244,12 @@
     "apiSettings.codexImages": "Image",
     "apiSettings.codexResponses": "Responses",
     "apiSettings.providers": "API providers",
+    "apiSettings.searchProviders": "Search provider names",
+    "apiSettings.noProviderSearchResults": "No matching providers",
     "apiSettings.providerCount": "{count} providers",
     "apiSettings.provider": "Provider",
     "apiSettings.providerName": "Provider name",
+    "apiSettings.actualRequest": "Actual request",
     "apiSettings.newProviderAction": "New provider",
     "apiSettings.copyProvider": "Copy",
     "apiSettings.copyProviderName": "{name} Copy",
@@ -1241,9 +1267,10 @@
     "apiSettings.images": "Direct Image API",
     "apiSettings.responses": "Responses API",
     "apiSettings.modeImagesShort": "Direct",
-    "apiSettings.imageModel": "Image model",
-    "apiSettings.concurrency": "Provider concurrency limit",
+    "apiSettings.imageModel": "Image generation model",
+    "apiSettings.concurrency": "Concurrency limit",
     "apiSettings.concurrencyShort": "Concurrency",
+    "apiSettings.advancedSettings": "Advanced settings",
     "apiSettings.concurrencyValue": "concurrency {concurrency}",
     "apiSettings.keySaved": "API key saved",
     "apiSettings.keyNotSet": "API key not set",
@@ -1370,7 +1397,39 @@
     "close.imageEditor": "Close image editor panel",
     "close.gallery": "Close gallery panel",
     "close.addGallery": "Close add to gallery panel",
-    "close.version": "Close version update panel"
+    "close.version": "Close version update panel",
+    "imageInput.referenceTitle": "Reference input",
+    "referenceFiles.add": "Add file",
+    "referenceFiles.selected": "Reference files",
+    "referenceFiles.recent": "Recent files",
+    "referenceFiles.familyPdf": "Pages + text",
+    "referenceFiles.familySpreadsheet": "Spreadsheet",
+    "referenceFiles.familyDocument": "Document",
+    "referenceFiles.familyText": "Text",
+    "referenceFiles.visualLimit": "Embedded images and charts are not preserved in non-PDF files. Convert to PDF when layout matters.",
+    "referenceFiles.remove": "Remove {filename}",
+    "referenceFiles.switchTitle": "Remove reference files?",
+    "referenceFiles.switchMessage": "Reference files work only with Responses. Remove the selected files before switching to Images.",
+    "referenceFiles.removeAndSwitch": "Remove files and switch",
+    "referenceFiles.requiresResponses": "Reference files require Responses",
+    "referenceFiles.switchToResponses": "Switch to Responses",
+    "referenceFiles.openApiSettings": "Open API settings",
+    "referenceFiles.providerMissing": "The original Responses provider is unavailable. Choose one in API settings.",
+    "referenceFiles.missing": "File missing",
+    "referenceFiles.loadFailed": "Failed to load reference files",
+    "referenceFiles.errorEmpty": "The reference file is empty",
+    "referenceFiles.errorUnsupported": "This reference file type is unsupported",
+    "referenceFiles.errorMismatch": "The file type does not match its extension",
+    "referenceFiles.errorInvalid": "The reference file is invalid",
+    "referenceFiles.errorTooLarge": "Each reference file must be smaller than 50 MB",
+    "referenceFiles.errorTotalTooLarge": "Reference files may total at most 50 MB",
+    "referenceFiles.errorMissing": "A selected reference file is missing",
+    "referenceFiles.errorProviderUnsupported": "This provider does not support reference files in Responses",
+    "referenceFiles.responsesEnabled": "Responses enabled",
+    "referenceFiles.historyPathMismatch": "These reference files use different Responses paths",
+    "history.referenceFiles": "Reference files",
+    "history.downloadReferenceFile": "Download file",
+    "history.readdReferenceFile": "Add again"
   };
 
   // codex_image/webui/frontend/src/i18n/de.ts
@@ -1506,9 +1565,13 @@
     "history.search": "Suchen",
     "history.searchPlaceholder": "Suchaufforderungen oder Aufgabe ID",
     "history.clear": "Klar",
+    "history.type": "Typ",
+    "history.allTypes": "Alle Typen",
+    "history.type.textToImage": "Text zu Bild",
+    "history.type.imageToImage": "Bild zu Bild",
     "history.month": "Monat",
     "history.status": "Status",
-    "history.promptMode": "Aufforderungsmodus",
+    "history.promptMode": "Prompt-Verarbeitung",
     "history.size": "Gr\xF6\xDFe",
     "history.quality": "Qualit\xE4t",
     "history.ratio": "Verh\xE4ltnis",
@@ -1562,6 +1625,7 @@
     "history.viewing": "Anzeigen",
     "history.noPreview": "Keine Vorschaubilder",
     "history.downloadAll": "Herunterladen ZIP",
+    "history.downloadImage": "Bild herunterladen",
     "history.downloadSelected": "Download ausgew\xE4hlt",
     "history.deleteUnselected": "Nicht ausgew\xE4hltes l\xF6schen",
     "history.confirmDeleteUnselected": "Best\xE4tigen Sie, dass die Auswahl aufgehoben wurde",
@@ -1604,9 +1668,9 @@
     "history.outputRevisedPromptTitle": "Bild {index} \xFCberarbeitete Eingabeaufforderung",
     "history.outputRevisedPromptNotice": "F\xFCr jedes Bild gibt es unterhalb des Bildes eine eigene \xFCberarbeitete Eingabeaufforderung.",
     "history.promptEmpty": "Kein Inhalt",
-    "history.promptMode.strict": "Streng",
+    "history.promptMode.strict": "Getreu",
     "history.promptMode.original": "Original",
-    "history.promptMode.off": "Kreativ",
+    "history.promptMode.off": "Automatisch",
     "history.quality.high": "Hoch",
     "history.quality.medium": "Mittel",
     "history.quality.low": "Niedrig",
@@ -1680,10 +1744,10 @@
     "api.settings": "Systemeinstellungen",
     "api.provider": "API Anbieter",
     "imageInput.title": "Bilder",
-    "imageInput.uploadAria": "Klicken Sie auf Bilder, legen Sie sie ab oder f\xFCgen Sie sie ein",
-    "imageInput.uploadFull": "Klicken Sie auf Bilder, legen Sie sie ab oder f\xFCgen Sie sie ein",
-    "imageInput.uploadCompact": "Bild hinzuf\xFCgen",
-    "imageInput.uploadSubtitle": "Mehrere Referenzbilder werden unterst\xFCtzt",
+    "imageInput.uploadAria": "Bilder und Dateien anklicken, ablegen oder einf\xFCgen",
+    "imageInput.uploadFull": "Bilder und Dateien anklicken, ablegen oder einf\xFCgen",
+    "imageInput.uploadCompact": "Eingabe hinzuf\xFCgen",
+    "imageInput.uploadSubtitle": "Unterst\xFCtzt Bilder und Responses-Referenzdateien",
     "imageInput.recent": "Aktuelle Uploads",
     "imageInput.recentBadge": "Neu",
     "imageInput.uploadBadge": "Hochladen",
@@ -1813,15 +1877,25 @@
     "output.selectMainModel": "Hauptmodell ausw\xE4hlen",
     "output.mainModelCustomForInput": "Verwenden Sie ein benutzerdefiniertes Modell f\xFCr die aktuelle Eingabe",
     "output.apiDirect": "API Direkt",
-    "output.apiToolModel": "Verwendung des Bildmodells API",
+    "output.apiToolModel": "API-Bildgenerierungsmodell wird verwendet",
     "output.mainModelUnused": "Das Hauptmodell wird f\xFCr diese Anfrage nicht verwendet",
     "output.webSearch": "Websuche",
     "output.webSearchToggle": "Auf",
     "output.webSearchTitle": "Durchsuchen Sie zuerst das Internet und nutzen Sie es dann f\xFCr diese Generation. Nur Codex und API Responses",
-    "output.promptMode": "Aufforderungsmodus",
+    "output.promptMode": "Prompt-Verarbeitung",
     "output.modeOriginal": "Original",
-    "output.modeStrict": "Treu",
-    "output.modeCreative": "Kreativ",
+    "output.modeStrict": "Getreu",
+    "output.modeCreative": "Automatisch",
+    "output.promptHelp": "Prompt-Verarbeitung erkl\xE4ren",
+    "output.promptHelpTitle": "Prompt-Verarbeitung",
+    "output.promptHelp.responsesChannel": "Responses \xB7 Hauptmodell beteiligt",
+    "output.promptHelp.imagesChannel": "Images \xB7 direkte Generierung",
+    "output.promptHelp.responses.original": "Sendet den Originaltext an das Hauptmodell und verlangt eine m\xF6glichst w\xF6rtliche Nutzung im Bildwerkzeug; ein revised prompt kann dennoch entstehen.",
+    "output.promptHelp.responses.strict": "Das Hauptmodell darf ordnen oder erweitern, muss aber feste Vorgaben wie Motive, Text, Farben und Komposition erhalten.",
+    "output.promptHelp.responses.automatic": "F\xFCgt keine zus\xE4tzlichen Vorgaben hinzu; das Hauptmodell interpretiert und optimiert vor dem Aufruf des Bildwerkzeugs.",
+    "output.promptHelp.images.original": "F\xFCgt keine App-Regeln hinzu und sendet den Originaltext direkt an die Bild-API.",
+    "output.promptHelp.images.strict": "Sendet Treueregeln zusammen mit dem Originalprompt, um alle festen Vorgaben zu erhalten.",
+    "output.promptHelp.images.automatic": "Verwendet die Standardverarbeitung der Bild-API; notwendige Galeriehinweise werden weiterhin mitgesendet.",
     "output.sizeMode": "Gr\xF6\xDFenmodus",
     "output.sizePreset": "Voreingestellt",
     "output.sizeCustom": "Benutzerdefiniert",
@@ -2123,9 +2197,12 @@
     "apiSettings.codexImages": "Image",
     "apiSettings.codexResponses": "Responses",
     "apiSettings.providers": "API Anbieter",
+    "apiSettings.searchProviders": "Anbieternamen suchen",
+    "apiSettings.noProviderSearchResults": "Keine passenden Anbieter",
     "apiSettings.providerCount": "{count} Anbieter",
     "apiSettings.provider": "Anbieter",
     "apiSettings.providerName": "Anbietername",
+    "apiSettings.actualRequest": "Tats\xE4chliche Anfrage",
     "apiSettings.newProviderAction": "Neuer Anbieter",
     "apiSettings.copyProvider": "Kopieren",
     "apiSettings.copyProviderName": "{name} Kopie",
@@ -2143,9 +2220,10 @@
     "apiSettings.images": "Direktes Bild API",
     "apiSettings.responses": "Responses API",
     "apiSettings.modeImagesShort": "Direkt",
-    "apiSettings.imageModel": "Bildmodell",
-    "apiSettings.concurrency": "Parallelit\xE4tslimit des Anbieters",
+    "apiSettings.imageModel": "Bildgenerierungsmodell",
+    "apiSettings.concurrency": "Parallelit\xE4tslimit",
     "apiSettings.concurrencyShort": "Parallelit\xE4t",
+    "apiSettings.advancedSettings": "Erweiterte Einstellungen",
     "apiSettings.concurrencyValue": "Parallelit\xE4t {concurrency}",
     "apiSettings.keySaved": "API Schl\xFCssel gespeichert",
     "apiSettings.keyNotSet": "Schl\xFCssel API nicht gesetzt",
@@ -2272,7 +2350,39 @@
     "close.imageEditor": "Schlie\xDFen Sie das Bildbearbeitungsfenster",
     "close.gallery": "Galeriefenster schlie\xDFen",
     "close.addGallery": "Schlie\xDFen Sie das Fenster \u201EZur Galerie hinzuf\xFCgen\u201C.",
-    "close.version": "Schlie\xDFen Sie das Versionsaktualisierungsfenster"
+    "close.version": "Schlie\xDFen Sie das Versionsaktualisierungsfenster",
+    "imageInput.referenceTitle": "Referenzeingabe",
+    "referenceFiles.add": "Datei hinzuf\xFCgen",
+    "referenceFiles.selected": "Referenzdateien",
+    "referenceFiles.recent": "Letzte Dateien",
+    "referenceFiles.familyPdf": "Seiten + Text",
+    "referenceFiles.familySpreadsheet": "Tabelle",
+    "referenceFiles.familyDocument": "Dokument",
+    "referenceFiles.familyText": "Text",
+    "referenceFiles.visualLimit": "Nicht-PDF-Dateien behalten eingebettete Bilder und Diagramme nicht bei. F\xFCr Layoutreferenzen bitte in PDF umwandeln.",
+    "referenceFiles.remove": "{filename} entfernen",
+    "referenceFiles.switchTitle": "Referenzdateien entfernen?",
+    "referenceFiles.switchMessage": "Referenzdateien funktionieren nur mit Responses. Entfernen Sie sie vor dem Wechsel zu Images.",
+    "referenceFiles.removeAndSwitch": "Dateien entfernen und wechseln",
+    "referenceFiles.requiresResponses": "Referenzdateien erfordern Responses",
+    "referenceFiles.switchToResponses": "Zu Responses wechseln",
+    "referenceFiles.openApiSettings": "API-Einstellungen \xF6ffnen",
+    "referenceFiles.providerMissing": "Der urspr\xFCngliche Responses-Anbieter ist nicht verf\xFCgbar. W\xE4hlen Sie einen in den API-Einstellungen.",
+    "referenceFiles.missing": "Datei fehlt",
+    "referenceFiles.loadFailed": "Referenzdateien konnten nicht geladen werden",
+    "referenceFiles.errorEmpty": "Die Referenzdatei ist leer",
+    "referenceFiles.errorUnsupported": "Dieser Referenzdateityp wird nicht unterst\xFCtzt",
+    "referenceFiles.errorMismatch": "Dateiinhalt und Erweiterung stimmen nicht \xFCberein",
+    "referenceFiles.errorInvalid": "Die Referenzdatei ist ung\xFCltig",
+    "referenceFiles.errorTooLarge": "Jede Referenzdatei muss kleiner als 50 MB sein",
+    "referenceFiles.errorTotalTooLarge": "Referenzdateien d\xFCrfen zusammen h\xF6chstens 50 MB gro\xDF sein",
+    "referenceFiles.errorMissing": "Eine ausgew\xE4hlte Referenzdatei fehlt",
+    "referenceFiles.errorProviderUnsupported": "Responses dieses Anbieters unterst\xFCtzt keine Referenzdateien",
+    "referenceFiles.responsesEnabled": "Responses aktiviert",
+    "referenceFiles.historyPathMismatch": "Diese Dateien verwenden unterschiedliche Responses-Pfade",
+    "history.referenceFiles": "Referenzdateien",
+    "history.downloadReferenceFile": "Datei herunterladen",
+    "history.readdReferenceFile": "Erneut hinzuf\xFCgen"
   };
 
   // codex_image/webui/frontend/src/i18n/es.ts
@@ -2408,9 +2518,13 @@
     "history.search": "Buscar",
     "history.searchPlaceholder": "Mensajes de b\xFAsqueda o tarea ID",
     "history.clear": "Borrar",
+    "history.type": "Tipo",
+    "history.allTypes": "Todos los tipos",
+    "history.type.textToImage": "Texto a imagen",
+    "history.type.imageToImage": "Imagen a imagen",
     "history.month": "Mes",
     "history.status": "Estado",
-    "history.promptMode": "Modo r\xE1pido",
+    "history.promptMode": "Tratamiento del prompt",
     "history.size": "Tama\xF1o",
     "history.quality": "Calidad",
     "history.ratio": "proporci\xF3n",
@@ -2464,6 +2578,7 @@
     "history.viewing": "Visualizaci\xF3n",
     "history.noPreview": "Sin im\xE1genes de vista previa",
     "history.downloadAll": "Descargar ZIP",
+    "history.downloadImage": "Descargar imagen",
     "history.downloadSelected": "Descargar seleccionado",
     "history.deleteUnselected": "Eliminar no seleccionados",
     "history.confirmDeleteUnselected": "Confirmar eliminaci\xF3n no seleccionada",
@@ -2506,9 +2621,9 @@
     "history.outputRevisedPromptTitle": "Imagen {index} mensaje revisado",
     "history.outputRevisedPromptNotice": "Cada imagen tiene su propio mensaje revisado debajo de la imagen.",
     "history.promptEmpty": "Sin contenido",
-    "history.promptMode.strict": "estricto",
-    "history.promptMode.original": "Originales",
-    "history.promptMode.off": "creativo",
+    "history.promptMode.strict": "Fiel",
+    "history.promptMode.original": "Original",
+    "history.promptMode.off": "Autom\xE1tico",
     "history.quality.high": "Alto",
     "history.quality.medium": "Medio",
     "history.quality.low": "Bajo",
@@ -2582,10 +2697,10 @@
     "api.settings": "Configuraci\xF3n del sistema",
     "api.provider": "API proveedor",
     "imageInput.title": "Im\xE1genes",
-    "imageInput.uploadAria": "Haga clic, suelte o pegue im\xE1genes",
-    "imageInput.uploadFull": "Haga clic, suelte o pegue im\xE1genes",
-    "imageInput.uploadCompact": "Agregar imagen",
-    "imageInput.uploadSubtitle": "Se admiten m\xFAltiples im\xE1genes de referencia",
+    "imageInput.uploadAria": "Haz clic, suelta o pega im\xE1genes y archivos",
+    "imageInput.uploadFull": "Haz clic, suelta o pega im\xE1genes y archivos",
+    "imageInput.uploadCompact": "A\xF1adir entrada",
+    "imageInput.uploadSubtitle": "Admite im\xE1genes y archivos de referencia de Responses",
     "imageInput.recent": "Cargas recientes",
     "imageInput.recentBadge": "Reciente",
     "imageInput.uploadBadge": "Subir",
@@ -2715,15 +2830,25 @@
     "output.selectMainModel": "Seleccionar modelo principal",
     "output.mainModelCustomForInput": "Utilice un modelo personalizado para la entrada actual",
     "output.apiDirect": "API Directo",
-    "output.apiToolModel": "Usando el modelo de imagen API",
+    "output.apiToolModel": "Usando el modelo de generaci\xF3n de im\xE1genes API",
     "output.mainModelUnused": "El modelo principal no se utiliza para esta solicitud.",
     "output.webSearch": "b\xFAsqueda web",
     "output.webSearchToggle": "encendido",
     "output.webSearchTitle": "Primero busque en la web y luego \xFAsela para esta generaci\xF3n; Codex y API Responses \xFAnicamente",
-    "output.promptMode": "Modo r\xE1pido",
-    "output.modeOriginal": "Originales",
+    "output.promptMode": "Tratamiento del prompt",
+    "output.modeOriginal": "Original",
     "output.modeStrict": "Fiel",
-    "output.modeCreative": "creativo",
+    "output.modeCreative": "Autom\xE1tico",
+    "output.promptHelp": "Explicar el tratamiento del prompt",
+    "output.promptHelpTitle": "Tratamiento del prompt",
+    "output.promptHelp.responsesChannel": "Responses \xB7 interviene el modelo principal",
+    "output.promptHelp.imagesChannel": "Images \xB7 generaci\xF3n directa",
+    "output.promptHelp.responses.original": "Env\xEDa el texto original al modelo principal y pide conservarlo en la herramienta de imagen; aun as\xED puede generar un revised prompt.",
+    "output.promptHelp.responses.strict": "Permite ordenar o ampliar el prompt, pero conserva restricciones como sujetos, texto, colores y composici\xF3n.",
+    "output.promptHelp.responses.automatic": "No a\xF1ade restricciones; el modelo principal interpreta y optimiza antes de llamar a la herramienta de imagen.",
+    "output.promptHelp.images.original": "No a\xF1ade reglas de la aplicaci\xF3n y env\xEDa el texto original directamente a la API de im\xE1genes.",
+    "output.promptHelp.images.strict": "Env\xEDa reglas de fidelidad junto al prompt original para preservar todas las restricciones.",
+    "output.promptHelp.images.automatic": "Usa el tratamiento predeterminado de la API de im\xE1genes e incluye las notas necesarias de referencias de la galer\xEDa.",
     "output.sizeMode": "Modo de tama\xF1o",
     "output.sizePreset": "Preestablecido",
     "output.sizeCustom": "personalizado",
@@ -3025,9 +3150,12 @@
     "apiSettings.codexImages": "Image",
     "apiSettings.codexResponses": "Responses",
     "apiSettings.providers": "API proveedores",
+    "apiSettings.searchProviders": "Buscar nombres de proveedores",
+    "apiSettings.noProviderSearchResults": "No hay proveedores coincidentes",
     "apiSettings.providerCount": "{count} proveedores",
     "apiSettings.provider": "Proveedor",
     "apiSettings.providerName": "Nombre del proveedor",
+    "apiSettings.actualRequest": "Solicitud real",
     "apiSettings.newProviderAction": "Nuevo proveedor",
     "apiSettings.copyProvider": "Copiar",
     "apiSettings.copyProviderName": "{name} Copiar",
@@ -3045,9 +3173,10 @@
     "apiSettings.images": "Imagen directa API",
     "apiSettings.responses": "Responses API",
     "apiSettings.modeImagesShort": "directo",
-    "apiSettings.imageModel": "Modelo de imagen",
-    "apiSettings.concurrency": "L\xEDmite de simultaneidad del proveedor",
+    "apiSettings.imageModel": "Modelo de generaci\xF3n de im\xE1genes",
+    "apiSettings.concurrency": "L\xEDmite de simultaneidad",
     "apiSettings.concurrencyShort": "concurrencia",
+    "apiSettings.advancedSettings": "Configuraci\xF3n avanzada",
     "apiSettings.concurrencyValue": "concurrencia {concurrency}",
     "apiSettings.keySaved": "API clave guardada",
     "apiSettings.keyNotSet": "API clave no configurada",
@@ -3174,7 +3303,39 @@
     "close.imageEditor": "Cerrar el panel del editor de im\xE1genes",
     "close.gallery": "Cerrar panel de galer\xEDa",
     "close.addGallery": "Cerrar agregar al panel de la galer\xEDa",
-    "close.version": "Cerrar panel de actualizaci\xF3n de versi\xF3n"
+    "close.version": "Cerrar panel de actualizaci\xF3n de versi\xF3n",
+    "imageInput.referenceTitle": "Entrada de referencia",
+    "referenceFiles.add": "A\xF1adir archivo",
+    "referenceFiles.selected": "Archivos de referencia",
+    "referenceFiles.recent": "Archivos recientes",
+    "referenceFiles.familyPdf": "P\xE1ginas + texto",
+    "referenceFiles.familySpreadsheet": "Hoja de c\xE1lculo",
+    "referenceFiles.familyDocument": "Documento",
+    "referenceFiles.familyText": "Texto",
+    "referenceFiles.visualLimit": "Los archivos que no sean PDF no conservan im\xE1genes ni gr\xE1ficos incrustados. Convierte a PDF si importa el dise\xF1o.",
+    "referenceFiles.remove": "Quitar {filename}",
+    "referenceFiles.switchTitle": "\xBFQuitar archivos de referencia?",
+    "referenceFiles.switchMessage": "Los archivos de referencia solo funcionan con Responses. Qu\xEDtalos antes de cambiar a Images.",
+    "referenceFiles.removeAndSwitch": "Quitar archivos y cambiar",
+    "referenceFiles.requiresResponses": "Los archivos de referencia requieren Responses",
+    "referenceFiles.switchToResponses": "Cambiar a Responses",
+    "referenceFiles.openApiSettings": "Abrir ajustes de API",
+    "referenceFiles.providerMissing": "El proveedor de Responses original no est\xE1 disponible. Elige uno en los ajustes de API.",
+    "referenceFiles.missing": "Falta el archivo",
+    "referenceFiles.loadFailed": "No se pudieron cargar los archivos de referencia",
+    "referenceFiles.errorEmpty": "El archivo de referencia est\xE1 vac\xEDo",
+    "referenceFiles.errorUnsupported": "Este tipo de archivo de referencia no es compatible",
+    "referenceFiles.errorMismatch": "El contenido no coincide con la extensi\xF3n",
+    "referenceFiles.errorInvalid": "El archivo de referencia no es v\xE1lido",
+    "referenceFiles.errorTooLarge": "Cada archivo de referencia debe ocupar menos de 50 MB",
+    "referenceFiles.errorTotalTooLarge": "Los archivos de referencia no pueden superar 50 MB en total",
+    "referenceFiles.errorMissing": "Falta un archivo de referencia seleccionado",
+    "referenceFiles.errorProviderUnsupported": "Responses de este proveedor no admite archivos de referencia",
+    "referenceFiles.responsesEnabled": "Responses activado",
+    "referenceFiles.historyPathMismatch": "Estos archivos usan rutas de Responses distintas",
+    "history.referenceFiles": "Archivos de referencia",
+    "history.downloadReferenceFile": "Descargar archivo",
+    "history.readdReferenceFile": "A\xF1adir de nuevo"
   };
 
   // codex_image/webui/frontend/src/i18n/fr.ts
@@ -3310,9 +3471,13 @@
     "history.search": "Rechercher",
     "history.searchPlaceholder": "Rechercher des invites ou une t\xE2che ID",
     "history.clear": "Effacer",
+    "history.type": "Type",
+    "history.allTypes": "Tous les types",
+    "history.type.textToImage": "Texte vers image",
+    "history.type.imageToImage": "Image vers image",
     "history.month": "Mois",
     "history.status": "Statut",
-    "history.promptMode": "Mode invite",
+    "history.promptMode": "Traitement du prompt",
     "history.size": "Taille",
     "history.quality": "Qualit\xE9",
     "history.ratio": "Rapport",
@@ -3366,6 +3531,7 @@
     "history.viewing": "Affichage",
     "history.noPreview": "Aucune image d'aper\xE7u",
     "history.downloadAll": "T\xE9l\xE9charger ZIP",
+    "history.downloadImage": "T\xE9l\xE9charger l\u2019image",
     "history.downloadSelected": "T\xE9l\xE9charger s\xE9lectionn\xE9",
     "history.deleteUnselected": "Supprimer les \xE9l\xE9ments non s\xE9lectionn\xE9s",
     "history.confirmDeleteUnselected": "Confirmer la suppression d\xE9s\xE9lectionn\xE9e",
@@ -3408,9 +3574,9 @@
     "history.outputRevisedPromptTitle": "Image {index} invite r\xE9vis\xE9e",
     "history.outputRevisedPromptNotice": "Chaque image a sa propre invite r\xE9vis\xE9e sous l'image.",
     "history.promptEmpty": "Aucun contenu",
-    "history.promptMode.strict": "Stricte",
-    "history.promptMode.original": "Originale",
-    "history.promptMode.off": "Cr\xE9atif",
+    "history.promptMode.strict": "Fid\xE8le",
+    "history.promptMode.original": "Original",
+    "history.promptMode.off": "Automatique",
     "history.quality.high": "\xC9lev\xE9",
     "history.quality.medium": "Moyen",
     "history.quality.low": "Faible",
@@ -3484,10 +3650,10 @@
     "api.settings": "Param\xE8tres syst\xE8me",
     "api.provider": "Fournisseur API",
     "imageInput.title": "Images",
-    "imageInput.uploadAria": "Cliquez, d\xE9posez ou collez des images",
-    "imageInput.uploadFull": "Cliquez, d\xE9posez ou collez des images",
-    "imageInput.uploadCompact": "Ajouter une image",
-    "imageInput.uploadSubtitle": "Plusieurs images de r\xE9f\xE9rence prises en charge",
+    "imageInput.uploadAria": "Cliquez, d\xE9posez ou collez des images et des fichiers",
+    "imageInput.uploadFull": "Cliquez, d\xE9posez ou collez des images et des fichiers",
+    "imageInput.uploadCompact": "Ajouter une entr\xE9e",
+    "imageInput.uploadSubtitle": "Images et fichiers de r\xE9f\xE9rence pour Responses",
     "imageInput.recent": "T\xE9l\xE9chargements r\xE9cents",
     "imageInput.recentBadge": "R\xE9cent",
     "imageInput.uploadBadge": "T\xE9l\xE9charger",
@@ -3617,15 +3783,25 @@
     "output.selectMainModel": "S\xE9lectionnez le mod\xE8le principal",
     "output.mainModelCustomForInput": "Utiliser un mod\xE8le personnalis\xE9 pour l'entr\xE9e actuelle",
     "output.apiDirect": "API Direct",
-    "output.apiToolModel": "Utilisation du mod\xE8le d'image API",
+    "output.apiToolModel": "Utilisation du mod\xE8le de g\xE9n\xE9ration d\u2019images API",
     "output.mainModelUnused": "Le mod\xE8le principal n'est pas utilis\xE9 pour cette demande",
     "output.webSearch": "Recherche sur le Web",
     "output.webSearchToggle": "Sur",
     "output.webSearchTitle": "Recherchez d'abord sur le Web, puis utilisez-le pour cette g\xE9n\xE9ration; Codex et API Responses uniquement",
-    "output.promptMode": "Mode invite",
-    "output.modeOriginal": "Originale",
+    "output.promptMode": "Traitement du prompt",
+    "output.modeOriginal": "Original",
     "output.modeStrict": "Fid\xE8le",
-    "output.modeCreative": "Cr\xE9atif",
+    "output.modeCreative": "Automatique",
+    "output.promptHelp": "Expliquer le traitement du prompt",
+    "output.promptHelpTitle": "Traitement du prompt",
+    "output.promptHelp.responsesChannel": "Responses \xB7 mod\xE8le principal impliqu\xE9",
+    "output.promptHelp.imagesChannel": "Images \xB7 g\xE9n\xE9ration directe",
+    "output.promptHelp.responses.original": "Envoie le texte original au mod\xE8le principal et demande \xE0 l\u2019outil d\u2019image de le conserver ; un revised prompt peut malgr\xE9 tout \xEAtre produit.",
+    "output.promptHelp.responses.strict": "Autorise le mod\xE8le principal \xE0 organiser ou d\xE9velopper le prompt tout en pr\xE9servant les contraintes de sujet, texte, couleur et composition.",
+    "output.promptHelp.responses.automatic": "N\u2019ajoute aucune contrainte ; le mod\xE8le principal interpr\xE8te et optimise avant d\u2019appeler l\u2019outil d\u2019image.",
+    "output.promptHelp.images.original": "N\u2019ajoute aucune r\xE8gle applicative et envoie le texte original directement \xE0 l\u2019API d\u2019images.",
+    "output.promptHelp.images.strict": "Envoie les r\xE8gles de fid\xE9lit\xE9 avec le prompt original afin de pr\xE9server toutes les contraintes.",
+    "output.promptHelp.images.automatic": "Utilise le traitement par d\xE9faut de l\u2019API d\u2019images et conserve les notes n\xE9cessaires pour les r\xE9f\xE9rences de galerie.",
     "output.sizeMode": "Mode taille",
     "output.sizePreset": "Pr\xE9r\xE9glage",
     "output.sizeCustom": "Personnalis\xE9",
@@ -3927,9 +4103,12 @@
     "apiSettings.codexImages": "Image",
     "apiSettings.codexResponses": "Responses",
     "apiSettings.providers": "Fournisseurs API",
+    "apiSettings.searchProviders": "Rechercher un fournisseur",
+    "apiSettings.noProviderSearchResults": "Aucun fournisseur correspondant",
     "apiSettings.providerCount": "Fournisseurs {count}",
     "apiSettings.provider": "Fournisseur",
     "apiSettings.providerName": "Nom du fournisseur",
+    "apiSettings.actualRequest": "Requ\xEAte effective",
     "apiSettings.newProviderAction": "Nouveau fournisseur",
     "apiSettings.copyProvider": "Copier",
     "apiSettings.copyProviderName": "{name} Copie",
@@ -3947,9 +4126,10 @@
     "apiSettings.images": "Image directe API",
     "apiSettings.responses": "Responses API",
     "apiSettings.modeImagesShort": "Direct",
-    "apiSettings.imageModel": "Mod\xE8le d'image",
-    "apiSettings.concurrency": "Limite de simultan\xE9it\xE9 des fournisseurs",
+    "apiSettings.imageModel": "Mod\xE8le de g\xE9n\xE9ration d\u2019images",
+    "apiSettings.concurrency": "Limite de simultan\xE9it\xE9",
     "apiSettings.concurrencyShort": "Concurrence",
+    "apiSettings.advancedSettings": "Param\xE8tres avanc\xE9s",
     "apiSettings.concurrencyValue": "concurrence {concurrency}",
     "apiSettings.keySaved": "Cl\xE9 API enregistr\xE9e",
     "apiSettings.keyNotSet": "Cl\xE9 API non d\xE9finie",
@@ -4076,7 +4256,39 @@
     "close.imageEditor": "Fermer le panneau de l'\xE9diteur d'images",
     "close.gallery": "Fermer le panneau de la galerie",
     "close.addGallery": "Fermer le panneau Ajouter \xE0 la galerie",
-    "close.version": "Fermer le panneau de mise \xE0 jour de la version"
+    "close.version": "Fermer le panneau de mise \xE0 jour de la version",
+    "imageInput.referenceTitle": "Entr\xE9e de r\xE9f\xE9rence",
+    "referenceFiles.add": "Ajouter un fichier",
+    "referenceFiles.selected": "Fichiers de r\xE9f\xE9rence",
+    "referenceFiles.recent": "Fichiers r\xE9cents",
+    "referenceFiles.familyPdf": "Pages + texte",
+    "referenceFiles.familySpreadsheet": "Tableur",
+    "referenceFiles.familyDocument": "Document",
+    "referenceFiles.familyText": "Texte",
+    "referenceFiles.visualLimit": "Les fichiers non PDF ne conservent pas les images et graphiques int\xE9gr\xE9s. Convertissez en PDF si la mise en page compte.",
+    "referenceFiles.remove": "Supprimer {filename}",
+    "referenceFiles.switchTitle": "Supprimer les fichiers de r\xE9f\xE9rence ?",
+    "referenceFiles.switchMessage": "Les fichiers de r\xE9f\xE9rence fonctionnent uniquement avec Responses. Supprimez-les avant de passer \xE0 Images.",
+    "referenceFiles.removeAndSwitch": "Supprimer et changer",
+    "referenceFiles.requiresResponses": "Les fichiers de r\xE9f\xE9rence n\xE9cessitent Responses",
+    "referenceFiles.switchToResponses": "Passer \xE0 Responses",
+    "referenceFiles.openApiSettings": "Ouvrir les param\xE8tres API",
+    "referenceFiles.providerMissing": "Le fournisseur Responses d\u2019origine est indisponible. Choisissez-en un dans les param\xE8tres API.",
+    "referenceFiles.missing": "Fichier manquant",
+    "referenceFiles.loadFailed": "\xC9chec du chargement des fichiers de r\xE9f\xE9rence",
+    "referenceFiles.errorEmpty": "Le fichier de r\xE9f\xE9rence est vide",
+    "referenceFiles.errorUnsupported": "Ce type de fichier de r\xE9f\xE9rence n\u2019est pas pris en charge",
+    "referenceFiles.errorMismatch": "Le contenu ne correspond pas \xE0 l\u2019extension",
+    "referenceFiles.errorInvalid": "Le fichier de r\xE9f\xE9rence est invalide",
+    "referenceFiles.errorTooLarge": "Chaque fichier de r\xE9f\xE9rence doit faire moins de 50 Mo",
+    "referenceFiles.errorTotalTooLarge": "Les fichiers de r\xE9f\xE9rence ne peuvent pas d\xE9passer 50 Mo au total",
+    "referenceFiles.errorMissing": "Un fichier de r\xE9f\xE9rence s\xE9lectionn\xE9 est manquant",
+    "referenceFiles.errorProviderUnsupported": "Responses de ce fournisseur ne prend pas en charge les fichiers de r\xE9f\xE9rence",
+    "referenceFiles.responsesEnabled": "Responses activ\xE9",
+    "referenceFiles.historyPathMismatch": "Ces fichiers utilisent des chemins Responses diff\xE9rents",
+    "history.referenceFiles": "Fichiers de r\xE9f\xE9rence",
+    "history.downloadReferenceFile": "T\xE9l\xE9charger le fichier",
+    "history.readdReferenceFile": "Ajouter \xE0 nouveau"
   };
 
   // codex_image/webui/frontend/src/i18n/ja.ts
@@ -4212,9 +4424,13 @@
     "history.search": "\u691C\u7D22",
     "history.searchPlaceholder": "\u30D7\u30ED\u30F3\u30D7\u30C8\u307E\u305F\u306F\u30BF\u30B9\u30AF ID \u3092\u691C\u7D22",
     "history.clear": "\u30AF\u30EA\u30A2",
+    "history.type": "\u7A2E\u985E",
+    "history.allTypes": "\u3059\u3079\u3066\u306E\u7A2E\u985E",
+    "history.type.textToImage": "\u30C6\u30AD\u30B9\u30C8\u304B\u3089\u753B\u50CF",
+    "history.type.imageToImage": "\u753B\u50CF\u304B\u3089\u753B\u50CF",
     "history.month": "\u6708",
     "history.status": "\u30B9\u30C6\u30FC\u30BF\u30B9",
-    "history.promptMode": "\u30D7\u30ED\u30F3\u30D7\u30C8\u30E2\u30FC\u30C9",
+    "history.promptMode": "\u30D7\u30ED\u30F3\u30D7\u30C8\u51E6\u7406",
     "history.size": "\u30B5\u30A4\u30BA",
     "history.quality": "\u54C1\u8CEA",
     "history.ratio": "\u6BD4\u7387",
@@ -4268,6 +4484,7 @@
     "history.viewing": "\u95B2\u89A7\u4E2D",
     "history.noPreview": "\u30D7\u30EC\u30D3\u30E5\u30FC\u753B\u50CF\u304C\u3042\u308A\u307E\u305B\u3093",
     "history.downloadAll": "ZIP \u3092\u30C0\u30A6\u30F3\u30ED\u30FC\u30C9",
+    "history.downloadImage": "\u753B\u50CF\u3092\u30C0\u30A6\u30F3\u30ED\u30FC\u30C9",
     "history.downloadSelected": "\u9078\u629E\u9805\u76EE\u3092\u30C0\u30A6\u30F3\u30ED\u30FC\u30C9",
     "history.deleteUnselected": "\u672A\u9078\u629E\u3092\u524A\u9664",
     "history.confirmDeleteUnselected": "\u672A\u9078\u629E\u306E\u524A\u9664\u3092\u78BA\u8A8D",
@@ -4310,9 +4527,9 @@
     "history.outputRevisedPromptTitle": "\u753B\u50CF {index} \u306E\u6539\u8A02\u30D7\u30ED\u30F3\u30D7\u30C8",
     "history.outputRevisedPromptNotice": "\u5404\u753B\u50CF\u306B\u306F\u753B\u50CF\u3054\u3068\u306E\u6539\u8A02\u30D7\u30ED\u30F3\u30D7\u30C8\u304C\u3042\u308A\u307E\u3059\u3002",
     "history.promptEmpty": "\u30B3\u30F3\u30C6\u30F3\u30C4\u304C\u3042\u308A\u307E\u305B\u3093",
-    "history.promptMode.strict": "\u53B3\u683C",
-    "history.promptMode.original": "\u30AA\u30EA\u30B8\u30CA\u30EB",
-    "history.promptMode.off": "\u30AF\u30EA\u30A8\u30A4\u30C6\u30A3\u30D6",
+    "history.promptMode.strict": "\u5FE0\u5B9F",
+    "history.promptMode.original": "\u539F\u6587",
+    "history.promptMode.off": "\u81EA\u52D5",
     "history.quality.high": "\u9AD8",
     "history.quality.medium": "\u4E2D",
     "history.quality.low": "\u4F4E",
@@ -4386,10 +4603,10 @@
     "api.settings": "\u30B7\u30B9\u30C6\u30E0\u8A2D\u5B9A",
     "api.provider": "API \u30D7\u30ED\u30D0\u30A4\u30C0\u30FC",
     "imageInput.title": "\u753B\u50CF\u5165\u529B",
-    "imageInput.uploadAria": "\u753B\u50CF\u3092\u30AF\u30EA\u30C3\u30AF\u3001\u30C9\u30ED\u30C3\u30D7\u3001\u307E\u305F\u306F\u8CBC\u308A\u4ED8\u3051\u307E\u3059",
-    "imageInput.uploadFull": "\u753B\u50CF\u3092\u30AF\u30EA\u30C3\u30AF\u3001\u30C9\u30ED\u30C3\u30D7\u3001\u307E\u305F\u306F\u8CBC\u308A\u4ED8\u3051\u307E\u3059",
-    "imageInput.uploadCompact": "\u753B\u50CF\u3092\u8FFD\u52A0",
-    "imageInput.uploadSubtitle": "\u8907\u6570\u306E\u53C2\u7167\u753B\u50CF\u3092\u30B5\u30DD\u30FC\u30C8",
+    "imageInput.uploadAria": "\u753B\u50CF\u3068\u30D5\u30A1\u30A4\u30EB\u3092\u30AF\u30EA\u30C3\u30AF\u3001\u30C9\u30ED\u30C3\u30D7\u3001\u307E\u305F\u306F\u8CBC\u308A\u4ED8\u3051",
+    "imageInput.uploadFull": "\u753B\u50CF\u3068\u30D5\u30A1\u30A4\u30EB\u3092\u30AF\u30EA\u30C3\u30AF\u3001\u30C9\u30ED\u30C3\u30D7\u3001\u307E\u305F\u306F\u8CBC\u308A\u4ED8\u3051",
+    "imageInput.uploadCompact": "\u5165\u529B\u3092\u8FFD\u52A0",
+    "imageInput.uploadSubtitle": "\u753B\u50CF\u3068 Responses \u306E\u53C2\u7167\u30D5\u30A1\u30A4\u30EB\u306B\u5BFE\u5FDC",
     "imageInput.recent": "\u6700\u8FD1\u306E\u30A2\u30C3\u30D7\u30ED\u30FC\u30C9",
     "imageInput.recentBadge": "\u6700\u8FD1\u306E",
     "imageInput.uploadBadge": "\u30A2\u30C3\u30D7\u30ED\u30FC\u30C9",
@@ -4519,15 +4736,25 @@
     "output.selectMainModel": "\u30E1\u30A4\u30F3\u30E2\u30C7\u30EB\u3092\u9078\u629E",
     "output.mainModelCustomForInput": "\u73FE\u5728\u306E\u5165\u529B\u306B\u30AB\u30B9\u30BF\u30E0 \u30E2\u30C7\u30EB\u3092\u4F7F\u7528\u3057\u307E\u3059",
     "output.apiDirect": "API\u76F4\u63A5",
-    "output.apiToolModel": "API \u753B\u50CF\u30E2\u30C7\u30EB\u3092\u4F7F\u7528",
+    "output.apiToolModel": "API \u753B\u50CF\u751F\u6210\u30E2\u30C7\u30EB\u3092\u4F7F\u7528",
     "output.mainModelUnused": "\u30E1\u30A4\u30F3 \u30E2\u30C7\u30EB\u306F\u3053\u306E\u30EA\u30AF\u30A8\u30B9\u30C8\u306B\u306F\u4F7F\u7528\u3055\u308C\u307E\u305B\u3093",
     "output.webSearch": "\u30A6\u30A7\u30D6\u691C\u7D22",
     "output.webSearchToggle": "\u30AA\u30F3",
     "output.webSearchTitle": "\u307E\u305A Web \u3092\u691C\u7D22\u3057\u3066\u304B\u3089\u3001\u3053\u306E\u4E16\u4EE3\u306B\u305D\u308C\u3092\u4F7F\u7528\u3057\u307E\u3059\u3002Codex\u304A\u3088\u3073API\u5FDC\u7B54\u306E\u307F",
-    "output.promptMode": "\u30D7\u30ED\u30F3\u30D7\u30C8\u30E2\u30FC\u30C9",
-    "output.modeOriginal": "\u30AA\u30EA\u30B8\u30CA\u30EB",
+    "output.promptMode": "\u30D7\u30ED\u30F3\u30D7\u30C8\u51E6\u7406",
+    "output.modeOriginal": "\u539F\u6587",
     "output.modeStrict": "\u5FE0\u5B9F",
-    "output.modeCreative": "\u30AF\u30EA\u30A8\u30A4\u30C6\u30A3\u30D6",
+    "output.modeCreative": "\u81EA\u52D5",
+    "output.promptHelp": "\u30D7\u30ED\u30F3\u30D7\u30C8\u51E6\u7406\u306E\u8AAC\u660E\u3092\u8868\u793A",
+    "output.promptHelpTitle": "\u30D7\u30ED\u30F3\u30D7\u30C8\u51E6\u7406",
+    "output.promptHelp.responsesChannel": "Responses \xB7 \u30E1\u30A4\u30F3\u30E2\u30C7\u30EB\u304C\u95A2\u4E0E",
+    "output.promptHelp.imagesChannel": "Images \xB7 \u76F4\u63A5\u751F\u6210",
+    "output.promptHelp.responses.original": "\u539F\u6587\u3092\u30E1\u30A4\u30F3\u30E2\u30C7\u30EB\u306B\u6E21\u3057\u3001\u753B\u50CF\u30C4\u30FC\u30EB\u3067\u3067\u304D\u308B\u9650\u308A\u305D\u306E\u307E\u307E\u4F7F\u3046\u3088\u3046\u6C42\u3081\u307E\u3059\u3002\u305F\u3060\u3057 revised prompt \u304C\u751F\u6210\u3055\u308C\u308B\u5834\u5408\u304C\u3042\u308A\u307E\u3059\u3002",
+    "output.promptHelp.responses.strict": "\u30E1\u30A4\u30F3\u30E2\u30C7\u30EB\u306B\u3088\u308B\u6574\u7406\u3084\u62E1\u5F35\u3092\u8A31\u53EF\u3057\u3064\u3064\u3001\u88AB\u5199\u4F53\u3001\u6587\u5B57\u3001\u8272\u3001\u69CB\u56F3\u306A\u3069\u306E\u5FC5\u9808\u6761\u4EF6\u3092\u4FDD\u6301\u3057\u307E\u3059\u3002",
+    "output.promptHelp.responses.automatic": "\u8FFD\u52A0\u5236\u7D04\u3092\u4ED8\u3051\u305A\u3001\u30E1\u30A4\u30F3\u30E2\u30C7\u30EB\u304C\u89E3\u91C8\u30FB\u6700\u9069\u5316\u3057\u3066\u304B\u3089\u753B\u50CF\u30C4\u30FC\u30EB\u3092\u547C\u3073\u51FA\u3057\u307E\u3059\u3002",
+    "output.promptHelp.images.original": "\u30A2\u30D7\u30EA\u5074\u306E\u30EB\u30FC\u30EB\u3092\u8FFD\u52A0\u305B\u305A\u3001\u539F\u6587\u3092\u753B\u50CF API \u306B\u76F4\u63A5\u9001\u4FE1\u3057\u307E\u3059\u3002",
+    "output.promptHelp.images.strict": "\u539F\u6587\u3068\u4FDD\u771F\u30EB\u30FC\u30EB\u3092\u4E00\u7DD2\u306B\u9001\u4FE1\u3057\u3001\u3059\u3079\u3066\u306E\u5FC5\u9808\u6761\u4EF6\u306E\u4FDD\u6301\u3092\u5F37\u8ABF\u3057\u307E\u3059\u3002",
+    "output.promptHelp.images.automatic": "\u753B\u50CF API \u306E\u65E2\u5B9A\u51E6\u7406\u3067\u9001\u4FE1\u3057\u3001\u30AE\u30E3\u30E9\u30EA\u30FC\u53C2\u7167\u306A\u3069\u5FC5\u8981\u306A\u8AAC\u660E\u306F\u542B\u3081\u307E\u3059\u3002",
     "output.sizeMode": "\u30B5\u30A4\u30BA\u30E2\u30FC\u30C9",
     "output.sizePreset": "\u30D7\u30EA\u30BB\u30C3\u30C8",
     "output.sizeCustom": "\u30AB\u30B9\u30BF\u30E0",
@@ -4829,9 +5056,12 @@
     "apiSettings.codexImages": "\u753B\u50CF",
     "apiSettings.codexResponses": "\u5FDC\u7B54",
     "apiSettings.providers": "API \u30D7\u30ED\u30D0\u30A4\u30C0\u30FC",
+    "apiSettings.searchProviders": "\u30D7\u30ED\u30D0\u30A4\u30C0\u30FC\u540D\u3092\u691C\u7D22",
+    "apiSettings.noProviderSearchResults": "\u4E00\u81F4\u3059\u308B\u30D7\u30ED\u30D0\u30A4\u30C0\u30FC\u306F\u3042\u308A\u307E\u305B\u3093",
     "apiSettings.providerCount": "\u30D7\u30ED\u30D0\u30A4\u30C0\u30FC {count} \u4EF6",
     "apiSettings.provider": "\u30D7\u30ED\u30D0\u30A4\u30C0\u30FC",
     "apiSettings.providerName": "\u30D7\u30ED\u30D0\u30A4\u30C0\u30FC\u540D",
+    "apiSettings.actualRequest": "\u5B9F\u969B\u306E\u30EA\u30AF\u30A8\u30B9\u30C8",
     "apiSettings.newProviderAction": "\u30D7\u30ED\u30D0\u30A4\u30C0\u30FC\u3092\u65B0\u898F\u4F5C\u6210",
     "apiSettings.copyProvider": "\u30B3\u30D4\u30FC",
     "apiSettings.copyProviderName": "{name} \u3092\u30B3\u30D4\u30FC",
@@ -4849,9 +5079,10 @@
     "apiSettings.images": "Image API\u306B\u76F4\u63A5\u63A5\u7D9A",
     "apiSettings.responses": "Responses API",
     "apiSettings.modeImagesShort": "\u76F4\u7D50",
-    "apiSettings.imageModel": "\u753B\u50CF\u30C4\u30FC\u30EB\u30E2\u30C7\u30EB",
-    "apiSettings.concurrency": "\u30D7\u30ED\u30D0\u30A4\u30C0\u30FC\u7DCF\u540C\u6642\u5B9F\u884C\u4E0A\u9650",
+    "apiSettings.imageModel": "\u753B\u50CF\u751F\u6210\u30E2\u30C7\u30EB",
+    "apiSettings.concurrency": "\u540C\u6642\u5B9F\u884C\u4E0A\u9650",
     "apiSettings.concurrencyShort": "\u540C\u6642\u5B9F\u884C",
+    "apiSettings.advancedSettings": "\u8A73\u7D30\u8A2D\u5B9A",
     "apiSettings.concurrencyValue": "\u540C\u6642\u5B9F\u884C\u6027{concurrency}",
     "apiSettings.keySaved": "API Key\u304C\u4FDD\u5B58\u3055\u308C\u307E\u3057\u305F",
     "apiSettings.keyNotSet": "API Key\u304C\u8A2D\u5B9A\u3055\u308C\u3066\u3044\u307E\u305B\u3093",
@@ -4978,7 +5209,39 @@
     "close.imageEditor": "\u753B\u50CF\u30A8\u30C7\u30A3\u30BF\u30FC \u30D1\u30CD\u30EB\u3092\u9589\u3058\u308B",
     "close.gallery": "\u30AE\u30E3\u30E9\u30EA\u30FC \u30D1\u30CD\u30EB\u3092\u9589\u3058\u308B",
     "close.addGallery": "\u30AE\u30E3\u30E9\u30EA\u30FC\u8FFD\u52A0\u30D1\u30CD\u30EB\u3092\u9589\u3058\u308B",
-    "close.version": "\u30D0\u30FC\u30B8\u30E7\u30F3\u66F4\u65B0\u30D1\u30CD\u30EB\u3092\u9589\u3058\u308B"
+    "close.version": "\u30D0\u30FC\u30B8\u30E7\u30F3\u66F4\u65B0\u30D1\u30CD\u30EB\u3092\u9589\u3058\u308B",
+    "imageInput.referenceTitle": "\u53C2\u7167\u5165\u529B",
+    "referenceFiles.add": "\u30D5\u30A1\u30A4\u30EB\u3092\u8FFD\u52A0",
+    "referenceFiles.selected": "\u53C2\u7167\u30D5\u30A1\u30A4\u30EB",
+    "referenceFiles.recent": "\u6700\u8FD1\u306E\u30D5\u30A1\u30A4\u30EB",
+    "referenceFiles.familyPdf": "\u30DA\u30FC\u30B8 + \u30C6\u30AD\u30B9\u30C8",
+    "referenceFiles.familySpreadsheet": "\u8868\u8A08\u7B97",
+    "referenceFiles.familyDocument": "\u30C9\u30AD\u30E5\u30E1\u30F3\u30C8",
+    "referenceFiles.familyText": "\u30C6\u30AD\u30B9\u30C8",
+    "referenceFiles.visualLimit": "PDF \u4EE5\u5916\u3067\u306F\u57CB\u3081\u8FBC\u307F\u753B\u50CF\u3084\u30B0\u30E9\u30D5\u306F\u4FDD\u6301\u3055\u308C\u307E\u305B\u3093\u3002\u30EC\u30A4\u30A2\u30A6\u30C8\u53C2\u7167\u304C\u5FC5\u8981\u306A\u5834\u5408\u306F PDF \u306B\u5909\u63DB\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+    "referenceFiles.remove": "{filename} \u3092\u524A\u9664",
+    "referenceFiles.switchTitle": "\u53C2\u7167\u30D5\u30A1\u30A4\u30EB\u3092\u524A\u9664\u3057\u307E\u3059\u304B\uFF1F",
+    "referenceFiles.switchMessage": "\u53C2\u7167\u30D5\u30A1\u30A4\u30EB\u306F Responses \u3067\u306E\u307F\u5229\u7528\u3067\u304D\u307E\u3059\u3002Images \u306B\u5207\u308A\u66FF\u3048\u308B\u524D\u306B\u9078\u629E\u30D5\u30A1\u30A4\u30EB\u3092\u524A\u9664\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+    "referenceFiles.removeAndSwitch": "\u30D5\u30A1\u30A4\u30EB\u3092\u524A\u9664\u3057\u3066\u5207\u308A\u66FF\u3048",
+    "referenceFiles.requiresResponses": "\u53C2\u7167\u30D5\u30A1\u30A4\u30EB\u306B\u306F Responses \u304C\u5FC5\u8981\u3067\u3059",
+    "referenceFiles.switchToResponses": "Responses \u306B\u5207\u308A\u66FF\u3048",
+    "referenceFiles.openApiSettings": "API \u8A2D\u5B9A\u3092\u958B\u304F",
+    "referenceFiles.providerMissing": "\u5143\u306E Responses \u30D7\u30ED\u30D0\u30A4\u30C0\u30FC\u3092\u5229\u7528\u3067\u304D\u307E\u305B\u3093\u3002API \u8A2D\u5B9A\u3067\u9078\u629E\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+    "referenceFiles.missing": "\u30D5\u30A1\u30A4\u30EB\u304C\u3042\u308A\u307E\u305B\u3093",
+    "referenceFiles.loadFailed": "\u53C2\u7167\u30D5\u30A1\u30A4\u30EB\u3092\u8AAD\u307F\u8FBC\u3081\u307E\u305B\u3093\u3067\u3057\u305F",
+    "referenceFiles.errorEmpty": "\u53C2\u7167\u30D5\u30A1\u30A4\u30EB\u304C\u7A7A\u3067\u3059",
+    "referenceFiles.errorUnsupported": "\u3053\u306E\u53C2\u7167\u30D5\u30A1\u30A4\u30EB\u5F62\u5F0F\u306F\u30B5\u30DD\u30FC\u30C8\u3055\u308C\u3066\u3044\u307E\u305B\u3093",
+    "referenceFiles.errorMismatch": "\u30D5\u30A1\u30A4\u30EB\u5185\u5BB9\u3068\u62E1\u5F35\u5B50\u304C\u4E00\u81F4\u3057\u307E\u305B\u3093",
+    "referenceFiles.errorInvalid": "\u53C2\u7167\u30D5\u30A1\u30A4\u30EB\u304C\u7121\u52B9\u3067\u3059",
+    "referenceFiles.errorTooLarge": "\u53C2\u7167\u30D5\u30A1\u30A4\u30EB\u306F 1 \u4EF6 50 MB \u672A\u6E80\u306B\u3057\u3066\u304F\u3060\u3055\u3044",
+    "referenceFiles.errorTotalTooLarge": "\u53C2\u7167\u30D5\u30A1\u30A4\u30EB\u306E\u5408\u8A08\u306F 50 MB \u4EE5\u4E0B\u306B\u3057\u3066\u304F\u3060\u3055\u3044",
+    "referenceFiles.errorMissing": "\u9078\u629E\u3057\u305F\u53C2\u7167\u30D5\u30A1\u30A4\u30EB\u304C\u3042\u308A\u307E\u305B\u3093",
+    "referenceFiles.errorProviderUnsupported": "\u3053\u306E\u30D7\u30ED\u30D0\u30A4\u30C0\u30FC\u306E Responses \u306F\u53C2\u7167\u30D5\u30A1\u30A4\u30EB\u3092\u30B5\u30DD\u30FC\u30C8\u3057\u3066\u3044\u307E\u305B\u3093",
+    "referenceFiles.responsesEnabled": "Responses \u306B\u5207\u308A\u66FF\u3048\u307E\u3057\u305F",
+    "referenceFiles.historyPathMismatch": "\u53C2\u7167\u30D5\u30A1\u30A4\u30EB\u306E Responses \u30D1\u30B9\u304C\u7570\u306A\u308A\u307E\u3059",
+    "history.referenceFiles": "\u53C2\u7167\u30D5\u30A1\u30A4\u30EB",
+    "history.downloadReferenceFile": "\u30D5\u30A1\u30A4\u30EB\u3092\u30C0\u30A6\u30F3\u30ED\u30FC\u30C9",
+    "history.readdReferenceFile": "\u518D\u8FFD\u52A0"
   };
 
   // codex_image/webui/frontend/src/i18n/ko.ts
@@ -5114,9 +5377,13 @@
     "history.search": "\uAC80\uC0C9",
     "history.searchPlaceholder": "\uD504\uB86C\uD504\uD2B8 \uB610\uB294 \uC791\uC5C5 ID \uAC80\uC0C9",
     "history.clear": "\uC9C0\uC6B0\uAE30",
+    "history.type": "\uC720\uD615",
+    "history.allTypes": "\uBAA8\uB4E0 \uC720\uD615",
+    "history.type.textToImage": "\uD14D\uC2A4\uD2B8\u2192\uC774\uBBF8\uC9C0",
+    "history.type.imageToImage": "\uC774\uBBF8\uC9C0\u2192\uC774\uBBF8\uC9C0",
     "history.month": "\uC6D4",
     "history.status": "\uC0C1\uD0DC",
-    "history.promptMode": "\uD504\uB86C\uD504\uD2B8 \uBAA8\uB4DC",
+    "history.promptMode": "\uD504\uB86C\uD504\uD2B8 \uCC98\uB9AC",
     "history.size": "\uD06C\uAE30",
     "history.quality": "\uD488\uC9C8",
     "history.ratio": "\uBE44\uC728",
@@ -5170,6 +5437,7 @@
     "history.viewing": "\uBCF4\uAE30",
     "history.noPreview": "\uBBF8\uB9AC\uBCF4\uAE30 \uC774\uBBF8\uC9C0 \uC5C6\uC74C",
     "history.downloadAll": "ZIP \uB2E4\uC6B4\uB85C\uB4DC",
+    "history.downloadImage": "\uC774\uBBF8\uC9C0 \uB2E4\uC6B4\uB85C\uB4DC",
     "history.downloadSelected": "\uC120\uD0DD \uD56D\uBAA9 \uB2E4\uC6B4\uB85C\uB4DC",
     "history.deleteUnselected": "\uC120\uD0DD\uD558\uC9C0 \uC54A\uC740 \uD56D\uBAA9 \uC0AD\uC81C",
     "history.confirmDeleteUnselected": "\uC120\uD0DD\uD558\uC9C0 \uC54A\uC740 \uD56D\uBAA9 \uC0AD\uC81C \uD655\uC778",
@@ -5212,9 +5480,9 @@
     "history.outputRevisedPromptTitle": "\uC774\uBBF8\uC9C0 {index} \uC218\uC815 \uD504\uB86C\uD504\uD2B8",
     "history.outputRevisedPromptNotice": "\uAC01 \uC774\uBBF8\uC9C0\uC5D0\uB294 \uC774\uBBF8\uC9C0\uBCC4 \uC218\uC815 \uD504\uB86C\uD504\uD2B8\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.",
     "history.promptEmpty": "\uB0B4\uC6A9 \uC5C6\uC74C",
-    "history.promptMode.strict": "\uC5C4\uACA9\uD568",
-    "history.promptMode.original": "\uC6D0\uBCF8",
-    "history.promptMode.off": "\uD06C\uB9AC\uC5D0\uC774\uD2F0\uBE0C",
+    "history.promptMode.strict": "\uCDA9\uC2E4",
+    "history.promptMode.original": "\uC6D0\uBB38",
+    "history.promptMode.off": "\uC790\uB3D9",
     "history.quality.high": "\uB192\uC74C",
     "history.quality.medium": "\uB9E4\uCCB4",
     "history.quality.low": "\uB0AE\uC74C",
@@ -5288,10 +5556,10 @@
     "api.settings": "\uC2DC\uC2A4\uD15C \uC124\uC815",
     "api.provider": "API \uACF5\uAE09\uC790",
     "imageInput.title": "\uC774\uBBF8\uC9C0 \uC785\uB825",
-    "imageInput.uploadAria": "\uC774\uBBF8\uC9C0\uB97C \uD074\uB9AD, \uB4DC\uB86D \uB610\uB294 \uBD99\uC5EC\uB123\uAE30",
-    "imageInput.uploadFull": "\uC774\uBBF8\uC9C0\uB97C \uD074\uB9AD, \uB4DC\uB86D \uB610\uB294 \uBD99\uC5EC\uB123\uAE30",
-    "imageInput.uploadCompact": "\uC774\uBBF8\uC9C0 \uCD94\uAC00",
-    "imageInput.uploadSubtitle": "\uC5EC\uB7EC \uCC38\uC870 \uC774\uBBF8\uC9C0 \uC9C0\uC6D0",
+    "imageInput.uploadAria": "\uC774\uBBF8\uC9C0\uC640 \uD30C\uC77C\uC744 \uD074\uB9AD, \uB4DC\uB86D \uB610\uB294 \uBD99\uC5EC\uB123\uAE30",
+    "imageInput.uploadFull": "\uC774\uBBF8\uC9C0\uC640 \uD30C\uC77C\uC744 \uD074\uB9AD, \uB4DC\uB86D \uB610\uB294 \uBD99\uC5EC\uB123\uAE30",
+    "imageInput.uploadCompact": "\uC785\uB825 \uCD94\uAC00",
+    "imageInput.uploadSubtitle": "\uC774\uBBF8\uC9C0 \uBC0F Responses \uCC38\uC870 \uD30C\uC77C \uC9C0\uC6D0",
     "imageInput.recent": "\uCD5C\uADFC \uC5C5\uB85C\uB4DC",
     "imageInput.recentBadge": "\uCD5C\uADFC",
     "imageInput.uploadBadge": "\uC5C5\uB85C\uB4DC",
@@ -5421,15 +5689,25 @@
     "output.selectMainModel": "\uBA54\uC778 \uBAA8\uB378 \uC120\uD0DD",
     "output.mainModelCustomForInput": "\uD604\uC7AC \uC785\uB825\uC5D0 \uC0AC\uC6A9\uC790 \uC815\uC758 \uBAA8\uB378\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4.",
     "output.apiDirect": "API\uC9C1\uC811",
-    "output.apiToolModel": "API \uC774\uBBF8\uC9C0 \uBAA8\uB378 \uC0AC\uC6A9",
+    "output.apiToolModel": "API \uC774\uBBF8\uC9C0 \uC0DD\uC131 \uBAA8\uB378 \uC0AC\uC6A9",
     "output.mainModelUnused": "\uC774 \uC694\uCCAD\uC5D0\uB294 \uAE30\uBCF8 \uBAA8\uB378\uC774 \uC0AC\uC6A9\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
     "output.webSearch": "\uC6F9 \uAC80\uC0C9",
     "output.webSearchToggle": "\uCF1C\uC9D0",
     "output.webSearchTitle": "\uBA3C\uC800 \uC6F9\uC744 \uAC80\uC0C9\uD55C \uB2E4\uC74C \uC774 \uC138\uB300\uB97C \uC704\uD574 \uC0AC\uC6A9\uD558\uC2ED\uC2DC\uC624.Codex\uBC0FAPI\uC751\uB2F5\uB9CC",
-    "output.promptMode": "\uD504\uB86C\uD504\uD2B8 \uBAA8\uB4DC",
-    "output.modeOriginal": "\uC6D0\uBCF8",
-    "output.modeStrict": "\uCDA9\uC2E4\uD568",
-    "output.modeCreative": "\uD06C\uB9AC\uC5D0\uC774\uD2F0\uBE0C",
+    "output.promptMode": "\uD504\uB86C\uD504\uD2B8 \uCC98\uB9AC",
+    "output.modeOriginal": "\uC6D0\uBB38",
+    "output.modeStrict": "\uCDA9\uC2E4",
+    "output.modeCreative": "\uC790\uB3D9",
+    "output.promptHelp": "\uD504\uB86C\uD504\uD2B8 \uCC98\uB9AC \uC124\uBA85 \uBCF4\uAE30",
+    "output.promptHelpTitle": "\uD504\uB86C\uD504\uD2B8 \uCC98\uB9AC",
+    "output.promptHelp.responsesChannel": "Responses \xB7 \uBA54\uC778 \uBAA8\uB378 \uCC38\uC5EC",
+    "output.promptHelp.imagesChannel": "Images \xB7 \uC9C1\uC811 \uC0DD\uC131",
+    "output.promptHelp.responses.original": "\uC6D0\uBB38\uC744 \uBA54\uC778 \uBAA8\uB378\uC5D0 \uC804\uB2EC\uD558\uACE0 \uC774\uBBF8\uC9C0 \uB3C4\uAD6C\uAC00 \uAC00\uB2A5\uD55C \uD55C \uADF8\uB300\uB85C \uC0AC\uC6A9\uD558\uB3C4\uB85D \uC694\uCCAD\uD569\uB2C8\uB2E4. \uB2E8, revised prompt\uAC00 \uC0DD\uC131\uB420 \uC218 \uC788\uC2B5\uB2C8\uB2E4.",
+    "output.promptHelp.responses.strict": "\uBA54\uC778 \uBAA8\uB378\uC774 \uC815\uB9AC\uD558\uAC70\uB098 \uD655\uC7A5\uD560 \uC218 \uC788\uC9C0\uB9CC \uD53C\uC0AC\uCCB4, \uD14D\uC2A4\uD2B8, \uC0C9\uC0C1, \uAD6C\uB3C4 \uAC19\uC740 \uD544\uC218 \uC870\uAC74\uC740 \uC720\uC9C0\uD569\uB2C8\uB2E4.",
+    "output.promptHelp.responses.automatic": "\uCD94\uAC00 \uC81C\uC57D \uC5C6\uC774 \uBA54\uC778 \uBAA8\uB378\uC774 \uD574\uC11D\uD558\uACE0 \uCD5C\uC801\uD654\uD55C \uB4A4 \uC774\uBBF8\uC9C0 \uB3C4\uAD6C\uB97C \uD638\uCD9C\uD569\uB2C8\uB2E4.",
+    "output.promptHelp.images.original": "\uC571 \uC218\uC900\uC758 \uADDC\uCE59\uC744 \uCD94\uAC00\uD558\uC9C0 \uC54A\uACE0 \uC6D0\uBB38\uC744 \uC774\uBBF8\uC9C0 API\uC5D0 \uC9C1\uC811 \uC81C\uCD9C\uD569\uB2C8\uB2E4.",
+    "output.promptHelp.images.strict": "\uC6D0\uBB38\uACFC \uCDA9\uC2E4\uB3C4 \uADDC\uCE59\uC744 \uD568\uAED8 \uC81C\uCD9C\uD574 \uBAA8\uB4E0 \uD544\uC218 \uC870\uAC74\uC758 \uC720\uC9C0\uB97C \uAC15\uC870\uD569\uB2C8\uB2E4.",
+    "output.promptHelp.images.automatic": "\uC774\uBBF8\uC9C0 API\uC758 \uAE30\uBCF8 \uBC29\uC2DD\uC73C\uB85C \uC81C\uCD9C\uD558\uBA70 \uAC24\uB7EC\uB9AC \uCC38\uC870 \uAC19\uC740 \uD544\uC218 \uC124\uBA85\uC740 \uD3EC\uD568\uD569\uB2C8\uB2E4.",
     "output.sizeMode": "\uD06C\uAE30 \uBAA8\uB4DC",
     "output.sizePreset": "\uC0AC\uC804 \uC124\uC815",
     "output.sizeCustom": "\uC0AC\uC6A9\uC790 \uC815\uC758",
@@ -5731,9 +6009,12 @@
     "apiSettings.codexImages": "\uC774\uBBF8\uC9C0",
     "apiSettings.codexResponses": "\uC751\uB2F5",
     "apiSettings.providers": "API \uACF5\uAE09\uC790",
+    "apiSettings.searchProviders": "\uACF5\uAE09\uC790 \uC774\uB984 \uAC80\uC0C9",
+    "apiSettings.noProviderSearchResults": "\uC77C\uCE58\uD558\uB294 \uACF5\uAE09\uC790\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4",
     "apiSettings.providerCount": "\uACF5\uAE09\uC790 {count}\uAC1C",
     "apiSettings.provider": "\uACF5\uAE09\uC790",
     "apiSettings.providerName": "\uACF5\uAE09\uC790 \uC774\uB984",
+    "apiSettings.actualRequest": "\uC2E4\uC81C \uC694\uCCAD",
     "apiSettings.newProviderAction": "\uACF5\uAE09\uC790 \uC0C8\uB85C \uB9CC\uB4E4\uAE30",
     "apiSettings.copyProvider": "\uBCF5\uC0AC",
     "apiSettings.copyProviderName": "{name} \uBCF5\uC0AC",
@@ -5751,9 +6032,10 @@
     "apiSettings.images": "Image API \uC9C1\uC811 \uC5F0\uACB0",
     "apiSettings.responses": "Responses API",
     "apiSettings.modeImagesShort": "\uC9C1\uC811 \uC5F0\uACB0",
-    "apiSettings.imageModel": "\uC774\uBBF8\uC9C0 \uB3C4\uAD6C \uBAA8\uB378",
-    "apiSettings.concurrency": "\uACF5\uAE09\uC790 \uC804\uCCB4 \uB3D9\uC2DC \uC2E4\uD589 \uD55C\uB3C4",
+    "apiSettings.imageModel": "\uC774\uBBF8\uC9C0 \uC0DD\uC131 \uBAA8\uB378",
+    "apiSettings.concurrency": "\uB3D9\uC2DC \uC2E4\uD589 \uD55C\uB3C4",
     "apiSettings.concurrencyShort": "\uB3D9\uC2DC \uC2E4\uD589",
+    "apiSettings.advancedSettings": "\uACE0\uAE09 \uC124\uC815",
     "apiSettings.concurrencyValue": "\uB3D9\uC2DC\uC131{concurrency}",
     "apiSettings.keySaved": "API Key\uAC00 \uC800\uC7A5\uB418\uC5C8\uC2B5\uB2C8\uB2E4",
     "apiSettings.keyNotSet": "API Key\uAC00 \uC124\uC815\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.",
@@ -5880,7 +6162,39 @@
     "close.imageEditor": "\uC774\uBBF8\uC9C0 \uD3B8\uC9D1\uAE30 \uD328\uB110 \uB2EB\uAE30",
     "close.gallery": "\uAC24\uB7EC\uB9AC \uD328\uB110 \uB2EB\uAE30",
     "close.addGallery": "\uAC24\uB7EC\uB9AC \uCD94\uAC00 \uD328\uB110 \uB2EB\uAE30",
-    "close.version": "\uBC84\uC804 \uC5C5\uB370\uC774\uD2B8 \uD328\uB110 \uB2EB\uAE30"
+    "close.version": "\uBC84\uC804 \uC5C5\uB370\uC774\uD2B8 \uD328\uB110 \uB2EB\uAE30",
+    "imageInput.referenceTitle": "\uCC38\uC870 \uC785\uB825",
+    "referenceFiles.add": "\uD30C\uC77C \uCD94\uAC00",
+    "referenceFiles.selected": "\uCC38\uC870 \uD30C\uC77C",
+    "referenceFiles.recent": "\uCD5C\uADFC \uD30C\uC77C",
+    "referenceFiles.familyPdf": "\uD398\uC774\uC9C0 + \uD14D\uC2A4\uD2B8",
+    "referenceFiles.familySpreadsheet": "\uC2A4\uD504\uB808\uB4DC\uC2DC\uD2B8",
+    "referenceFiles.familyDocument": "\uBB38\uC11C",
+    "referenceFiles.familyText": "\uD14D\uC2A4\uD2B8",
+    "referenceFiles.visualLimit": "PDF\uAC00 \uC544\uB2CC \uD30C\uC77C\uC5D0\uC11C\uB294 \uD3EC\uD568\uB41C \uC774\uBBF8\uC9C0\uC640 \uCC28\uD2B8\uAC00 \uC720\uC9C0\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uB808\uC774\uC544\uC6C3 \uCC38\uC870\uAC00 \uD544\uC694\uD558\uBA74 PDF\uB85C \uBCC0\uD658\uD558\uC138\uC694.",
+    "referenceFiles.remove": "{filename} \uC81C\uAC70",
+    "referenceFiles.switchTitle": "\uCC38\uC870 \uD30C\uC77C\uC744 \uC81C\uAC70\uD560\uAE4C\uC694?",
+    "referenceFiles.switchMessage": "\uCC38\uC870 \uD30C\uC77C\uC740 Responses\uC5D0\uC11C\uB9CC \uC0AC\uC6A9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. Images\uB85C \uC804\uD658\uD558\uAE30 \uC804\uC5D0 \uC120\uD0DD \uD30C\uC77C\uC744 \uC81C\uAC70\uD558\uC138\uC694.",
+    "referenceFiles.removeAndSwitch": "\uD30C\uC77C \uC81C\uAC70 \uD6C4 \uC804\uD658",
+    "referenceFiles.requiresResponses": "\uCC38\uC870 \uD30C\uC77C\uC740 Responses\uAC00 \uD544\uC694\uD569\uB2C8\uB2E4",
+    "referenceFiles.switchToResponses": "Responses\uB85C \uC804\uD658",
+    "referenceFiles.openApiSettings": "API \uC124\uC815 \uC5F4\uAE30",
+    "referenceFiles.providerMissing": "\uC6D0\uB798 Responses \uACF5\uAE09\uC790\uB97C \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. API \uC124\uC815\uC5D0\uC11C \uC120\uD0DD\uD558\uC138\uC694.",
+    "referenceFiles.missing": "\uD30C\uC77C \uC5C6\uC74C",
+    "referenceFiles.loadFailed": "\uCC38\uC870 \uD30C\uC77C\uC744 \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4",
+    "referenceFiles.errorEmpty": "\uCC38\uC870 \uD30C\uC77C\uC774 \uBE44\uC5B4 \uC788\uC2B5\uB2C8\uB2E4",
+    "referenceFiles.errorUnsupported": "\uC9C0\uC6D0\uB418\uC9C0 \uC54A\uB294 \uCC38\uC870 \uD30C\uC77C \uD615\uC2DD\uC785\uB2C8\uB2E4",
+    "referenceFiles.errorMismatch": "\uD30C\uC77C \uB0B4\uC6A9\uACFC \uD655\uC7A5\uC790\uAC00 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4",
+    "referenceFiles.errorInvalid": "\uCC38\uC870 \uD30C\uC77C\uC774 \uC720\uD6A8\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4",
+    "referenceFiles.errorTooLarge": "\uCC38\uC870 \uD30C\uC77C \uD558\uB098\uB294 50MB \uBBF8\uB9CC\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4",
+    "referenceFiles.errorTotalTooLarge": "\uCC38\uC870 \uD30C\uC77C \uD569\uACC4\uB294 50MB \uC774\uD558\uC5EC\uC57C \uD569\uB2C8\uB2E4",
+    "referenceFiles.errorMissing": "\uC120\uD0DD\uD55C \uCC38\uC870 \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4",
+    "referenceFiles.errorProviderUnsupported": "\uC774 \uACF5\uAE09\uC790\uC758 Responses\uB294 \uCC38\uC870 \uD30C\uC77C\uC744 \uC9C0\uC6D0\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4",
+    "referenceFiles.responsesEnabled": "Responses\uB85C \uC804\uD658\uD588\uC2B5\uB2C8\uB2E4",
+    "referenceFiles.historyPathMismatch": "\uCC38\uC870 \uD30C\uC77C\uC758 Responses \uACBD\uB85C\uAC00 \uC11C\uB85C \uB2E4\uB985\uB2C8\uB2E4",
+    "history.referenceFiles": "\uCC38\uC870 \uD30C\uC77C",
+    "history.downloadReferenceFile": "\uD30C\uC77C \uB2E4\uC6B4\uB85C\uB4DC",
+    "history.readdReferenceFile": "\uB2E4\uC2DC \uCD94\uAC00"
   };
 
   // codex_image/webui/frontend/src/i18n/pt.ts
@@ -6016,9 +6330,13 @@
     "history.search": "Pesquisar",
     "history.searchPlaceholder": "Solicita\xE7\xF5es de pesquisa ou tarefa ID",
     "history.clear": "Limpar",
+    "history.type": "Tipo",
+    "history.allTypes": "Todos os tipos",
+    "history.type.textToImage": "Texto para imagem",
+    "history.type.imageToImage": "Imagem para imagem",
     "history.month": "M\xEAs",
     "history.status": "Estado",
-    "history.promptMode": "Modo de prompt",
+    "history.promptMode": "Tratamento do prompt",
     "history.size": "Tamanho",
     "history.quality": "Qualidade",
     "history.ratio": "Propor\xE7\xE3o",
@@ -6072,6 +6390,7 @@
     "history.viewing": "Visualizando",
     "history.noPreview": "Nenhuma imagem de visualiza\xE7\xE3o",
     "history.downloadAll": "Baixar ZIP",
+    "history.downloadImage": "Baixar imagem",
     "history.downloadSelected": "Download selecionado",
     "history.deleteUnselected": "Excluir n\xE3o selecionado",
     "history.confirmDeleteUnselected": "Confirmar exclus\xE3o desmarcada",
@@ -6114,9 +6433,9 @@
     "history.outputRevisedPromptTitle": "Imagem {index} prompt revisado",
     "history.outputRevisedPromptNotice": "Cada imagem tem seu pr\xF3prio prompt revisado abaixo da imagem.",
     "history.promptEmpty": "Sem conte\xFAdo",
-    "history.promptMode.strict": "Estrito",
-    "history.promptMode.original": "Originais",
-    "history.promptMode.off": "Criativo",
+    "history.promptMode.strict": "Fiel",
+    "history.promptMode.original": "Original",
+    "history.promptMode.off": "Autom\xE1tico",
     "history.quality.high": "Alto",
     "history.quality.medium": "M\xE9dio",
     "history.quality.low": "Baixo",
@@ -6190,10 +6509,10 @@
     "api.settings": "Configura\xE7\xF5es do sistema",
     "api.provider": "API provedor",
     "imageInput.title": "Imagens",
-    "imageInput.uploadAria": "Clique, solte ou cole imagens",
-    "imageInput.uploadFull": "Clique, solte ou cole imagens",
-    "imageInput.uploadCompact": "Adicionar imagem",
-    "imageInput.uploadSubtitle": "V\xE1rias imagens de refer\xEAncia suportadas",
+    "imageInput.uploadAria": "Clique, solte ou cole imagens e arquivos",
+    "imageInput.uploadFull": "Clique, solte ou cole imagens e arquivos",
+    "imageInput.uploadCompact": "Adicionar entrada",
+    "imageInput.uploadSubtitle": "Compat\xEDvel com imagens e arquivos de refer\xEAncia do Responses",
     "imageInput.recent": "Envios recentes",
     "imageInput.recentBadge": "Recente",
     "imageInput.uploadBadge": "Carregar",
@@ -6323,15 +6642,25 @@
     "output.selectMainModel": "Selecione o modelo principal",
     "output.mainModelCustomForInput": "Use um modelo personalizado para a entrada atual",
     "output.apiDirect": "API Direto",
-    "output.apiToolModel": "Usando o modelo de imagem API",
+    "output.apiToolModel": "Usando o modelo de gera\xE7\xE3o de imagens API",
     "output.mainModelUnused": "O modelo principal n\xE3o \xE9 usado para esta solicita\xE7\xE3o",
     "output.webSearch": "Pesquisa na web",
     "output.webSearchToggle": "Ligado",
     "output.webSearchTitle": "Pesquise primeiro na web e depois use-a para esta gera\xE7\xE3o; Codex e API Responses apenas",
-    "output.promptMode": "Modo de prompt",
-    "output.modeOriginal": "Originais",
+    "output.promptMode": "Tratamento do prompt",
+    "output.modeOriginal": "Original",
     "output.modeStrict": "Fiel",
-    "output.modeCreative": "Criativo",
+    "output.modeCreative": "Autom\xE1tico",
+    "output.promptHelp": "Explicar o tratamento do prompt",
+    "output.promptHelpTitle": "Tratamento do prompt",
+    "output.promptHelp.responsesChannel": "Responses \xB7 modelo principal envolvido",
+    "output.promptHelp.imagesChannel": "Images \xB7 gera\xE7\xE3o direta",
+    "output.promptHelp.responses.original": "Envia o texto original ao modelo principal e pede que a ferramenta de imagem o preserve; ainda assim pode gerar um revised prompt.",
+    "output.promptHelp.responses.strict": "Permite que o modelo principal organize ou expanda o prompt, preservando restri\xE7\xF5es como temas, texto, cores e composi\xE7\xE3o.",
+    "output.promptHelp.responses.automatic": "N\xE3o adiciona restri\xE7\xF5es; o modelo principal interpreta e otimiza antes de chamar a ferramenta de imagem.",
+    "output.promptHelp.images.original": "N\xE3o adiciona regras do aplicativo e envia o texto original diretamente \xE0 API de imagens.",
+    "output.promptHelp.images.strict": "Envia regras de fidelidade junto com o prompt original para preservar todas as restri\xE7\xF5es.",
+    "output.promptHelp.images.automatic": "Usa o tratamento padr\xE3o da API de imagens e inclui as notas necess\xE1rias de refer\xEAncias da galeria.",
     "output.sizeMode": "Modo de tamanho",
     "output.sizePreset": "Predefinido",
     "output.sizeCustom": "Personalizado",
@@ -6633,9 +6962,12 @@
     "apiSettings.codexImages": "Image",
     "apiSettings.codexResponses": "Responses",
     "apiSettings.providers": "API provedores",
+    "apiSettings.searchProviders": "Buscar nomes de provedores",
+    "apiSettings.noProviderSearchResults": "Nenhum provedor correspondente",
     "apiSettings.providerCount": "{count} provedores",
     "apiSettings.provider": "Provedor",
     "apiSettings.providerName": "Nome do provedor",
+    "apiSettings.actualRequest": "Solicita\xE7\xE3o efetiva",
     "apiSettings.newProviderAction": "Novo provedor",
     "apiSettings.copyProvider": "Copiar",
     "apiSettings.copyProviderName": "{name} Copiar",
@@ -6653,9 +6985,10 @@
     "apiSettings.images": "Imagem Direta API",
     "apiSettings.responses": "Responses API",
     "apiSettings.modeImagesShort": "Direto",
-    "apiSettings.imageModel": "Modelo de imagem",
-    "apiSettings.concurrency": "Limite de simultaneidade do provedor",
+    "apiSettings.imageModel": "Modelo de gera\xE7\xE3o de imagens",
+    "apiSettings.concurrency": "Limite de simultaneidade",
     "apiSettings.concurrencyShort": "Simultaneidade",
+    "apiSettings.advancedSettings": "Configura\xE7\xF5es avan\xE7adas",
     "apiSettings.concurrencyValue": "simultaneidade {concurrency}",
     "apiSettings.keySaved": "Chave API salva",
     "apiSettings.keyNotSet": "Chave API n\xE3o definida",
@@ -6782,7 +7115,39 @@
     "close.imageEditor": "Fechar painel do editor de imagens",
     "close.gallery": "Fechar painel da galeria",
     "close.addGallery": "Fechar adicionar ao painel da galeria",
-    "close.version": "Fechar painel de atualiza\xE7\xE3o de vers\xE3o"
+    "close.version": "Fechar painel de atualiza\xE7\xE3o de vers\xE3o",
+    "imageInput.referenceTitle": "Entrada de refer\xEAncia",
+    "referenceFiles.add": "Adicionar arquivo",
+    "referenceFiles.selected": "Arquivos de refer\xEAncia",
+    "referenceFiles.recent": "Arquivos recentes",
+    "referenceFiles.familyPdf": "P\xE1ginas + texto",
+    "referenceFiles.familySpreadsheet": "Planilha",
+    "referenceFiles.familyDocument": "Documento",
+    "referenceFiles.familyText": "Texto",
+    "referenceFiles.visualLimit": "Arquivos que n\xE3o sejam PDF n\xE3o preservam imagens e gr\xE1ficos incorporados. Converta para PDF quando o layout for importante.",
+    "referenceFiles.remove": "Remover {filename}",
+    "referenceFiles.switchTitle": "Remover arquivos de refer\xEAncia?",
+    "referenceFiles.switchMessage": "Arquivos de refer\xEAncia funcionam apenas com Responses. Remova-os antes de mudar para Images.",
+    "referenceFiles.removeAndSwitch": "Remover arquivos e mudar",
+    "referenceFiles.requiresResponses": "Arquivos de refer\xEAncia exigem Responses",
+    "referenceFiles.switchToResponses": "Mudar para Responses",
+    "referenceFiles.openApiSettings": "Abrir configura\xE7\xF5es da API",
+    "referenceFiles.providerMissing": "O provedor Responses original n\xE3o est\xE1 dispon\xEDvel. Escolha um nas configura\xE7\xF5es da API.",
+    "referenceFiles.missing": "Arquivo ausente",
+    "referenceFiles.loadFailed": "Falha ao carregar arquivos de refer\xEAncia",
+    "referenceFiles.errorEmpty": "O arquivo de refer\xEAncia est\xE1 vazio",
+    "referenceFiles.errorUnsupported": "Este tipo de arquivo de refer\xEAncia n\xE3o \xE9 compat\xEDvel",
+    "referenceFiles.errorMismatch": "O conte\xFAdo n\xE3o corresponde \xE0 extens\xE3o",
+    "referenceFiles.errorInvalid": "O arquivo de refer\xEAncia \xE9 inv\xE1lido",
+    "referenceFiles.errorTooLarge": "Cada arquivo de refer\xEAncia deve ter menos de 50 MB",
+    "referenceFiles.errorTotalTooLarge": "Os arquivos de refer\xEAncia podem somar no m\xE1ximo 50 MB",
+    "referenceFiles.errorMissing": "Um arquivo de refer\xEAncia selecionado est\xE1 ausente",
+    "referenceFiles.errorProviderUnsupported": "O Responses deste provedor n\xE3o aceita arquivos de refer\xEAncia",
+    "referenceFiles.responsesEnabled": "Responses ativado",
+    "referenceFiles.historyPathMismatch": "Estes arquivos usam caminhos Responses diferentes",
+    "history.referenceFiles": "Arquivos de refer\xEAncia",
+    "history.downloadReferenceFile": "Baixar arquivo",
+    "history.readdReferenceFile": "Adicionar novamente"
   };
 
   // codex_image/webui/frontend/src/i18n/ru.ts
@@ -6918,9 +7283,13 @@
     "history.search": "\u041F\u043E\u0438\u0441\u043A",
     "history.searchPlaceholder": "\u041F\u043E\u0438\u0441\u043A\u043E\u0432\u044B\u0435 \u0437\u0430\u043F\u0440\u043E\u0441\u044B \u0438\u043B\u0438 \u0437\u0430\u0434\u0430\u0447\u0430 ID",
     "history.clear": "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C",
+    "history.type": "\u0422\u0438\u043F",
+    "history.allTypes": "\u0412\u0441\u0435 \u0442\u0438\u043F\u044B",
+    "history.type.textToImage": "\u0422\u0435\u043A\u0441\u0442 \u0432 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435",
+    "history.type.imageToImage": "\u0418\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u0432 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435",
     "history.month": "\u041C\u0435\u0441\u044F\u0446",
     "history.status": "\u0421\u0442\u0430\u0442\u0443\u0441",
-    "history.promptMode": "\u0420\u0435\u0436\u0438\u043C \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0438",
+    "history.promptMode": "\u041E\u0431\u0440\u0430\u0431\u043E\u0442\u043A\u0430 \u043F\u0440\u043E\u043C\u043F\u0442\u0430",
     "history.size": "\u0420\u0430\u0437\u043C\u0435\u0440",
     "history.quality": "\u041A\u0430\u0447\u0435\u0441\u0442\u0432\u043E",
     "history.ratio": "\u0421\u043E\u043E\u0442\u043D\u043E\u0448\u0435\u043D\u0438\u0435",
@@ -6974,6 +7343,7 @@
     "history.viewing": "\u041F\u0440\u043E\u0441\u043C\u043E\u0442\u0440",
     "history.noPreview": "\u041D\u0435\u0442 \u043F\u0440\u0435\u0434\u0432\u0430\u0440\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0433\u043E \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0430 images",
     "history.downloadAll": "\u0421\u043A\u0430\u0447\u0430\u0442\u044C ZIP",
+    "history.downloadImage": "\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435",
     "history.downloadSelected": "\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u0435",
     "history.deleteUnselected": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043D\u0435\u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u0435",
     "history.confirmDeleteUnselected": "\u041F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044C \u0443\u0434\u0430\u043B\u0435\u043D\u0438\u0435 \u043D\u0435\u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u0433\u043E",
@@ -7016,9 +7386,9 @@
     "history.outputRevisedPromptTitle": "Image {index} \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u043D\u043E\u0435 \u043F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u0435",
     "history.outputRevisedPromptNotice": "\u041A\u0430\u0436\u0434\u044B\u0439 image \u0438\u043C\u0435\u0435\u0442 \u0441\u043E\u0431\u0441\u0442\u0432\u0435\u043D\u043D\u043E\u0435 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u043D\u043E\u0435 \u043F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u0435 \u043F\u043E\u0434 image.",
     "history.promptEmpty": "\u041D\u0435\u0442 \u043A\u043E\u043D\u0442\u0435\u043D\u0442\u0430",
-    "history.promptMode.strict": "\u0421\u0442\u0440\u043E\u0433\u0438\u0439",
+    "history.promptMode.strict": "\u0422\u043E\u0447\u043D\u043E",
     "history.promptMode.original": "\u041E\u0440\u0438\u0433\u0438\u043D\u0430\u043B",
-    "history.promptMode.off": "\u041A\u0440\u0435\u0430\u0442\u0438\u0432",
+    "history.promptMode.off": "\u0410\u0432\u0442\u043E",
     "history.quality.high": "\u0412\u044B\u0441\u043E\u043A\u0438\u0439",
     "history.quality.medium": "\u0421\u0440\u0435\u0434\u043D\u0438\u0439",
     "history.quality.low": "\u041D\u0438\u0437\u043A\u0438\u0439",
@@ -7092,10 +7462,10 @@
     "api.settings": "\u0421\u0438\u0441\u0442\u0435\u043C\u043D\u044B\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438",
     "api.provider": "API \u043F\u043E\u0441\u0442\u0430\u0432\u0449\u0438\u043A",
     "imageInput.title": "Images",
-    "imageInput.uploadAria": "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u043F\u0435\u0440\u0435\u0442\u0430\u0449\u0438\u0442\u0435 \u0438\u043B\u0438 \u0432\u0441\u0442\u0430\u0432\u044C\u0442\u0435 images.",
-    "imageInput.uploadFull": "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u043F\u0435\u0440\u0435\u0442\u0430\u0449\u0438\u0442\u0435 \u0438\u043B\u0438 \u0432\u0441\u0442\u0430\u0432\u044C\u0442\u0435 images.",
-    "imageInput.uploadCompact": "\u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 image",
-    "imageInput.uploadSubtitle": "\u041F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442\u0441\u044F \u043C\u043D\u043E\u0436\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0430\u044F \u0441\u0441\u044B\u043B\u043A\u0430 images",
+    "imageInput.uploadAria": "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u043F\u0435\u0440\u0435\u0442\u0430\u0449\u0438\u0442\u0435 \u0438\u043B\u0438 \u0432\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u044F \u0438 \u0444\u0430\u0439\u043B\u044B",
+    "imageInput.uploadFull": "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u043F\u0435\u0440\u0435\u0442\u0430\u0449\u0438\u0442\u0435 \u0438\u043B\u0438 \u0432\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u044F \u0438 \u0444\u0430\u0439\u043B\u044B",
+    "imageInput.uploadCompact": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A",
+    "imageInput.uploadSubtitle": "\u0418\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u044F \u0438 \u0444\u0430\u0439\u043B\u044B-\u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0438 \u0434\u043B\u044F Responses",
     "imageInput.recent": "\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0435 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438",
     "imageInput.recentBadge": "\u041D\u0435\u0434\u0430\u0432\u043D\u0438\u0435",
     "imageInput.uploadBadge": "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C",
@@ -7225,15 +7595,25 @@
     "output.selectMainModel": "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043E\u0441\u043D\u043E\u0432\u043D\u0443\u044E \u043C\u043E\u0434\u0435\u043B\u044C",
     "output.mainModelCustomForInput": "\u0418\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C\u0441\u043A\u0443\u044E \u043C\u043E\u0434\u0435\u043B\u044C \u0434\u043B\u044F \u0442\u0435\u043A\u0443\u0449\u0435\u0433\u043E \u0432\u0432\u043E\u0434\u0430",
     "output.apiDirect": "API \u041F\u0440\u044F\u043C\u043E\u0439",
-    "output.apiToolModel": "\u0418\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u0435 \u043C\u043E\u0434\u0435\u043B\u0438 API image",
+    "output.apiToolModel": "\u0418\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u0435 API-\u043C\u043E\u0434\u0435\u043B\u0438 \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u0438 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439",
     "output.mainModelUnused": "\u041E\u0441\u043D\u043E\u0432\u043D\u0430\u044F \u043C\u043E\u0434\u0435\u043B\u044C \u043D\u0435 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442\u0441\u044F \u0434\u043B\u044F \u044D\u0442\u043E\u0433\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u0430.",
     "output.webSearch": "\u0412\u0435\u0431-\u043F\u043E\u0438\u0441\u043A",
     "output.webSearchToggle": "\u0412\u043A\u043B.",
     "output.webSearchTitle": "\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0432\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u043F\u043E\u0438\u0441\u043A \u0432 \u0418\u043D\u0442\u0435\u0440\u043D\u0435\u0442\u0435, \u0430 \u0437\u0430\u0442\u0435\u043C \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0439\u0442\u0435 \u0435\u0433\u043E \u0434\u043B\u044F \u044D\u0442\u043E\u0433\u043E \u043F\u043E\u043A\u043E\u043B\u0435\u043D\u0438\u044F; \u0422\u043E\u043B\u044C\u043A\u043E Codex \u0438 API Responses",
-    "output.promptMode": "\u0420\u0435\u0436\u0438\u043C \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0438",
+    "output.promptMode": "\u041E\u0431\u0440\u0430\u0431\u043E\u0442\u043A\u0430 \u043F\u0440\u043E\u043C\u043F\u0442\u0430",
     "output.modeOriginal": "\u041E\u0440\u0438\u0433\u0438\u043D\u0430\u043B",
-    "output.modeStrict": "\u0412\u0435\u0440\u043D\u044B\u0439",
-    "output.modeCreative": "\u041A\u0440\u0435\u0430\u0442\u0438\u0432",
+    "output.modeStrict": "\u0422\u043E\u0447\u043D\u043E",
+    "output.modeCreative": "\u0410\u0432\u0442\u043E",
+    "output.promptHelp": "\u041F\u043E\u044F\u0441\u043D\u0438\u0442\u044C \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u043A\u0443 \u043F\u0440\u043E\u043C\u043F\u0442\u0430",
+    "output.promptHelpTitle": "\u041E\u0431\u0440\u0430\u0431\u043E\u0442\u043A\u0430 \u043F\u0440\u043E\u043C\u043F\u0442\u0430",
+    "output.promptHelp.responsesChannel": "Responses \xB7 \u0443\u0447\u0430\u0441\u0442\u0432\u0443\u0435\u0442 \u043E\u0441\u043D\u043E\u0432\u043D\u0430\u044F \u043C\u043E\u0434\u0435\u043B\u044C",
+    "output.promptHelp.imagesChannel": "Images \xB7 \u043F\u0440\u044F\u043C\u0430\u044F \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u044F",
+    "output.promptHelp.responses.original": "\u041F\u0435\u0440\u0435\u0434\u0430\u0451\u0442 \u0438\u0441\u0445\u043E\u0434\u043D\u044B\u0439 \u0442\u0435\u043A\u0441\u0442 \u043E\u0441\u043D\u043E\u0432\u043D\u043E\u0439 \u043C\u043E\u0434\u0435\u043B\u0438 \u0438 \u043F\u0440\u043E\u0441\u0438\u0442 \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0435\u0433\u043E \u0432 \u0438\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439; revised prompt \u0432\u0441\u0451 \u0440\u0430\u0432\u043D\u043E \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u0441\u043E\u0437\u0434\u0430\u043D.",
+    "output.promptHelp.responses.strict": "\u0420\u0430\u0437\u0440\u0435\u0448\u0430\u0435\u0442 \u043E\u0441\u043D\u043E\u0432\u043D\u043E\u0439 \u043C\u043E\u0434\u0435\u043B\u0438 \u0443\u043F\u043E\u0440\u044F\u0434\u043E\u0447\u0438\u0442\u044C \u0438\u043B\u0438 \u0440\u0430\u0441\u0448\u0438\u0440\u0438\u0442\u044C \u043F\u0440\u043E\u043C\u043F\u0442, \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044F \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0435 \u0443\u0441\u043B\u043E\u0432\u0438\u044F: \u043E\u0431\u044A\u0435\u043A\u0442\u044B, \u0442\u0435\u043A\u0441\u0442, \u0446\u0432\u0435\u0442\u0430 \u0438 \u043A\u043E\u043C\u043F\u043E\u0437\u0438\u0446\u0438\u044E.",
+    "output.promptHelp.responses.automatic": "\u041D\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0435\u0442 \u043E\u0433\u0440\u0430\u043D\u0438\u0447\u0435\u043D\u0438\u0439; \u043E\u0441\u043D\u043E\u0432\u043D\u0430\u044F \u043C\u043E\u0434\u0435\u043B\u044C \u0438\u043D\u0442\u0435\u0440\u043F\u0440\u0435\u0442\u0438\u0440\u0443\u0435\u0442 \u0438 \u043E\u043F\u0442\u0438\u043C\u0438\u0437\u0438\u0440\u0443\u0435\u0442 \u0437\u0430\u043F\u0440\u043E\u0441 \u043F\u0435\u0440\u0435\u0434 \u0432\u044B\u0437\u043E\u0432\u043E\u043C \u0438\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442\u0430 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439.",
+    "output.promptHelp.images.original": "\u041D\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0435\u0442 \u043F\u0440\u0430\u0432\u0438\u043B \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u044F \u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u044F\u0435\u0442 \u0438\u0441\u0445\u043E\u0434\u043D\u044B\u0439 \u0442\u0435\u043A\u0441\u0442 \u043D\u0430\u043F\u0440\u044F\u043C\u0443\u044E \u0432 API \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439.",
+    "output.promptHelp.images.strict": "\u041E\u0442\u043F\u0440\u0430\u0432\u043B\u044F\u0435\u0442 \u043F\u0440\u0430\u0432\u0438\u043B\u0430 \u0442\u043E\u0447\u043D\u043E\u0441\u0442\u0438 \u0432\u043C\u0435\u0441\u0442\u0435 \u0441 \u0438\u0441\u0445\u043E\u0434\u043D\u044B\u043C \u043F\u0440\u043E\u043C\u043F\u0442\u043E\u043C, \u0447\u0442\u043E\u0431\u044B \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0432\u0441\u0435 \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0435 \u0443\u0441\u043B\u043E\u0432\u0438\u044F.",
+    "output.promptHelp.images.automatic": "\u0418\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442 \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u0443\u044E \u043E\u0431\u0440\u0430\u0431\u043E\u0442\u043A\u0443 API \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439 \u0438 \u0432\u043A\u043B\u044E\u0447\u0430\u0435\u0442 \u043D\u0435\u043E\u0431\u0445\u043E\u0434\u0438\u043C\u044B\u0435 \u043F\u043E\u044F\u0441\u043D\u0435\u043D\u0438\u044F \u043A \u0441\u0441\u044B\u043B\u043A\u0430\u043C \u0438\u0437 \u0433\u0430\u043B\u0435\u0440\u0435\u0438.",
     "output.sizeMode": "\u0420\u0435\u0436\u0438\u043C \u0440\u0430\u0437\u043C\u0435\u0440\u0430",
     "output.sizePreset": "\u041F\u0440\u0435\u0434\u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0430",
     "output.sizeCustom": "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C\u0441\u043A\u0438\u0439",
@@ -7535,9 +7915,12 @@
     "apiSettings.codexImages": "Image",
     "apiSettings.codexResponses": "Responses",
     "apiSettings.providers": "API \u043F\u043E\u0441\u0442\u0430\u0432\u0449\u0438\u043A\u0438",
+    "apiSettings.searchProviders": "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044E \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440\u0430",
+    "apiSettings.noProviderSearchResults": "\u041F\u043E\u0434\u0445\u043E\u0434\u044F\u0449\u0438\u0435 \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440\u044B \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u044B",
     "apiSettings.providerCount": "{count} \u043F\u043E\u0441\u0442\u0430\u0432\u0449\u0438\u043A\u043E\u0432",
     "apiSettings.provider": "\u041F\u043E\u0441\u0442\u0430\u0432\u0449\u0438\u043A",
     "apiSettings.providerName": "\u0418\u043C\u044F \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440\u0430",
+    "apiSettings.actualRequest": "\u0424\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u0437\u0430\u043F\u0440\u043E\u0441",
     "apiSettings.newProviderAction": "\u041D\u043E\u0432\u044B\u0439 \u043F\u0440\u043E\u0432\u0430\u0439\u0434\u0435\u0440",
     "apiSettings.copyProvider": "\u041A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C",
     "apiSettings.copyProviderName": "{name} \u041A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C",
@@ -7555,9 +7938,10 @@
     "apiSettings.images": "\u041F\u0440\u044F\u043C\u043E\u0439 Image API",
     "apiSettings.responses": "Responses API",
     "apiSettings.modeImagesShort": "\u041F\u0440\u044F\u043C\u043E\u0439",
-    "apiSettings.imageModel": "\u041C\u043E\u0434\u0435\u043B\u044C Image",
-    "apiSettings.concurrency": "\u041E\u0433\u0440\u0430\u043D\u0438\u0447\u0435\u043D\u0438\u0435 \u043F\u0430\u0440\u0430\u043B\u043B\u0435\u043B\u0438\u0437\u043C\u0430 \u043F\u043E\u0441\u0442\u0430\u0432\u0449\u0438\u043A\u0430",
+    "apiSettings.imageModel": "\u041C\u043E\u0434\u0435\u043B\u044C \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u0438 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439",
+    "apiSettings.concurrency": "\u041E\u0433\u0440\u0430\u043D\u0438\u0447\u0435\u043D\u0438\u0435 \u043F\u0430\u0440\u0430\u043B\u043B\u0435\u043B\u0438\u0437\u043C\u0430",
     "apiSettings.concurrencyShort": "\u041F\u0430\u0440\u0430\u043B\u043B\u0435\u043B\u0438\u0437\u043C",
+    "apiSettings.advancedSettings": "\u0420\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u043D\u044B\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438",
     "apiSettings.concurrencyValue": "\u043F\u0430\u0440\u0430\u043B\u043B\u0435\u043B\u0438\u0437\u043C {concurrency}",
     "apiSettings.keySaved": "\u041A\u043B\u044E\u0447 API \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D.",
     "apiSettings.keyNotSet": "\u041A\u043B\u044E\u0447 API \u043D\u0435 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D",
@@ -7684,7 +8068,39 @@
     "close.imageEditor": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C \u043F\u0430\u043D\u0435\u043B\u044C \u0440\u0435\u0434\u0430\u043A\u0442\u043E\u0440\u0430 image",
     "close.gallery": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C \u043F\u0430\u043D\u0435\u043B\u044C \u0433\u0430\u043B\u0435\u0440\u0435\u0438",
     "close.addGallery": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C \u043F\u0430\u043D\u0435\u043B\u044C \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0432 \u0433\u0430\u043B\u0435\u0440\u0435\u044E",
-    "close.version": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C \u043F\u0430\u043D\u0435\u043B\u044C \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F \u0432\u0435\u0440\u0441\u0438\u0438"
+    "close.version": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C \u043F\u0430\u043D\u0435\u043B\u044C \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F \u0432\u0435\u0440\u0441\u0438\u0438",
+    "imageInput.referenceTitle": "\u0412\u0445\u043E\u0434\u043D\u044B\u0435 \u043C\u0430\u0442\u0435\u0440\u0438\u0430\u043B\u044B",
+    "referenceFiles.add": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0444\u0430\u0439\u043B",
+    "referenceFiles.selected": "\u0424\u0430\u0439\u043B\u044B-\u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0438",
+    "referenceFiles.recent": "\u041D\u0435\u0434\u0430\u0432\u043D\u0438\u0435 \u0444\u0430\u0439\u043B\u044B",
+    "referenceFiles.familyPdf": "\u0421\u0442\u0440\u0430\u043D\u0438\u0446\u044B + \u0442\u0435\u043A\u0441\u0442",
+    "referenceFiles.familySpreadsheet": "\u0422\u0430\u0431\u043B\u0438\u0446\u0430",
+    "referenceFiles.familyDocument": "\u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442",
+    "referenceFiles.familyText": "\u0422\u0435\u043A\u0441\u0442",
+    "referenceFiles.visualLimit": "\u0412 \u0444\u0430\u0439\u043B\u0430\u0445 \u043D\u0435-PDF \u0432\u0441\u0442\u0440\u043E\u0435\u043D\u043D\u044B\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u044F \u0438 \u0434\u0438\u0430\u0433\u0440\u0430\u043C\u043C\u044B \u043D\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F. \u0415\u0441\u043B\u0438 \u0432\u0430\u0436\u0435\u043D \u043C\u0430\u043A\u0435\u0442, \u043F\u0440\u0435\u043E\u0431\u0440\u0430\u0437\u0443\u0439\u0442\u0435 \u0444\u0430\u0439\u043B \u0432 PDF.",
+    "referenceFiles.remove": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C {filename}",
+    "referenceFiles.switchTitle": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0444\u0430\u0439\u043B\u044B-\u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0438?",
+    "referenceFiles.switchMessage": "\u0424\u0430\u0439\u043B\u044B-\u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0438 \u0440\u0430\u0431\u043E\u0442\u0430\u044E\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u0441 Responses. \u0423\u0434\u0430\u043B\u0438\u0442\u0435 \u0438\u0445 \u043F\u0435\u0440\u0435\u0434 \u043F\u0435\u0440\u0435\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435\u043C \u043D\u0430 Images.",
+    "referenceFiles.removeAndSwitch": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0444\u0430\u0439\u043B\u044B \u0438 \u043F\u0435\u0440\u0435\u043A\u043B\u044E\u0447\u0438\u0442\u044C",
+    "referenceFiles.requiresResponses": "\u0414\u043B\u044F \u0444\u0430\u0439\u043B\u043E\u0432-\u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u043E\u0432 \u043D\u0443\u0436\u0435\u043D Responses",
+    "referenceFiles.switchToResponses": "\u041F\u0435\u0440\u0435\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u043D\u0430 Responses",
+    "referenceFiles.openApiSettings": "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 API",
+    "referenceFiles.providerMissing": "\u0418\u0441\u0445\u043E\u0434\u043D\u044B\u0439 \u043F\u043E\u0441\u0442\u0430\u0432\u0449\u0438\u043A Responses \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D. \u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0434\u0440\u0443\u0433\u043E\u0433\u043E \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 API.",
+    "referenceFiles.missing": "\u0424\u0430\u0439\u043B \u043E\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442",
+    "referenceFiles.loadFailed": "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0444\u0430\u0439\u043B\u044B-\u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0438",
+    "referenceFiles.errorEmpty": "\u0424\u0430\u0439\u043B-\u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A \u043F\u0443\u0441\u0442",
+    "referenceFiles.errorUnsupported": "\u042D\u0442\u043E\u0442 \u0442\u0438\u043F \u0444\u0430\u0439\u043B\u0430-\u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0430 \u043D\u0435 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442\u0441\u044F",
+    "referenceFiles.errorMismatch": "\u0421\u043E\u0434\u0435\u0440\u0436\u0438\u043C\u043E\u0435 \u0444\u0430\u0439\u043B\u0430 \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u044E",
+    "referenceFiles.errorInvalid": "\u0424\u0430\u0439\u043B-\u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A \u043D\u0435\u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043B\u0435\u043D",
+    "referenceFiles.errorTooLarge": "\u0420\u0430\u0437\u043C\u0435\u0440 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0444\u0430\u0439\u043B\u0430 \u0434\u043E\u043B\u0436\u0435\u043D \u0431\u044B\u0442\u044C \u043C\u0435\u043D\u044C\u0448\u0435 50 \u041C\u0411",
+    "referenceFiles.errorTotalTooLarge": "\u041E\u0431\u0449\u0438\u0439 \u0440\u0430\u0437\u043C\u0435\u0440 \u0444\u0430\u0439\u043B\u043E\u0432 \u043D\u0435 \u0434\u043E\u043B\u0436\u0435\u043D \u043F\u0440\u0435\u0432\u044B\u0448\u0430\u0442\u044C 50 \u041C\u0411",
+    "referenceFiles.errorMissing": "\u0412\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u0439 \u0444\u0430\u0439\u043B-\u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A \u043E\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442",
+    "referenceFiles.errorProviderUnsupported": "Responses \u044D\u0442\u043E\u0433\u043E \u043F\u043E\u0441\u0442\u0430\u0432\u0449\u0438\u043A\u0430 \u043D\u0435 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u0444\u0430\u0439\u043B\u044B-\u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0438",
+    "referenceFiles.responsesEnabled": "Responses \u0432\u043A\u043B\u044E\u0447\u0451\u043D",
+    "referenceFiles.historyPathMismatch": "\u042D\u0442\u0438 \u0444\u0430\u0439\u043B\u044B \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u044E\u0442 \u0440\u0430\u0437\u043D\u044B\u0435 \u043F\u0443\u0442\u0438 Responses",
+    "history.referenceFiles": "\u0424\u0430\u0439\u043B\u044B-\u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0438",
+    "history.downloadReferenceFile": "\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u0444\u0430\u0439\u043B",
+    "history.readdReferenceFile": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0441\u043D\u043E\u0432\u0430"
   };
 
   // codex_image/webui/frontend/src/i18n/it.ts
@@ -7820,9 +8236,13 @@
     "history.search": "Cerca",
     "history.searchPlaceholder": "Richieste di ricerca o attivit\xE0 ID",
     "history.clear": "Chiaro",
+    "history.type": "Tipo",
+    "history.allTypes": "Tutti i tipi",
+    "history.type.textToImage": "Testo in immagine",
+    "history.type.imageToImage": "Immagine in immagine",
     "history.month": "Mese",
     "history.status": "Stato",
-    "history.promptMode": "Modalit\xE0 richiesta",
+    "history.promptMode": "Gestione del prompt",
     "history.size": "Dimensioni",
     "history.quality": "Qualit\xE0",
     "history.ratio": "Rapporto",
@@ -7876,6 +8296,7 @@
     "history.viewing": "Visualizzazione",
     "history.noPreview": "Nessuna anteprima images",
     "history.downloadAll": "Scarica ZIP",
+    "history.downloadImage": "Scarica immagine",
     "history.downloadSelected": "Scarica selezionato",
     "history.deleteUnselected": "Elimina deselezionato",
     "history.confirmDeleteUnselected": "Conferma l'eliminazione deselezionata",
@@ -7918,9 +8339,9 @@
     "history.outputRevisedPromptTitle": "Image {index} prompt rivisto",
     "history.outputRevisedPromptNotice": "Ogni image ha il proprio prompt rivisto sotto image.",
     "history.promptEmpty": "Nessun contenuto",
-    "history.promptMode.strict": "Rigoroso",
+    "history.promptMode.strict": "Fedele",
     "history.promptMode.original": "Originale",
-    "history.promptMode.off": "Creativo",
+    "history.promptMode.off": "Automatico",
     "history.quality.high": "Alto",
     "history.quality.medium": "Medio",
     "history.quality.low": "Basso",
@@ -7994,10 +8415,10 @@
     "api.settings": "Impostazioni di sistema",
     "api.provider": "API fornitore",
     "imageInput.title": "Images",
-    "imageInput.uploadAria": "Fai clic, rilascia o incolla images",
-    "imageInput.uploadFull": "Fai clic, rilascia o incolla images",
-    "imageInput.uploadCompact": "Aggiungi image",
-    "imageInput.uploadSubtitle": "Riferimenti multipli images supportati",
+    "imageInput.uploadAria": "Fai clic, rilascia o incolla immagini e file",
+    "imageInput.uploadFull": "Fai clic, rilascia o incolla immagini e file",
+    "imageInput.uploadCompact": "Aggiungi input",
+    "imageInput.uploadSubtitle": "Immagini e file di riferimento per Responses",
     "imageInput.recent": "Caricamenti recenti",
     "imageInput.recentBadge": "Recente",
     "imageInput.uploadBadge": "Carica",
@@ -8127,15 +8548,25 @@
     "output.selectMainModel": "Seleziona il modello principale",
     "output.mainModelCustomForInput": "Utilizza un modello personalizzato per l'input corrente",
     "output.apiDirect": "API Diretto",
-    "output.apiToolModel": "Utilizzando il modello API image",
+    "output.apiToolModel": "Utilizzo del modello API di generazione immagini",
     "output.mainModelUnused": "Il modello principale non \xE8 utilizzato per questa richiesta",
     "output.webSearch": "Ricerca sul Web",
     "output.webSearchToggle": "Su",
     "output.webSearchTitle": "Cerca prima sul Web, quindi utilizzalo per questa generazione; Solo Codex e API Responses",
-    "output.promptMode": "Modalit\xE0 richiesta",
+    "output.promptMode": "Gestione del prompt",
     "output.modeOriginal": "Originale",
     "output.modeStrict": "Fedele",
-    "output.modeCreative": "Creativo",
+    "output.modeCreative": "Automatico",
+    "output.promptHelp": "Spiega la gestione del prompt",
+    "output.promptHelpTitle": "Gestione del prompt",
+    "output.promptHelp.responsesChannel": "Responses \xB7 modello principale coinvolto",
+    "output.promptHelp.imagesChannel": "Images \xB7 generazione diretta",
+    "output.promptHelp.responses.original": "Invia il testo originale al modello principale e chiede allo strumento immagine di conservarlo; pu\xF2 comunque produrre un revised prompt.",
+    "output.promptHelp.responses.strict": "Consente al modello principale di organizzare o ampliare il prompt, preservando vincoli come soggetti, testo, colori e composizione.",
+    "output.promptHelp.responses.automatic": "Non aggiunge vincoli; il modello principale interpreta e ottimizza prima di chiamare lo strumento immagine.",
+    "output.promptHelp.images.original": "Non aggiunge regole dell\u2019app e invia il testo originale direttamente all\u2019API immagini.",
+    "output.promptHelp.images.strict": "Invia le regole di fedelt\xE0 insieme al prompt originale per preservare tutti i vincoli.",
+    "output.promptHelp.images.automatic": "Usa la gestione predefinita dell\u2019API immagini e include le note necessarie per i riferimenti della galleria.",
     "output.sizeMode": "Modalit\xE0 dimensione",
     "output.sizePreset": "Preimpostato",
     "output.sizeCustom": "Personalizzato",
@@ -8437,9 +8868,12 @@
     "apiSettings.codexImages": "Image",
     "apiSettings.codexResponses": "Responses",
     "apiSettings.providers": "API fornitori",
+    "apiSettings.searchProviders": "Cerca nomi fornitori",
+    "apiSettings.noProviderSearchResults": "Nessun fornitore corrispondente",
     "apiSettings.providerCount": "{count} fornitori",
     "apiSettings.provider": "Fornitore",
     "apiSettings.providerName": "Nome del fornitore",
+    "apiSettings.actualRequest": "Richiesta effettiva",
     "apiSettings.newProviderAction": "Nuovo fornitore",
     "apiSettings.copyProvider": "Copia",
     "apiSettings.copyProviderName": "{name} Copia",
@@ -8457,9 +8891,10 @@
     "apiSettings.images": "Diretto Image API",
     "apiSettings.responses": "Responses API",
     "apiSettings.modeImagesShort": "Diretto",
-    "apiSettings.imageModel": "modello Image",
-    "apiSettings.concurrency": "Limite di concorrenza del provider",
+    "apiSettings.imageModel": "Modello di generazione immagini",
+    "apiSettings.concurrency": "Limite di concorrenza",
     "apiSettings.concurrencyShort": "Concorrenza",
+    "apiSettings.advancedSettings": "Impostazioni avanzate",
     "apiSettings.concurrencyValue": "concorrenza {concurrency}",
     "apiSettings.keySaved": "Chiave API salvata",
     "apiSettings.keyNotSet": "Chiave API non impostata",
@@ -8586,7 +9021,39 @@
     "close.imageEditor": "Chiudi il pannello dell'editor image",
     "close.gallery": "Chiudi il pannello della galleria",
     "close.addGallery": "Chiudi Aggiungi al pannello Galleria",
-    "close.version": "Chiudi il pannello di aggiornamento della versione"
+    "close.version": "Chiudi il pannello di aggiornamento della versione",
+    "imageInput.referenceTitle": "Input di riferimento",
+    "referenceFiles.add": "Aggiungi file",
+    "referenceFiles.selected": "File di riferimento",
+    "referenceFiles.recent": "File recenti",
+    "referenceFiles.familyPdf": "Pagine + testo",
+    "referenceFiles.familySpreadsheet": "Foglio di calcolo",
+    "referenceFiles.familyDocument": "Documento",
+    "referenceFiles.familyText": "Testo",
+    "referenceFiles.visualLimit": "I file non PDF non mantengono immagini e grafici incorporati. Converti in PDF se il layout \xE8 importante.",
+    "referenceFiles.remove": "Rimuovi {filename}",
+    "referenceFiles.switchTitle": "Rimuovere i file di riferimento?",
+    "referenceFiles.switchMessage": "I file di riferimento funzionano solo con Responses. Rimuovili prima di passare a Images.",
+    "referenceFiles.removeAndSwitch": "Rimuovi file e cambia",
+    "referenceFiles.requiresResponses": "I file di riferimento richiedono Responses",
+    "referenceFiles.switchToResponses": "Passa a Responses",
+    "referenceFiles.openApiSettings": "Apri impostazioni API",
+    "referenceFiles.providerMissing": "Il provider Responses originale non \xE8 disponibile. Scegline uno nelle impostazioni API.",
+    "referenceFiles.missing": "File mancante",
+    "referenceFiles.loadFailed": "Impossibile caricare i file di riferimento",
+    "referenceFiles.errorEmpty": "Il file di riferimento \xE8 vuoto",
+    "referenceFiles.errorUnsupported": "Questo tipo di file di riferimento non \xE8 supportato",
+    "referenceFiles.errorMismatch": "Il contenuto non corrisponde all'estensione",
+    "referenceFiles.errorInvalid": "Il file di riferimento non \xE8 valido",
+    "referenceFiles.errorTooLarge": "Ogni file di riferimento deve essere inferiore a 50 MB",
+    "referenceFiles.errorTotalTooLarge": "I file di riferimento possono raggiungere al massimo 50 MB in totale",
+    "referenceFiles.errorMissing": "Manca un file di riferimento selezionato",
+    "referenceFiles.errorProviderUnsupported": "Responses di questo provider non supporta file di riferimento",
+    "referenceFiles.responsesEnabled": "Responses attivato",
+    "referenceFiles.historyPathMismatch": "Questi file usano percorsi Responses diversi",
+    "history.referenceFiles": "File di riferimento",
+    "history.downloadReferenceFile": "Scarica file",
+    "history.readdReferenceFile": "Aggiungi di nuovo"
   };
 
   // codex_image/webui/frontend/src/i18n/hi.ts
@@ -8722,9 +9189,13 @@
     "history.search": "\u0916\u094B\u091C\u0947\u0902",
     "history.searchPlaceholder": "\u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F \u092F\u093E \u0915\u093E\u0930\u094D\u092F ID \u0916\u094B\u091C\u0947\u0902",
     "history.clear": "\u0938\u093E\u092B\u093C \u0915\u0930\u0947\u0902",
+    "history.type": "\u092A\u094D\u0930\u0915\u093E\u0930",
+    "history.allTypes": "\u0938\u092D\u0940 \u092A\u094D\u0930\u0915\u093E\u0930",
+    "history.type.textToImage": "\u091F\u0947\u0915\u094D\u0938\u094D\u091F \u0938\u0947 \u0907\u092E\u0947\u091C",
+    "history.type.imageToImage": "\u0907\u092E\u0947\u091C \u0938\u0947 \u0907\u092E\u0947\u091C",
     "history.month": "\u092E\u0939\u0940\u0928\u093E",
     "history.status": "\u0938\u094D\u0925\u093F\u0924\u093F",
-    "history.promptMode": "\u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F \u092E\u094B\u0921",
+    "history.promptMode": "\u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F \u092A\u094D\u0930\u094B\u0938\u0947\u0938\u093F\u0902\u0917",
     "history.size": "\u0906\u0915\u093E\u0930",
     "history.quality": "\u0917\u0941\u0923\u0935\u0924\u094D\u0924\u093E",
     "history.ratio": "\u0905\u0928\u0941\u092A\u093E\u0924",
@@ -8778,6 +9249,7 @@
     "history.viewing": "\u0926\u0947\u0916\u0928\u093E",
     "history.noPreview": "\u0915\u094B\u0908 \u092A\u0942\u0930\u094D\u0935\u093E\u0935\u0932\u094B\u0915\u0928 \u091A\u093F\u0924\u094D\u0930 \u0928\u0939\u0940\u0902",
     "history.downloadAll": "ZIP \u0921\u093E\u0909\u0928\u0932\u094B\u0921 \u0915\u0930\u0947\u0902",
+    "history.downloadImage": "\u091B\u0935\u093F \u0921\u093E\u0909\u0928\u0932\u094B\u0921 \u0915\u0930\u0947\u0902",
     "history.downloadSelected": "\u091A\u092F\u0928\u093F\u0924 \u0921\u093E\u0909\u0928\u0932\u094B\u0921 \u0915\u0930\u0947\u0902",
     "history.deleteUnselected": "\u0905\u091A\u092F\u0928\u093F\u0924 \u0939\u091F\u093E\u090F\u0901",
     "history.confirmDeleteUnselected": "\u0905\u091A\u092F\u0928\u093F\u0924 \u0939\u091F\u093E\u092F\u0947 \u091C\u093E\u0928\u0947 \u0915\u0940 \u092A\u0941\u0937\u094D\u091F\u093F \u0915\u0930\u0947\u0902",
@@ -8820,9 +9292,9 @@
     "history.outputRevisedPromptTitle": "\u091A\u093F\u0924\u094D\u0930 {index} \u0915\u093E \u0938\u0902\u0936\u094B\u0927\u093F\u0924 \u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F",
     "history.outputRevisedPromptNotice": "\u092A\u094D\u0930\u0924\u094D\u092F\u0947\u0915 \u091A\u093F\u0924\u094D\u0930 \u0915\u093E \u0905\u092A\u0928\u093E \u0938\u0902\u0936\u094B\u0927\u093F\u0924 \u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F \u0939\u094B\u0924\u093E \u0939\u0948, \u091C\u094B \u0909\u0938\u0940 \u091A\u093F\u0924\u094D\u0930 \u0915\u0947 \u0928\u0940\u091A\u0947 \u0926\u093F\u0916\u0924\u093E \u0939\u0948\u0964",
     "history.promptEmpty": "\u0915\u094B\u0908 \u0938\u093E\u092E\u0917\u094D\u0930\u0940 \u0928\u0939\u0940\u0902",
-    "history.promptMode.strict": "\u0938\u0916\u094D\u0924",
-    "history.promptMode.original": "\u092E\u0942\u0932",
-    "history.promptMode.off": "\u0930\u091A\u0928\u093E\u0924\u094D\u092E\u0915",
+    "history.promptMode.strict": "\u0935\u093F\u0936\u094D\u0935\u0938\u0928\u0940\u092F",
+    "history.promptMode.original": "\u092E\u0942\u0932 \u092A\u093E\u0920",
+    "history.promptMode.off": "\u0938\u094D\u0935\u091A\u093E\u0932\u093F\u0924",
     "history.quality.high": "\u0909\u091A\u094D\u091A",
     "history.quality.medium": "\u092E\u0927\u094D\u092F\u092E",
     "history.quality.low": "\u0928\u093F\u092E\u094D\u0928",
@@ -8896,10 +9368,10 @@
     "api.settings": "\u0938\u093F\u0938\u094D\u091F\u092E \u0938\u0947\u091F\u093F\u0902\u0917\u094D\u0938",
     "api.provider": "API \u092A\u094D\u0930\u0926\u093E\u0924\u093E",
     "imageInput.title": "\u091A\u093F\u0924\u094D\u0930",
-    "imageInput.uploadAria": "\u091A\u093F\u0924\u094D\u0930 \u091C\u094B\u0921\u093C\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F \u0915\u094D\u0932\u093F\u0915 \u0915\u0930\u0947\u0902, \u0921\u094D\u0930\u0949\u092A \u0915\u0930\u0947\u0902 \u092F\u093E \u092A\u0947\u0938\u094D\u091F \u0915\u0930\u0947\u0902",
-    "imageInput.uploadFull": "\u091A\u093F\u0924\u094D\u0930 \u091C\u094B\u0921\u093C\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F \u0915\u094D\u0932\u093F\u0915 \u0915\u0930\u0947\u0902, \u0921\u094D\u0930\u0949\u092A \u0915\u0930\u0947\u0902 \u092F\u093E \u092A\u0947\u0938\u094D\u091F \u0915\u0930\u0947\u0902",
-    "imageInput.uploadCompact": "\u091A\u093F\u0924\u094D\u0930 \u091C\u094B\u0921\u093C\u0947\u0902",
-    "imageInput.uploadSubtitle": "\u0915\u0908 \u0938\u0902\u0926\u0930\u094D\u092D \u091A\u093F\u0924\u094D\u0930 \u0938\u092E\u0930\u094D\u0925\u093F\u0924 \u0939\u0948\u0902",
+    "imageInput.uploadAria": "\u091A\u093F\u0924\u094D\u0930 \u0914\u0930 \u092B\u093C\u093E\u0907\u0932\u0947\u0902 \u091C\u094B\u0921\u093C\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F \u0915\u094D\u0932\u093F\u0915 \u0915\u0930\u0947\u0902, \u0921\u094D\u0930\u0949\u092A \u0915\u0930\u0947\u0902 \u092F\u093E \u092A\u0947\u0938\u094D\u091F \u0915\u0930\u0947\u0902",
+    "imageInput.uploadFull": "\u091A\u093F\u0924\u094D\u0930 \u0914\u0930 \u092B\u093C\u093E\u0907\u0932\u0947\u0902 \u091C\u094B\u0921\u093C\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F \u0915\u094D\u0932\u093F\u0915 \u0915\u0930\u0947\u0902, \u0921\u094D\u0930\u0949\u092A \u0915\u0930\u0947\u0902 \u092F\u093E \u092A\u0947\u0938\u094D\u091F \u0915\u0930\u0947\u0902",
+    "imageInput.uploadCompact": "\u0907\u0928\u092A\u0941\u091F \u091C\u094B\u0921\u093C\u0947\u0902",
+    "imageInput.uploadSubtitle": "\u091A\u093F\u0924\u094D\u0930 \u0914\u0930 Responses \u0938\u0902\u0926\u0930\u094D\u092D \u092B\u093C\u093E\u0907\u0932\u0947\u0902 \u0938\u092E\u0930\u094D\u0925\u093F\u0924 \u0939\u0948\u0902",
     "imageInput.recent": "\u0939\u093E\u0932 \u0915\u0947 \u0905\u092A\u0932\u094B\u0921",
     "imageInput.recentBadge": "\u0939\u093E\u0932 \u0915\u093E",
     "imageInput.uploadBadge": "\u0905\u092A\u0932\u094B\u0921 \u0915\u0930\u0947\u0902",
@@ -9029,15 +9501,25 @@
     "output.selectMainModel": "\u092E\u0941\u0916\u094D\u092F \u092E\u0949\u0921\u0932 \u0915\u093E \u091A\u092F\u0928 \u0915\u0930\u0947\u0902",
     "output.mainModelCustomForInput": "\u0935\u0930\u094D\u0924\u092E\u093E\u0928 \u0907\u0928\u092A\u0941\u091F \u0915\u0947 \u0932\u093F\u090F \u090F\u0915 \u0915\u0938\u094D\u091F\u092E \u092E\u0949\u0921\u0932 \u0915\u093E \u0909\u092A\u092F\u094B\u0917 \u0915\u0930\u0947\u0902",
     "output.apiDirect": "API \u092A\u094D\u0930\u0924\u094D\u092F\u0915\u094D\u0937",
-    "output.apiToolModel": "API \u091A\u093F\u0924\u094D\u0930 \u092E\u0949\u0921\u0932 \u0915\u093E \u0909\u092A\u092F\u094B\u0917 \u0939\u094B \u0930\u0939\u093E \u0939\u0948",
+    "output.apiToolModel": "API \u091B\u0935\u093F \u0928\u093F\u0930\u094D\u092E\u093E\u0923 \u092E\u0949\u0921\u0932 \u0915\u093E \u0909\u092A\u092F\u094B\u0917 \u0939\u094B \u0930\u0939\u093E \u0939\u0948",
     "output.mainModelUnused": "\u0907\u0938 \u0905\u0928\u0941\u0930\u094B\u0927 \u0915\u0947 \u0932\u093F\u090F \u092E\u0941\u0916\u094D\u092F \u092E\u0949\u0921\u0932 \u0915\u093E \u0909\u092A\u092F\u094B\u0917 \u0928\u0939\u0940\u0902 \u0915\u093F\u092F\u093E \u0917\u092F\u093E \u0939\u0948",
     "output.webSearch": "\u0935\u0947\u092C \u0916\u094B\u091C",
     "output.webSearchToggle": "\u092A\u0930",
     "output.webSearchTitle": "\u092A\u0939\u0932\u0947 \u0935\u0947\u092C \u0916\u094B\u091C\u0947\u0902, \u092B\u093F\u0930 \u0907\u0938 \u091C\u0928\u0930\u0947\u0936\u0928 \u092E\u0947\u0902 \u0909\u092A\u092F\u094B\u0917 \u0915\u0930\u0947\u0902; \u0915\u0947\u0935\u0932 Codex \u0914\u0930 API Responses",
-    "output.promptMode": "\u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F \u092E\u094B\u0921",
-    "output.modeOriginal": "\u092E\u0942\u0932",
-    "output.modeStrict": "\u0938\u091F\u0940\u0915",
-    "output.modeCreative": "\u0930\u091A\u0928\u093E\u0924\u094D\u092E\u0915",
+    "output.promptMode": "\u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F \u092A\u094D\u0930\u094B\u0938\u0947\u0938\u093F\u0902\u0917",
+    "output.modeOriginal": "\u092E\u0942\u0932 \u092A\u093E\u0920",
+    "output.modeStrict": "\u0935\u093F\u0936\u094D\u0935\u0938\u0928\u0940\u092F",
+    "output.modeCreative": "\u0938\u094D\u0935\u091A\u093E\u0932\u093F\u0924",
+    "output.promptHelp": "\u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F \u092A\u094D\u0930\u094B\u0938\u0947\u0938\u093F\u0902\u0917 \u0938\u092E\u091D\u093E\u090F\u0901",
+    "output.promptHelpTitle": "\u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F \u092A\u094D\u0930\u094B\u0938\u0947\u0938\u093F\u0902\u0917",
+    "output.promptHelp.responsesChannel": "Responses \xB7 \u092E\u0941\u0916\u094D\u092F \u092E\u0949\u0921\u0932 \u0936\u093E\u092E\u093F\u0932",
+    "output.promptHelp.imagesChannel": "Images \xB7 \u0938\u0940\u0927\u093E \u091C\u0928\u0930\u0947\u0936\u0928",
+    "output.promptHelp.responses.original": "\u092E\u0942\u0932 \u092A\u093E\u0920 \u092E\u0941\u0916\u094D\u092F \u092E\u0949\u0921\u0932 \u0915\u094B \u092D\u0947\u091C\u0924\u093E \u0939\u0948 \u0914\u0930 \u0907\u092E\u0947\u091C \u091F\u0942\u0932 \u0938\u0947 \u0909\u0938\u0947 \u092F\u0925\u093E\u0938\u0902\u092D\u0935 \u091C\u094D\u092F\u094B\u0902 \u0915\u093E \u0924\u094D\u092F\u094B\u0902 \u0930\u0916\u0928\u0947 \u0915\u094B \u0915\u0939\u0924\u093E \u0939\u0948; revised prompt \u092B\u093F\u0930 \u092D\u0940 \u092C\u0928 \u0938\u0915\u0924\u093E \u0939\u0948\u0964",
+    "output.promptHelp.responses.strict": "\u092E\u0941\u0916\u094D\u092F \u092E\u0949\u0921\u0932 \u0915\u094B \u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F \u0935\u094D\u092F\u0935\u0938\u094D\u0925\u093F\u0924 \u092F\u093E \u0935\u093F\u0938\u094D\u0924\u0943\u0924 \u0915\u0930\u0928\u0947 \u0926\u0947\u0924\u093E \u0939\u0948, \u0932\u0947\u0915\u093F\u0928 \u0935\u093F\u0937\u092F, \u091F\u0947\u0915\u094D\u0938\u094D\u091F, \u0930\u0902\u0917 \u0914\u0930 \u0930\u091A\u0928\u093E \u091C\u0948\u0938\u0940 \u0905\u0928\u093F\u0935\u093E\u0930\u094D\u092F \u0936\u0930\u094D\u0924\u0947\u0902 \u0938\u0941\u0930\u0915\u094D\u0937\u093F\u0924 \u0930\u0916\u0924\u093E \u0939\u0948\u0964",
+    "output.promptHelp.responses.automatic": "\u0915\u094B\u0908 \u0905\u0924\u093F\u0930\u093F\u0915\u094D\u0924 \u0936\u0930\u094D\u0924 \u0928\u0939\u0940\u0902 \u091C\u094B\u0921\u093C\u0924\u093E; \u092E\u0941\u0916\u094D\u092F \u092E\u0949\u0921\u0932 \u0907\u092E\u0947\u091C \u091F\u0942\u0932 \u092C\u0941\u0932\u093E\u0928\u0947 \u0938\u0947 \u092A\u0939\u0932\u0947 \u0905\u0930\u094D\u0925 \u0938\u092E\u091D\u0915\u0930 \u0905\u0928\u0941\u0915\u0942\u0932\u093F\u0924 \u0915\u0930\u0924\u093E \u0939\u0948\u0964",
+    "output.promptHelp.images.original": "\u0910\u092A \u0938\u094D\u0924\u0930 \u0915\u0947 \u0928\u093F\u092F\u092E \u091C\u094B\u0921\u093C\u0947 \u092C\u093F\u0928\u093E \u092E\u0942\u0932 \u092A\u093E\u0920 \u0938\u0940\u0927\u0947 \u0907\u092E\u0947\u091C API \u0915\u094B \u092D\u0947\u091C\u0924\u093E \u0939\u0948\u0964",
+    "output.promptHelp.images.strict": "\u0938\u092D\u0940 \u0905\u0928\u093F\u0935\u093E\u0930\u094D\u092F \u0936\u0930\u094D\u0924\u0947\u0902 \u0938\u0941\u0930\u0915\u094D\u0937\u093F\u0924 \u0930\u0916\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F \u092E\u0942\u0932 \u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F \u0915\u0947 \u0938\u093E\u0925 \u0935\u093F\u0936\u094D\u0935\u0938\u0928\u0940\u092F\u0924\u093E \u0928\u093F\u092F\u092E \u092D\u0947\u091C\u0924\u093E \u0939\u0948\u0964",
+    "output.promptHelp.images.automatic": "\u0907\u092E\u0947\u091C API \u0915\u0940 \u0921\u093F\u092B\u093C\u0949\u0932\u094D\u091F \u092A\u094D\u0930\u094B\u0938\u0947\u0938\u093F\u0902\u0917 \u0915\u093E \u0909\u092A\u092F\u094B\u0917 \u0915\u0930\u0924\u093E \u0939\u0948 \u0914\u0930 \u0917\u0948\u0932\u0930\u0940 \u0938\u0902\u0926\u0930\u094D\u092D \u0915\u0940 \u0906\u0935\u0936\u094D\u092F\u0915 \u091F\u093F\u092A\u094D\u092A\u0923\u093F\u092F\u093E\u0901 \u0936\u093E\u092E\u093F\u0932 \u0930\u0916\u0924\u093E \u0939\u0948\u0964",
     "output.sizeMode": "\u0906\u0915\u093E\u0930 \u092E\u094B\u0921",
     "output.sizePreset": "\u092A\u094D\u0930\u0940\u0938\u0947\u091F",
     "output.sizeCustom": "\u0915\u0938\u094D\u091F\u092E",
@@ -9339,9 +9821,12 @@
     "apiSettings.codexImages": "Image",
     "apiSettings.codexResponses": "Responses",
     "apiSettings.providers": "API \u092A\u094D\u0930\u0926\u093E\u0924\u093E",
+    "apiSettings.searchProviders": "\u092A\u094D\u0930\u0926\u093E\u0924\u093E \u0928\u093E\u092E \u0916\u094B\u091C\u0947\u0902",
+    "apiSettings.noProviderSearchResults": "\u0915\u094B\u0908 \u092E\u0947\u0932 \u0916\u093E\u0924\u093E \u092A\u094D\u0930\u0926\u093E\u0924\u093E \u0928\u0939\u0940\u0902",
     "apiSettings.providerCount": "{count} \u092A\u094D\u0930\u0926\u093E\u0924\u093E",
     "apiSettings.provider": "\u092A\u094D\u0930\u0926\u093E\u0924\u093E",
     "apiSettings.providerName": "\u092A\u094D\u0930\u0926\u093E\u0924\u093E \u0915\u093E \u0928\u093E\u092E",
+    "apiSettings.actualRequest": "\u0935\u093E\u0938\u094D\u0924\u0935\u093F\u0915 \u0905\u0928\u0941\u0930\u094B\u0927",
     "apiSettings.newProviderAction": "\u0928\u092F\u093E \u092A\u094D\u0930\u0926\u093E\u0924\u093E",
     "apiSettings.copyProvider": "\u0915\u0949\u092A\u0940",
     "apiSettings.copyProviderName": "{name} \u0915\u0949\u092A\u0940",
@@ -9359,9 +9844,10 @@
     "apiSettings.images": "\u092A\u094D\u0930\u0924\u094D\u092F\u0915\u094D\u0937 Image API",
     "apiSettings.responses": "Responses API",
     "apiSettings.modeImagesShort": "\u092A\u094D\u0930\u0924\u094D\u092F\u0915\u094D\u0937",
-    "apiSettings.imageModel": "\u091A\u093F\u0924\u094D\u0930 \u092E\u0949\u0921\u0932",
-    "apiSettings.concurrency": "\u092A\u094D\u0930\u0926\u093E\u0924\u093E \u0938\u092E\u0935\u0930\u094D\u0924\u0940 \u0938\u0940\u092E\u093E",
+    "apiSettings.imageModel": "\u091B\u0935\u093F \u0928\u093F\u0930\u094D\u092E\u093E\u0923 \u092E\u0949\u0921\u0932",
+    "apiSettings.concurrency": "\u0938\u092E\u0935\u0930\u094D\u0924\u0940 \u0938\u0940\u092E\u093E",
     "apiSettings.concurrencyShort": "\u0938\u092E\u0935\u0930\u094D\u0924\u0940",
+    "apiSettings.advancedSettings": "\u0909\u0928\u094D\u0928\u0924 \u0938\u0947\u091F\u093F\u0902\u0917",
     "apiSettings.concurrencyValue": "\u0938\u092E\u0935\u0930\u094D\u0924\u0940 {concurrency}",
     "apiSettings.keySaved": "API \u0915\u0941\u0902\u091C\u0940 \u0938\u0939\u0947\u091C\u0940 \u0917\u0908",
     "apiSettings.keyNotSet": "API \u0915\u0941\u0902\u091C\u0940 \u0938\u0947\u091F \u0928\u0939\u0940\u0902 \u0939\u0948",
@@ -9488,7 +9974,39 @@
     "close.imageEditor": "\u091A\u093F\u0924\u094D\u0930 \u0938\u0902\u092A\u093E\u0926\u0915 \u092A\u0948\u0928\u0932 \u092C\u0902\u0926 \u0915\u0930\u0947\u0902",
     "close.gallery": "\u0917\u0948\u0932\u0930\u0940 \u092A\u0948\u0928\u0932 \u092C\u0902\u0926 \u0915\u0930\u0947\u0902",
     "close.addGallery": "\u0917\u0948\u0932\u0930\u0940 \u092A\u0948\u0928\u0932 \u092E\u0947\u0902 \u091C\u094B\u0921\u093C\u0947\u0902 \u092C\u0902\u0926 \u0915\u0930\u0947\u0902",
-    "close.version": "\u0938\u0902\u0938\u094D\u0915\u0930\u0923 \u0905\u0926\u094D\u092F\u0924\u0928 \u092A\u0948\u0928\u0932 \u092C\u0902\u0926 \u0915\u0930\u0947\u0902"
+    "close.version": "\u0938\u0902\u0938\u094D\u0915\u0930\u0923 \u0905\u0926\u094D\u092F\u0924\u0928 \u092A\u0948\u0928\u0932 \u092C\u0902\u0926 \u0915\u0930\u0947\u0902",
+    "imageInput.referenceTitle": "\u0938\u0902\u0926\u0930\u094D\u092D \u0907\u0928\u092A\u0941\u091F",
+    "referenceFiles.add": "\u092B\u093C\u093E\u0907\u0932 \u091C\u094B\u0921\u093C\u0947\u0902",
+    "referenceFiles.selected": "\u0938\u0902\u0926\u0930\u094D\u092D \u092B\u093C\u093E\u0907\u0932\u0947\u0902",
+    "referenceFiles.recent": "\u0939\u093E\u0932 \u0915\u0940 \u092B\u093C\u093E\u0907\u0932\u0947\u0902",
+    "referenceFiles.familyPdf": "\u092A\u0943\u0937\u094D\u0920 + \u091F\u0947\u0915\u094D\u0938\u094D\u091F",
+    "referenceFiles.familySpreadsheet": "\u0938\u094D\u092A\u094D\u0930\u0947\u0921\u0936\u0940\u091F",
+    "referenceFiles.familyDocument": "\u0926\u0938\u094D\u0924\u093E\u0935\u0947\u091C\u093C",
+    "referenceFiles.familyText": "\u091F\u0947\u0915\u094D\u0938\u094D\u091F",
+    "referenceFiles.visualLimit": "PDF \u0915\u0947 \u0905\u0932\u093E\u0935\u093E \u092B\u093C\u093E\u0907\u0932\u094B\u0902 \u092E\u0947\u0902 \u090F\u092E\u094D\u092C\u0947\u0921\u0947\u0921 \u091A\u093F\u0924\u094D\u0930 \u0914\u0930 \u091A\u093E\u0930\u094D\u091F \u0938\u0941\u0930\u0915\u094D\u0937\u093F\u0924 \u0928\u0939\u0940\u0902 \u0930\u0939\u0924\u0947\u0964 \u0932\u0947\u0906\u0909\u091F \u092E\u0939\u0924\u094D\u0935\u092A\u0942\u0930\u094D\u0923 \u0939\u094B \u0924\u094B PDF \u092E\u0947\u0902 \u092C\u0926\u0932\u0947\u0902\u0964",
+    "referenceFiles.remove": "{filename} \u0939\u091F\u093E\u090F\u0901",
+    "referenceFiles.switchTitle": "\u0938\u0902\u0926\u0930\u094D\u092D \u092B\u093C\u093E\u0907\u0932\u0947\u0902 \u0939\u091F\u093E\u090F\u0901?",
+    "referenceFiles.switchMessage": "\u0938\u0902\u0926\u0930\u094D\u092D \u092B\u093C\u093E\u0907\u0932\u0947\u0902 \u0915\u0947\u0935\u0932 Responses \u0915\u0947 \u0938\u093E\u0925 \u0915\u093E\u092E \u0915\u0930\u0924\u0940 \u0939\u0948\u0902\u0964 Images \u092A\u0930 \u091C\u093E\u0928\u0947 \u0938\u0947 \u092A\u0939\u0932\u0947 \u0909\u0928\u094D\u0939\u0947\u0902 \u0939\u091F\u093E\u090F\u0901\u0964",
+    "referenceFiles.removeAndSwitch": "\u092B\u093C\u093E\u0907\u0932\u0947\u0902 \u0939\u091F\u093E\u0915\u0930 \u092C\u0926\u0932\u0947\u0902",
+    "referenceFiles.requiresResponses": "\u0938\u0902\u0926\u0930\u094D\u092D \u092B\u093C\u093E\u0907\u0932\u094B\u0902 \u0915\u0947 \u0932\u093F\u090F Responses \u0906\u0935\u0936\u094D\u092F\u0915 \u0939\u0948",
+    "referenceFiles.switchToResponses": "Responses \u092A\u0930 \u091C\u093E\u090F\u0901",
+    "referenceFiles.openApiSettings": "API \u0938\u0947\u091F\u093F\u0902\u0917 \u0916\u094B\u0932\u0947\u0902",
+    "referenceFiles.providerMissing": "\u092E\u0942\u0932 Responses \u092A\u094D\u0930\u0926\u093E\u0924\u093E \u0909\u092A\u0932\u092C\u094D\u0927 \u0928\u0939\u0940\u0902 \u0939\u0948\u0964 API \u0938\u0947\u091F\u093F\u0902\u0917 \u092E\u0947\u0902 \u090F\u0915 \u092A\u094D\u0930\u0926\u093E\u0924\u093E \u091A\u0941\u0928\u0947\u0902\u0964",
+    "referenceFiles.missing": "\u092B\u093C\u093E\u0907\u0932 \u0905\u0928\u0941\u092A\u0932\u092C\u094D\u0927",
+    "referenceFiles.loadFailed": "\u0938\u0902\u0926\u0930\u094D\u092D \u092B\u093C\u093E\u0907\u0932\u0947\u0902 \u0932\u094B\u0921 \u0928\u0939\u0940\u0902 \u0939\u0941\u0908\u0902",
+    "referenceFiles.errorEmpty": "\u0938\u0902\u0926\u0930\u094D\u092D \u092B\u093C\u093E\u0907\u0932 \u0916\u093E\u0932\u0940 \u0939\u0948",
+    "referenceFiles.errorUnsupported": "\u092F\u0939 \u0938\u0902\u0926\u0930\u094D\u092D \u092B\u093C\u093E\u0907\u0932 \u092A\u094D\u0930\u0915\u093E\u0930 \u0938\u092E\u0930\u094D\u0925\u093F\u0924 \u0928\u0939\u0940\u0902 \u0939\u0948",
+    "referenceFiles.errorMismatch": "\u092B\u093C\u093E\u0907\u0932 \u0915\u0940 \u0938\u093E\u092E\u0917\u094D\u0930\u0940 \u0914\u0930 \u090F\u0915\u094D\u0938\u091F\u0947\u0902\u0936\u0928 \u092E\u0947\u0932 \u0928\u0939\u0940\u0902 \u0916\u093E\u0924\u0947",
+    "referenceFiles.errorInvalid": "\u0938\u0902\u0926\u0930\u094D\u092D \u092B\u093C\u093E\u0907\u0932 \u0905\u092E\u093E\u0928\u094D\u092F \u0939\u0948",
+    "referenceFiles.errorTooLarge": "\u0939\u0930 \u0938\u0902\u0926\u0930\u094D\u092D \u092B\u093C\u093E\u0907\u0932 50 MB \u0938\u0947 \u091B\u094B\u091F\u0940 \u0939\u094B\u0928\u0940 \u091A\u093E\u0939\u093F\u090F",
+    "referenceFiles.errorTotalTooLarge": "\u0938\u0902\u0926\u0930\u094D\u092D \u092B\u093C\u093E\u0907\u0932\u094B\u0902 \u0915\u093E \u0915\u0941\u0932 \u0906\u0915\u093E\u0930 \u0905\u0927\u093F\u0915\u0924\u092E 50 MB \u0939\u094B \u0938\u0915\u0924\u093E \u0939\u0948",
+    "referenceFiles.errorMissing": "\u091A\u0941\u0928\u0940 \u0917\u0908 \u0938\u0902\u0926\u0930\u094D\u092D \u092B\u093C\u093E\u0907\u0932 \u0905\u0928\u0941\u092A\u0932\u092C\u094D\u0927 \u0939\u0948",
+    "referenceFiles.errorProviderUnsupported": "\u0907\u0938 \u092A\u094D\u0930\u0926\u093E\u0924\u093E \u0915\u093E Responses \u0938\u0902\u0926\u0930\u094D\u092D \u092B\u093C\u093E\u0907\u0932\u094B\u0902 \u0915\u093E \u0938\u092E\u0930\u094D\u0925\u0928 \u0928\u0939\u0940\u0902 \u0915\u0930\u0924\u093E",
+    "referenceFiles.responsesEnabled": "Responses \u0938\u0915\u094D\u0937\u092E \u0939\u0948",
+    "referenceFiles.historyPathMismatch": "\u0907\u0928 \u092B\u093C\u093E\u0907\u0932\u094B\u0902 \u0915\u0947 Responses \u092A\u0925 \u0905\u0932\u0917 \u0939\u0948\u0902",
+    "history.referenceFiles": "\u0938\u0902\u0926\u0930\u094D\u092D \u092B\u093C\u093E\u0907\u0932\u0947\u0902",
+    "history.downloadReferenceFile": "\u092B\u093C\u093E\u0907\u0932 \u0921\u093E\u0909\u0928\u0932\u094B\u0921 \u0915\u0930\u0947\u0902",
+    "history.readdReferenceFile": "\u092B\u093F\u0930 \u091C\u094B\u0921\u093C\u0947\u0902"
   };
 
   // codex_image/webui/frontend/src/i18n/zh-cn.ts
@@ -9624,9 +10142,13 @@
     "history.search": "\u641C\u7D22",
     "history.searchPlaceholder": "\u641C\u7D22\u63D0\u793A\u8BCD\u6216\u4EFB\u52A1 ID",
     "history.clear": "\u6E05\u7A7A",
+    "history.type": "\u7C7B\u578B",
+    "history.allTypes": "\u5168\u90E8\u7C7B\u578B",
+    "history.type.textToImage": "\u6587\u751F\u56FE",
+    "history.type.imageToImage": "\u56FE\u751F\u56FE",
     "history.month": "\u6708\u4EFD",
     "history.status": "\u72B6\u6001",
-    "history.promptMode": "\u63D0\u793A\u8BCD\u6A21\u5F0F",
+    "history.promptMode": "\u63D0\u793A\u8BCD\u5904\u7406",
     "history.size": "\u5C3A\u5BF8",
     "history.quality": "\u8D28\u91CF",
     "history.ratio": "\u6BD4\u4F8B",
@@ -9680,6 +10202,7 @@
     "history.viewing": "\u67E5\u770B\u4E2D",
     "history.noPreview": "\u6682\u65E0\u53EF\u9884\u89C8\u56FE\u7247",
     "history.downloadAll": "\u6253\u5305\u4E0B\u8F7D",
+    "history.downloadImage": "\u4E0B\u8F7D\u56FE\u7247",
     "history.downloadSelected": "\u4E0B\u8F7D\u7CBE\u9009",
     "history.deleteUnselected": "\u5220\u9664\u672A\u7CBE\u9009",
     "history.confirmDeleteUnselected": "\u786E\u8BA4\u5220\u9664\u672A\u7CBE\u9009",
@@ -9723,8 +10246,8 @@
     "history.outputRevisedPromptNotice": "\u6BCF\u5F20\u56FE\u7684\u4F18\u5316\u63D0\u793A\u8BCD\u4E0D\u540C\uFF0C\u89C1\u5BF9\u5E94\u56FE\u7247\u4E0B\u65B9\u3002",
     "history.promptEmpty": "\u6682\u65E0\u5185\u5BB9",
     "history.promptMode.strict": "\u4FDD\u771F",
-    "history.promptMode.original": "\u539F\u59CB",
-    "history.promptMode.off": "\u521B\u610F",
+    "history.promptMode.original": "\u539F\u6587",
+    "history.promptMode.off": "\u81EA\u52A8",
     "history.quality.high": "\u9AD8",
     "history.quality.medium": "\u4E2D",
     "history.quality.low": "\u4F4E",
@@ -9808,10 +10331,10 @@
     "api.settings": "\u7CFB\u7EDF\u8BBE\u7F6E",
     "api.provider": "API \u4F9B\u5E94\u5546",
     "imageInput.title": "\u56FE\u50CF\u8F93\u5165",
-    "imageInput.uploadAria": "\u70B9\u51FB\u3001\u62D6\u5165\u6216\u7C98\u8D34\u56FE\u7247",
-    "imageInput.uploadFull": "\u70B9\u51FB\u3001\u62D6\u5165\u6216\u7C98\u8D34\u56FE\u7247",
-    "imageInput.uploadCompact": "\u6DFB\u52A0\u56FE\u7247",
-    "imageInput.uploadSubtitle": "\u652F\u6301\u591A\u5F20\u53C2\u8003\u56FE",
+    "imageInput.uploadAria": "\u70B9\u51FB\u3001\u62D6\u5165\u6216\u7C98\u8D34\u56FE\u7247\u4E0E\u6587\u4EF6",
+    "imageInput.uploadFull": "\u70B9\u51FB\u3001\u62D6\u5165\u6216\u7C98\u8D34\u56FE\u7247\u4E0E\u6587\u4EF6",
+    "imageInput.uploadCompact": "\u6DFB\u52A0\u8F93\u5165",
+    "imageInput.uploadSubtitle": "\u652F\u6301\u56FE\u7247\u4E0E Responses \u53C2\u8003\u6587\u4EF6",
     "imageInput.recent": "\u6700\u8FD1\u4E0A\u4F20",
     "imageInput.recentBadge": "\u6700\u8FD1",
     "imageInput.uploadBadge": "\u4E0A\u4F20",
@@ -9941,15 +10464,25 @@
     "output.selectMainModel": "\u9009\u62E9\u4E3B\u6A21\u578B",
     "output.mainModelCustomForInput": "\u6309\u5F53\u524D\u8F93\u5165\u4F7F\u7528\u81EA\u5B9A\u4E49\u6A21\u578B",
     "output.apiDirect": "API \u76F4\u8FDE",
-    "output.apiToolModel": "\u4F7F\u7528 API \u56FE\u50CF\u5DE5\u5177\u6A21\u578B",
+    "output.apiToolModel": "\u4F7F\u7528 API \u56FE\u50CF\u751F\u6210\u6A21\u578B",
     "output.mainModelUnused": "\u4E3B\u6A21\u578B\u4E0D\u53C2\u4E0E\u672C\u6B21\u8BF7\u6C42",
     "output.webSearch": "\u8054\u7F51\u641C\u7D22",
     "output.webSearchToggle": "\u5F00\u542F",
     "output.webSearchTitle": "\u5148\u8054\u7F51\u641C\u7D22\uFF0C\u518D\u7528\u4E8E\u672C\u6B21\u751F\u6210\uFF1B\u4EC5 Codex \u548C API Responses \u652F\u6301",
-    "output.promptMode": "\u63D0\u793A\u8BCD\u6A21\u5F0F",
-    "output.modeOriginal": "\u539F\u59CB\u6A21\u5F0F",
-    "output.modeStrict": "\u4FDD\u771F\u6A21\u5F0F",
-    "output.modeCreative": "\u521B\u610F\u6A21\u5F0F",
+    "output.promptMode": "\u63D0\u793A\u8BCD\u5904\u7406",
+    "output.modeOriginal": "\u539F\u6587",
+    "output.modeStrict": "\u4FDD\u771F",
+    "output.modeCreative": "\u81EA\u52A8",
+    "output.promptHelp": "\u67E5\u770B\u63D0\u793A\u8BCD\u5904\u7406\u8BF4\u660E",
+    "output.promptHelpTitle": "\u63D0\u793A\u8BCD\u5904\u7406",
+    "output.promptHelp.responsesChannel": "Responses \xB7 \u4E3B\u6A21\u578B\u53C2\u4E0E",
+    "output.promptHelp.imagesChannel": "Images \xB7 \u76F4\u63A5\u751F\u6210",
+    "output.promptHelp.responses.original": "\u539F\u6587\u4EA4\u7ED9\u4E3B\u6A21\u578B\uFF0C\u5E76\u8981\u6C42\u56FE\u50CF\u5DE5\u5177\u5C3D\u91CF\u9010\u5B57\u4F7F\u7528\uFF1B\u4E3B\u6A21\u578B\u4ECD\u53EF\u80FD\u751F\u6210 revised prompt\u3002",
+    "output.promptHelp.responses.strict": "\u5141\u8BB8\u4E3B\u6A21\u578B\u6574\u7406\u6216\u6269\u5199\uFF0C\u4F46\u5FC5\u987B\u4FDD\u7559\u5BF9\u8C61\u3001\u6587\u5B57\u3001\u989C\u8272\u3001\u6784\u56FE\u7B49\u786C\u6027\u7EA6\u675F\u3002",
+    "output.promptHelp.responses.automatic": "\u4E0D\u6DFB\u52A0\u989D\u5916\u7EA6\u675F\uFF0C\u7531\u4E3B\u6A21\u578B\u7406\u89E3\u5E76\u4F18\u5316\u540E\u8C03\u7528\u56FE\u50CF\u5DE5\u5177\u3002",
+    "output.promptHelp.images.original": "\u5E94\u7528\u4E0D\u6DFB\u52A0\u63D0\u793A\u8BCD\u89C4\u5219\uFF0C\u6309\u7528\u6237\u539F\u6587\u76F4\u63A5\u63D0\u4EA4\u7ED9\u56FE\u50CF\u63A5\u53E3\u3002",
+    "output.promptHelp.images.strict": "\u5E94\u7528\u5C06\u4FDD\u771F\u89C4\u5219\u4E0E\u539F\u63D0\u793A\u8BCD\u4E00\u5E76\u63D0\u4EA4\uFF0C\u5F3A\u8C03\u4FDD\u7559\u6240\u6709\u786C\u6027\u7EA6\u675F\u3002",
+    "output.promptHelp.images.automatic": "\u6309\u56FE\u50CF\u63A5\u53E3\u9ED8\u8BA4\u65B9\u5F0F\u63D0\u4EA4\uFF1B\u56FE\u5E93\u5F15\u7528\u7B49\u5FC5\u8981\u8BF4\u660E\u4ECD\u4F1A\u968F\u63D0\u793A\u8BCD\u53D1\u9001\u3002",
     "output.sizeMode": "\u5C3A\u5BF8\u6A21\u5F0F",
     "output.sizePreset": "\u9884\u8BBE\u5C3A\u5BF8",
     "output.sizeCustom": "\u81EA\u5B9A\u4E49\u5C3A\u5BF8",
@@ -10251,9 +10784,12 @@
     "apiSettings.codexImages": "Image",
     "apiSettings.codexResponses": "Responses",
     "apiSettings.providers": "API \u4F9B\u5E94\u5546",
+    "apiSettings.searchProviders": "\u641C\u7D22\u4F9B\u5E94\u5546\u540D\u79F0",
+    "apiSettings.noProviderSearchResults": "\u672A\u627E\u5230\u5339\u914D\u7684\u4F9B\u5E94\u5546",
     "apiSettings.providerCount": "{count} \u4E2A\u4F9B\u5E94\u5546",
     "apiSettings.provider": "\u4F9B\u5E94\u5546",
     "apiSettings.providerName": "\u4F9B\u5E94\u5546\u540D\u79F0",
+    "apiSettings.actualRequest": "\u5B9E\u9645\u8BF7\u6C42",
     "apiSettings.newProviderAction": "\u65B0\u5EFA\u4F9B\u5E94\u5546",
     "apiSettings.copyProvider": "\u590D\u5236",
     "apiSettings.copyProviderName": "{name} \u526F\u672C",
@@ -10271,9 +10807,10 @@
     "apiSettings.images": "\u76F4\u8FDE Image API",
     "apiSettings.responses": "Responses API",
     "apiSettings.modeImagesShort": "\u76F4\u8FDE",
-    "apiSettings.imageModel": "\u56FE\u50CF\u5DE5\u5177\u6A21\u578B",
-    "apiSettings.concurrency": "Provider \u603B\u5E76\u53D1\u4E0A\u9650",
+    "apiSettings.imageModel": "\u56FE\u50CF\u751F\u6210\u6A21\u578B",
+    "apiSettings.concurrency": "\u5E76\u53D1\u4E0A\u9650",
     "apiSettings.concurrencyShort": "\u5E76\u53D1",
+    "apiSettings.advancedSettings": "\u9AD8\u7EA7\u8BBE\u7F6E",
     "apiSettings.concurrencyValue": "\u5E76\u53D1 {concurrency}",
     "apiSettings.keySaved": "\u5DF2\u4FDD\u5B58 API Key",
     "apiSettings.keyNotSet": "\u672A\u8BBE\u7F6E API Key",
@@ -10400,7 +10937,39 @@
     "close.imageEditor": "\u5173\u95ED\u7F16\u8F91\u8F93\u5165\u56FE\u7247\u9762\u677F",
     "close.gallery": "\u5173\u95ED\u516C\u7528\u56FE\u5E93\u9762\u677F",
     "close.addGallery": "\u5173\u95ED\u6DFB\u52A0\u5230\u56FE\u5E93\u9762\u677F",
-    "close.version": "\u5173\u95ED\u7248\u672C\u66F4\u65B0\u9762\u677F"
+    "close.version": "\u5173\u95ED\u7248\u672C\u66F4\u65B0\u9762\u677F",
+    "imageInput.referenceTitle": "\u53C2\u8003\u8F93\u5165",
+    "referenceFiles.add": "\u6DFB\u52A0\u6587\u4EF6",
+    "referenceFiles.selected": "\u53C2\u8003\u6587\u4EF6",
+    "referenceFiles.recent": "\u6700\u8FD1\u6587\u4EF6",
+    "referenceFiles.familyPdf": "\u9875\u9762 + \u6587\u672C",
+    "referenceFiles.familySpreadsheet": "\u8868\u683C",
+    "referenceFiles.familyDocument": "\u6587\u6863",
+    "referenceFiles.familyText": "\u6587\u672C",
+    "referenceFiles.visualLimit": "\u975E PDF \u6587\u4EF6\u4E0D\u4F1A\u4FDD\u7559\u5185\u5D4C\u56FE\u7247\u548C\u56FE\u8868\uFF1B\u9700\u8981\u7248\u5F0F\u53C2\u8003\u65F6\u8BF7\u5148\u8F6C\u4E3A PDF\u3002",
+    "referenceFiles.remove": "\u79FB\u9664\u6587\u4EF6 {filename}",
+    "referenceFiles.switchTitle": "\u79FB\u9664\u53C2\u8003\u6587\u4EF6\uFF1F",
+    "referenceFiles.switchMessage": "\u53C2\u8003\u6587\u4EF6\u4EC5\u652F\u6301 Responses\uFF0C\u5207\u6362\u5230 Images \u524D\u9700\u8981\u79FB\u9664\u5DF2\u9009\u6587\u4EF6\u3002",
+    "referenceFiles.removeAndSwitch": "\u79FB\u9664\u6587\u4EF6\u5E76\u5207\u6362",
+    "referenceFiles.requiresResponses": "\u53C2\u8003\u6587\u4EF6\u4EC5\u652F\u6301 Responses",
+    "referenceFiles.switchToResponses": "\u5207\u6362\u5230 Responses",
+    "referenceFiles.openApiSettings": "\u6253\u5F00 API \u8BBE\u7F6E",
+    "referenceFiles.providerMissing": "\u539F\u4EFB\u52A1\u4F7F\u7528\u7684 Responses \u4F9B\u5E94\u5546\u4E0D\u53EF\u7528\uFF0C\u8BF7\u5728 API \u8BBE\u7F6E\u4E2D\u9009\u62E9\u3002",
+    "referenceFiles.missing": "\u6587\u4EF6\u5DF2\u7F3A\u5931",
+    "referenceFiles.loadFailed": "\u53C2\u8003\u6587\u4EF6\u8F7D\u5165\u5931\u8D25",
+    "referenceFiles.errorEmpty": "\u53C2\u8003\u6587\u4EF6\u4E3A\u7A7A",
+    "referenceFiles.errorUnsupported": "\u4E0D\u652F\u6301\u8FD9\u79CD\u53C2\u8003\u6587\u4EF6\u683C\u5F0F",
+    "referenceFiles.errorMismatch": "\u6587\u4EF6\u5185\u5BB9\u4E0E\u6269\u5C55\u540D\u4E0D\u5339\u914D",
+    "referenceFiles.errorInvalid": "\u53C2\u8003\u6587\u4EF6\u65E0\u6548",
+    "referenceFiles.errorTooLarge": "\u5355\u4E2A\u53C2\u8003\u6587\u4EF6\u5FC5\u987B\u5C0F\u4E8E 50 MB",
+    "referenceFiles.errorTotalTooLarge": "\u53C2\u8003\u6587\u4EF6\u603B\u5927\u5C0F\u4E0D\u80FD\u8D85\u8FC7 50 MB",
+    "referenceFiles.errorMissing": "\u9009\u4E2D\u7684\u53C2\u8003\u6587\u4EF6\u5DF2\u7F3A\u5931",
+    "referenceFiles.errorProviderUnsupported": "\u5F53\u524D\u4F9B\u5E94\u5546\u7684 Responses \u4E0D\u652F\u6301\u53C2\u8003\u6587\u4EF6",
+    "referenceFiles.responsesEnabled": "\u5DF2\u5207\u6362\u5230 Responses",
+    "referenceFiles.historyPathMismatch": "\u8FD9\u4E9B\u53C2\u8003\u6587\u4EF6\u4F7F\u7528\u4E86\u4E0D\u540C\u7684 Responses \u8DEF\u5F84",
+    "history.referenceFiles": "\u53C2\u8003\u6587\u4EF6",
+    "history.downloadReferenceFile": "\u4E0B\u8F7D\u6587\u4EF6",
+    "history.readdReferenceFile": "\u91CD\u65B0\u52A0\u5165"
   };
 
   // codex_image/webui/frontend/src/i18n/zh-hk.ts
@@ -10536,9 +11105,13 @@
     "history.search": "\u641C\u5C0B",
     "history.searchPlaceholder": "\u641C\u5C0B\u63D0\u793A\u8A5E\u6216\u4EFB\u52D9ID",
     "history.clear": "\u6E05\u7A7A",
+    "history.type": "\u985E\u578B",
+    "history.allTypes": "\u5168\u90E8\u985E\u578B",
+    "history.type.textToImage": "\u6587\u751F\u5716",
+    "history.type.imageToImage": "\u5716\u751F\u5716",
     "history.month": "\u6708\u4EFD",
     "history.status": "\u72C0\u614B",
-    "history.promptMode": "\u63D0\u793A\u8A5E\u6A21\u5F0F",
+    "history.promptMode": "\u63D0\u793A\u8A5E\u8655\u7406",
     "history.size": "\u5C3A\u5BF8",
     "history.quality": "\u8CEA\u91CF",
     "history.ratio": "\u6BD4\u4F8B",
@@ -10592,6 +11165,7 @@
     "history.viewing": "\u67E5\u770B\u4E2D",
     "history.noPreview": "\u66AB\u7121\u53EF\u9810\u89BD\u5716\u7247",
     "history.downloadAll": "\u6253\u5305\u4E0B\u8F09",
+    "history.downloadImage": "\u4E0B\u8F09\u5716\u7247",
     "history.downloadSelected": "\u4E0B\u8F09\u7CBE\u9078",
     "history.deleteUnselected": "\u522A\u9664\u672A\u7CBE\u9078",
     "history.confirmDeleteUnselected": "\u78BA\u8A8D\u522A\u9664\u672A\u7CBE\u9078",
@@ -10635,8 +11209,8 @@
     "history.outputRevisedPromptNotice": "\u6BCF\u5F35\u5716\u7684\u6700\u4F73\u5316\u63D0\u793A\u8A5E\u4E0D\u540C\uFF0C\u898B\u5C0D\u61C9\u5716\u7247\u4E0B\u65B9\u3002",
     "history.promptEmpty": "\u66AB\u7121\u5167\u5BB9",
     "history.promptMode.strict": "\u4FDD\u771F",
-    "history.promptMode.original": "\u539F\u59CB",
-    "history.promptMode.off": "\u5275\u610F",
+    "history.promptMode.original": "\u539F\u6587",
+    "history.promptMode.off": "\u81EA\u52D5",
     "history.quality.high": "\u9AD8",
     "history.quality.medium": "\u4E2D",
     "history.quality.low": "\u4F4E",
@@ -10720,10 +11294,10 @@
     "api.settings": "\u7CFB\u7D71\u8A2D\u5B9A",
     "api.provider": "API\u4F9B\u61C9\u5546",
     "imageInput.title": "\u5716\u7247\u8F38\u5165",
-    "imageInput.uploadAria": "\u9EDE\u9078\u3001\u62D6\u66F3\u6216\u8CBC\u4E0A\u5716\u7247",
-    "imageInput.uploadFull": "\u9EDE\u9078\u3001\u62D6\u66F3\u6216\u8CBC\u4E0A\u5716\u7247",
-    "imageInput.uploadCompact": "\u65B0\u589E\u5716\u7247",
-    "imageInput.uploadSubtitle": "\u652F\u63F4\u591A\u5F35\u53C3\u8003\u5716",
+    "imageInput.uploadAria": "\u9EDE\u9078\u3001\u62D6\u66F3\u6216\u8CBC\u4E0A\u5716\u7247\u8207\u6A94\u6848",
+    "imageInput.uploadFull": "\u9EDE\u9078\u3001\u62D6\u66F3\u6216\u8CBC\u4E0A\u5716\u7247\u8207\u6A94\u6848",
+    "imageInput.uploadCompact": "\u65B0\u589E\u8F38\u5165",
+    "imageInput.uploadSubtitle": "\u652F\u63F4\u5716\u7247\u8207 Responses \u53C3\u8003\u6A94\u6848",
     "imageInput.recent": "\u6700\u8FD1\u4E0A\u50B3",
     "imageInput.recentBadge": "\u6700\u8FD1",
     "imageInput.uploadBadge": "\u4E0A\u50B3",
@@ -10853,15 +11427,25 @@
     "output.selectMainModel": "\u9078\u64C7\u4E3B\u6A21\u578B",
     "output.mainModelCustomForInput": "\u4F9D\u76EE\u524D\u8F38\u5165\u4F7F\u7528\u81EA\u8A02\u6A21\u578B",
     "output.apiDirect": "API\u76F4\u9023",
-    "output.apiToolModel": "\u4F7F\u7528API\u5F71\u50CF\u5DE5\u5177\u6A21\u578B",
+    "output.apiToolModel": "\u4F7F\u7528 API \u5F71\u50CF\u751F\u6210\u6A21\u578B",
     "output.mainModelUnused": "\u4E3B\u6A21\u578B\u4E0D\u53C3\u8207\u672C\u6B21\u8ACB\u6C42",
     "output.webSearch": "\u806F\u7DB2\u641C\u5C0B",
     "output.webSearchToggle": "\u958B\u555F",
     "output.webSearchTitle": "\u5148\u806F\u7DB2\u641C\u5C0B\uFF0C\u518D\u7528\u65BC\u672C\u6B21\u751F\u6210\uFF1B\u50C5Codex\u548CAPIResponses \u652F\u6301",
-    "output.promptMode": "\u63D0\u793A\u8A5E\u6A21\u5F0F",
-    "output.modeOriginal": "\u539F\u59CB\u6A21\u5F0F",
-    "output.modeStrict": "\u4FDD\u771F\u5EA6\u6A21\u5F0F",
-    "output.modeCreative": "\u5275\u610F\u6A21\u5F0F",
+    "output.promptMode": "\u63D0\u793A\u8A5E\u8655\u7406",
+    "output.modeOriginal": "\u539F\u6587",
+    "output.modeStrict": "\u4FDD\u771F",
+    "output.modeCreative": "\u81EA\u52D5",
+    "output.promptHelp": "\u67E5\u770B\u63D0\u793A\u8A5E\u8655\u7406\u8AAA\u660E",
+    "output.promptHelpTitle": "\u63D0\u793A\u8A5E\u8655\u7406",
+    "output.promptHelp.responsesChannel": "Responses \xB7 \u4E3B\u6A21\u578B\u53C3\u8207",
+    "output.promptHelp.imagesChannel": "Images \xB7 \u76F4\u63A5\u751F\u6210",
+    "output.promptHelp.responses.original": "\u539F\u6587\u4EA4\u7D66\u4E3B\u6A21\u578B\uFF0C\u4E26\u8981\u6C42\u5716\u50CF\u5DE5\u5177\u76E1\u91CF\u9010\u5B57\u4F7F\u7528\uFF1B\u4E3B\u6A21\u578B\u4ECD\u53EF\u80FD\u7522\u751F revised prompt\u3002",
+    "output.promptHelp.responses.strict": "\u5141\u8A31\u4E3B\u6A21\u578B\u6574\u7406\u6216\u64F4\u5BEB\uFF0C\u4F46\u5FC5\u9808\u4FDD\u7559\u7269\u4EF6\u3001\u6587\u5B57\u3001\u984F\u8272\u3001\u69CB\u5716\u7B49\u786C\u6027\u9650\u5236\u3002",
+    "output.promptHelp.responses.automatic": "\u4E0D\u52A0\u5165\u984D\u5916\u9650\u5236\uFF0C\u7531\u4E3B\u6A21\u578B\u7406\u89E3\u4E26\u512A\u5316\u5F8C\u547C\u53EB\u5716\u50CF\u5DE5\u5177\u3002",
+    "output.promptHelp.images.original": "\u61C9\u7528\u7A0B\u5F0F\u4E0D\u52A0\u5165\u63D0\u793A\u8A5E\u898F\u5247\uFF0C\u6309\u7528\u6236\u539F\u6587\u76F4\u63A5\u63D0\u4EA4\u81F3\u5716\u50CF\u4ECB\u9762\u3002",
+    "output.promptHelp.images.strict": "\u61C9\u7528\u7A0B\u5F0F\u5C07\u4FDD\u771F\u898F\u5247\u8207\u539F\u63D0\u793A\u8A5E\u4E00\u4F75\u63D0\u4EA4\uFF0C\u5F37\u8ABF\u4FDD\u7559\u6240\u6709\u786C\u6027\u9650\u5236\u3002",
+    "output.promptHelp.images.automatic": "\u6309\u5716\u50CF\u4ECB\u9762\u7684\u9810\u8A2D\u65B9\u5F0F\u63D0\u4EA4\uFF1B\u5716\u5EAB\u5F15\u7528\u7B49\u5FC5\u8981\u8AAA\u660E\u4ECD\u6703\u96A8\u63D0\u793A\u8A5E\u50B3\u9001\u3002",
     "output.sizeMode": "\u5C3A\u5BF8\u6A21\u5F0F",
     "output.sizePreset": "\u9810\u8A2D\u5C3A\u5BF8",
     "output.sizeCustom": "\u81EA\u8A02\u5C3A\u5BF8",
@@ -11163,9 +11747,12 @@
     "apiSettings.codexImages": "Image",
     "apiSettings.codexResponses": "Responses",
     "apiSettings.providers": "API\u4F9B\u61C9\u5546",
+    "apiSettings.searchProviders": "\u641C\u5C0B\u4F9B\u61C9\u5546\u540D\u7A31",
+    "apiSettings.noProviderSearchResults": "\u627E\u4E0D\u5230\u76F8\u7B26\u7684\u4F9B\u61C9\u5546",
     "apiSettings.providerCount": "{count}\u500B\u4F9B\u61C9\u5546",
     "apiSettings.provider": "\u4F9B\u61C9\u5546",
     "apiSettings.providerName": "\u4F9B\u61C9\u5546\u540D\u7A31",
+    "apiSettings.actualRequest": "\u5BE6\u969B\u8ACB\u6C42",
     "apiSettings.newProviderAction": "\u65B0\u5EFA\u4F9B\u61C9\u5546",
     "apiSettings.copyProvider": "\u8907\u88FD",
     "apiSettings.copyProviderName": "{name}\u526F\u672C",
@@ -11183,9 +11770,10 @@
     "apiSettings.images": "\u76F4\u9023Image API",
     "apiSettings.responses": "Responses API",
     "apiSettings.modeImagesShort": "\u76F4\u9023",
-    "apiSettings.imageModel": "\u5F71\u50CF\u5DE5\u5177\u6A21\u578B",
-    "apiSettings.concurrency": "Provider \u7E3D\u4E26\u767C\u4E0A\u9650",
+    "apiSettings.imageModel": "\u5F71\u50CF\u751F\u6210\u6A21\u578B",
+    "apiSettings.concurrency": "\u4E26\u767C\u4E0A\u9650",
     "apiSettings.concurrencyShort": "\u4E26\u767C",
+    "apiSettings.advancedSettings": "\u9032\u968E\u8A2D\u5B9A",
     "apiSettings.concurrencyValue": "\u4F75\u767C{concurrency}",
     "apiSettings.keySaved": "\u5DF2\u5132\u5B58API Key",
     "apiSettings.keyNotSet": "\u672A\u8A2D\u5B9AAPI Key",
@@ -11312,7 +11900,39 @@
     "close.imageEditor": "\u95DC\u9589\u7DE8\u8F2F\u8F38\u5165\u5716\u7247\u9762\u677F",
     "close.gallery": "\u95DC\u9589\u516C\u7528\u5716\u5EAB\u9762\u677F",
     "close.addGallery": "\u95DC\u9589\u5DF2\u65B0\u589E\u81F3\u5716\u5EAB\u9762\u677F",
-    "close.version": "\u95DC\u9589\u7248\u672C\u66F4\u65B0\u9762\u677F"
+    "close.version": "\u95DC\u9589\u7248\u672C\u66F4\u65B0\u9762\u677F",
+    "imageInput.referenceTitle": "\u53C3\u8003\u8F38\u5165",
+    "referenceFiles.add": "\u65B0\u589E\u6A94\u6848",
+    "referenceFiles.selected": "\u53C3\u8003\u6A94\u6848",
+    "referenceFiles.recent": "\u6700\u8FD1\u6A94\u6848",
+    "referenceFiles.familyPdf": "\u9801\u9762 + \u6587\u5B57",
+    "referenceFiles.familySpreadsheet": "\u8A66\u7B97\u8868",
+    "referenceFiles.familyDocument": "\u6587\u4EF6",
+    "referenceFiles.familyText": "\u6587\u5B57",
+    "referenceFiles.visualLimit": "\u975E PDF \u6A94\u6848\u4E0D\u6703\u4FDD\u7559\u5167\u5D4C\u5716\u7247\u548C\u5716\u8868\uFF1B\u9700\u8981\u7248\u9762\u53C3\u8003\u6642\u8ACB\u5148\u8F49\u70BA PDF\u3002",
+    "referenceFiles.remove": "\u79FB\u9664\u6A94\u6848 {filename}",
+    "referenceFiles.switchTitle": "\u79FB\u9664\u53C3\u8003\u6A94\u6848\uFF1F",
+    "referenceFiles.switchMessage": "\u53C3\u8003\u6A94\u6848\u53EA\u652F\u63F4 Responses\uFF0C\u5207\u63DB\u5230 Images \u524D\u9700\u8981\u79FB\u9664\u5DF2\u9078\u6A94\u6848\u3002",
+    "referenceFiles.removeAndSwitch": "\u79FB\u9664\u6A94\u6848\u4E26\u5207\u63DB",
+    "referenceFiles.requiresResponses": "\u53C3\u8003\u6A94\u6848\u53EA\u652F\u63F4 Responses",
+    "referenceFiles.switchToResponses": "\u5207\u63DB\u5230 Responses",
+    "referenceFiles.openApiSettings": "\u958B\u555F API \u8A2D\u5B9A",
+    "referenceFiles.providerMissing": "\u539F\u4EFB\u52D9\u4F7F\u7528\u7684 Responses \u4F9B\u61C9\u5546\u7121\u6CD5\u4F7F\u7528\uFF0C\u8ACB\u5728 API \u8A2D\u5B9A\u4E2D\u9078\u64C7\u3002",
+    "referenceFiles.missing": "\u6A94\u6848\u5DF2\u907A\u5931",
+    "referenceFiles.loadFailed": "\u53C3\u8003\u6A94\u6848\u8F09\u5165\u5931\u6557",
+    "referenceFiles.errorEmpty": "\u53C3\u8003\u6A94\u6848\u662F\u7A7A\u7684",
+    "referenceFiles.errorUnsupported": "\u4E0D\u652F\u63F4\u6B64\u53C3\u8003\u6A94\u6848\u683C\u5F0F",
+    "referenceFiles.errorMismatch": "\u6A94\u6848\u5167\u5BB9\u8207\u526F\u6A94\u540D\u4E0D\u7B26",
+    "referenceFiles.errorInvalid": "\u53C3\u8003\u6A94\u6848\u7121\u6548",
+    "referenceFiles.errorTooLarge": "\u55AE\u4E00\u53C3\u8003\u6A94\u6848\u5FC5\u9808\u5C0F\u65BC 50 MB",
+    "referenceFiles.errorTotalTooLarge": "\u53C3\u8003\u6A94\u6848\u7E3D\u5927\u5C0F\u4E0D\u5F97\u8D85\u904E 50 MB",
+    "referenceFiles.errorMissing": "\u9078\u53D6\u7684\u53C3\u8003\u6A94\u6848\u5DF2\u907A\u5931",
+    "referenceFiles.errorProviderUnsupported": "\u76EE\u524D\u4F9B\u61C9\u5546\u7684 Responses \u4E0D\u652F\u63F4\u53C3\u8003\u6A94\u6848",
+    "referenceFiles.responsesEnabled": "\u5DF2\u5207\u63DB\u5230 Responses",
+    "referenceFiles.historyPathMismatch": "\u9019\u4E9B\u53C3\u8003\u6A94\u6848\u4F7F\u7528\u4E0D\u540C\u7684 Responses \u8DEF\u5F91",
+    "history.referenceFiles": "\u53C3\u8003\u6A94\u6848",
+    "history.downloadReferenceFile": "\u4E0B\u8F09\u6A94\u6848",
+    "history.readdReferenceFile": "\u91CD\u65B0\u52A0\u5165"
   };
 
   // codex_image/webui/frontend/src/i18n/zh-tw.ts
@@ -11448,9 +12068,13 @@
     "history.search": "\u641C\u5C0B",
     "history.searchPlaceholder": "\u641C\u5C0B\u63D0\u793A\u8A5E\u6216\u4EFB\u52D9ID",
     "history.clear": "\u6E05\u7A7A",
+    "history.type": "\u985E\u578B",
+    "history.allTypes": "\u5168\u90E8\u985E\u578B",
+    "history.type.textToImage": "\u6587\u751F\u5716",
+    "history.type.imageToImage": "\u5716\u751F\u5716",
     "history.month": "\u6708\u4EFD",
     "history.status": "\u72C0\u614B",
-    "history.promptMode": "\u63D0\u793A\u8A5E\u6A21\u5F0F",
+    "history.promptMode": "\u63D0\u793A\u8A5E\u8655\u7406",
     "history.size": "\u5C3A\u5BF8",
     "history.quality": "\u8CEA\u91CF",
     "history.ratio": "\u6BD4\u4F8B",
@@ -11504,6 +12128,7 @@
     "history.viewing": "\u67E5\u770B\u4E2D",
     "history.noPreview": "\u66AB\u7121\u53EF\u9810\u89BD\u5716\u7247",
     "history.downloadAll": "\u6253\u5305\u4E0B\u8F09",
+    "history.downloadImage": "\u4E0B\u8F09\u5716\u7247",
     "history.downloadSelected": "\u4E0B\u8F09\u7CBE\u9078",
     "history.deleteUnselected": "\u522A\u9664\u672A\u7CBE\u9078",
     "history.confirmDeleteUnselected": "\u78BA\u8A8D\u522A\u9664\u672A\u7CBE\u9078",
@@ -11547,8 +12172,8 @@
     "history.outputRevisedPromptNotice": "\u6BCF\u5F35\u5716\u7684\u6700\u4F73\u5316\u63D0\u793A\u8A5E\u4E0D\u540C\uFF0C\u898B\u5C0D\u61C9\u5716\u7247\u4E0B\u65B9\u3002",
     "history.promptEmpty": "\u66AB\u7121\u5167\u5BB9",
     "history.promptMode.strict": "\u4FDD\u771F",
-    "history.promptMode.original": "\u539F\u59CB",
-    "history.promptMode.off": "\u5275\u610F",
+    "history.promptMode.original": "\u539F\u6587",
+    "history.promptMode.off": "\u81EA\u52D5",
     "history.quality.high": "\u9AD8",
     "history.quality.medium": "\u4E2D",
     "history.quality.low": "\u4F4E",
@@ -11632,10 +12257,10 @@
     "api.settings": "\u7CFB\u7D71\u8A2D\u5B9A",
     "api.provider": "API\u4F9B\u61C9\u5546",
     "imageInput.title": "\u5716\u7247\u8F38\u5165",
-    "imageInput.uploadAria": "\u9EDE\u9078\u3001\u62D6\u66F3\u6216\u8CBC\u4E0A\u5716\u7247",
-    "imageInput.uploadFull": "\u9EDE\u9078\u3001\u62D6\u66F3\u6216\u8CBC\u4E0A\u5716\u7247",
-    "imageInput.uploadCompact": "\u65B0\u589E\u5716\u7247",
-    "imageInput.uploadSubtitle": "\u652F\u63F4\u591A\u5F35\u53C3\u8003\u5716",
+    "imageInput.uploadAria": "\u9EDE\u9078\u3001\u62D6\u66F3\u6216\u8CBC\u4E0A\u5716\u7247\u8207\u6A94\u6848",
+    "imageInput.uploadFull": "\u9EDE\u9078\u3001\u62D6\u66F3\u6216\u8CBC\u4E0A\u5716\u7247\u8207\u6A94\u6848",
+    "imageInput.uploadCompact": "\u65B0\u589E\u8F38\u5165",
+    "imageInput.uploadSubtitle": "\u652F\u63F4\u5716\u7247\u8207 Responses \u53C3\u8003\u6A94\u6848",
     "imageInput.recent": "\u6700\u8FD1\u4E0A\u50B3",
     "imageInput.recentBadge": "\u6700\u8FD1",
     "imageInput.uploadBadge": "\u4E0A\u50B3",
@@ -11765,15 +12390,25 @@
     "output.selectMainModel": "\u9078\u64C7\u4E3B\u6A21\u578B",
     "output.mainModelCustomForInput": "\u4F9D\u76EE\u524D\u8F38\u5165\u4F7F\u7528\u81EA\u8A02\u6A21\u578B",
     "output.apiDirect": "API\u76F4\u9023",
-    "output.apiToolModel": "\u4F7F\u7528API\u5F71\u50CF\u5DE5\u5177\u6A21\u578B",
+    "output.apiToolModel": "\u4F7F\u7528 API \u5F71\u50CF\u751F\u6210\u6A21\u578B",
     "output.mainModelUnused": "\u4E3B\u6A21\u578B\u4E0D\u53C3\u8207\u672C\u6B21\u8ACB\u6C42",
     "output.webSearch": "\u806F\u7DB2\u641C\u5C0B",
     "output.webSearchToggle": "\u958B\u555F",
     "output.webSearchTitle": "\u5148\u806F\u7DB2\u641C\u5C0B\uFF0C\u518D\u7528\u65BC\u672C\u6B21\u751F\u6210\uFF1B\u50C5Codex\u548CAPIResponses \u652F\u6301",
-    "output.promptMode": "\u63D0\u793A\u8A5E\u6A21\u5F0F",
-    "output.modeOriginal": "\u539F\u59CB\u6A21\u5F0F",
-    "output.modeStrict": "\u4FDD\u771F\u5EA6\u6A21\u5F0F",
-    "output.modeCreative": "\u5275\u610F\u6A21\u5F0F",
+    "output.promptMode": "\u63D0\u793A\u8A5E\u8655\u7406",
+    "output.modeOriginal": "\u539F\u6587",
+    "output.modeStrict": "\u4FDD\u771F",
+    "output.modeCreative": "\u81EA\u52D5",
+    "output.promptHelp": "\u67E5\u770B\u63D0\u793A\u8A5E\u8655\u7406\u8AAA\u660E",
+    "output.promptHelpTitle": "\u63D0\u793A\u8A5E\u8655\u7406",
+    "output.promptHelp.responsesChannel": "Responses \xB7 \u4E3B\u6A21\u578B\u53C3\u8207",
+    "output.promptHelp.imagesChannel": "Images \xB7 \u76F4\u63A5\u751F\u6210",
+    "output.promptHelp.responses.original": "\u539F\u6587\u4EA4\u7D66\u4E3B\u6A21\u578B\uFF0C\u4E26\u8981\u6C42\u5716\u50CF\u5DE5\u5177\u76E1\u91CF\u9010\u5B57\u4F7F\u7528\uFF1B\u4E3B\u6A21\u578B\u4ECD\u53EF\u80FD\u7522\u751F revised prompt\u3002",
+    "output.promptHelp.responses.strict": "\u5141\u8A31\u4E3B\u6A21\u578B\u6574\u7406\u6216\u64F4\u5BEB\uFF0C\u4F46\u5FC5\u9808\u4FDD\u7559\u7269\u4EF6\u3001\u6587\u5B57\u3001\u984F\u8272\u3001\u69CB\u5716\u7B49\u786C\u6027\u9650\u5236\u3002",
+    "output.promptHelp.responses.automatic": "\u4E0D\u52A0\u5165\u984D\u5916\u9650\u5236\uFF0C\u7531\u4E3B\u6A21\u578B\u7406\u89E3\u4E26\u6700\u4F73\u5316\u5F8C\u547C\u53EB\u5716\u50CF\u5DE5\u5177\u3002",
+    "output.promptHelp.images.original": "\u61C9\u7528\u7A0B\u5F0F\u4E0D\u52A0\u5165\u63D0\u793A\u8A5E\u898F\u5247\uFF0C\u6309\u4F7F\u7528\u8005\u539F\u6587\u76F4\u63A5\u63D0\u4EA4\u81F3\u5716\u50CF\u4ECB\u9762\u3002",
+    "output.promptHelp.images.strict": "\u61C9\u7528\u7A0B\u5F0F\u5C07\u4FDD\u771F\u898F\u5247\u8207\u539F\u63D0\u793A\u8A5E\u4E00\u4F75\u63D0\u4EA4\uFF0C\u5F37\u8ABF\u4FDD\u7559\u6240\u6709\u786C\u6027\u9650\u5236\u3002",
+    "output.promptHelp.images.automatic": "\u6309\u5716\u50CF\u4ECB\u9762\u7684\u9810\u8A2D\u65B9\u5F0F\u63D0\u4EA4\uFF1B\u5716\u5EAB\u5F15\u7528\u7B49\u5FC5\u8981\u8AAA\u660E\u4ECD\u6703\u96A8\u63D0\u793A\u8A5E\u50B3\u9001\u3002",
     "output.sizeMode": "\u5C3A\u5BF8\u6A21\u5F0F",
     "output.sizePreset": "\u9810\u8A2D\u5C3A\u5BF8",
     "output.sizeCustom": "\u81EA\u8A02\u5C3A\u5BF8",
@@ -12075,9 +12710,12 @@
     "apiSettings.codexImages": "Image",
     "apiSettings.codexResponses": "Responses",
     "apiSettings.providers": "API\u4F9B\u61C9\u5546",
+    "apiSettings.searchProviders": "\u641C\u5C0B\u4F9B\u61C9\u5546\u540D\u7A31",
+    "apiSettings.noProviderSearchResults": "\u627E\u4E0D\u5230\u76F8\u7B26\u7684\u4F9B\u61C9\u5546",
     "apiSettings.providerCount": "{count}\u500B\u4F9B\u61C9\u5546",
     "apiSettings.provider": "\u4F9B\u61C9\u5546",
     "apiSettings.providerName": "\u4F9B\u61C9\u5546\u540D\u7A31",
+    "apiSettings.actualRequest": "\u5BE6\u969B\u8ACB\u6C42",
     "apiSettings.newProviderAction": "\u65B0\u5EFA\u4F9B\u61C9\u5546",
     "apiSettings.copyProvider": "\u8907\u88FD",
     "apiSettings.copyProviderName": "{name}\u526F\u672C",
@@ -12095,9 +12733,10 @@
     "apiSettings.images": "\u76F4\u9023Image API",
     "apiSettings.responses": "Responses API",
     "apiSettings.modeImagesShort": "\u76F4\u9023",
-    "apiSettings.imageModel": "\u5F71\u50CF\u5DE5\u5177\u6A21\u578B",
-    "apiSettings.concurrency": "Provider \u7E3D\u4E26\u767C\u4E0A\u9650",
+    "apiSettings.imageModel": "\u5F71\u50CF\u751F\u6210\u6A21\u578B",
+    "apiSettings.concurrency": "\u4E26\u767C\u4E0A\u9650",
     "apiSettings.concurrencyShort": "\u4E26\u767C",
+    "apiSettings.advancedSettings": "\u9032\u968E\u8A2D\u5B9A",
     "apiSettings.concurrencyValue": "\u4F75\u767C{concurrency}",
     "apiSettings.keySaved": "\u5DF2\u5132\u5B58API Key",
     "apiSettings.keyNotSet": "\u672A\u8A2D\u5B9AAPI Key",
@@ -12224,7 +12863,39 @@
     "close.imageEditor": "\u95DC\u9589\u7DE8\u8F2F\u8F38\u5165\u5716\u7247\u9762\u677F",
     "close.gallery": "\u95DC\u9589\u516C\u7528\u5716\u5EAB\u9762\u677F",
     "close.addGallery": "\u95DC\u9589\u5DF2\u65B0\u589E\u81F3\u5716\u5EAB\u9762\u677F",
-    "close.version": "\u95DC\u9589\u7248\u672C\u66F4\u65B0\u9762\u677F"
+    "close.version": "\u95DC\u9589\u7248\u672C\u66F4\u65B0\u9762\u677F",
+    "imageInput.referenceTitle": "\u53C3\u8003\u8F38\u5165",
+    "referenceFiles.add": "\u65B0\u589E\u6A94\u6848",
+    "referenceFiles.selected": "\u53C3\u8003\u6A94\u6848",
+    "referenceFiles.recent": "\u6700\u8FD1\u6A94\u6848",
+    "referenceFiles.familyPdf": "\u9801\u9762 + \u6587\u5B57",
+    "referenceFiles.familySpreadsheet": "\u8A66\u7B97\u8868",
+    "referenceFiles.familyDocument": "\u6587\u4EF6",
+    "referenceFiles.familyText": "\u6587\u5B57",
+    "referenceFiles.visualLimit": "\u975E PDF \u6A94\u6848\u4E0D\u6703\u4FDD\u7559\u5167\u5D4C\u5716\u7247\u548C\u5716\u8868\uFF1B\u9700\u8981\u7248\u9762\u53C3\u8003\u6642\u8ACB\u5148\u8F49\u70BA PDF\u3002",
+    "referenceFiles.remove": "\u79FB\u9664\u6A94\u6848 {filename}",
+    "referenceFiles.switchTitle": "\u79FB\u9664\u53C3\u8003\u6A94\u6848\uFF1F",
+    "referenceFiles.switchMessage": "\u53C3\u8003\u6A94\u6848\u50C5\u652F\u63F4 Responses\uFF0C\u5207\u63DB\u5230 Images \u524D\u9700\u8981\u79FB\u9664\u5DF2\u9078\u6A94\u6848\u3002",
+    "referenceFiles.removeAndSwitch": "\u79FB\u9664\u6A94\u6848\u4E26\u5207\u63DB",
+    "referenceFiles.requiresResponses": "\u53C3\u8003\u6A94\u6848\u50C5\u652F\u63F4 Responses",
+    "referenceFiles.switchToResponses": "\u5207\u63DB\u5230 Responses",
+    "referenceFiles.openApiSettings": "\u958B\u555F API \u8A2D\u5B9A",
+    "referenceFiles.providerMissing": "\u539F\u4EFB\u52D9\u4F7F\u7528\u7684 Responses \u4F9B\u61C9\u5546\u7121\u6CD5\u4F7F\u7528\uFF0C\u8ACB\u5728 API \u8A2D\u5B9A\u4E2D\u9078\u64C7\u3002",
+    "referenceFiles.missing": "\u6A94\u6848\u5DF2\u907A\u5931",
+    "referenceFiles.loadFailed": "\u53C3\u8003\u6A94\u6848\u8F09\u5165\u5931\u6557",
+    "referenceFiles.errorEmpty": "\u53C3\u8003\u6A94\u6848\u662F\u7A7A\u7684",
+    "referenceFiles.errorUnsupported": "\u4E0D\u652F\u63F4\u6B64\u53C3\u8003\u6A94\u6848\u683C\u5F0F",
+    "referenceFiles.errorMismatch": "\u6A94\u6848\u5167\u5BB9\u8207\u526F\u6A94\u540D\u4E0D\u7B26",
+    "referenceFiles.errorInvalid": "\u53C3\u8003\u6A94\u6848\u7121\u6548",
+    "referenceFiles.errorTooLarge": "\u55AE\u4E00\u53C3\u8003\u6A94\u6848\u5FC5\u9808\u5C0F\u65BC 50 MB",
+    "referenceFiles.errorTotalTooLarge": "\u53C3\u8003\u6A94\u6848\u7E3D\u5927\u5C0F\u4E0D\u5F97\u8D85\u904E 50 MB",
+    "referenceFiles.errorMissing": "\u9078\u53D6\u7684\u53C3\u8003\u6A94\u6848\u5DF2\u907A\u5931",
+    "referenceFiles.errorProviderUnsupported": "\u76EE\u524D\u4F9B\u61C9\u5546\u7684 Responses \u4E0D\u652F\u63F4\u53C3\u8003\u6A94\u6848",
+    "referenceFiles.responsesEnabled": "\u5DF2\u5207\u63DB\u5230 Responses",
+    "referenceFiles.historyPathMismatch": "\u9019\u4E9B\u53C3\u8003\u6A94\u6848\u4F7F\u7528\u4E0D\u540C\u7684 Responses \u8DEF\u5F91",
+    "history.referenceFiles": "\u53C3\u8003\u6A94\u6848",
+    "history.downloadReferenceFile": "\u4E0B\u8F09\u6A94\u6848",
+    "history.readdReferenceFile": "\u91CD\u65B0\u52A0\u5165"
   };
 
   // codex_image/webui/frontend/src/i18n/dictionaries.ts
@@ -12540,6 +13211,9 @@
     if (runtimeElement) setTextIfChanged(runtimeElement, taskCardRuntimeText(task));
     const retryElement = card.querySelector("[data-task-retry-id]");
     if (retryElement) setTextIfChanged(retryElement, taskRetryStateText(task));
+    card.querySelectorAll("[data-preview-elapsed]").forEach((element2) => {
+      updateElapsedTimerElement(element2, elapsedMillisecondsSince(element2.dataset.previewStart));
+    });
   }
   function updateTaskElapsedDisplays() {
     const { state: state32, els: els43 } = getLegacyBridge();
@@ -12681,6 +13355,7 @@
     return {
       mode: "generate",
       images: [],
+      referenceFiles: [],
       tasks: [],
       selectedTaskId: null,
       taskInputRestoreSeq: 0,
@@ -12995,19 +13670,372 @@
     return getLegacyBridge().els;
   }
 
-  // codex_image/webui/frontend/src/input-sources.ts
-  var inputSourcesFeatureInitialized = false;
-  var HISTORY_REFERENCE_HANDOFF_KEY = "codex-image-history-reference-handoff";
+  // codex_image/webui/frontend/src/reference-file-icons.ts
+  var FAMILY_EXTENSIONS = {
+    pdf: ["pdf"],
+    spreadsheet: ["xla", "xlb", "xlc", "xlm", "xls", "xlt", "xlw", "xlsx", "csv", "tsv", "iif"],
+    document: ["doc", "docx", "dot", "odt", "rtf", "wiz"],
+    presentation: ["pot", "ppa", "pps", "ppt", "pwz", "pptx"],
+    code: ["asm", "bat", "c", "cc", "conf", "cpp", "css", "cxx", "def", "h", "hh", "in", "js", "mjs", "pl", "py", "s", "sql"],
+    data: ["dic", "htm", "html", "json", "ksh", "list", "log", "markdown", "md", "mht", "mhtml", "mime", "nws", "rst", "srt", "text", "txt", "vtt", "xml"],
+    mail: ["eml", "ics", "ifb", "vcf"]
+  };
+  var FAMILY_COLORS = {
+    pdf: "#d37a70",
+    spreadsheet: "#64a982",
+    document: "#6e9cc7",
+    presentation: "#c79862",
+    code: "#9385c9",
+    data: "#6fa4a2",
+    mail: "#879993"
+  };
+  var LABEL_OVERRIDES = {
+    markdown: "MKDN",
+    mhtml: "MHTL"
+  };
+  var ICON_SPECS = new Map(
+    Object.entries(FAMILY_EXTENSIONS).flatMap(
+      ([family, extensions]) => extensions.map((extension2) => [extension2, Object.freeze({
+        extension: extension2,
+        label: LABEL_OVERRIDES[extension2] || extension2.toUpperCase(),
+        family,
+        color: FAMILY_COLORS[family]
+      })])
+    )
+  );
+  var FALLBACK_SPEC = Object.freeze({
+    extension: "",
+    label: "FILE",
+    family: "mail",
+    color: "#879993"
+  });
+  var REFERENCE_FILE_ICON_EXTENSIONS = Object.freeze([...ICON_SPECS.keys()]);
+  function referenceFileExtension(filename) {
+    const value = String(filename || "");
+    const separator = value.lastIndexOf(".");
+    return separator >= 0 ? value.slice(separator + 1).toLowerCase() : "";
+  }
+  function referenceFileIconSpec(filename) {
+    return ICON_SPECS.get(referenceFileExtension(filename)) || FALLBACK_SPEC;
+  }
+  function referenceFileIconSvgMarkup(filename) {
+    const spec = referenceFileIconSpec(filename);
+    const fontSize = spec.label.length > 3 ? 4.5 : 5.3;
+    return `<svg class="reference-file-format-icon" viewBox="0 0 24 28" aria-hidden="true" focusable="false" style="color:${spec.color}">
+    <rect x="3" y="2" width="18" height="24" rx="4" fill="currentColor" fill-opacity=".14" stroke="currentColor" stroke-opacity=".62"></rect>
+    <path d="M3 6a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4" fill="currentColor"></path>
+    <text x="12" y="17" text-anchor="middle" fill="currentColor" font-size="${fontSize}" font-weight="800" font-family="Arial, sans-serif">${spec.label}</text>
+  </svg>`;
+  }
+
+  // codex_image/webui/frontend/src/reference-file-inputs.ts
+  var FAMILY_BY_EXTENSION = {
+    pdf: "pdf",
+    xla: "spreadsheet",
+    xlb: "spreadsheet",
+    xlc: "spreadsheet",
+    xlm: "spreadsheet",
+    xls: "spreadsheet",
+    xlt: "spreadsheet",
+    xlw: "spreadsheet",
+    xlsx: "spreadsheet",
+    csv: "spreadsheet",
+    tsv: "spreadsheet",
+    iif: "spreadsheet",
+    doc: "document",
+    docx: "document",
+    dot: "document",
+    odt: "document",
+    rtf: "document",
+    pot: "document",
+    ppa: "document",
+    pps: "document",
+    ppt: "document",
+    pwz: "document",
+    wiz: "document",
+    pptx: "document"
+  };
+  var TEXT_EXTENSIONS = /* @__PURE__ */ new Set([
+    "asm",
+    "bat",
+    "c",
+    "cc",
+    "conf",
+    "cpp",
+    "css",
+    "cxx",
+    "def",
+    "dic",
+    "eml",
+    "h",
+    "hh",
+    "htm",
+    "html",
+    "ics",
+    "ifb",
+    "in",
+    "js",
+    "json",
+    "ksh",
+    "list",
+    "log",
+    "markdown",
+    "md",
+    "mht",
+    "mhtml",
+    "mime",
+    "mjs",
+    "nws",
+    "pl",
+    "py",
+    "rst",
+    "s",
+    "sql",
+    "srt",
+    "text",
+    "txt",
+    "vcf",
+    "vtt",
+    "xml"
+  ]);
+  var MIME_BY_EXTENSION = {
+    pdf: "application/pdf",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    csv: "text/csv",
+    tsv: "text/tsv",
+    iif: "text/x-iif",
+    doc: "application/msword",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    odt: "application/vnd.oasis.opendocument.text",
+    rtf: "application/rtf",
+    pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+  };
+  var initialized = false;
+  var requirementActionVisible = false;
+  var requirementFeedback = null;
   function legacyMethod2(name, ...args) {
     return getLegacyBridge().methods[name]?.(...args);
   }
+  function extension(filename) {
+    return String(filename || "").split(".").pop()?.toLowerCase() || "";
+  }
+  function familyForFilename(filename) {
+    const suffix = extension(filename);
+    return FAMILY_BY_EXTENSION[suffix] || (TEXT_EXTENSIONS.has(suffix) ? "text" : null);
+  }
+  function isImageFile(file) {
+    return String(file.type || "").startsWith("image/") || /\.(avif|bmp|gif|heic|heif|jpe?g|png|tiff?|webp)$/i.test(file.name || "");
+  }
+  function partitionReferenceDropFiles(files) {
+    const result = {
+      images: [],
+      referenceFiles: [],
+      unsupported: []
+    };
+    Array.from(files || []).forEach((file) => {
+      if (isImageFile(file)) result.images.push(file);
+      else if (familyForFilename(file.name)) result.referenceFiles.push(file);
+      else result.unsupported.push(file);
+    });
+    return result;
+  }
+  function responsesEnabled() {
+    const authSource = legacyMethod2("currentAuthSource") || "codex";
+    return authSource === "api" ? legacyMethod2("currentApiMode") === "responses" : legacyMethod2("currentCodexMode") === "responses";
+  }
+  function renderFormatIcon(target, filename) {
+    target.className = "reference-file-icon";
+    target.setAttribute("aria-hidden", "true");
+    target.innerHTML = referenceFileIconSvgMarkup(filename);
+  }
+  function showResponsesRequirement() {
+    requirementActionVisible = true;
+    legacyMethod2("setStatus", translate("referenceFiles.requiresResponses"), "error");
+    renderReferenceFiles();
+  }
+  function activateResponsesRequirementAction() {
+    if ((legacyMethod2("currentAuthSource") || "codex") === "api") {
+      legacyMethod2("openApiSettingsModal");
+      return;
+    }
+    legacyMethod2("selectCodexMode", "responses");
+    requirementActionVisible = false;
+    renderReferenceFiles();
+    syncReferenceFileAvailability();
+    legacyMethod2("setStatus", translate("referenceFiles.responsesEnabled"), "ok");
+  }
+  function uploadSource(file, family) {
+    const suffix = extension(file.name);
+    return {
+      kind: "upload",
+      file,
+      filename: file.name,
+      mime_type: file.type || MIME_BY_EXTENSION[suffix] || "application/octet-stream",
+      size_bytes: file.size,
+      family
+    };
+  }
+  function storedSource(item) {
+    const family = item?.family;
+    if (!item?.id || !["pdf", "spreadsheet", "document", "text"].includes(family)) return null;
+    return {
+      kind: "asset",
+      id: String(item.id),
+      filename: String(item.filename || translate("referenceFiles.missing")),
+      mime_type: String(item.mime_type || "application/octet-stream"),
+      size_bytes: Number(item.size_bytes || 0),
+      family,
+      missing: Boolean(item.missing)
+    };
+  }
+  function addReferenceFileInput(input) {
+    if (!responsesEnabled()) {
+      showResponsesRequirement();
+      return false;
+    }
+    const state32 = getState();
+    let source = null;
+    if (input instanceof File) {
+      const family = familyForFilename(input.name);
+      if (!family) {
+        legacyMethod2("setStatus", translate("referenceFiles.errorUnsupported"), "error");
+        return false;
+      }
+      if (state32.referenceFiles.some((item) => item.kind === "upload" && item.file === input)) return false;
+      source = uploadSource(input, family);
+    } else {
+      source = storedSource(input);
+      if (!source) return false;
+      if (state32.referenceFiles.some((item) => item.kind === "asset" && item.id === source?.id)) return false;
+    }
+    requirementActionVisible = false;
+    state32.referenceFiles.push(source);
+    renderReferenceFiles();
+    legacyMethod2("updateRequestPreview");
+    return true;
+  }
+  function referenceFileUploads() {
+    return getState().referenceFiles.filter((source) => source.kind === "upload" && Boolean(source.file));
+  }
+  function storedReferenceFileInputs() {
+    return getState().referenceFiles.filter((source) => source.kind === "asset" && Boolean(source.id) && !source.missing);
+  }
+  function missingReferenceFileInputs() {
+    return getState().referenceFiles.filter((source) => source.kind === "asset" && Boolean(source.missing));
+  }
+  function clearReferenceFiles(_options = {}) {
+    getState().referenceFiles = [];
+    requirementActionVisible = false;
+    renderReferenceFiles();
+    legacyMethod2("updateRequestPreview");
+  }
+  function removeReferenceFile(index) {
+    const state32 = getState();
+    if (!Number.isInteger(index) || index < 0 || index >= state32.referenceFiles.length) return;
+    state32.referenceFiles.splice(index, 1);
+    renderReferenceFiles();
+    legacyMethod2("updateRequestPreview");
+  }
+  function renderReferenceFiles() {
+    const els43 = getEls();
+    const container = els43.referenceFileSelection;
+    if (!container) return;
+    requirementFeedback?.remove();
+    requirementFeedback = null;
+    container.replaceChildren();
+    const sources = getState().referenceFiles;
+    if (!sources.length && !requirementActionVisible) {
+      container.classList.add("hidden");
+      legacyMethod2("updateImageStripDensity");
+      return;
+    }
+    container.classList.toggle("hidden", !sources.length);
+    if (requirementActionVisible) {
+      const feedback = document.createElement("div");
+      feedback.className = "reference-file-requirement";
+      const message = document.createElement("span");
+      message.textContent = translate("referenceFiles.requiresResponses");
+      const action = document.createElement("button");
+      action.type = "button";
+      action.className = "ghost-button text-sm";
+      action.textContent = (legacyMethod2("currentAuthSource") || "codex") === "api" ? translate("referenceFiles.openApiSettings") : translate("referenceFiles.switchToResponses");
+      action.addEventListener("click", activateResponsesRequirementAction);
+      feedback.append(message, action);
+      els43.imageUploaderGrid?.append(feedback);
+      requirementFeedback = feedback;
+    }
+    sources.forEach((source, index) => {
+      const tile = document.createElement("div");
+      tile.className = `reference-file-thumb thumb reference-file-${source.family}${source.missing ? " is-missing" : ""}`;
+      tile.title = source.filename;
+      tile.tabIndex = 0;
+      tile.setAttribute("aria-label", source.filename);
+      const icon = document.createElement("span");
+      renderFormatIcon(icon, source.filename);
+      const name = document.createElement("span");
+      name.className = "reference-file-name";
+      name.textContent = source.filename;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "thumb-remove reference-file-remove";
+      remove.setAttribute("aria-label", formatTranslation("referenceFiles.remove", { filename: source.filename }));
+      remove.title = translate("action.remove");
+      remove.innerHTML = '<span class="thumb-remove-icon" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d="M4.5 4.5 11.5 11.5M11.5 4.5 4.5 11.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/></svg></span>';
+      remove.addEventListener("click", () => removeReferenceFile(index));
+      tile.append(icon, name, remove);
+      container.append(tile);
+    });
+    legacyMethod2("updateImageStripDensity");
+    if (requirementActionVisible) {
+      els43.imageUploaderGrid?.classList.add("has-inputs");
+    }
+  }
+  function syncReferenceFileAvailability() {
+    const supported = responsesEnabled();
+    if (supported && requirementActionVisible) {
+      requirementActionVisible = false;
+      renderReferenceFiles();
+      const status = getEls().statusText;
+      if (status?.textContent === translate("referenceFiles.requiresResponses")) {
+        legacyMethod2("setStatus", translate("status.waiting"), "");
+      }
+    }
+  }
+  function initReferenceFileInputsFeature() {
+    if (initialized) return;
+    initialized = true;
+    const els43 = getEls();
+    document.addEventListener("change", (event) => {
+      const target = event.target;
+      if (target?.matches?.("#codexMode, #apiMode")) syncReferenceFileAvailability();
+    });
+    els43.authSourceGroup?.addEventListener("click", () => queueMicrotask(syncReferenceFileAvailability));
+    document.addEventListener(LOCALE_CHANGE_EVENT, renderReferenceFiles);
+    syncReferenceFileAvailability();
+    Object.assign(getLegacyBridge().methods, {
+      referenceFileUploads,
+      storedReferenceFileInputs,
+      missingReferenceFileInputs,
+      addReferenceFileInput,
+      clearReferenceFiles,
+      renderReferenceFiles,
+      syncReferenceFileAvailability
+    });
+  }
+
+  // codex_image/webui/frontend/src/input-sources.ts
+  var inputSourcesFeatureInitialized = false;
+  var HISTORY_REFERENCE_HANDOFF_KEY = "codex-image-history-reference-handoff";
+  function legacyMethod3(name, ...args) {
+    return getLegacyBridge().methods[name]?.(...args);
+  }
   function setStatus2(message, type) {
-    legacyMethod2("setStatus", message, type);
+    legacyMethod3("setStatus", message, type);
   }
   function escapeHtml2(value) {
-    return legacyMethod2("escapeHtml", value);
+    return legacyMethod3("escapeHtml", value);
   }
-  function uploadSource(file) {
+  function uploadSource2(file) {
     return {
       kind: "upload",
       file,
@@ -13017,7 +14045,7 @@
       edited: false
     };
   }
-  function isImageFile(file) {
+  function isImageFile2(file) {
     if (!file) return false;
     if (String(file.type || "").startsWith("image/")) return true;
     return /\.(avif|bmp|gif|heic|heif|jpe?g|png|tiff?|webp)$/i.test(String(file.name || ""));
@@ -13028,8 +14056,8 @@
       id: item.id,
       name: item.name,
       category: item.category,
-      category_name: item.category_name || legacyMethod2("categoryLabel", item.category),
-      category_prompt_role: item.category_prompt_role || legacyMethod2("categoryPromptRole", item.category),
+      category_name: item.category_name || legacyMethod3("categoryLabel", item.category),
+      category_prompt_role: item.category_prompt_role || legacyMethod3("categoryPromptRole", item.category),
       prompt_note: item.prompt_note || "",
       image_url: item.image_url || "",
       previewUrl: item.image_url || "",
@@ -13113,12 +14141,12 @@
     if (!alreadySelected) {
       state32.images.push(gallerySource(item));
       if (state32.mode !== "edit") {
-        legacyMethod2("setMode", "edit");
+        legacyMethod3("setMode", "edit");
       }
-      legacyMethod2("renderImageStrip");
+      legacyMethod3("renderImageStrip");
     }
-    if (options.syncPrompt !== false) legacyMethod2("ensurePromptGalleryMention", item);
-    legacyMethod2("updateRequestPreview");
+    if (options.syncPrompt !== false) legacyMethod3("ensurePromptGalleryMention", item);
+    legacyMethod3("updateRequestPreview");
   }
   function galleryInputs() {
     const galleries = getState().images.filter((image) => image.kind === "gallery");
@@ -13132,21 +14160,39 @@
   }
   function addImageFiles(files, options = {}) {
     const state32 = getState();
-    const imageFiles = Array.from(files || []).filter(isImageFile);
+    const imageFiles = Array.from(files || []).filter(isImageFile2);
     if (!imageFiles.length) {
       if (options.emptyMessage) setStatus2(options.emptyMessage, "error");
       return false;
     }
-    state32.images.push(...imageFiles.map((file) => uploadSource(file)));
+    state32.images.push(...imageFiles.map((file) => uploadSource2(file)));
     if (state32.images.length > 0 && state32.mode !== "edit") {
-      legacyMethod2("setMode", "edit");
+      legacyMethod3("setMode", "edit");
     }
-    legacyMethod2("renderImageStrip");
-    legacyMethod2("updateRequestPreview");
+    legacyMethod3("renderImageStrip");
+    legacyMethod3("updateRequestPreview");
     if (options.successMessage) {
       setStatus2(typeof options.successMessage === "function" ? options.successMessage(imageFiles.length) : options.successMessage, "ok");
     }
     return true;
+  }
+  function addMixedInputFiles(files, options = {}) {
+    const partitioned = partitionReferenceDropFiles(files);
+    if (partitioned.images.length) {
+      addImageFiles(partitioned.images, { successMessage: options.imageSuccessMessage });
+    }
+    const referenceCount = partitioned.referenceFiles.reduce(
+      (count, file) => count + (addReferenceFileInput(file) ? 1 : 0),
+      0
+    );
+    if (partitioned.unsupported.length) {
+      setStatus2(translate("referenceFiles.errorUnsupported"), "error");
+    }
+    return {
+      imageCount: partitioned.images.length,
+      referenceCount,
+      unsupportedCount: partitioned.unsupported.length
+    };
   }
   function clipboardImageFilename(type, index) {
     const extensionByType = {
@@ -13155,9 +14201,9 @@
       "image/png": "png",
       "image/webp": "webp"
     };
-    const extension = extensionByType[String(type || "").toLowerCase()] || "png";
+    const extension2 = extensionByType[String(type || "").toLowerCase()] || "png";
     const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
-    return `clipboard-${timestamp}-${index + 1}.${extension}`;
+    return `clipboard-${timestamp}-${index + 1}.${extension2}`;
   }
   function clipboardFileFromDataTransferItem(item, index) {
     const file = item?.getAsFile?.();
@@ -13192,21 +14238,16 @@
       successMessage: (count) => formatTranslation("inputSource.pastedCount", { count })
     });
   }
-  function imageFilesFromDataTransfer(dataTransfer) {
-    const files = Array.from(dataTransfer?.files || []).filter(isImageFile);
-    if (files.length) return files;
-    return Array.from(dataTransfer?.items || []).filter((item) => item?.kind === "file" && (!item.type || item.type.startsWith("image/"))).map((item) => item.getAsFile?.()).filter(isImageFile);
-  }
   function dataTransferHasFile(dataTransfer) {
     if (!dataTransfer) return false;
     if (Array.from(dataTransfer.types || []).includes("Files")) return true;
     if (Array.from(dataTransfer.files || []).length > 0) return true;
     return Array.from(dataTransfer.items || []).some((item) => item?.kind === "file");
   }
-  function dataTransferHasImageFile(dataTransfer) {
+  function dataTransferFiles(dataTransfer) {
     const files = Array.from(dataTransfer?.files || []);
-    if (files.some(isImageFile)) return true;
-    return Array.from(dataTransfer?.items || []).some((item) => item?.kind === "file" && (!item.type || item.type.startsWith("image/")));
+    if (files.length) return files;
+    return Array.from(dataTransfer?.items || []).filter((item) => item?.kind === "file").map((item) => item.getAsFile?.()).filter(Boolean);
   }
   function setImageDropActive(active) {
     getEls().imageUploaderGrid?.classList.toggle("drag-over", active);
@@ -13215,15 +14256,14 @@
     if (!dataTransferHasFile(event.dataTransfer)) return;
     event.preventDefault();
     event.stopPropagation();
-    setImageDropActive(dataTransferHasImageFile(event.dataTransfer));
+    setImageDropActive(true);
   }
   function handleImageDragOver(event) {
     if (!dataTransferHasFile(event.dataTransfer)) return;
     event.preventDefault();
     event.stopPropagation();
-    const acceptsImage = dataTransferHasImageFile(event.dataTransfer);
-    if (event.dataTransfer) event.dataTransfer.dropEffect = acceptsImage ? "copy" : "none";
-    setImageDropActive(acceptsImage);
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    setImageDropActive(true);
   }
   function handleImageDragLeave(event) {
     const target = event.currentTarget;
@@ -13236,11 +14276,13 @@
     event.preventDefault();
     event.stopPropagation();
     setImageDropActive(false);
-    const files = imageFilesFromDataTransfer(event.dataTransfer);
-    addImageFiles(files, {
-      emptyMessage: translate("inputSource.dropImagesOnly"),
-      successMessage: (count) => formatTranslation("inputSource.droppedCount", { count })
+    const files = dataTransferFiles(event.dataTransfer);
+    const result = addMixedInputFiles(files, {
+      imageSuccessMessage: (count) => formatTranslation("inputSource.droppedCount", { count })
     });
+    if (!result.imageCount && !result.referenceCount && !result.unsupportedCount) {
+      setStatus2(translate("inputSource.dropImagesOnly"), "error");
+    }
   }
   async function readClipboardImageFiles() {
     const clipboardItems = await navigator.clipboard?.read();
@@ -13292,10 +14334,10 @@
     if (alreadySelected) return;
     state32.images.push(assetSource(item));
     if (state32.mode !== "edit") {
-      legacyMethod2("setMode", "edit");
+      legacyMethod3("setMode", "edit");
     }
-    legacyMethod2("renderImageStrip");
-    legacyMethod2("updateRequestPreview");
+    legacyMethod3("renderImageStrip");
+    legacyMethod3("updateRequestPreview");
   }
   function collectReferenceOutput(url, options = {}) {
     const state32 = getState();
@@ -13418,21 +14460,64 @@
     try {
       raw = localStorage.getItem(HISTORY_REFERENCE_HANDOFF_KEY) || "";
       if (!raw) return;
-      localStorage.removeItem(HISTORY_REFERENCE_HANDOFF_KEY);
       const parsed = JSON.parse(raw);
       const items = Array.isArray(parsed) ? parsed : [];
-      const files = [];
-      for (const [index, item] of items.entries()) {
-        if (!item?.url) continue;
-        files.push(await imageFileFromUrl(item.url, `history-reference-${index + 1}.png`));
+      const imageItems = items.filter((item) => item?.url);
+      const referenceFileItems = items.filter((item) => item?.reference_file_id || item?.id);
+      let handoffError = null;
+      try {
+        const files = [];
+        for (const [index, item] of imageItems.entries()) {
+          files.push(await imageFileFromUrl(item.url, `history-reference-${index + 1}.png`));
+        }
+        if (files.length) {
+          addImageFiles(files, {
+            successMessage: (count) => formatTranslation("referenceCollector.added", { count })
+          });
+        }
+      } catch (error) {
+        handoffError = error;
       }
-      if (!files.length) return;
-      addImageFiles(files, {
-        successMessage: (count) => formatTranslation("referenceCollector.added", { count })
-      });
+      try {
+        if (referenceFileItems.length) {
+          const requestedBackend = String(referenceFileItems[0]?.requested_backend || "");
+          const providerId = String(referenceFileItems[0]?.api_provider_id || "");
+          const samePath = referenceFileItems.every((item) => String(item?.requested_backend || "") === requestedBackend && String(item?.api_provider_id || "") === providerId);
+          if (!samePath) throw new Error(translate("referenceFiles.historyPathMismatch"));
+          if (requestedBackend === "codex_responses") {
+            const modeSelected = await Promise.resolve(legacyMethod3("selectCodexMode", "responses"));
+            if (modeSelected === false) throw new Error(translate("referenceFiles.historyPathMismatch"));
+            const authSelected = await Promise.resolve(legacyMethod3("setAuthSource", "codex"));
+            if (authSelected === false) throw new Error(translate("auth.switchFailed"));
+          } else if (requestedBackend === "openai_responses") {
+            const provider = getState().apiSettings?.providers?.find?.((item) => item.id === providerId);
+            if (!provider || provider.api_mode !== "responses") {
+              legacyMethod3("openApiSettingsModal");
+              throw new Error(translate("referenceFiles.providerMissing"));
+            }
+            const providerSelected = await Promise.resolve(legacyMethod3("selectApiProvider", providerId));
+            if (providerSelected === false) throw new Error(translate("referenceFiles.providerMissing"));
+            const authSelected = await Promise.resolve(legacyMethod3("setAuthSource", "api"));
+            if (authSelected === false) throw new Error(translate("auth.switchFailed"));
+          } else {
+            throw new Error(translate("referenceFiles.requiresResponses"));
+          }
+          referenceFileItems.forEach((item) => addReferenceFileInput({
+            id: item.reference_file_id || item.id,
+            filename: item.filename,
+            mime_type: item.mime_type,
+            size_bytes: item.size_bytes,
+            family: item.family
+          }));
+        }
+      } catch (error) {
+        handoffError = error;
+      }
+      if (handoffError) throw handoffError;
     } catch (error) {
-      localStorage.removeItem(HISTORY_REFERENCE_HANDOFF_KEY);
       setStatus2(error.message || translate("referenceCollector.addFailed"), "error");
+    } finally {
+      if (raw) localStorage.removeItem(HISTORY_REFERENCE_HANDOFF_KEY);
     }
   }
   function bindInputSourceEvents() {
@@ -13450,7 +14535,7 @@
     bindInputSourceEvents();
     document.addEventListener(LOCALE_CHANGE_EVENT, renderReferenceCollector);
     Object.assign(getLegacyBridge().methods, {
-      uploadSource,
+      uploadSource: uploadSource2,
       gallerySource,
       assetSource,
       sourcePreviewUrl,
@@ -13463,6 +14548,7 @@
       referenceAssetInputs,
       uploadInputs,
       addImageFiles,
+      addMixedInputFiles,
       handleImagePaste,
       handleImageDrop,
       pasteClipboardImages,
@@ -25161,7 +26247,7 @@ js: import "konva/skia-backend";
   };
   var imageEditorFeatureInitialized = false;
   var imageEditorLayerSequence = 0;
-  function legacyMethod3(name, ...args) {
+  function legacyMethod4(name, ...args) {
     return getLegacyBridge().methods[name]?.(...args);
   }
   function editedUploadFilename(name) {
@@ -25173,7 +26259,7 @@ js: import "konva/skia-backend";
   function isEditableImageSource(source) {
     if (!source || source.missing) return false;
     if (source.kind === "upload") return Boolean(source.file);
-    return ["gallery", "asset"].includes(source.kind) && Boolean(legacyMethod3("sourcePreviewUrl", source));
+    return ["gallery", "asset"].includes(source.kind) && Boolean(legacyMethod4("sourcePreviewUrl", source));
   }
   function imageEditorSourceName(source) {
     if (!source) return "input.png";
@@ -25182,7 +26268,7 @@ js: import "konva/skia-backend";
     return source.originalFile?.name || source.file?.name || source.name || "input.png";
   }
   async function remoteImageSourceFile(source) {
-    const imageUrl = legacyMethod3("sourcePreviewUrl", source);
+    const imageUrl = legacyMethod4("sourcePreviewUrl", source);
     if (!imageUrl) throw new Error(translate("imageEditor.loadForEditFailed"));
     const response = await fetch(imageUrl);
     if (!response.ok) throw new Error(translate("imageEditor.loadForEditFailed"));
@@ -26298,13 +27384,13 @@ js: import "konva/skia-backend";
     });
   }
   function ensureImageEditorPromptHint() {
-    const current = legacyMethod3("getPromptText");
+    const current = legacyMethod4("getPromptText");
     const hint = translate("imageEditor.promptHint");
     if (current.includes(hint) || current.includes(IMAGE_EDITOR_PROMPT_HINT_LEGACY)) return;
     const next = current ? `${current}
 ${hint}` : hint;
-    legacyMethod3("setPromptText", next);
-    legacyMethod3("updatePromptCount");
+    legacyMethod4("setPromptText", next);
+    legacyMethod4("updatePromptCount");
   }
   async function saveImageEdit() {
     const state32 = getState();
@@ -26337,13 +27423,13 @@ ${hint}` : hint;
         edited: true
       };
       state32.images[sourceIndex] = nextSource;
-      legacyMethod3("revokeUploadPreviewUrl", source);
-      legacyMethod3("syncPromptGalleryMentionsFromInputs");
+      legacyMethod4("revokeUploadPreviewUrl", source);
+      legacyMethod4("syncPromptGalleryMentionsFromInputs");
       if (imageEditorState.hasInstructionMarks) ensureImageEditorPromptHint();
-      legacyMethod3("renderImageStrip");
-      legacyMethod3("updateRequestPreview");
+      legacyMethod4("renderImageStrip");
+      legacyMethod4("updateRequestPreview");
       closeImageEditor();
-      legacyMethod3("setStatus", translate("imageEditor.saved"), "ok");
+      legacyMethod4("setStatus", translate("imageEditor.saved"), "ok");
     } catch (error) {
       setImageEditorStatus(error.message || translate("imageEditor.saveFailed"), "error");
     } finally {
@@ -26353,7 +27439,7 @@ ${hint}` : hint;
   function sourcePreviewUrlForEditor(source) {
     if (!source) return "";
     if (source.kind === "upload") return source.previewUrl || "";
-    return legacyMethod3("sourcePreviewUrl", source) || "";
+    return legacyMethod4("sourcePreviewUrl", source) || "";
   }
   function renderImageEditorInsertList() {
     const state32 = getState();
@@ -26388,7 +27474,7 @@ ${hint}` : hint;
       }
       const text = document.createElement("span");
       text.className = "image-editor-insert-name";
-      text.textContent = legacyMethod3("sourceName", source) || imageEditorSourceName(source);
+      text.textContent = legacyMethod4("sourceName", source) || imageEditorSourceName(source);
       row.append(text);
       row.addEventListener("click", () => insertImageEditorLayerFromSource(source));
       list.append(row);
@@ -26473,7 +27559,7 @@ ${hint}` : hint;
       const layer = createImageEditorLayerFromCanvas(canvas, {
         source,
         sourceIndex,
-        name: legacyMethod3("sourceName", source) || imageEditorSourceName(source),
+        name: legacyMethod4("sourceName", source) || imageEditorSourceName(source),
         edited: false
       });
       imageEditorState.layers.push(layer);
@@ -26530,7 +27616,7 @@ ${hint}` : hint;
     const els43 = getEls();
     const source = state32.images[index];
     if (!source || !isEditableImageSource(source)) {
-      legacyMethod3("setStatus", translate("imageEditor.uneditable"), "error");
+      legacyMethod4("setStatus", translate("imageEditor.uneditable"), "error");
       return;
     }
     const sessionId = nextImageEditorSession();
@@ -26545,7 +27631,7 @@ ${hint}` : hint;
     imageEditorState.canvasScope = "base";
     setImageEditorStatus("");
     if (els43.imageEditorSubtitle) {
-      els43.imageEditorSubtitle.textContent = legacyMethod3("sourceName", source) || translate("imageEditor.inputFallback");
+      els43.imageEditorSubtitle.textContent = legacyMethod4("sourceName", source) || translate("imageEditor.inputFallback");
     }
     els43.imageEditorModal?.classList.remove("hidden");
     try {
@@ -26560,7 +27646,7 @@ ${hint}` : hint;
     } catch {
       if (sessionId !== imageEditorState.sessionId || imageEditorState.source !== source) return;
       closeImageEditor();
-      legacyMethod3("setStatus", translate("imageEditor.openFailed"), "error");
+      legacyMethod4("setStatus", translate("imageEditor.openFailed"), "error");
     }
   }
   function closeImageEditor() {
@@ -26728,21 +27814,22 @@ ${hint}` : hint;
 
   // codex_image/webui/frontend/src/image-strip.ts
   var imageStripFeatureInitialized = false;
-  function legacyMethod4(name, ...args) {
+  function legacyMethod5(name, ...args) {
     return getLegacyBridge().methods[name]?.(...args);
   }
   function addImages(event) {
-    legacyMethod4("addImageFiles", event.target.files || []);
+    legacyMethod5("addMixedInputFiles", event.target.files || []);
     event.target.value = "";
   }
   function clearImages() {
     const state32 = getState();
-    legacyMethod4("revokeUploadPreviewUrls", state32.images);
+    legacyMethod5("revokeUploadPreviewUrls", state32.images);
     state32.images = [];
-    legacyMethod4("syncPromptGalleryMentionsFromInputs");
-    legacyMethod4("setMode", "generate");
+    legacyMethod5("clearReferenceFiles", { silent: true });
+    legacyMethod5("syncPromptGalleryMentionsFromInputs");
+    legacyMethod5("setMode", "generate");
     renderImageStrip();
-    legacyMethod4("updateRequestPreview");
+    legacyMethod5("updateRequestPreview");
   }
   function createThumbAddIcon() {
     const icon = document.createElement("span");
@@ -26761,10 +27848,10 @@ ${hint}` : hint;
   function imageStripNeedsCompactGrid() {
     const state32 = getState();
     const els43 = getEls();
-    if (!els43.imageUploaderGrid || !state32.images.length) return false;
+    const thumbCount = state32.images.length + state32.referenceFiles.length;
+    if (!els43.imageUploaderGrid || !thumbCount) return false;
     const availableWidth = Math.max(0, els43.imageUploaderGrid.clientWidth - 24);
     if (!availableWidth) return false;
-    const thumbCount = state32.images.length;
     const fullSizeThumbsWidth = thumbCount * 116 + Math.max(0, thumbCount - 1) * 10;
     const fullSizeUploadWidth = 118;
     const fullSizeUploadGap = 10;
@@ -26774,8 +27861,10 @@ ${hint}` : hint;
     const state32 = getState();
     const els43 = getEls();
     const hasImages = Boolean(state32.images.length);
+    const hasInputs = Boolean(state32.images.length + state32.referenceFiles.length);
     const compactGrid = imageStripNeedsCompactGrid();
     els43.imageUploaderGrid?.classList.toggle("has-images", hasImages);
+    els43.imageUploaderGrid?.classList.toggle("has-inputs", hasInputs);
     els43.imageUploaderGrid?.classList.toggle("compact-grid", compactGrid);
   }
   function wheelDeltaInPixels(event) {
@@ -26789,7 +27878,7 @@ ${hint}` : hint;
   }
   function handleImageStripWheel(event) {
     const els43 = getEls();
-    const scrollTarget = els43.imageUploaderGrid?.classList.contains("compact-grid") ? els43.imageStrip : els43.imageThumbList;
+    const scrollTarget = els43.imageThumbList;
     if (!scrollTarget) return;
     const maxScrollLeft = Math.max(0, scrollTarget.scrollWidth - scrollTarget.clientWidth);
     if (!maxScrollLeft) return;
@@ -26804,45 +27893,45 @@ ${hint}` : hint;
     const state32 = getState();
     const els43 = getEls();
     const hasImages = Boolean(state32.images.length);
-    const thumbList = els43.imageThumbList || els43.imageStrip;
+    const thumbItems = els43.imageThumbItems;
     updateImageStripDensity();
-    if (!thumbList) return;
+    if (!thumbItems) return;
     if (!hasImages) {
-      thumbList.innerHTML = "";
-      legacyMethod4("updateCustomRatioReferenceButtonState");
+      thumbItems.innerHTML = "";
+      legacyMethod5("updateCustomRatioReferenceButtonState");
       return;
     }
-    thumbList.innerHTML = "";
+    thumbItems.innerHTML = "";
     state32.images.forEach((source, index) => {
       const wrapper = document.createElement("div");
       wrapper.className = `thumb ${source.kind === "gallery" ? "gallery-thumb" : source.kind === "asset" ? "asset-thumb" : "upload-thumb"}${source.missing ? " missing-thumb" : ""}`;
       const image = document.createElement("img");
-      const previewUrl = legacyMethod4("sourcePreviewUrl", source);
+      const previewUrl = legacyMethod5("sourcePreviewUrl", source);
       if (previewUrl) {
         image.src = previewUrl;
       }
-      image.alt = legacyMethod4("sourceName", source);
-      wrapper.title = source.missing ? source.kind === "asset" ? translate("imageInput.deletedRecent") : translate("imageInput.deletedGallery") : legacyMethod4("sourceName", source);
-      if (legacyMethod4("isEditableImageSource", source)) {
+      image.alt = legacyMethod5("sourceName", source);
+      wrapper.title = source.missing ? source.kind === "asset" ? translate("imageInput.deletedRecent") : translate("imageInput.deletedGallery") : legacyMethod5("sourceName", source);
+      if (legacyMethod5("isEditableImageSource", source)) {
         wrapper.classList.add("editable-thumb");
         wrapper.tabIndex = 0;
         wrapper.setAttribute("role", "button");
-        wrapper.setAttribute("aria-label", formatTranslation("imageInput.editImage", { name: legacyMethod4("sourceName", source) }));
+        wrapper.setAttribute("aria-label", formatTranslation("imageInput.editImage", { name: legacyMethod5("sourceName", source) }));
         wrapper.addEventListener("click", (event) => {
           if (event.target.closest("button")) return;
-          legacyMethod4("openImageEditor", index);
+          legacyMethod5("openImageEditor", index);
         });
         wrapper.addEventListener("keydown", (event) => {
           if (event.target?.closest("button")) return;
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            legacyMethod4("openImageEditor", index);
+            legacyMethod5("openImageEditor", index);
           }
         });
       }
       const badge = document.createElement("span");
       badge.className = "thumb-badge";
-      badge.textContent = source.kind === "gallery" ? legacyMethod4("categoryLabel", source.category) : source.kind === "asset" ? translate("imageInput.recentBadge") : translate("imageInput.uploadBadge");
+      badge.textContent = source.kind === "gallery" ? legacyMethod5("categoryLabel", source.category) : source.kind === "asset" ? translate("imageInput.recentBadge") : translate("imageInput.uploadBadge");
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "thumb-remove";
@@ -26852,17 +27941,17 @@ ${hint}` : hint;
       remove.addEventListener("click", (event) => {
         event.stopPropagation();
         const removedSource = state32.images[index];
-        legacyMethod4("revokeUploadPreviewUrl", removedSource, { ignoredCurrentSources: /* @__PURE__ */ new Set([removedSource]) });
+        legacyMethod5("revokeUploadPreviewUrl", removedSource, { ignoredCurrentSources: /* @__PURE__ */ new Set([removedSource]) });
         state32.images.splice(index, 1);
-        legacyMethod4("syncPromptGalleryMentionsFromInputs");
+        legacyMethod5("syncPromptGalleryMentionsFromInputs");
         if (!state32.images.length) {
-          legacyMethod4("setMode", "generate");
+          legacyMethod5("setMode", "generate");
         }
         renderImageStrip();
-        legacyMethod4("updateRequestPreview");
+        legacyMethod5("updateRequestPreview");
       });
       wrapper.append(image, badge, remove);
-      if (legacyMethod4("canAddSourceToGallery", source)) {
+      if (legacyMethod5("canAddSourceToGallery", source)) {
         const addToGallery = document.createElement("button");
         addToGallery.type = "button";
         addToGallery.className = "add-upload-to-gallery";
@@ -26871,7 +27960,7 @@ ${hint}` : hint;
         addToGallery.append(createThumbAddIcon(), document.createTextNode(translate("imageInput.addToGalleryShort")));
         addToGallery.addEventListener("click", (event) => {
           event.stopPropagation();
-          legacyMethod4("openAddToGallery", index);
+          legacyMethod5("openAddToGallery", index);
         });
         wrapper.append(addToGallery);
       }
@@ -26881,9 +27970,9 @@ ${hint}` : hint;
         editedBadge.textContent = translate("imageInput.editedBadge");
         wrapper.append(editedBadge);
       }
-      thumbList.append(wrapper);
+      thumbItems.append(wrapper);
     });
-    legacyMethod4("updateCustomRatioReferenceButtonState");
+    legacyMethod5("updateCustomRatioReferenceButtonState");
   }
   function bindImageStripEvents() {
     const els43 = getEls();
@@ -27010,7 +28099,7 @@ ${hint}` : hint;
   var galleryCategoryDropTargetId = null;
   var galleryCategoryDropPlacement = "after";
   var galleryCategoryOriginalOrder = [];
-  function legacyMethod5(name, ...args) {
+  function legacyMethod6(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -27018,34 +28107,34 @@ ${hint}` : hint;
     return method(...args);
   }
   function escapeHtml3(value) {
-    return legacyMethod5("escapeHtml", value);
+    return legacyMethod6("escapeHtml", value);
   }
   function setStatus3(message, type) {
-    legacyMethod5("setStatus", message, type);
+    legacyMethod6("setStatus", message, type);
   }
   function openConfirmPopover(anchor, options) {
-    legacyMethod5("openConfirmPopover", anchor, options);
+    legacyMethod6("openConfirmPopover", anchor, options);
   }
   function closeConfirmPopover() {
-    legacyMethod5("closeConfirmPopover");
+    legacyMethod6("closeConfirmPopover");
   }
   function closeGalleryEditPopover() {
-    legacyMethod5("closeGalleryEditPopover");
+    legacyMethod6("closeGalleryEditPopover");
   }
   function renderQuickGalleryDock() {
-    legacyMethod5("renderQuickGalleryDock");
+    legacyMethod6("renderQuickGalleryDock");
   }
   function renderGalleryGrid(options) {
-    legacyMethod5("renderGalleryGrid", options);
+    legacyMethod6("renderGalleryGrid", options);
   }
   function renderImageStrip2() {
-    legacyMethod5("renderImageStrip");
+    legacyMethod6("renderImageStrip");
   }
   function updateRequestPreview() {
-    legacyMethod5("updateRequestPreview");
+    legacyMethod6("updateRequestPreview");
   }
   function refreshGallery() {
-    return legacyMethod5("refreshGallery");
+    return legacyMethod6("refreshGallery");
   }
   function cssEscape2(value) {
     const text = String(value || "");
@@ -27544,7 +28633,7 @@ ${hint}` : hint;
   var state3 = bridge2.state;
   var els3 = bridge2.els;
   var recentAssetsFeatureInitialized = false;
-  function legacyMethod6(name, ...args) {
+  function legacyMethod7(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -27552,25 +28641,25 @@ ${hint}` : hint;
     return method(...args);
   }
   function escapeHtml4(value) {
-    return legacyMethod6("escapeHtml", value);
+    return legacyMethod7("escapeHtml", value);
   }
   function setStatus4(message, type) {
-    legacyMethod6("setStatus", message, type);
+    legacyMethod7("setStatus", message, type);
   }
   function openConfirmPopover2(anchor, options) {
-    legacyMethod6("openConfirmPopover", anchor, options);
+    legacyMethod7("openConfirmPopover", anchor, options);
   }
   function setMode(mode) {
-    legacyMethod6("setMode", mode);
+    legacyMethod7("setMode", mode);
   }
   function addReferenceAssetInput2(item) {
-    legacyMethod6("addReferenceAssetInput", item);
+    legacyMethod7("addReferenceAssetInput", item);
   }
   function renderImageStrip3() {
-    legacyMethod6("renderImageStrip");
+    legacyMethod7("renderImageStrip");
   }
   function updateRequestPreview2() {
-    legacyMethod6("updateRequestPreview");
+    legacyMethod7("updateRequestPreview");
   }
   function recentAssetName(item) {
     return item?.filename || translate("recentAssets.defaultName");
@@ -27691,7 +28780,7 @@ ${hint}` : hint;
   var quickGalleryFeatureInitialized = false;
   var quickGalleryFocusFrameId = null;
   var quickGalleryWheelLockTimerId = null;
-  function legacyMethod7(name, ...args) {
+  function legacyMethod8(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -27699,22 +28788,22 @@ ${hint}` : hint;
     return method(...args);
   }
   function escapeHtml5(value) {
-    return legacyMethod7("escapeHtml", value);
+    return legacyMethod8("escapeHtml", value);
   }
   function addGalleryInput2(item, options) {
-    legacyMethod7("addGalleryInput", item, options);
+    legacyMethod8("addGalleryInput", item, options);
   }
   function filterGalleryItems(category) {
-    return legacyMethod7("filterGalleryItems", category);
+    return legacyMethod8("filterGalleryItems", category);
   }
   function findGalleryItem(itemId) {
-    return legacyMethod7("findGalleryItem", itemId);
+    return legacyMethod8("findGalleryItem", itemId);
   }
   function categoryLabel2(category) {
-    return legacyMethod7("categoryLabel", category);
+    return legacyMethod8("categoryLabel", category);
   }
   function renderGalleryCategoryControls2() {
-    legacyMethod7("renderGalleryCategoryControls");
+    legacyMethod8("renderGalleryCategoryControls");
   }
   function renderQuickGalleryDock2() {
     renderGalleryCategoryControls2();
@@ -27928,7 +29017,7 @@ ${hint}` : hint;
   var galleryGridDropTargetId = null;
   var galleryGridDropPlacement = "after";
   var galleryGridOriginalOrder = [];
-  function legacyMethod8(name, ...args) {
+  function legacyMethod9(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -27936,46 +29025,46 @@ ${hint}` : hint;
     return method(...args);
   }
   function escapeHtml6(value) {
-    return legacyMethod8("escapeHtml", value);
+    return legacyMethod9("escapeHtml", value);
   }
   function ensureActiveGalleryCategory2() {
-    legacyMethod8("ensureActiveGalleryCategory");
+    legacyMethod9("ensureActiveGalleryCategory");
   }
   function categoryLabel3(category) {
-    return legacyMethod8("categoryLabel", category);
+    return legacyMethod9("categoryLabel", category);
   }
   function findGalleryItem2(itemId) {
-    return legacyMethod8("findGalleryItem", itemId);
+    return legacyMethod9("findGalleryItem", itemId);
   }
   function filterGalleryItems2(category) {
-    return legacyMethod8("filterGalleryItems", category);
+    return legacyMethod9("filterGalleryItems", category);
   }
   function addGalleryInput3(item, options) {
-    legacyMethod8("addGalleryInput", item, options);
+    legacyMethod9("addGalleryInput", item, options);
   }
   function closeGallery() {
-    legacyMethod8("closeGallery");
+    legacyMethod9("closeGallery");
   }
   function renameGalleryItem(button, itemId) {
-    legacyMethod8("renameGalleryItem", button, itemId);
+    legacyMethod9("renameGalleryItem", button, itemId);
   }
   function replaceGalleryItemImage(itemId) {
-    return legacyMethod8("replaceGalleryItemImage", itemId);
+    return legacyMethod9("replaceGalleryItemImage", itemId);
   }
   function moveGalleryItem(button, itemId) {
-    legacyMethod8("moveGalleryItem", button, itemId);
+    legacyMethod9("moveGalleryItem", button, itemId);
   }
   function editGalleryPromptNote(button, itemId) {
-    legacyMethod8("editGalleryPromptNote", button, itemId);
+    legacyMethod9("editGalleryPromptNote", button, itemId);
   }
   function deleteGalleryItem(button, itemId) {
-    legacyMethod8("deleteGalleryItem", button, itemId);
+    legacyMethod9("deleteGalleryItem", button, itemId);
   }
   function applyGalleryItemOrder(category, itemIds) {
-    legacyMethod8("applyGalleryItemOrder", category, itemIds);
+    legacyMethod9("applyGalleryItemOrder", category, itemIds);
   }
   function persistGalleryItemOrder(category, itemIds) {
-    return legacyMethod8("persistGalleryItemOrder", category, itemIds);
+    return legacyMethod9("persistGalleryItemOrder", category, itemIds);
   }
   function cssEscape3(value) {
     const text = String(value || "");
@@ -28330,7 +29419,7 @@ ${hint}` : hint;
     anchor: null,
     onSave: null
   };
-  function legacyMethod9(name, ...args) {
+  function legacyMethod10(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -28338,64 +29427,64 @@ ${hint}` : hint;
     return method(...args);
   }
   function escapeHtml7(value) {
-    return legacyMethod9("escapeHtml", value);
+    return legacyMethod10("escapeHtml", value);
   }
   function setStatus5(message, type) {
-    legacyMethod9("setStatus", message, type);
+    legacyMethod10("setStatus", message, type);
   }
   function openConfirmPopover3(anchor, options) {
-    legacyMethod9("openConfirmPopover", anchor, options);
+    legacyMethod10("openConfirmPopover", anchor, options);
   }
   function closeConfirmPopover2() {
-    legacyMethod9("closeConfirmPopover");
+    legacyMethod10("closeConfirmPopover");
   }
   function closePromptPopover() {
-    legacyMethod9("closePromptPopover");
+    legacyMethod10("closePromptPopover");
   }
   function setMode2(mode) {
-    legacyMethod9("setMode", mode);
+    legacyMethod10("setMode", mode);
   }
   function sourcePreviewUrl2(source) {
-    return legacyMethod9("sourcePreviewUrl", source);
+    return legacyMethod10("sourcePreviewUrl", source);
   }
   function sourceName2(source) {
-    return legacyMethod9("sourceName", source);
+    return legacyMethod10("sourceName", source);
   }
   function gallerySource2(item) {
-    return legacyMethod9("gallerySource", item);
+    return legacyMethod10("gallerySource", item);
   }
   function revokeUploadPreviewUrl2(source, options) {
-    legacyMethod9("revokeUploadPreviewUrl", source, options);
+    legacyMethod10("revokeUploadPreviewUrl", source, options);
   }
   function renderImageStrip4() {
-    legacyMethod9("renderImageStrip");
+    legacyMethod10("renderImageStrip");
   }
   function updateRequestPreview3() {
-    legacyMethod9("updateRequestPreview");
+    legacyMethod10("updateRequestPreview");
   }
   function refreshGallery2() {
-    return legacyMethod9("refreshGallery");
+    return legacyMethod10("refreshGallery");
   }
   function renderQuickGalleryDock3() {
-    legacyMethod9("renderQuickGalleryDock");
+    legacyMethod10("renderQuickGalleryDock");
   }
   function renderGalleryGrid3(options) {
-    legacyMethod9("renderGalleryGrid", options);
+    legacyMethod10("renderGalleryGrid", options);
   }
   function renderGalleryCategoryControls3() {
-    legacyMethod9("renderGalleryCategoryControls");
+    legacyMethod10("renderGalleryCategoryControls");
   }
   function findGalleryItem3(itemId) {
-    return legacyMethod9("findGalleryItem", itemId);
+    return legacyMethod10("findGalleryItem", itemId);
   }
   function findGalleryCategory2(categoryId) {
-    return legacyMethod9("findGalleryCategory", categoryId);
+    return legacyMethod10("findGalleryCategory", categoryId);
   }
   function normalizeGalleryCategories2(categories) {
-    return legacyMethod9("normalizeGalleryCategories", categories);
+    return legacyMethod10("normalizeGalleryCategories", categories);
   }
   function categoryLabel4(category) {
-    return legacyMethod9("categoryLabel", category);
+    return legacyMethod10("categoryLabel", category);
   }
   function clampPopoverPosition(value, min, max) {
     if (max < min) return min;
@@ -28762,7 +29851,7 @@ ${hint}` : hint;
   var galleryFeatureInitialized = false;
   var galleryFeatureEventsBound = false;
   var lastGalleryTrigger = null;
-  function legacyMethod10(name, ...args) {
+  function legacyMethod11(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -28770,31 +29859,31 @@ ${hint}` : hint;
     return method(...args);
   }
   function setStatus6(message, type) {
-    legacyMethod10("setStatus", message, type);
+    legacyMethod11("setStatus", message, type);
   }
   function closeConfirmPopover3() {
-    legacyMethod10("closeConfirmPopover");
+    legacyMethod11("closeConfirmPopover");
   }
-  var defaultGalleryCategories3 = () => legacyMethod10("defaultGalleryCategories");
-  var normalizeGalleryCategories3 = (categories) => legacyMethod10("normalizeGalleryCategories", categories);
+  var defaultGalleryCategories3 = () => legacyMethod11("defaultGalleryCategories");
+  var normalizeGalleryCategories3 = (categories) => legacyMethod11("normalizeGalleryCategories", categories);
   var ensureActiveGalleryCategory3 = () => {
-    legacyMethod10("ensureActiveGalleryCategory");
+    legacyMethod11("ensureActiveGalleryCategory");
   };
   var renderGalleryCategoryControls4 = () => {
-    legacyMethod10("renderGalleryCategoryControls");
+    legacyMethod11("renderGalleryCategoryControls");
   };
-  var findGalleryCategory3 = (categoryId) => legacyMethod10("findGalleryCategory", categoryId);
+  var findGalleryCategory3 = (categoryId) => legacyMethod11("findGalleryCategory", categoryId);
   var renderQuickGalleryDock4 = () => {
-    legacyMethod10("renderQuickGalleryDock");
+    legacyMethod11("renderQuickGalleryDock");
   };
   var renderGalleryGrid4 = (options) => {
-    legacyMethod10("renderGalleryGrid", options);
+    legacyMethod11("renderGalleryGrid", options);
   };
   var resetGalleryGridTransition2 = (invalidate) => {
-    legacyMethod10("resetGalleryGridTransition", invalidate);
+    legacyMethod11("resetGalleryGridTransition", invalidate);
   };
   var closeGalleryEditPopover3 = () => {
-    legacyMethod10("closeGalleryEditPopover");
+    legacyMethod11("closeGalleryEditPopover");
   };
   function sortGalleryItems(items) {
     const categories = normalizeGalleryCategories3(state7.galleryCategories);
@@ -28845,7 +29934,7 @@ ${hint}` : hint;
     }
   }
   async function openGallery(category) {
-    legacyMethod10("closePromptTemplateDrawer", { restoreFocus: false });
+    legacyMethod11("closePromptTemplateDrawer", { restoreFocus: false });
     lastGalleryTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : els7.galleryManageButton;
     state7.activeGalleryCategory = findGalleryCategory3(category) ? category : state7.galleryCategories[0]?.id || "portrait";
     await refreshGallery3();
@@ -28936,7 +30025,7 @@ ${hint}` : hint;
   // codex_image/webui/frontend/src/api-mode-settings.ts
   var bridge7 = getLegacyBridge();
   var els8 = bridge7.els;
-  function legacyMethod11(name, ...args) {
+  function legacyMethod12(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -28944,13 +30033,13 @@ ${hint}` : hint;
     return method(...args);
   }
   function currentAuthSource() {
-    return legacyMethod11("currentAuthSource");
+    return legacyMethod12("currentAuthSource");
   }
   function currentApiMode() {
-    return legacyMethod11("currentApiMode");
+    return legacyMethod12("currentApiMode");
   }
   function currentCodexMode() {
-    return legacyMethod11("currentCodexMode");
+    return legacyMethod12("currentCodexMode");
   }
   function setModeSpecificElementVisibility(element2, visible) {
     if (!element2) return;
@@ -28996,13 +30085,14 @@ ${hint}` : hint;
     const isDirectApi = authSource === "api" && currentApiMode() !== "responses" || authSource === "codex" && currentCodexMode() !== "responses";
     setModeSettingsVariant(isDirectApi);
     updateWebSearchAvailability(authSource);
+    legacyMethod12("syncReferenceFileAvailability");
   }
 
   // codex_image/webui/frontend/src/auth-source.ts
   var bridge8 = getLegacyBridge();
   var state8 = bridge8.state;
   var els9 = bridge8.els;
-  function legacyMethod12(name, ...args) {
+  function legacyMethod13(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -29010,25 +30100,25 @@ ${hint}` : hint;
     return method(...args);
   }
   function setStatus7(message, type) {
-    legacyMethod12("setStatus", message, type);
+    legacyMethod13("setStatus", message, type);
   }
   function updateRequestPreview4() {
-    legacyMethod12("updateRequestPreview");
+    legacyMethod13("updateRequestPreview");
   }
   function currentApiMode2() {
-    return legacyMethod12("currentApiMode");
+    return legacyMethod13("currentApiMode");
   }
   function currentCodexMode2() {
-    return legacyMethod12("currentCodexMode");
+    return legacyMethod13("currentCodexMode");
   }
   function currentApiProviderLabel() {
-    return legacyMethod12("currentApiProviderLabel");
+    return legacyMethod13("currentApiProviderLabel");
   }
   function apiModeLabel(mode) {
-    return legacyMethod12("apiModeLabel", mode);
+    return legacyMethod13("apiModeLabel", mode);
   }
   function codexModeLabel(mode) {
-    return legacyMethod12("codexModeLabel", mode);
+    return legacyMethod13("codexModeLabel", mode);
   }
   async function refreshHealth() {
     try {
@@ -29050,7 +30140,7 @@ ${hint}` : hint;
       setStatus7(error.message, "error");
     }
   }
-  async function setAuthSource(source) {
+  async function applyAuthSource(source) {
     state8.pendingAuthSource = source;
     applyAuthSourceSelection(source);
     updateRequestPreview4();
@@ -29072,18 +30162,24 @@ ${hint}` : hint;
       els9.runButton.disabled = !state8.authAvailable;
       setStatus7(authSourceDetailText(data), state8.authAvailable ? "ok" : "error");
       updateRequestPreview4();
+      return true;
     } catch (error) {
       state8.pendingAuthSource = null;
       renderAuthSource(state8.authStatus);
       updateRequestPreview4();
       setStatus7(error.message || translate("auth.switchFailed"), "error");
+      return false;
     }
+  }
+  async function setAuthSource(source, _anchor) {
+    const normalized = source === "api" ? "api" : "codex";
+    return await applyAuthSource(normalized);
   }
   function handleAuthSourceClick(event) {
     const button = event.target.closest?.("[data-auth-source]");
     if (!button) return;
     const source = button.dataset.authSource;
-    setAuthSource(source);
+    void setAuthSource(source, button);
   }
   function renderAuthSource(auth) {
     const selected = state8.pendingAuthSource || auth?.selected_source || "codex";
@@ -29383,12 +30479,99 @@ ${hint}` : hint;
     });
   }
 
+  // codex_image/webui/frontend/src/api-advanced-settings.ts
+  var DEFAULT_IMAGE_MODEL = "gpt-image-2";
+  var DEFAULT_CONCURRENCY = "4";
+  function advancedSettingsElement() {
+    return document.querySelector("#apiAdvancedSettings");
+  }
+  function imageModelInput() {
+    return document.querySelector("#apiImageModel");
+  }
+  function concurrencyInput() {
+    return document.querySelector("#apiImagesConcurrency");
+  }
+  function syncApiAdvancedSettingsSummary() {
+    const modelSummary = document.querySelector("#apiAdvancedImageModelSummary");
+    const concurrencySummary = document.querySelector("#apiAdvancedConcurrencySummary");
+    if (modelSummary) {
+      modelSummary.textContent = imageModelInput()?.value.trim() || DEFAULT_IMAGE_MODEL;
+    }
+    if (concurrencySummary) {
+      concurrencySummary.textContent = concurrencyInput()?.value.trim() || DEFAULT_CONCURRENCY;
+    }
+  }
+  function resetApiAdvancedSettings() {
+    const details = advancedSettingsElement();
+    if (details) details.open = false;
+    syncApiAdvancedSettingsSummary();
+  }
+  var apiAdvancedSettingsInitialized = false;
+  function initApiAdvancedSettingsFeature() {
+    if (apiAdvancedSettingsInitialized) return;
+    apiAdvancedSettingsInitialized = true;
+    imageModelInput()?.addEventListener("input", syncApiAdvancedSettingsSummary);
+    concurrencyInput()?.addEventListener("input", syncApiAdvancedSettingsSummary);
+    syncApiAdvancedSettingsSummary();
+  }
+
+  // codex_image/webui/frontend/src/api-provider-list-ui.ts
+  var API_PROVIDER_SEARCH_THRESHOLD = 10;
+  function providerChoiceGrid() {
+    return document.querySelector(".api-provider-choice-grid");
+  }
+  function providerSearchField() {
+    return document.querySelector("#apiProviderSearchField");
+  }
+  function providerSearchInput() {
+    return document.querySelector("#apiProviderSearch");
+  }
+  function updateApiProviderListPresentation(providerCount, sorting) {
+    const longList = providerCount > API_PROVIDER_SEARCH_THRESHOLD;
+    const searchVisible = longList && !sorting;
+    providerChoiceGrid()?.classList.toggle("is-long-list", longList);
+    providerSearchField()?.classList.toggle("hidden", !searchVisible);
+    const input = providerSearchInput();
+    if (!input) return "";
+    if (!searchVisible && input.value) input.value = "";
+    return searchVisible ? input.value.trim().toLocaleLowerCase() : "";
+  }
+  function apiProviderMatchesSearch(provider, query) {
+    if (!query) return true;
+    return [provider?.name, provider?.id].some((value) => String(value || "").toLocaleLowerCase().includes(query));
+  }
+  function scrollActiveApiProviderCardIntoView(providerId, align = "center") {
+    window.requestAnimationFrame(() => {
+      const grid = providerChoiceGrid();
+      if (!grid?.classList.contains("is-long-list")) return;
+      const escapedId = CSS.escape(providerId);
+      const card = grid.querySelector(`.api-provider-choice[data-api-provider-id="${escapedId}"]`);
+      if (!card) return;
+      const gridRect = grid.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      const cardTop = grid.scrollTop + cardRect.top - gridRect.top;
+      let targetTop = align === "center" ? cardTop - Math.max(0, (grid.clientHeight - card.offsetHeight) / 2) : Math.min(cardTop, Math.max(grid.scrollTop, cardTop + card.offsetHeight - grid.clientHeight));
+      if (align === "center") {
+        const rowGap = Number.parseFloat(window.getComputedStyle(grid).rowGap || "0") || 0;
+        const rowStep = card.offsetHeight + rowGap;
+        const maxScrollTop = Math.max(0, grid.scrollHeight - grid.clientHeight);
+        if (rowStep > 0) {
+          targetTop = Math.min(
+            Math.floor(Math.max(0, targetTop) / rowStep) * rowStep,
+            Math.floor(maxScrollTop / rowStep) * rowStep
+          );
+        }
+      }
+      grid.scrollTo({ top: Math.max(0, targetTop), behavior: "auto" });
+    });
+  }
+
   // codex_image/webui/frontend/src/api-provider-settings.ts
   var bridge9 = getLegacyBridge();
   var state9 = bridge9.state;
   var els10 = bridge9.els;
   var apiSettingsAutosaveTimerId = null;
-  function legacyMethod13(name, ...args) {
+  function legacyMethod14(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -29396,16 +30579,16 @@ ${hint}` : hint;
     return method(...args);
   }
   function setStatus8(message, type) {
-    legacyMethod13("setStatus", message, type);
+    legacyMethod14("setStatus", message, type);
   }
   function updateRequestPreview5() {
-    legacyMethod13("updateRequestPreview");
+    legacyMethod14("updateRequestPreview");
   }
   function closePromptPopover2() {
-    legacyMethod13("closePromptPopover");
+    legacyMethod14("closePromptPopover");
   }
   function openConfirmPopover4(...args) {
-    legacyMethod13("openConfirmPopover", ...args);
+    legacyMethod14("openConfirmPopover", ...args);
   }
   function normalizeApiProvider(provider = {}, index = 0) {
     const fallbackId = index === 0 ? "default" : `provider-${index + 1}`;
@@ -29437,6 +30620,26 @@ ${hint}` : hint;
   }
   function providerMode(provider) {
     return provider?.api_mode === "responses" ? "responses" : DEFAULT_API_MODE;
+  }
+  function apiBaseUrlForEndpoint(value) {
+    const withoutQueryOrFragment = String(value || DEFAULT_API_BASE_URL).trim().split(/[?#]/, 1)[0] || "";
+    let baseUrl = withoutQueryOrFragment.replace(/\/+$/, "") || DEFAULT_API_BASE_URL;
+    for (const suffix of ["/responses", "/images/generations", "/images/edits"]) {
+      if (!baseUrl.endsWith(suffix)) continue;
+      baseUrl = baseUrl.slice(0, -suffix.length).replace(/\/+$/, "");
+      break;
+    }
+    return baseUrl || DEFAULT_API_BASE_URL;
+  }
+  function updateApiRequestEndpointPreview() {
+    if (!els10.apiRequestEndpointPreview) return;
+    const provider = state9.apiProviderDraft || activeApiProvider();
+    const baseUrl = apiBaseUrlForEndpoint(els10.apiBaseUrl?.value || provider?.base_url);
+    const mode = els10.apiMode?.value || providerMode(provider);
+    const endpoint = mode === "responses" ? "/responses" : state9.mode === "edit" ? "/images/edits" : "/images/generations";
+    const preview = `POST ${baseUrl}${endpoint}`;
+    els10.apiRequestEndpointPreview.textContent = preview;
+    els10.apiRequestEndpointPreview.title = preview;
   }
   function providerHasApiKey(provider) {
     return Boolean(provider?.api_key || provider?.api_key_set);
@@ -29514,6 +30717,9 @@ ${hint}` : hint;
   }
   function setApiProviderEditorVisible(visible) {
     els10.apiProviderSection?.classList.toggle("editing", visible);
+    els10.apiProviderSection?.setAttribute("aria-hidden", visible ? "true" : "false");
+    if (visible) els10.apiProviderSection?.setAttribute("inert", "");
+    else els10.apiProviderSection?.removeAttribute("inert");
     els10.apiProviderEditor?.classList.toggle("hidden", !visible);
     els10.apiProviderEditor?.setAttribute("aria-hidden", visible ? "false" : "true");
     els10.apiProviderDetail?.classList.toggle("hidden", visible);
@@ -29561,11 +30767,14 @@ ${hint}` : hint;
     }
     hideApiKeyReveal();
     updateApiKeyRevealButton();
+    updateApiRequestEndpointPreview();
+    resetApiAdvancedSettings();
   }
   function renderApiProviderList() {
     const settings = normalizeApiSettings(state9.apiSettings);
     state9.apiSettings = settings;
     const sorting = Boolean(state9.apiProviderSortMode && settings.providers.length > 1);
+    const searchQuery = updateApiProviderListPresentation(settings.providers.length, sorting);
     setElementText(els10.apiProviderCount, formatTranslation("apiSettings.providerCount", {
       count: String(settings.providers.length)
     }));
@@ -29616,7 +30825,8 @@ ${hint}` : hint;
       els10.apiProviderList.replaceChildren(...rows);
       return;
     }
-    const buttons = settings.providers.map((provider) => {
+    const visibleProviders = settings.providers.filter((provider) => apiProviderMatchesSearch(provider, searchQuery));
+    const buttons = visibleProviders.map((provider) => {
       const button = document.createElement("button");
       const active = provider.id === settings.active_provider_id;
       button.type = "button";
@@ -29631,7 +30841,15 @@ ${hint}` : hint;
       button.append(name, meta);
       return button;
     });
+    if (!buttons.length) {
+      const empty = document.createElement("div");
+      empty.className = "api-provider-search-empty";
+      empty.textContent = translate("apiSettings.noProviderSearchResults");
+      els10.apiProviderList.replaceChildren(empty);
+      return;
+    }
     els10.apiProviderList.replaceChildren(...buttons);
+    if (!searchQuery) scrollActiveApiProviderCardIntoView(settings.active_provider_id, "center");
   }
   function renderApiProviderDetail() {
     const provider = activeApiProvider();
@@ -29867,14 +31085,16 @@ ${hint}` : hint;
     state9.apiProviderEditingId = null;
     state9.apiProviderDraft = null;
     state9.apiProviderDraftIsNew = false;
+    if (els10.apiProviderSearch) els10.apiProviderSearch.value = "";
     populateApiSettingsForm();
     setApiSettingsFeedback("", "");
     openSystemSettingsModal("api");
+    scrollActiveApiProviderCardIntoView(activeApiProvider().id, "center");
   }
   function closeApiSettingsModal() {
     closeSystemSettingsModal();
   }
-  function selectApiProvider(providerId) {
+  function selectApiProvider(providerId, anchor) {
     const id = String(providerId || "").trim();
     if (!id) return;
     if (apiProviderEditorActive()) {
@@ -29883,14 +31103,23 @@ ${hint}` : hint;
     }
     if (state9.apiProviderSortMode) return;
     const provider = providerById(id);
-    state9.apiSettings = normalizeApiSettings({
-      ...state9.apiSettings,
-      active_provider_id: provider.id
-    });
-    populateApiSettingsForm();
-    persistApiSettings();
-    renderAuthSourceAfterProviderChange();
-    queueApiSettingsAutosave();
+    const continueSwitch = () => {
+      state9.apiSettings = normalizeApiSettings({
+        ...state9.apiSettings,
+        active_provider_id: provider.id
+      });
+      populateApiSettingsForm();
+      scrollActiveApiProviderCardIntoView(provider.id, "nearest");
+      persistApiSettings();
+      renderAuthSourceAfterProviderChange();
+      queueApiSettingsAutosave();
+    };
+    if (provider.id === currentApiProviderId()) {
+      continueSwitch();
+      return;
+    }
+    void anchor;
+    continueSwitch();
   }
   function editApiProvider() {
     if (apiProviderEditorActive()) return;
@@ -29911,6 +31140,7 @@ ${hint}` : hint;
     state9.apiProviderDraftIsNew = false;
     populateApiSettingsForm();
     setApiSettingsFeedback("", "");
+    scrollActiveApiProviderCardIntoView(activeApiProvider().id, "center");
   }
   function toggleApiProviderSortMode() {
     if (apiProviderEditorActive()) {
@@ -29921,6 +31151,7 @@ ${hint}` : hint;
     if (settings.providers.length <= 1) return;
     state9.apiProviderSortMode = !state9.apiProviderSortMode;
     renderApiProviderList();
+    if (!state9.apiProviderSortMode) scrollActiveApiProviderCardIntoView(settings.active_provider_id, "center");
     setApiSettingsFeedback(state9.apiProviderSortMode ? translate("apiSettings.sortProviderModeStatus") : "", state9.apiProviderSortMode ? "running" : "");
   }
   function moveApiProvider(providerId, direction) {
@@ -29947,7 +31178,7 @@ ${hint}` : hint;
     await saveApiSettings();
   }
   function renderAuthSourceAfterProviderChange() {
-    legacyMethod13("renderAuthSource", state9.authStatus);
+    legacyMethod14("renderAuthSource", state9.authStatus);
     updateModeSpecificSettings();
     updateRequestPreview5();
   }
@@ -29990,14 +31221,22 @@ ${hint}` : hint;
       note.setAttribute("aria-current", active ? "true" : "false");
     });
   }
-  function selectCodexMode(mode) {
+  function selectCodexMode(mode, anchor) {
     const normalized = normalizeCodexMode(mode);
-    if (els10.codexMode) {
-      els10.codexMode.value = normalized;
-      els10.codexMode.dispatchEvent(new Event("input", { bubbles: true }));
-      els10.codexMode.dispatchEvent(new Event("change", { bubbles: true }));
+    const continueSwitch = () => {
+      if (els10.codexMode) {
+        els10.codexMode.value = normalized;
+        els10.codexMode.dispatchEvent(new Event("input", { bubbles: true }));
+        els10.codexMode.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      syncCodexModeNotes();
+    };
+    if (normalized === currentCodexMode3()) {
+      continueSwitch();
+      return;
     }
-    syncCodexModeNotes();
+    void anchor;
+    continueSwitch();
   }
   function queueApiSettingsAutosave() {
     if (apiProviderEditorActive()) return;
@@ -30068,11 +31307,15 @@ ${hint}` : hint;
   }
   async function saveApiSettings(options = {}) {
     const autoSave = Boolean(options.auto);
-    if (autoSave && apiProviderEditorActive()) return;
+    if (autoSave && apiProviderEditorActive()) return true;
     if (state9.apiSettingsSaveTimerId) {
       window.clearTimeout(state9.apiSettingsSaveTimerId);
       state9.apiSettingsSaveTimerId = null;
     }
+    const previousSettings = normalizeApiSettings(state9.apiSettings);
+    const previousEditingId = state9.apiProviderEditingId;
+    const previousDraft = state9.apiProviderDraft ? { ...state9.apiProviderDraft } : null;
+    const previousDraftIsNew = state9.apiProviderDraftIsNew;
     const settings = readApiSettingsForm({ applyProviderDraft: !autoSave });
     persistApiSettings();
     const payload2 = {
@@ -30128,10 +31371,18 @@ ${hint}` : hint;
       setStatus8(translate("apiSettings.savedStatus"), "ok");
       await refreshHealth();
       updateRequestPreview5();
+      return true;
     } catch (error) {
+      state9.apiSettings = previousSettings;
+      state9.apiProviderEditingId = previousEditingId;
+      state9.apiProviderDraft = previousDraft;
+      state9.apiProviderDraftIsNew = previousDraftIsNew;
+      persistApiSettings();
+      populateApiSettingsForm();
       setApiSettingsFeedback(error.message || translate("apiSettings.saveFailed"), "error");
       if (!autoSave) setSaveButtonText("failed");
       setStatus8(error.message || translate("apiSettings.saveFailed"), "error");
+      return false;
     } finally {
       if (!autoSave) setSaveButtonsDisabled(false);
       if (!autoSave && !state9.apiSettingsSaveTimerId && els10.saveApiProviderEditButton?.textContent !== translate("apiSettings.saveProvider")) {
@@ -30193,7 +31444,9 @@ ${hint}` : hint;
       selectCodexMode,
       setApiKeyRevealVisible,
       updateApiKeyRevealButton,
+      updateApiRequestEndpointPreview,
       revealApiKeyWhilePressed,
+      renderApiProviderList,
       syncCodexModeNotes,
       moveApiProvider,
       toggleApiProviderSortMode,
@@ -30219,7 +31472,7 @@ ${hint}` : hint;
   var bridge10 = getLegacyBridge();
   var els11 = bridge10.els;
   var storageSettingsFeatureInitialized = false;
-  function legacyMethod14(name, ...args) {
+  function legacyMethod15(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -30227,10 +31480,10 @@ ${hint}` : hint;
     return method(...args);
   }
   function setStatus9(message, type) {
-    legacyMethod14("setStatus", message, type);
+    legacyMethod15("setStatus", message, type);
   }
   function closePromptPopover3() {
-    legacyMethod14("closePromptPopover");
+    legacyMethod15("closePromptPopover");
   }
   async function refreshSettings() {
     if (!els11.settingsInputRoot) return;
@@ -30322,7 +31575,7 @@ ${hint}` : hint;
   var state10 = bridge11.state;
   var els12 = bridge11.els;
   var colorPaletteInitialized = false;
-  function legacyMethod15(name, ...args) {
+  function legacyMethod16(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -30330,13 +31583,13 @@ ${hint}` : hint;
     return method(...args);
   }
   function setStatus10(message, type) {
-    legacyMethod15("setStatus", message, type);
+    legacyMethod16("setStatus", message, type);
   }
   function renderColorSuggest(...args) {
-    return legacyMethod15("renderColorSuggest", ...args);
+    return legacyMethod16("renderColorSuggest", ...args);
   }
   function updateColorSuggest(...args) {
-    return legacyMethod15("updateColorSuggest", ...args);
+    return legacyMethod16("updateColorSuggest", ...args);
   }
   function defaultColorPalette() {
     return {
@@ -30566,7 +31819,7 @@ ${hint}` : hint;
   var bridge12 = getLegacyBridge();
   var state11 = bridge12.state;
   var els13 = bridge12.els;
-  function legacyMethod16(name, ...args) {
+  function legacyMethod17(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -30574,61 +31827,61 @@ ${hint}` : hint;
     return method(...args);
   }
   function escapeHtml8(value) {
-    return legacyMethod16("escapeHtml", value);
+    return legacyMethod17("escapeHtml", value);
   }
   function setStatus11(message, type) {
-    legacyMethod16("setStatus", message, type);
+    legacyMethod17("setStatus", message, type);
   }
   function normalizeHexColor2(value) {
-    return legacyMethod16("normalizeHexColor", value);
+    return legacyMethod17("normalizeHexColor", value);
   }
   function favoriteColorsForDisplay2() {
-    return legacyMethod16("favoriteColorsForDisplay");
+    return legacyMethod17("favoriteColorsForDisplay");
   }
   function recentColorsForDisplay2() {
-    return legacyMethod16("recentColorsForDisplay");
+    return legacyMethod17("recentColorsForDisplay");
   }
   function saveFavoriteColor2() {
-    return legacyMethod16("saveFavoriteColor");
+    return legacyMethod17("saveFavoriteColor");
   }
   function toggleColorPaletteManageMode2() {
-    legacyMethod16("toggleColorPaletteManageMode");
+    legacyMethod17("toggleColorPaletteManageMode");
   }
   function importColorPalette2(file) {
-    return legacyMethod16("importColorPalette", file);
+    return legacyMethod17("importColorPalette", file);
   }
   function removeFavoriteColor2(colorCode) {
-    return legacyMethod16("removeFavoriteColor", colorCode);
+    return legacyMethod17("removeFavoriteColor", colorCode);
   }
   function rememberRecentColor2(colorCode) {
-    legacyMethod16("rememberRecentColor", colorCode);
+    legacyMethod17("rememberRecentColor", colorCode);
   }
   function getPromptText2() {
-    return legacyMethod16("getPromptText");
+    return legacyMethod17("getPromptText");
   }
   function appendPromptText(text) {
-    legacyMethod16("appendPromptText", text);
+    legacyMethod17("appendPromptText", text);
   }
   function syncPromptFromEditor() {
-    legacyMethod16("syncPromptFromEditor");
+    legacyMethod17("syncPromptFromEditor");
   }
   function updatePromptCount2() {
-    legacyMethod16("updatePromptCount");
+    legacyMethod17("updatePromptCount");
   }
   function updateRequestPreview6() {
-    legacyMethod16("updateRequestPreview");
+    legacyMethod17("updateRequestPreview");
   }
   function mentionRangeRect(range) {
-    return legacyMethod16("mentionRangeRect", range);
+    return legacyMethod17("mentionRangeRect", range);
   }
   function syncPromptAfterChipMutation() {
-    legacyMethod16("syncPromptAfterChipMutation");
+    legacyMethod17("syncPromptAfterChipMutation");
   }
   function setCaretAfterNode(node) {
-    legacyMethod16("setCaretAfterNode", node);
+    legacyMethod17("setCaretAfterNode", node);
   }
   function removePromptGalleryChip(chip) {
-    legacyMethod16("removePromptGalleryChip", chip);
+    legacyMethod17("removePromptGalleryChip", chip);
   }
   function updateColorSuggest2() {
     if (!els13.colorSuggest || !els13.promptEditor) return;
@@ -31056,7 +32309,7 @@ ${hint}` : hint;
     chip: null,
     snippetId: null
   };
-  function legacyMethod17(name, ...args) {
+  function legacyMethod18(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -31064,34 +32317,34 @@ ${hint}` : hint;
     return method(...args);
   }
   function escapeHtml9(value) {
-    return legacyMethod17("escapeHtml", value);
+    return legacyMethod18("escapeHtml", value);
   }
   function setStatus12(message, type) {
-    legacyMethod17("setStatus", message, type);
+    legacyMethod18("setStatus", message, type);
   }
   function getPromptText3() {
-    return legacyMethod17("getPromptText");
+    return legacyMethod18("getPromptText");
   }
   function promptTextFromRange(range) {
-    return legacyMethod17("promptTextFromRange", range);
+    return legacyMethod18("promptTextFromRange", range);
   }
   function rangeIntersectsNode(range, node) {
-    return legacyMethod17("rangeIntersectsNode", range, node);
+    return legacyMethod18("rangeIntersectsNode", range, node);
   }
   function appendPromptText2(text) {
-    legacyMethod17("appendPromptText", text);
+    legacyMethod18("appendPromptText", text);
   }
   function mentionRangeRect2(range) {
-    return legacyMethod17("mentionRangeRect", range);
+    return legacyMethod18("mentionRangeRect", range);
   }
   function removePromptGalleryChip2(chip) {
-    legacyMethod17("removePromptGalleryChip", chip);
+    legacyMethod18("removePromptGalleryChip", chip);
   }
   function syncPromptAfterChipMutation2() {
-    legacyMethod17("syncPromptAfterChipMutation");
+    legacyMethod18("syncPromptAfterChipMutation");
   }
   function setCaretAfterNode2(node) {
-    legacyMethod17("setCaretAfterNode", node);
+    legacyMethod18("setCaretAfterNode", node);
   }
   function normalizePromptSnippet(value) {
     if (!value || typeof value !== "object") return null;
@@ -31765,7 +33018,7 @@ ${hint}` : hint;
   var els15 = bridge14.els;
   var promptTemplateSearchAcceptManualInput = false;
   var lastPromptTemplateTrigger = null;
-  function legacyMethod18(name, ...args) {
+  function legacyMethod19(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -31773,28 +33026,28 @@ ${hint}` : hint;
     return method(...args);
   }
   function escapeHtml10(value) {
-    return legacyMethod18("escapeHtml", value);
+    return legacyMethod19("escapeHtml", value);
   }
   function setStatus13(message, type) {
-    legacyMethod18("setStatus", message, type);
+    legacyMethod19("setStatus", message, type);
   }
   function getPromptText4() {
-    return legacyMethod18("getPromptText");
+    return legacyMethod19("getPromptText");
   }
   function appendPromptText3(text) {
-    legacyMethod18("appendPromptText", text);
+    legacyMethod19("appendPromptText", text);
   }
   function setPromptText(text) {
-    legacyMethod18("setPromptText", text);
+    legacyMethod19("setPromptText", text);
   }
   function syncPromptFromEditor2() {
-    legacyMethod18("syncPromptFromEditor");
+    legacyMethod19("syncPromptFromEditor");
   }
   function updatePromptCount3() {
-    legacyMethod18("updatePromptCount");
+    legacyMethod19("updatePromptCount");
   }
   function updateRequestPreview7() {
-    legacyMethod18("updateRequestPreview");
+    legacyMethod19("updateRequestPreview");
   }
   function normalizePromptTemplate(value) {
     if (!value || typeof value !== "object") return null;
@@ -31924,7 +33177,7 @@ ${hint}` : hint;
     });
   }
   function openPromptTemplateDrawer() {
-    legacyMethod18("closeGallery", { restoreFocus: false });
+    legacyMethod19("closeGallery", { restoreFocus: false });
     lastPromptTemplateTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : els15.promptTemplateButton;
     els15.promptTemplateDrawer?.classList.add("open");
     els15.promptTemplateDrawer?.setAttribute("aria-hidden", "false");
@@ -32641,7 +33894,7 @@ ${hint}` : hint;
   // codex_image/webui/frontend/src/prompt-serialization.ts
   var bridge15 = getLegacyBridge();
   var els16 = bridge15.els;
-  function legacyMethod19(name, ...args) {
+  function legacyMethod20(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -32649,43 +33902,43 @@ ${hint}` : hint;
     return method(...args);
   }
   function createGalleryChip(item) {
-    return legacyMethod19("createGalleryChip", item);
+    return legacyMethod20("createGalleryChip", item);
   }
   function createColorChip2(colorCode) {
-    return legacyMethod19("createColorChip", colorCode);
+    return legacyMethod20("createColorChip", colorCode);
   }
   function normalizeHexColor3(value) {
-    return legacyMethod19("normalizeHexColor", value);
+    return legacyMethod20("normalizeHexColor", value);
   }
   function findPromptSnippetRefAt2(promptText, cursor) {
-    return legacyMethod19("findPromptSnippetRefAt", promptText, cursor);
+    return legacyMethod20("findPromptSnippetRefAt", promptText, cursor);
   }
   function createPromptSnippetChip2(snippet) {
-    return legacyMethod19("createPromptSnippetChip", snippet);
+    return legacyMethod20("createPromptSnippetChip", snippet);
   }
   function updatePromptChipSelectionState() {
-    legacyMethod19("updatePromptChipSelectionState");
+    legacyMethod20("updatePromptChipSelectionState");
   }
   function galleryRefsByMentionLength(refs) {
-    return legacyMethod19("galleryRefsByMentionLength", refs);
+    return legacyMethod20("galleryRefsByMentionLength", refs);
   }
   function findGalleryRefMentionAt(promptText, cursor, refs) {
-    return legacyMethod19("findGalleryRefMentionAt", promptText, cursor, refs);
+    return legacyMethod20("findGalleryRefMentionAt", promptText, cursor, refs);
   }
   function hideMentionSuggest() {
-    legacyMethod19("hideMentionSuggest");
+    legacyMethod20("hideMentionSuggest");
   }
   function hideColorSuggest2() {
-    legacyMethod19("hideColorSuggest");
+    legacyMethod20("hideColorSuggest");
   }
   function hidePromptSnippetSuggest2() {
-    legacyMethod19("hidePromptSnippetSuggest");
+    legacyMethod20("hidePromptSnippetSuggest");
   }
   function hidePromptSnippetSelectionButton2() {
-    legacyMethod19("hidePromptSnippetSelectionButton");
+    legacyMethod20("hidePromptSnippetSelectionButton");
   }
   function closePromptSnippetPopover2() {
-    legacyMethod19("closePromptSnippetPopover");
+    legacyMethod20("closePromptSnippetPopover");
   }
   function getPromptText5() {
     if (!els16.promptEditor) return els16.prompt.value;
@@ -32870,7 +34123,7 @@ ${hint}` : hint;
   var bridge16 = getLegacyBridge();
   var state14 = bridge16.state;
   var els17 = bridge16.els;
-  function legacyMethod20(name, ...args) {
+  function legacyMethod21(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -32878,58 +34131,58 @@ ${hint}` : hint;
     return method(...args);
   }
   function escapeHtml11(value) {
-    return legacyMethod20("escapeHtml", value);
+    return legacyMethod21("escapeHtml", value);
   }
   function categoryLabel5(category) {
-    return legacyMethod20("categoryLabel", category);
+    return legacyMethod21("categoryLabel", category);
   }
   function categoryPromptRole2(category) {
-    return legacyMethod20("categoryPromptRole", category);
+    return legacyMethod21("categoryPromptRole", category);
   }
   function findGalleryItem5(itemId) {
-    return legacyMethod20("findGalleryItem", itemId);
+    return legacyMethod21("findGalleryItem", itemId);
   }
   function addGalleryInput4(item, options) {
-    legacyMethod20("addGalleryInput", item, options);
+    legacyMethod21("addGalleryInput", item, options);
   }
   function gallerySource3(item) {
-    return legacyMethod20("gallerySource", item);
+    return legacyMethod21("gallerySource", item);
   }
   function galleryInputs2() {
-    return legacyMethod20("galleryInputs");
+    return legacyMethod21("galleryInputs");
   }
   function renderImageStrip5() {
-    legacyMethod20("renderImageStrip");
+    legacyMethod21("renderImageStrip");
   }
   function setMode3(mode) {
-    legacyMethod20("setMode", mode);
+    legacyMethod21("setMode", mode);
   }
   function updatePromptCount4() {
-    legacyMethod20("updatePromptCount");
+    legacyMethod21("updatePromptCount");
   }
   function updateRequestPreview8() {
-    legacyMethod20("updateRequestPreview");
+    legacyMethod21("updateRequestPreview");
   }
   function getPromptText6() {
-    return legacyMethod20("getPromptText");
+    return legacyMethod21("getPromptText");
   }
   function appendPromptText5(text) {
-    legacyMethod20("appendPromptText", text);
+    legacyMethod21("appendPromptText", text);
   }
   function syncPromptFromEditor4() {
-    legacyMethod20("syncPromptFromEditor");
+    legacyMethod21("syncPromptFromEditor");
   }
   function clearPromptEditorIfEmpty2() {
-    legacyMethod20("clearPromptEditorIfEmpty");
+    legacyMethod21("clearPromptEditorIfEmpty");
   }
   function hideColorSuggest3() {
-    legacyMethod20("hideColorSuggest");
+    legacyMethod21("hideColorSuggest");
   }
   function setCaretAfterNode3(node) {
-    legacyMethod20("setCaretAfterNode", node);
+    legacyMethod21("setCaretAfterNode", node);
   }
   function mentionRangeRect3(range) {
-    return legacyMethod20("mentionRangeRect", range);
+    return legacyMethod21("mentionRangeRect", range);
   }
   function galleryRefsByMentionLength2(refs) {
     return (Array.isArray(refs) ? refs : []).filter((ref) => ref?.name && !ref.missing && ref.image_url).slice().sort((left, right) => String(right.name || "").length - String(left.name || "").length);
@@ -33182,7 +34435,7 @@ ${hint}` : hint;
     els17.mentionSuggest.style.removeProperty("--prompt-popover-max-height");
   }
   function setCaretToEnd(element2) {
-    legacyMethod20("setCaretToEnd", element2);
+    legacyMethod21("setCaretToEnd", element2);
   }
   function initPromptGalleryChipsFeature() {
     Object.assign(getLegacyBridge().methods, {
@@ -33206,7 +34459,7 @@ ${hint}` : hint;
   // codex_image/webui/frontend/src/prompt-editor-paste.ts
   var bridge17 = getLegacyBridge();
   var els18 = bridge17.els;
-  function legacyMethod21(name, ...args) {
+  function legacyMethod22(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -33214,25 +34467,25 @@ ${hint}` : hint;
     return method(...args);
   }
   function rangeIntersectsNode3(range, node) {
-    return legacyMethod21("rangeIntersectsNode", range, node);
+    return legacyMethod22("rangeIntersectsNode", range, node);
   }
   function createPromptTextFragment2(text) {
-    return legacyMethod21("createPromptTextFragment", text);
+    return legacyMethod22("createPromptTextFragment", text);
   }
   function setCaretAfterNode4(node) {
-    legacyMethod21("setCaretAfterNode", node);
+    legacyMethod22("setCaretAfterNode", node);
   }
   function syncPromptAfterChipMutation3() {
-    legacyMethod21("syncPromptAfterChipMutation");
+    legacyMethod22("syncPromptAfterChipMutation");
   }
   function updateMentionSuggest2() {
-    legacyMethod21("updateMentionSuggest");
+    legacyMethod22("updateMentionSuggest");
   }
   function updateColorSuggest3() {
-    legacyMethod21("updateColorSuggest");
+    legacyMethod22("updateColorSuggest");
   }
   function updatePromptSnippetSuggest2() {
-    legacyMethod21("updatePromptSnippetSuggest");
+    legacyMethod22("updatePromptSnippetSuggest");
   }
   function clipboardHasImageFile(data) {
     return Array.from(data.items || []).some((item) => item.kind === "file" && item.type?.startsWith("image/"));
@@ -33311,7 +34564,7 @@ ${hint}` : hint;
   var bridge18 = getLegacyBridge();
   var state15 = bridge18.state;
   var els19 = bridge18.els;
-  function legacyMethod22(name, ...args) {
+  function legacyMethod23(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -33319,82 +34572,82 @@ ${hint}` : hint;
     return method(...args);
   }
   function getPromptText7() {
-    return legacyMethod22("getPromptText");
+    return legacyMethod23("getPromptText");
   }
   function promptTextFromNode2(node) {
-    return legacyMethod22("promptTextFromNode", node);
+    return legacyMethod23("promptTextFromNode", node);
   }
   function promptSelectionText2() {
-    return legacyMethod22("promptSelectionText");
+    return legacyMethod23("promptSelectionText");
   }
   function rangeIntersectsNode4(range, node) {
-    return legacyMethod22("rangeIntersectsNode", range, node);
+    return legacyMethod23("rangeIntersectsNode", range, node);
   }
   function selectPromptEditorContents2() {
-    legacyMethod22("selectPromptEditorContents");
+    legacyMethod23("selectPromptEditorContents");
   }
   function syncGalleryInputsFromPrompt2() {
-    return legacyMethod22("syncGalleryInputsFromPrompt");
+    return legacyMethod23("syncGalleryInputsFromPrompt");
   }
   function updateMentionSuggest3() {
-    legacyMethod22("updateMentionSuggest");
+    legacyMethod23("updateMentionSuggest");
   }
   function hideMentionSuggest3() {
-    legacyMethod22("hideMentionSuggest");
+    legacyMethod23("hideMentionSuggest");
   }
   function hideColorSuggest4() {
-    legacyMethod22("hideColorSuggest");
+    legacyMethod23("hideColorSuggest");
   }
   function updateColorSuggest4() {
-    legacyMethod22("updateColorSuggest");
+    legacyMethod23("updateColorSuggest");
   }
   function insertColorCode2(colorCode) {
-    legacyMethod22("insertColorCode", colorCode);
+    legacyMethod23("insertColorCode", colorCode);
   }
   function openColorChipEditor2(chip) {
-    legacyMethod22("openColorChipEditor", chip);
+    legacyMethod23("openColorChipEditor", chip);
   }
   function hidePromptSnippetSuggest3() {
-    legacyMethod22("hidePromptSnippetSuggest");
+    legacyMethod23("hidePromptSnippetSuggest");
   }
   function hidePromptSnippetSelectionButton3() {
-    legacyMethod22("hidePromptSnippetSelectionButton");
+    legacyMethod23("hidePromptSnippetSelectionButton");
   }
   function closePromptSnippetPopover3() {
-    legacyMethod22("closePromptSnippetPopover");
+    legacyMethod23("closePromptSnippetPopover");
   }
   function promptSnippetSuggestElement2() {
-    return legacyMethod22("promptSnippetSuggestElement");
+    return legacyMethod23("promptSnippetSuggestElement");
   }
   function findPromptSnippetById2(id) {
-    return legacyMethod22("findPromptSnippetById", id);
+    return legacyMethod23("findPromptSnippetById", id);
   }
   function insertPromptSnippet2(snippet) {
-    legacyMethod22("insertPromptSnippet", snippet);
+    legacyMethod23("insertPromptSnippet", snippet);
   }
   function updatePromptSnippetSuggest3() {
-    legacyMethod22("updatePromptSnippetSuggest");
+    legacyMethod23("updatePromptSnippetSuggest");
   }
   function updatePromptSnippetSelectionButton2() {
-    legacyMethod22("updatePromptSnippetSelectionButton");
+    legacyMethod23("updatePromptSnippetSelectionButton");
   }
   function openPromptSnippetChipPopover2(chip) {
-    legacyMethod22("openPromptSnippetChipPopover", chip);
+    legacyMethod23("openPromptSnippetChipPopover", chip);
   }
   function updatePromptCount5() {
-    legacyMethod22("updatePromptCount");
+    legacyMethod23("updatePromptCount");
   }
   function updateRequestPreview9() {
-    legacyMethod22("updateRequestPreview");
+    legacyMethod23("updateRequestPreview");
   }
   function removePromptGalleryChip4(chip) {
-    legacyMethod22("removePromptGalleryChip", chip);
+    legacyMethod23("removePromptGalleryChip", chip);
   }
   function findGalleryItem6(itemId) {
-    return legacyMethod22("findGalleryItem", itemId);
+    return legacyMethod23("findGalleryItem", itemId);
   }
   function insertGalleryMention2(item) {
-    legacyMethod22("insertGalleryMention", item);
+    legacyMethod23("insertGalleryMention", item);
   }
   function handlePromptEditorCopy(event) {
     if (!event.clipboardData) return;
@@ -33777,7 +35030,7 @@ ${hint}` : hint;
   // codex_image/webui/frontend/src/prompt-model.ts
   var bridge19 = getLegacyBridge();
   var els20 = bridge19.els;
-  function legacyMethod23(name, ...args) {
+  function legacyMethod24(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -33785,22 +35038,22 @@ ${hint}` : hint;
     return method(...args);
   }
   function getPromptText8() {
-    return legacyMethod23("getPromptText");
+    return legacyMethod24("getPromptText");
   }
   function expandPromptSnippets2(prompt) {
-    return legacyMethod23("expandPromptSnippets", prompt);
+    return legacyMethod24("expandPromptSnippets", prompt);
   }
   function galleryInputs3() {
-    return legacyMethod23("galleryInputs");
+    return legacyMethod24("galleryInputs");
   }
   function uploadInputs2() {
-    return legacyMethod23("uploadInputs");
+    return legacyMethod24("uploadInputs");
   }
   function referenceAssetInputs2() {
-    return legacyMethod23("referenceAssetInputs");
+    return legacyMethod24("referenceAssetInputs");
   }
   function categoryPromptRole3(category) {
-    return legacyMethod23("categoryPromptRole", category);
+    return legacyMethod24("categoryPromptRole", category);
   }
   function promptTokenReplacement(prompt) {
     return expandPromptSnippets2(prompt);
@@ -33853,7 +35106,7 @@ ${galleryText}`;
   var bridge20 = getLegacyBridge();
   var els21 = bridge20.els;
   var promptFeatureInitialized = false;
-  function legacyMethod24(name, ...args) {
+  function legacyMethod25(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -33861,10 +35114,10 @@ ${galleryText}`;
     return method(...args);
   }
   function closePromptColorSuggest() {
-    legacyMethod24("hideColorSuggest");
+    legacyMethod25("hideColorSuggest");
   }
   function handlePromptSnippetDocumentClick2(target) {
-    legacyMethod24("handlePromptSnippetDocumentClick", target);
+    legacyMethod25("handlePromptSnippetDocumentClick", target);
   }
   function handlePromptDocumentClick(event) {
     const target = event.target;
@@ -33890,6 +35143,157 @@ ${galleryText}`;
     bindPromptEditorEvents();
   }
 
+  // codex_image/webui/frontend/src/prompt-fidelity-help.ts
+  var HELP_MARGIN = 12;
+  var HELP_GAP = 8;
+  var promptFidelityHelpInitialized = false;
+  var promptFidelityHelpPopover = null;
+  var promptFidelityHelpPinned = false;
+  var promptFidelityHelpCloseTimer = null;
+  function promptTransport() {
+    const authSource = currentAuthSource2();
+    if (authSource === "api") return currentApiMode3() === "responses" ? "responses" : "images";
+    if (authSource === "codex") return currentCodexMode3() === "responses" ? "responses" : "images";
+    return "images";
+  }
+  function currentPromptFidelity2() {
+    const value = document.querySelector("#promptFidelity")?.value;
+    return value === "original" || value === "off" ? value : "strict";
+  }
+  function ensurePromptFidelityHelpPopover() {
+    if (promptFidelityHelpPopover?.isConnected) return promptFidelityHelpPopover;
+    promptFidelityHelpPopover = document.createElement("div");
+    promptFidelityHelpPopover.id = "promptFidelityHelpPopover";
+    promptFidelityHelpPopover.className = "prompt-fidelity-help-popover hidden";
+    promptFidelityHelpPopover.setAttribute("role", "tooltip");
+    promptFidelityHelpPopover.setAttribute("aria-hidden", "true");
+    document.body.appendChild(promptFidelityHelpPopover);
+    return promptFidelityHelpPopover;
+  }
+  function promptFidelityDescriptionKey(transport, mode) {
+    const modeKey = mode === "off" ? "automatic" : mode;
+    return `output.promptHelp.${transport}.${modeKey}`;
+  }
+  function renderPromptFidelityHelp() {
+    const popover = ensurePromptFidelityHelpPopover();
+    const transport = promptTransport();
+    const activeMode = currentPromptFidelity2();
+    const modes = [
+      { value: "original", label: translate("output.modeOriginal") },
+      { value: "strict", label: translate("output.modeStrict") },
+      { value: "off", label: translate("output.modeCreative") }
+    ];
+    const rows = modes.map(({ value, label }) => {
+      const activeClass = value === activeMode ? " is-active" : "";
+      return `
+      <div class="prompt-fidelity-help-row${activeClass}" data-prompt-fidelity-help-mode="${value}">
+        <dt>${escapeHtml(label)}</dt>
+        <dd>${escapeHtml(translate(promptFidelityDescriptionKey(transport, value)))}</dd>
+      </div>
+    `;
+    }).join("");
+    popover.innerHTML = `
+    <div class="prompt-fidelity-help-header">
+      <strong>${escapeHtml(translate("output.promptHelpTitle"))}</strong>
+      <span>${escapeHtml(translate(`output.promptHelp.${transport}Channel`))}</span>
+    </div>
+    <dl class="prompt-fidelity-help-list">${rows}</dl>
+  `;
+  }
+  function positionPromptFidelityHelp(trigger, popover) {
+    const triggerRect = trigger.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const width = Math.min(440, Math.max(280, viewportWidth - HELP_MARGIN * 2));
+    popover.style.width = `${width}px`;
+    popover.style.left = "0px";
+    popover.style.top = "0px";
+    const height = popover.offsetHeight;
+    const left = Math.min(
+      viewportWidth - width - HELP_MARGIN,
+      Math.max(HELP_MARGIN, triggerRect.left)
+    );
+    const below = triggerRect.bottom + HELP_GAP;
+    const above = triggerRect.top - height - HELP_GAP;
+    const top = below + height <= viewportHeight - HELP_MARGIN ? below : Math.max(HELP_MARGIN, above);
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
+  }
+  function cancelPromptFidelityHelpClose() {
+    if (promptFidelityHelpCloseTimer === null) return;
+    window.clearTimeout(promptFidelityHelpCloseTimer);
+    promptFidelityHelpCloseTimer = null;
+  }
+  function openPromptFidelityHelp(trigger, pinned = promptFidelityHelpPinned) {
+    cancelPromptFidelityHelpClose();
+    promptFidelityHelpPinned = pinned;
+    const popover = ensurePromptFidelityHelpPopover();
+    renderPromptFidelityHelp();
+    popover.classList.remove("hidden");
+    popover.setAttribute("aria-hidden", "false");
+    trigger.setAttribute("aria-expanded", String(promptFidelityHelpPinned));
+    positionPromptFidelityHelp(trigger, popover);
+  }
+  function closePromptFidelityHelp(trigger) {
+    cancelPromptFidelityHelpClose();
+    promptFidelityHelpPinned = false;
+    const popover = ensurePromptFidelityHelpPopover();
+    popover.classList.add("hidden");
+    popover.setAttribute("aria-hidden", "true");
+    trigger.setAttribute("aria-expanded", "false");
+  }
+  function schedulePromptFidelityHelpClose(trigger) {
+    cancelPromptFidelityHelpClose();
+    promptFidelityHelpCloseTimer = window.setTimeout(() => {
+      promptFidelityHelpCloseTimer = null;
+      if (promptFidelityHelpPinned || trigger.matches(":hover, :focus-visible") || promptFidelityHelpPopover?.matches(":hover")) return;
+      closePromptFidelityHelp(trigger);
+    }, 90);
+  }
+  function initPromptFidelityHelpFeature() {
+    if (promptFidelityHelpInitialized) return;
+    const trigger = document.querySelector("#promptFidelityHelpButton");
+    if (!trigger) return;
+    promptFidelityHelpInitialized = true;
+    const popover = ensurePromptFidelityHelpPopover();
+    trigger.addEventListener("pointerenter", () => openPromptFidelityHelp(trigger));
+    trigger.addEventListener("pointerleave", () => schedulePromptFidelityHelpClose(trigger));
+    trigger.addEventListener("focus", () => openPromptFidelityHelp(trigger));
+    trigger.addEventListener("blur", () => schedulePromptFidelityHelpClose(trigger));
+    trigger.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (promptFidelityHelpPinned) {
+        closePromptFidelityHelp(trigger);
+        return;
+      }
+      openPromptFidelityHelp(trigger, true);
+    });
+    popover.addEventListener("pointerenter", cancelPromptFidelityHelpClose);
+    popover.addEventListener("pointerleave", () => schedulePromptFidelityHelpClose(trigger));
+    document.querySelector("#promptFidelity")?.addEventListener("change", () => {
+      if (!popover.classList.contains("hidden")) openPromptFidelityHelp(trigger);
+    });
+    document.addEventListener(LOCALE_CHANGE_EVENT, () => {
+      if (!popover.classList.contains("hidden")) openPromptFidelityHelp(trigger);
+    });
+    document.addEventListener("pointerdown", (event) => {
+      const target = event.target;
+      if (!promptFidelityHelpPinned || !target || trigger.contains(target) || popover.contains(target)) return;
+      closePromptFidelityHelp(trigger);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || popover.classList.contains("hidden")) return;
+      closePromptFidelityHelp(trigger);
+      trigger.focus({ preventScroll: true });
+    });
+    window.addEventListener("resize", () => {
+      if (!popover.classList.contains("hidden")) positionPromptFidelityHelp(trigger, popover);
+    });
+    document.addEventListener("scroll", () => {
+      if (!popover.classList.contains("hidden")) positionPromptFidelityHelp(trigger, popover);
+    }, true);
+  }
+
   // codex_image/webui/frontend/src/prompt-find-replace.ts
   var bridge21 = getLegacyBridge();
   var els22 = bridge21.els;
@@ -33897,7 +35301,7 @@ ${galleryText}`;
   var PROMPT_FIND_TEXT_NODE = 3;
   var promptFindInitialized = false;
   var promptFindMatches = [];
-  function legacyMethod25(name, ...args) {
+  function legacyMethod26(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -33905,10 +35309,10 @@ ${galleryText}`;
     return method(...args);
   }
   function syncPromptAfterFindMutation() {
-    legacyMethod25("syncPromptFromEditor");
-    legacyMethod25("syncGalleryInputsFromPrompt");
-    legacyMethod25("updatePromptCount");
-    legacyMethod25("updateRequestPreview");
+    legacyMethod26("syncPromptFromEditor");
+    legacyMethod26("syncGalleryInputsFromPrompt");
+    legacyMethod26("updatePromptCount");
+    legacyMethod26("updateRequestPreview");
   }
   function promptFindCell() {
     return els22.promptFindPanel?.closest(".prompt-template-recent-cell") || null;
@@ -34070,7 +35474,7 @@ ${galleryText}`;
 
   // codex_image/webui/frontend/src/output-controls.ts
   var { els: els23 } = getLegacyBridge();
-  function legacyMethod26(name, ...args) {
+  function legacyMethod27(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -34078,7 +35482,7 @@ ${galleryText}`;
     return method(...args);
   }
   function buildPreviewRequest() {
-    return legacyMethod26("buildPreviewRequest");
+    return legacyMethod27("buildPreviewRequest");
   }
   function updateRangeProgress(input) {
     if (!input) return;
@@ -34139,13 +35543,22 @@ ${galleryText}`;
 
   // codex_image/webui/frontend/src/main-model-combobox.ts
   var DEFAULT_MAIN_MODEL = "gpt-5.4-mini";
-  var MAIN_MODEL_OPTIONS = ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex", "gpt-5.2"];
+  var MAIN_MODEL_OPTIONS = [
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
+    "gpt-5.5",
+    "gpt-5.4",
+    "gpt-5.4-mini",
+    "gpt-5.3-codex",
+    "gpt-5.2"
+  ];
   var RETIRED_MAIN_MODEL_OPTIONS = /* @__PURE__ */ new Set(["gpt-5.3-codex-spark"]);
   var MAIN_MODEL_STORAGE_KEY = "codex-image-main-model";
   var bridge22 = getLegacyBridge();
   var state16 = bridge22.state;
   var els24 = bridge22.els;
-  function legacyMethod27(name, ...args) {
+  function legacyMethod28(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -34153,7 +35566,7 @@ ${galleryText}`;
     return method(...args);
   }
   function escapeHtml12(value) {
-    return legacyMethod27("escapeHtml", value);
+    return legacyMethod28("escapeHtml", value);
   }
   function mainModelOptionsForQuery(query) {
     const normalized = String(query || "").trim().toLowerCase();
@@ -34356,15 +35769,15 @@ ${galleryText}`;
   var GPT_IMAGE_2_MAX_PIXELS = 8294400;
   var GPT_IMAGE_2_MAX_LONG_SHORT_RATIO = 3;
   var { els: els25 } = getLegacyBridge();
-  function legacyMethod28(name, ...args) {
+  function legacyMethod29(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
     }
     return method(...args);
   }
-  function currentPromptFidelity2() {
-    return legacyMethod28("currentPromptFidelity");
+  function currentPromptFidelity3() {
+    return legacyMethod29("currentPromptFidelity");
   }
   function currentCustomRatio() {
     const width = String(els25.customRatioWidth?.value || "").trim();
@@ -34441,7 +35854,7 @@ ${galleryText}`;
       model: currentImageToolModel(),
       size: currentSize(),
       n: currentQuantity(),
-      prompt_fidelity: currentPromptFidelity2(),
+      prompt_fidelity: currentPromptFidelity3(),
       quality: els25.quality.value,
       output_format: els25.outputFormat.value,
       moderation: els25.moderation.value,
@@ -35086,7 +36499,7 @@ ${galleryText}`;
   var expandedTaskGroupRenderToken = 0;
   var queueTaskIdsCacheKey = "";
   var queueTaskIdsCache = null;
-  function legacyMethod29(name, ...args) {
+  function legacyMethod30(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -35094,67 +36507,69 @@ ${galleryText}`;
     return method(...args);
   }
   function escapeHtml13(...args) {
-    return legacyMethod29("escapeHtml", ...args);
+    return legacyMethod30("escapeHtml", ...args);
   }
   function updateDocumentTitle(...args) {
-    return legacyMethod29("updateDocumentTitle", ...args);
+    return legacyMethod30("updateDocumentTitle", ...args);
   }
   function isTaskArchived(...args) {
-    return legacyMethod29("isTaskArchived", ...args);
+    return legacyMethod30("isTaskArchived", ...args);
   }
   function taskArchived(...args) {
-    return legacyMethod29("taskArchived", ...args);
+    return legacyMethod30("taskArchived", ...args);
   }
   function renderBatchToolbar(...args) {
-    return legacyMethod29("renderBatchToolbar", ...args);
+    return legacyMethod30("renderBatchToolbar", ...args);
   }
   function updateTaskElapsedDisplays2(...args) {
-    return legacyMethod29("updateTaskElapsedDisplays", ...args);
+    return legacyMethod30("updateTaskElapsedDisplays", ...args);
   }
   function taskBackendLabel2(...args) {
-    return legacyMethod29("taskBackendLabel", ...args);
+    return legacyMethod30("taskBackendLabel", ...args);
   }
   function taskApiProviderId2(...args) {
-    return legacyMethod29("taskApiProviderId", ...args);
+    return legacyMethod30("taskApiProviderId", ...args);
   }
   function taskApiProviderLabel2(...args) {
-    return legacyMethod29("taskApiProviderLabel", ...args);
+    return legacyMethod30("taskApiProviderLabel", ...args);
   }
   function formatTaskStatus2(...args) {
-    return legacyMethod29("formatTaskStatus", ...args);
+    return legacyMethod30("formatTaskStatus", ...args);
   }
   function ensureExpandedTaskGroupKey(...args) {
-    return legacyMethod29("ensureExpandedTaskGroupKey", ...args);
+    return legacyMethod30("ensureExpandedTaskGroupKey", ...args);
   }
   function renderTaskHistoryAnchors(...args) {
-    return legacyMethod29("renderTaskHistoryAnchors", ...args);
+    return legacyMethod30("renderTaskHistoryAnchors", ...args);
   }
   function scrollExpandedTaskGroupToTop(...args) {
-    return legacyMethod29("scrollExpandedTaskGroupToTop", ...args);
+    return legacyMethod30("scrollExpandedTaskGroupToTop", ...args);
   }
   function captureTaskHistoryLayout(...args) {
-    return legacyMethod29("captureTaskHistoryLayout", ...args);
+    return legacyMethod30("captureTaskHistoryLayout", ...args);
   }
   function animateTaskHistoryLayout(...args) {
-    return legacyMethod29("animateTaskHistoryLayout", ...args);
+    return legacyMethod30("animateTaskHistoryLayout", ...args);
   }
-  var taskRatio = (...args) => legacyMethod29("taskRatio", ...args);
-  var taskOrientation = (...args) => legacyMethod29("taskOrientation", ...args);
-  var taskPromptFidelity = (...args) => legacyMethod29("taskPromptFidelity", ...args);
-  var taskResolution = (...args) => legacyMethod29("taskResolution", ...args);
-  var taskInputPreviewUrls = (...args) => legacyMethod29("taskInputPreviewUrls", ...args);
-  var taskThumbnailUrls = (...args) => legacyMethod29("taskThumbnailUrls", ...args);
-  var taskOutputUrls = (...args) => legacyMethod29("taskOutputUrls", ...args);
-  var taskImageBlockStates = (...args) => legacyMethod29("taskImageBlockStates", ...args);
-  var compressTaskImageBlockStates = (...args) => legacyMethod29("compressTaskImageBlockStates", ...args);
-  var taskImageStatusCounts = (...args) => legacyMethod29("taskImageStatusCounts", ...args);
-  var taskRetryStateText2 = (...args) => legacyMethod29("taskRetryStateText", ...args);
-  var taskCardRetryStateText = (...args) => legacyMethod29("taskCardRetryStateText", ...args);
-  var taskDurationText = (...args) => legacyMethod29("taskDurationText", ...args);
-  var taskRuntimeText = (...args) => legacyMethod29("taskRuntimeText", ...args);
-  var taskCompletionTimestampText = (...args) => legacyMethod29("taskCompletionTimestampText", ...args);
-  var taskCompletionTimestampTitle = (...args) => legacyMethod29("taskCompletionTimestampTitle", ...args);
-  var timestampMs2 = (...args) => legacyMethod29("timestampMs", ...args);
+  var taskRatio = (...args) => legacyMethod30("taskRatio", ...args);
+  var taskOrientation = (...args) => legacyMethod30("taskOrientation", ...args);
+  var taskPromptFidelity = (...args) => legacyMethod30("taskPromptFidelity", ...args);
+  var taskResolution = (...args) => legacyMethod30("taskResolution", ...args);
+  var taskInputPreviewUrls = (...args) => legacyMethod30("taskInputPreviewUrls", ...args);
+  var taskThumbnailUrls = (...args) => legacyMethod30("taskThumbnailUrls", ...args);
+  var taskOutputUrls = (...args) => legacyMethod30("taskOutputUrls", ...args);
+  var taskImageBlockStates = (...args) => legacyMethod30("taskImageBlockStates", ...args);
+  var compressTaskImageBlockStates = (...args) => legacyMethod30("compressTaskImageBlockStates", ...args);
+  var taskImageStatusCounts = (...args) => legacyMethod30("taskImageStatusCounts", ...args);
+  var taskRetryStateText2 = (...args) => legacyMethod30("taskRetryStateText", ...args);
+  var taskCardRetryStateText = (...args) => legacyMethod30("taskCardRetryStateText", ...args);
+  var taskDurationText = (...args) => legacyMethod30("taskDurationText", ...args);
+  var taskRuntimeText = (...args) => legacyMethod30("taskRuntimeText", ...args);
+  var taskProgressStartValue2 = (...args) => legacyMethod30("taskProgressStartValue", ...args);
+  var elapsedTimerSpan = (...args) => legacyMethod30("elapsedTimerSpan", ...args);
+  var taskCompletionTimestampText = (...args) => legacyMethod30("taskCompletionTimestampText", ...args);
+  var taskCompletionTimestampTitle = (...args) => legacyMethod30("taskCompletionTimestampTitle", ...args);
+  var timestampMs2 = (...args) => legacyMethod30("timestampMs", ...args);
   function renderTasks2(options = {}) {
     const scrollAnchor = options.preserveScroll ? captureTaskListScrollAnchor() : null;
     const query = taskSearchQuery();
@@ -35477,7 +36892,7 @@ ${galleryText}`;
     }
     scrollExpandedTaskGroupToTop("smooth");
     if (clearedControls) {
-      legacyMethod29("setStatus", translate("status.shownActiveTasks"), "ok");
+      legacyMethod30("setStatus", translate("status.shownActiveTasks"), "ok");
     }
   }
   function renderExpandedTaskGroupShellHtml(group, options = {}) {
@@ -35568,7 +36983,7 @@ ${galleryText}`;
   function activeTaskGroupHtml(group) {
     const groupKey = escapeHtml13(group.key);
     const sections = activeTaskSections(group.tasks || []);
-    const dispatchPending = Boolean(legacyMethod29("isQueueDispatchPending"));
+    const dispatchPending = Boolean(legacyMethod30("isQueueDispatchPending"));
     const collapsed = Boolean(state19.activeTaskGroupCollapsed);
     const body = [
       activeTaskSectionHtml("running", translate("taskGroup.running"), sections.running),
@@ -35765,19 +37180,21 @@ ${galleryText}`;
     const unreadClass = unread ? " unread" : "";
     const statusClass = task.status ? ` ${escapeHtml13(task.status)}` : "";
     const title = escapeHtml13(task.prompt || task.mode || "Untitled");
+    const taskId = escapeHtml13(task.task_id);
     const showImageSummary = taskImageSummaryVisible(task);
     const imageBlocks = showImageSummary ? taskImageBlocksHtml(task) : "";
     const imageSummary = showImageSummary ? escapeHtml13(taskImageSummaryText(task)) : "";
     const imageSummaryHtml = imageSummary ? `<span class="task-image-summary">${imageSummary}</span>` : "";
     const retryFullText = taskRetryStateText2(task);
     const retryText = taskCardRetryStateText(task) || retryFullText;
+    const runningTimerHtml = taskCardRunningTimerHtml(task, taskId);
     const statusLabel = taskStatusLabelHtml(task);
-    const statusMeta = escapeHtml13(retryText ? taskMetaDetailsWithCompletionText(task) : taskMetaDetailsText2(task));
+    const statusMetaText = runningTimerHtml && retryText ? [taskMetaDetailsText2(task), retryText].filter(Boolean).join(" \xB7 ") : retryText ? taskMetaDetailsWithCompletionText(task) : taskMetaDetailsText2(task);
+    const statusMeta = escapeHtml13(statusMetaText);
     const taskTime = taskCardCompletionTimeText(task);
     const runtime = taskCardRuntimeText2(task);
     const runtimeFullText = taskRuntimeText(task);
     const completionTitle = taskCompletionTimestampTitle(task);
-    const taskId = escapeHtml13(task.task_id);
     const runtimeTitleText = [runtimeFullText, completionTitle].filter(Boolean).join(" \xB7 ");
     const runtimeTitle = runtimeTitleText ? ` title="${escapeHtml13(runtimeTitleText)}"` : "";
     const runtimeHtml = runtime ? `<span class="task-runtime" data-task-runtime-id="${taskId}" data-task-completed-at-id="${taskId}"${runtimeTitle}>${escapeHtml13(runtime)}</span>` : "";
@@ -35791,9 +37208,9 @@ ${galleryText}`;
           </span>
     ` : "";
     const retryTitle = retryFullText && retryFullText !== retryText ? ` title="${escapeHtml13(retryFullText)}"` : "";
-    const retryHtml = retryText ? `<span class="task-retry-state" data-task-retry-id="${taskId}"${retryTitle}>${escapeHtml13(retryText)}</span>` : "";
+    const retryHtml = !runningTimerHtml && retryText ? `<span class="task-retry-state" data-task-retry-id="${taskId}"${retryTitle}>${escapeHtml13(retryText)}</span>` : "";
     const timeHtml = !retryText && taskTime ? `<span class="task-card-time">${escapeHtml13(taskTime)}</span>` : "";
-    const detailRightHtml = retryHtml || timeHtml;
+    const detailRightHtml = runningTimerHtml || retryHtml || timeHtml;
     const detailRowClass = detailRightHtml ? "task-detail-row" : "task-detail-row task-detail-row-meta-only";
     const detailRow = statusMeta || detailRightHtml ? `
         <div class="${detailRowClass}">
@@ -36061,6 +37478,17 @@ ${galleryText}`;
     const completion = taskCompletionTimestampText(task);
     return completion?.shortText || "";
   }
+  function taskCardElapsedLineHtml(key, values, elapsedHtml) {
+    const marker = "__TASK_CARD_ELAPSED_TIMER__";
+    return formatTranslation(key, { ...values, elapsed: marker }).split(marker).map((part) => escapeHtml13(part)).join(elapsedHtml);
+  }
+  function taskCardRunningTimerHtml(task, taskId) {
+    if (task?.status !== "running") return "";
+    const startedAt = taskProgressStartValue2(task);
+    if (!startedAt) return "";
+    const elapsed = elapsedTimerSpan("task-card-running", startedAt);
+    return `<span class="task-card-time task-card-running-timer" data-task-running-timer-id="${taskId}">${taskCardElapsedLineHtml("preview.elapsedLine", {}, elapsed)}</span>`;
+  }
   function taskCardProviderLabel(task) {
     const providerLabel = String(taskApiProviderLabel2(task) || "").trim();
     const providerId = String(taskApiProviderId2(task) || "").trim();
@@ -36161,7 +37589,7 @@ ${galleryText}`;
   var TASK_HISTORY_LAYOUT_DURATION_MS = 180;
   var TASK_GROUP_ORDER = ["active", "today", "yesterday", "last7", "older", "search"];
   var TASK_HISTORY_ALL_COLLAPSED_SENTINEL = "__all_collapsed__";
-  function legacyMethod30(name, ...args) {
+  function legacyMethod31(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -36169,7 +37597,7 @@ ${galleryText}`;
     return method(...args);
   }
   function escapeHtml14(...args) {
-    return legacyMethod30("escapeHtml", ...args);
+    return legacyMethod31("escapeHtml", ...args);
   }
   function element(node) {
     return node instanceof HTMLElement ? node : null;
@@ -36405,7 +37833,7 @@ ${galleryText}`;
   var bridge27 = getLegacyBridge();
   var state21 = bridge27.state;
   var els30 = bridge27.els;
-  function legacyMethod31(name, ...args) {
+  function legacyMethod32(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -36417,25 +37845,25 @@ ${galleryText}`;
     return error instanceof Error ? error.message || fallback : fallback;
   }
   function setStatus14(...args) {
-    return legacyMethod31("setStatus", ...args);
+    return legacyMethod32("setStatus", ...args);
   }
   function renderTasks3(...args) {
-    return legacyMethod31("renderTasks", ...args);
+    return legacyMethod32("renderTasks", ...args);
   }
   function closePromptPopover4(...args) {
-    return legacyMethod31("closePromptPopover", ...args);
+    return legacyMethod32("closePromptPopover", ...args);
   }
   function taskThumbHtml2(...args) {
-    return legacyMethod31("taskThumbHtml", ...args);
+    return legacyMethod32("taskThumbHtml", ...args);
   }
   function escapeHtml15(...args) {
-    return legacyMethod31("escapeHtml", ...args);
+    return legacyMethod32("escapeHtml", ...args);
   }
   function formatTaskStatus3(...args) {
-    return legacyMethod31("formatTaskStatus", ...args);
+    return legacyMethod32("formatTaskStatus", ...args);
   }
   function openTaskDeleteConfirm(...args) {
-    return legacyMethod31("openTaskDeleteConfirm", ...args);
+    return legacyMethod32("openTaskDeleteConfirm", ...args);
   }
   function taskArchived2(task) {
     return Boolean(task?.archived_at);
@@ -36544,7 +37972,7 @@ ${galleryText}`;
       const title = escapeHtml15(task.prompt || task.mode || "Untitled");
       const status = escapeHtml15(formatTaskStatus3(task));
       const size = escapeHtml15(task.output_size || task.params?.size || "");
-      const provider = escapeHtml15(legacyMethod31("taskCardProviderLabel", task) || "");
+      const provider = escapeHtml15(legacyMethod32("taskCardProviderLabel", task) || "");
       const meta = [status, size, provider].filter(Boolean).join(" \xB7 ");
       const taskId = escapeHtml15(task.task_id);
       return `
@@ -36563,7 +37991,7 @@ ${galleryText}`;
     }).join("");
     els30.archiveList.querySelectorAll("[data-archive-select-task-id]").forEach((card) => {
       card.addEventListener("click", () => {
-        legacyMethod31("selectTask", card.dataset.archiveSelectTaskId);
+        legacyMethod32("selectTask", card.dataset.archiveSelectTaskId);
         closeArchiveModal();
       });
     });
@@ -36607,7 +38035,7 @@ ${galleryText}`;
   var bridge28 = getLegacyBridge();
   var state22 = bridge28.state;
   var els31 = bridge28.els;
-  function legacyMethod32(name, ...args) {
+  function legacyMethod33(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -36619,37 +38047,37 @@ ${galleryText}`;
     return error instanceof Error ? error.message || fallback : fallback;
   }
   function setStatus15(...args) {
-    return legacyMethod32("setStatus", ...args);
+    return legacyMethod33("setStatus", ...args);
   }
   function isTaskArchived3(...args) {
-    return legacyMethod32("isTaskArchived", ...args);
+    return legacyMethod33("isTaskArchived", ...args);
   }
   function renderTasks4(...args) {
-    return legacyMethod32("renderTasks", ...args);
+    return legacyMethod33("renderTasks", ...args);
   }
   function setTaskArchiveState2(...args) {
-    return legacyMethod32("setTaskArchiveState", ...args);
+    return legacyMethod33("setTaskArchiveState", ...args);
   }
   function replaceTask2(...args) {
-    return legacyMethod32("replaceTask", ...args);
+    return legacyMethod33("replaceTask", ...args);
   }
   function firstVisibleTaskId2(...args) {
-    return legacyMethod32("firstVisibleTaskId", ...args);
+    return legacyMethod33("firstVisibleTaskId", ...args);
   }
   function renderArchiveButton2(...args) {
-    return legacyMethod32("renderArchiveButton", ...args);
+    return legacyMethod33("renderArchiveButton", ...args);
   }
   function renderArchiveModal2(...args) {
-    return legacyMethod32("renderArchiveModal", ...args);
+    return legacyMethod33("renderArchiveModal", ...args);
   }
   function renderPreview2(...args) {
-    return legacyMethod32("renderPreview", ...args);
+    return legacyMethod33("renderPreview", ...args);
   }
   function openConfirmPopover5(...args) {
-    return legacyMethod32("openConfirmPopover", ...args);
+    return legacyMethod33("openConfirmPopover", ...args);
   }
   function deleteTaskById(...args) {
-    return legacyMethod32("deleteTaskById", ...args);
+    return legacyMethod33("deleteTaskById", ...args);
   }
   function toggleBatchMode(force) {
     state22.batchMode = typeof force === "boolean" ? force : !state22.batchMode;
@@ -36954,7 +38382,7 @@ ${galleryText}`;
   var bridge29 = getLegacyBridge();
   var state23 = bridge29.state;
   var els32 = bridge29.els;
-  function legacyMethod33(name, ...args) {
+  function legacyMethod34(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -36976,52 +38404,52 @@ ${galleryText}`;
     return error instanceof TaskActionHttpError && error.status === 409;
   }
   function setStatus16(...args) {
-    return legacyMethod33("setStatus", ...args);
+    return legacyMethod34("setStatus", ...args);
   }
   function closePromptPopover5(...args) {
-    return legacyMethod33("closePromptPopover", ...args);
+    return legacyMethod34("closePromptPopover", ...args);
   }
   function setTaskArchiveState3(...args) {
-    return legacyMethod33("setTaskArchiveState", ...args);
+    return legacyMethod34("setTaskArchiveState", ...args);
   }
   function replaceTask3(...args) {
-    return legacyMethod33("replaceTask", ...args);
+    return legacyMethod34("replaceTask", ...args);
   }
   function removeBatchSelectedTaskId2(...args) {
-    return legacyMethod33("removeBatchSelectedTaskId", ...args);
+    return legacyMethod34("removeBatchSelectedTaskId", ...args);
   }
   function firstVisibleTaskId3(...args) {
-    return legacyMethod33("firstVisibleTaskId", ...args);
+    return legacyMethod34("firstVisibleTaskId", ...args);
   }
   function renderTasks5(...args) {
-    return legacyMethod33("renderTasks", ...args);
+    return legacyMethod34("renderTasks", ...args);
   }
   function updateTaskSelectionVisuals2(...args) {
-    return legacyMethod33("updateTaskSelectionVisuals", ...args);
+    return legacyMethod34("updateTaskSelectionVisuals", ...args);
   }
   function renderArchiveButton3(...args) {
-    return legacyMethod33("renderArchiveButton", ...args);
+    return legacyMethod34("renderArchiveButton", ...args);
   }
   function renderArchiveModal3(...args) {
-    return legacyMethod33("renderArchiveModal", ...args);
+    return legacyMethod34("renderArchiveModal", ...args);
   }
   function renderPreview3(...args) {
-    return legacyMethod33("renderPreview", ...args);
+    return legacyMethod34("renderPreview", ...args);
   }
   function openConfirmPopover6(...args) {
-    return legacyMethod33("openConfirmPopover", ...args);
+    return legacyMethod34("openConfirmPopover", ...args);
   }
   function canRetryFailedTask(...args) {
-    return legacyMethod33("canRetryFailedTask", ...args);
+    return legacyMethod34("canRetryFailedTask", ...args);
   }
   function canAcceptTaskSuccesses(...args) {
-    return legacyMethod33("canAcceptTaskSuccesses", ...args);
+    return legacyMethod34("canAcceptTaskSuccesses", ...args);
   }
   function currentApiProviderId2(...args) {
-    return legacyMethod33("currentApiProviderId", ...args);
+    return legacyMethod34("currentApiProviderId", ...args);
   }
   function updateTaskInState2(...args) {
-    return legacyMethod33("updateTaskInState", ...args);
+    return legacyMethod34("updateTaskInState", ...args);
   }
   function taskListStructureKey(task) {
     if (!task) return "";
@@ -37241,7 +38669,7 @@ ${galleryText}`;
   var bridge30 = getLegacyBridge();
   var state24 = bridge30.state;
   var els33 = bridge30.els;
-  function legacyMethod34(name, ...args) {
+  function legacyMethod35(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -37253,124 +38681,169 @@ ${galleryText}`;
     return error instanceof Error ? error.message || fallback : fallback;
   }
   function setStatus17(...args) {
-    return legacyMethod34("setStatus", ...args);
+    return legacyMethod35("setStatus", ...args);
   }
   function setMode5(...args) {
-    return legacyMethod34("setMode", ...args);
+    return legacyMethod35("setMode", ...args);
   }
   function setPromptWithGalleryRefs2(...args) {
-    return legacyMethod34("setPromptWithGalleryRefs", ...args);
+    return legacyMethod35("setPromptWithGalleryRefs", ...args);
   }
   function persistMainModel2(...args) {
-    return legacyMethod34("persistMainModel", ...args);
+    return legacyMethod35("persistMainModel", ...args);
   }
   function syncSizeControlsFromSize2(...args) {
-    return legacyMethod34("syncSizeControlsFromSize", ...args);
+    return legacyMethod35("syncSizeControlsFromSize", ...args);
   }
   function updatePromptCount6(...args) {
-    return legacyMethod34("updatePromptCount", ...args);
+    return legacyMethod35("updatePromptCount", ...args);
   }
   function updateQuantity2(...args) {
-    return legacyMethod34("updateQuantity", ...args);
+    return legacyMethod35("updateQuantity", ...args);
   }
   function syncRadioButtons2(...args) {
-    return legacyMethod34("syncRadioButtons", ...args);
+    return legacyMethod35("syncRadioButtons", ...args);
   }
   function updateCompression2(...args) {
-    return legacyMethod34("updateCompression", ...args);
+    return legacyMethod35("updateCompression", ...args);
   }
   function updateCustomSize2(...args) {
-    return legacyMethod34("updateCustomSize", ...args);
+    return legacyMethod35("updateCustomSize", ...args);
   }
   function updateRequestPreview11(...args) {
-    return legacyMethod34("updateRequestPreview", ...args);
+    return legacyMethod35("updateRequestPreview", ...args);
   }
   function currentTaskParams2(...args) {
-    return legacyMethod34("currentTaskParams", ...args);
+    return legacyMethod35("currentTaskParams", ...args);
   }
   function uploadInputs3(...args) {
-    return legacyMethod34("uploadInputs", ...args);
+    return legacyMethod35("uploadInputs", ...args);
   }
   function galleryInputs4(...args) {
-    return legacyMethod34("galleryInputs", ...args);
+    return legacyMethod35("galleryInputs", ...args);
   }
   function referenceAssetInputs3(...args) {
-    return legacyMethod34("referenceAssetInputs", ...args);
+    return legacyMethod35("referenceAssetInputs", ...args);
   }
   function currentAuthSource3(...args) {
-    return legacyMethod34("currentAuthSource", ...args);
+    return legacyMethod35("currentAuthSource", ...args);
   }
   function backendForAuthSource2(...args) {
-    return legacyMethod34("backendForAuthSource", ...args);
+    return legacyMethod35("backendForAuthSource", ...args);
   }
   function currentApiMode4(...args) {
-    return legacyMethod34("currentApiMode", ...args);
+    return legacyMethod35("currentApiMode", ...args);
   }
   function currentCodexMode4(...args) {
-    return legacyMethod34("currentCodexMode", ...args);
+    return legacyMethod35("currentCodexMode", ...args);
   }
   function getPromptText9(...args) {
-    return legacyMethod34("getPromptText", ...args);
+    return legacyMethod35("getPromptText", ...args);
   }
   function currentPromptForModel2(...args) {
-    return legacyMethod34("currentPromptForModel", ...args);
+    return legacyMethod35("currentPromptForModel", ...args);
   }
-  function currentPromptFidelity3(...args) {
-    return legacyMethod34("currentPromptFidelity", ...args);
+  function currentPromptFidelity4(...args) {
+    return legacyMethod35("currentPromptFidelity", ...args);
   }
   function currentApiProviderId3(...args) {
-    return legacyMethod34("currentApiProviderId", ...args);
+    return legacyMethod35("currentApiProviderId", ...args);
   }
   function currentApiProviderLabel3(...args) {
-    return legacyMethod34("currentApiProviderLabel", ...args);
+    return legacyMethod35("currentApiProviderLabel", ...args);
   }
   function currentApiImagesConcurrency2(...args) {
-    return legacyMethod34("currentApiImagesConcurrency", ...args);
+    return legacyMethod35("currentApiImagesConcurrency", ...args);
   }
   function currentMainModel2(...args) {
-    return legacyMethod34("currentMainModel", ...args);
+    return legacyMethod35("currentMainModel", ...args);
   }
   function sourcePreviewUrl3(...args) {
-    return legacyMethod34("sourcePreviewUrl", ...args);
+    return legacyMethod35("sourcePreviewUrl", ...args);
   }
   function syncPromptFromEditor6(...args) {
-    return legacyMethod34("syncPromptFromEditor", ...args);
+    return legacyMethod35("syncPromptFromEditor", ...args);
   }
   function syncGalleryInputsFromPrompt3(...args) {
-    return legacyMethod34("syncGalleryInputsFromPrompt", ...args);
+    return legacyMethod35("syncGalleryInputsFromPrompt", ...args);
   }
   function missingGalleryInputs2(...args) {
-    return legacyMethod34("missingGalleryInputs", ...args);
+    return legacyMethod35("missingGalleryInputs", ...args);
   }
   function missingReferenceAssetInputs2(...args) {
-    return legacyMethod34("missingReferenceAssetInputs", ...args);
+    return legacyMethod35("missingReferenceAssetInputs", ...args);
   }
   function customSizeValidationMessage2(...args) {
-    return legacyMethod34("customSizeValidationMessage", ...args);
+    return legacyMethod35("customSizeValidationMessage", ...args);
   }
   function updatePixelPreview2(...args) {
-    return legacyMethod34("updatePixelPreview", ...args);
+    return legacyMethod35("updatePixelPreview", ...args);
   }
   function addPendingTask2(...args) {
-    return legacyMethod34("addPendingTask", ...args);
+    return legacyMethod35("addPendingTask", ...args);
   }
   function replacePendingTask2(...args) {
-    return legacyMethod34("replacePendingTask", ...args);
+    return legacyMethod35("replacePendingTask", ...args);
   }
   function startRunFeedback2(...args) {
-    return legacyMethod34("startRunFeedback", ...args);
+    return legacyMethod35("startRunFeedback", ...args);
   }
   function stopRunFeedback2(...args) {
-    return legacyMethod34("stopRunFeedback", ...args);
+    return legacyMethod35("stopRunFeedback", ...args);
   }
   function markPendingTaskFailed2(...args) {
-    return legacyMethod34("markPendingTaskFailed", ...args);
+    return legacyMethod35("markPendingTaskFailed", ...args);
   }
   function refreshRecentAssets2(...args) {
-    return legacyMethod34("refreshRecentAssets", ...args);
+    return legacyMethod35("refreshRecentAssets", ...args);
+  }
+  function referenceFileUploads2(...args) {
+    return legacyMethod35("referenceFileUploads", ...args);
+  }
+  function storedReferenceFileInputs2(...args) {
+    return legacyMethod35("storedReferenceFileInputs", ...args);
+  }
+  function missingReferenceFileInputs2(...args) {
+    return legacyMethod35("missingReferenceFileInputs", ...args);
   }
   function renderPreview4(...args) {
-    return legacyMethod34("renderPreview", ...args);
+    return legacyMethod35("renderPreview", ...args);
+  }
+  var REFERENCE_FILE_ERROR_KEYS = {
+    reference_file_empty: "referenceFiles.errorEmpty",
+    reference_file_type_unsupported: "referenceFiles.errorUnsupported",
+    reference_file_type_mismatch: "referenceFiles.errorMismatch",
+    reference_file_invalid: "referenceFiles.errorInvalid",
+    reference_file_too_large: "referenceFiles.errorTooLarge",
+    reference_files_total_too_large: "referenceFiles.errorTotalTooLarge",
+    reference_file_missing: "referenceFiles.errorMissing",
+    reference_files_require_responses: "referenceFiles.requiresResponses",
+    provider_reference_files_unsupported: "referenceFiles.errorProviderUnsupported"
+  };
+  function apiErrorMessage(detail, fallback) {
+    if (typeof detail === "string" && detail) return detail;
+    if (detail && typeof detail === "object" && "message" in detail) return String(detail.message || fallback);
+    return fallback;
+  }
+  function sanitizedApiMessage(detail, fallback) {
+    return apiErrorMessage(detail, fallback).replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 500) || fallback;
+  }
+  function responseErrorMessage(detail) {
+    const fallback = translate("taskSubmit.requestFailed");
+    const code = typeof detail === "string" ? detail : detail && typeof detail === "object" && "code" in detail ? String(detail.code || "") : "";
+    const localeKey = REFERENCE_FILE_ERROR_KEYS[code];
+    return localeKey ? translate(localeKey) : sanitizedApiMessage(detail, fallback);
+  }
+  function referenceFileMetadata(source) {
+    return {
+      ...source.kind === "asset" && source.id ? { id: source.id } : {},
+      kind: source.kind,
+      filename: source.filename,
+      mime_type: source.mime_type,
+      size_bytes: source.size_bytes,
+      family: source.family,
+      missing: Boolean(source.missing)
+    };
   }
   function applyTaskToForm(task) {
     const params = task.params || {};
@@ -37416,6 +38889,8 @@ ${galleryText}`;
     const uploads = uploadInputs3();
     const galleries = galleryInputs4();
     const assets = referenceAssetInputs3();
+    const fileUploads = referenceFileUploads2();
+    const storedFiles = storedReferenceFileInputs2();
     const authSource = currentAuthSource3();
     const isApi = authSource === "api";
     const isCodex = authSource === "codex";
@@ -37433,12 +38908,14 @@ ${galleryText}`;
       output_format: params.output_format,
       moderation: params.moderation,
       output_compression: params.output_compression,
-      prompt_fidelity: currentPromptFidelity3(),
+      prompt_fidelity: currentPromptFidelity4(),
       web_search: Boolean(params.web_search),
       n: params.n,
       images: uploads.map((source) => source.name),
       gallery_image_ids: galleries.map((source) => source.id),
-      reference_asset_ids: assets.map((source) => source.id)
+      reference_asset_ids: assets.map((source) => source.id),
+      reference_files: fileUploads.map((source) => source.filename),
+      reference_file_ids: storedFiles.map((source) => source.id)
     };
     if (isApi) {
       const apiMode = currentApiMode4();
@@ -37511,6 +38988,7 @@ ${galleryText}`;
     const localInputFiles = state24.images.slice();
     const previewSource = localInputFiles[0];
     const request = buildPreviewRequest2();
+    const localReferenceFiles = state24.referenceFiles.map(referenceFileMetadata);
     return {
       task_id: taskId,
       local_pending: true,
@@ -37529,6 +39007,8 @@ ${galleryText}`;
       gallery_refs: localInputFiles.filter((source) => source.kind === "gallery"),
       input_sources: localInputFiles,
       local_input_files: localInputFiles,
+      reference_files: localReferenceFiles,
+      local_reference_files: localReferenceFiles,
       preview_url: sourcePreviewUrl3(previewSource),
       request
     };
@@ -37544,12 +39024,18 @@ ${galleryText}`;
     const uploads = uploadInputs3();
     const galleries = galleryInputs4();
     const assets = referenceAssetInputs3();
+    const fileUploads = referenceFileUploads2();
+    const storedFiles = storedReferenceFileInputs2();
     if (missingGalleryInputs2().length) {
       setStatus17(translate("status.missingGalleryReference"), "error");
       return;
     }
     if (missingReferenceAssetInputs2().length) {
       setStatus17(translate("status.missingRecentReference"), "error");
+      return;
+    }
+    if (missingReferenceFileInputs2().length) {
+      setStatus17(translate("referenceFiles.errorMissing"), "error");
       return;
     }
     if (!prompt) {
@@ -37581,7 +39067,7 @@ ${galleryText}`;
     form.append("output_format", params.output_format);
     form.append("moderation", params.moderation);
     form.append("n", String(params.n));
-    form.append("prompt_fidelity", currentPromptFidelity3());
+    form.append("prompt_fidelity", currentPromptFidelity4());
     if (params.web_search) form.append("web_search", "true");
     if (currentAuthSource3() === "api") {
       form.append("api_provider_id", currentApiProviderId3());
@@ -37594,6 +39080,8 @@ ${galleryText}`;
     }
     galleries.forEach((source) => form.append("gallery_image_ids", source.id));
     assets.forEach((source) => form.append("reference_asset_ids", source.id));
+    fileUploads.forEach((source) => form.append("reference_files", source.file));
+    storedFiles.forEach((source) => form.append("reference_file_ids", source.id));
     if (state24.mode === "generate") {
       uploads.forEach((source) => form.append("reference_images", source.file));
     } else {
@@ -37616,7 +39104,7 @@ ${galleryText}`;
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.detail || translate("taskSubmit.requestFailed"));
+        throw new Error(responseErrorMessage(data.detail));
       }
       addQueuedTask(data.task);
       if (els33.requestJson) {
@@ -37652,28 +39140,28 @@ ${galleryText}`;
   var bridge31 = getLegacyBridge();
   var state25 = bridge31.state;
   var els34 = bridge31.els;
-  function legacyMethod35(name, ...args) {
+  function legacyMethod36(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
     }
     return method(...args);
   }
-  var renderTasks6 = () => legacyMethod35("renderTasks");
-  var syncTaskSearchHistoryResults = () => legacyMethod35("syncTaskSearchHistoryResults");
-  var setExpandedTaskGroupKey2 = (...args) => legacyMethod35("setExpandedTaskGroupKey", ...args);
-  var scrollExpandedTaskGroupToTop3 = (...args) => legacyMethod35("scrollExpandedTaskGroupToTop", ...args);
-  var captureTaskHistoryLayout3 = (...args) => legacyMethod35("captureTaskHistoryLayout", ...args);
-  var animateTaskHistoryLayout3 = (...args) => legacyMethod35("animateTaskHistoryLayout", ...args);
-  var archiveTask2 = (...args) => legacyMethod35("archiveTask", ...args);
-  var openTaskDeleteConfirm3 = (...args) => legacyMethod35("openTaskDeleteConfirm", ...args);
-  var toggleBatchMode2 = (...args) => legacyMethod35("toggleBatchMode", ...args);
-  var toggleBatchTaskSelection2 = (...args) => legacyMethod35("toggleBatchTaskSelection", ...args);
-  var handleBatchTaskShortcutSelection2 = (...args) => legacyMethod35("handleBatchTaskShortcutSelection", ...args);
-  var archiveSelectedTasks2 = (...args) => legacyMethod35("archiveSelectedTasks", ...args);
-  var openBatchDeleteConfirm2 = (...args) => legacyMethod35("openBatchDeleteConfirm", ...args);
-  var handleTaskListPointerDown2 = (...args) => legacyMethod35("handleTaskListPointerDown", ...args);
-  var closeArchiveModal2 = (...args) => legacyMethod35("closeArchiveModal", ...args);
+  var renderTasks6 = () => legacyMethod36("renderTasks");
+  var syncTaskSearchHistoryResults = () => legacyMethod36("syncTaskSearchHistoryResults");
+  var setExpandedTaskGroupKey2 = (...args) => legacyMethod36("setExpandedTaskGroupKey", ...args);
+  var scrollExpandedTaskGroupToTop3 = (...args) => legacyMethod36("scrollExpandedTaskGroupToTop", ...args);
+  var captureTaskHistoryLayout3 = (...args) => legacyMethod36("captureTaskHistoryLayout", ...args);
+  var animateTaskHistoryLayout3 = (...args) => legacyMethod36("animateTaskHistoryLayout", ...args);
+  var archiveTask2 = (...args) => legacyMethod36("archiveTask", ...args);
+  var openTaskDeleteConfirm3 = (...args) => legacyMethod36("openTaskDeleteConfirm", ...args);
+  var toggleBatchMode2 = (...args) => legacyMethod36("toggleBatchMode", ...args);
+  var toggleBatchTaskSelection2 = (...args) => legacyMethod36("toggleBatchTaskSelection", ...args);
+  var handleBatchTaskShortcutSelection2 = (...args) => legacyMethod36("handleBatchTaskShortcutSelection", ...args);
+  var archiveSelectedTasks2 = (...args) => legacyMethod36("archiveSelectedTasks", ...args);
+  var openBatchDeleteConfirm2 = (...args) => legacyMethod36("openBatchDeleteConfirm", ...args);
+  var handleTaskListPointerDown2 = (...args) => legacyMethod36("handleTaskListPointerDown", ...args);
+  var closeArchiveModal2 = (...args) => legacyMethod36("closeArchiveModal", ...args);
   var taskListControlsInitialized = false;
   var taskListControlEventsBound = false;
   function taskFilterControls() {
@@ -37802,7 +39290,7 @@ ${galleryText}`;
     if (!nextCard) return true;
     focusTaskNavigationCard(nextCard);
     if (!state25.batchMode) {
-      void legacyMethod35("selectTask", nextCard.dataset.taskId);
+      void legacyMethod36("selectTask", nextCard.dataset.taskId);
     }
     return true;
   }
@@ -37874,7 +39362,7 @@ ${galleryText}`;
       toggleBatchTaskSelection2(card.dataset.taskId);
       return;
     }
-    legacyMethod35("selectTask", card.dataset.taskId);
+    legacyMethod36("selectTask", card.dataset.taskId);
   }
   function handleTaskListKeydown(event) {
     if (isTaskListKeyboardInputTarget(event.target)) return;
@@ -37888,7 +39376,7 @@ ${galleryText}`;
     if (state25.batchMode) {
       toggleBatchTaskSelection2(card.dataset.taskId);
     } else {
-      legacyMethod35("selectTask", card.dataset.taskId);
+      legacyMethod36("selectTask", card.dataset.taskId);
     }
   }
   function initTaskListControlsFeature() {
@@ -38590,7 +40078,7 @@ ${galleryText}`;
   var taskContextMenuEventsBound = false;
   var taskContextMenuEl = null;
   var taskListMutationObserver = null;
-  function legacyMethod36(name, ...args) {
+  function legacyMethod37(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -38598,22 +40086,22 @@ ${galleryText}`;
     return method(...args);
   }
   function escapeHtml16(...args) {
-    return legacyMethod36("escapeHtml", ...args);
+    return legacyMethod37("escapeHtml", ...args);
   }
   function setStatus18(...args) {
-    return legacyMethod36("setStatus", ...args);
+    return legacyMethod37("setStatus", ...args);
   }
   function closePromptPopover6(...args) {
-    return legacyMethod36("closePromptPopover", ...args);
+    return legacyMethod37("closePromptPopover", ...args);
   }
   function selectTask(...args) {
-    return legacyMethod36("selectTask", ...args);
+    return legacyMethod37("selectTask", ...args);
   }
   function archiveTask3(...args) {
-    return legacyMethod36("archiveTask", ...args);
+    return legacyMethod37("archiveTask", ...args);
   }
   function openTaskDeleteConfirm4(...args) {
-    return legacyMethod36("openTaskDeleteConfirm", ...args);
+    return legacyMethod37("openTaskDeleteConfirm", ...args);
   }
   function bindTaskContextMenuEvents() {
     if (taskContextMenuEventsBound) return;
@@ -39336,7 +40824,7 @@ ${galleryText}`;
       "21:9": [3808, 1632]
     }
   };
-  function legacyMethod37(name, ...args) {
+  function legacyMethod38(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -39344,7 +40832,7 @@ ${galleryText}`;
     return method(...args);
   }
   function escapeHtml18(...args) {
-    return legacyMethod37("escapeHtml", ...args);
+    return legacyMethod38("escapeHtml", ...args);
   }
   function taskRatio2(task) {
     const dimensions = taskSizeDimensions(task);
@@ -39795,10 +41283,18 @@ ${galleryText}`;
   }
   function taskDurationSeconds(task) {
     if (!task || !["completed", "failed", "partial_failed"].includes(task.status)) return "";
-    const startedAt = timestampMs3(task.started_at || task.created_at);
     const endedAt = timestampMs3(task.completed_at || task.updated_at);
+    const startedAt = taskDurationStartMs(task, endedAt);
     if (startedAt === null || endedAt === null || endedAt < startedAt) return "";
     return Math.floor((endedAt - startedAt) / 1e3);
+  }
+  function taskDurationStartMs(task, endedAt) {
+    const startedAt = timestampMs3(task.started_at || task.created_at);
+    const attemptStartedAt = timestampMs3(task.attempt_started_at);
+    if (startedAt !== null && attemptStartedAt !== null && attemptStartedAt > startedAt) {
+      if (endedAt === null || attemptStartedAt <= endedAt) return attemptStartedAt;
+    }
+    return startedAt;
   }
   function taskDurationText2(task) {
     const seconds = taskDurationSeconds(task);
@@ -39890,7 +41386,7 @@ ${galleryText}`;
     const elapsed = formatDurationParts2(totalMilliseconds);
     return `<span class="elapsed-main">${elapsedPartMarkup2(elapsed.clock)}</span><span class="elapsed-ms">${elapsedPartMarkup2(elapsed.fraction)}</span>`;
   }
-  function elapsedTimerSpan(kind, startValue) {
+  function elapsedTimerSpan2(kind, startValue) {
     const elapsedMs = elapsedMillisecondsSince2(startValue);
     const elapsed = formatDurationTenths2(elapsedMs);
     return `<span class="elapsed-timer" aria-label="${elapsed}" data-preview-elapsed="${escapeHtml18(kind)}" data-preview-start="${escapeHtml18(startValue || "")}">${elapsedTimerMarkup2(elapsedMs)}</span>`;
@@ -39915,7 +41411,7 @@ ${galleryText}`;
     if (!Number.isNaN(value) && value > 0) return value;
     return visibleIndex + 1;
   }
-  function taskProgressStartValue2(task) {
+  function taskProgressStartValue3(task) {
     if (!task) return "";
     if (task.status === "running" && taskRetryStateText3(task)) {
       return task?.attempt_started_at || task?.updated_at || task?.retry_requested_at || task?.queued_at || task?.started_at || task?.created_at || "";
@@ -39972,11 +41468,11 @@ ${galleryText}`;
       elapsedWheelMarkup,
       elapsedPartMarkup: elapsedPartMarkup2,
       elapsedTimerMarkup: elapsedTimerMarkup2,
-      elapsedTimerSpan,
+      elapsedTimerSpan: elapsedTimerSpan2,
       taskGeneratedCount,
       taskTotalCount,
       taskOutputIndex,
-      taskProgressStartValue: taskProgressStartValue2
+      taskProgressStartValue: taskProgressStartValue3
     });
   }
 
@@ -39986,7 +41482,7 @@ ${galleryText}`;
   var els37 = bridge34.els;
   var previewGridEventsBound = false;
   var pendingPreviewRenderToken = 0;
-  function legacyMethod38(name, ...args) {
+  function legacyMethod39(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -39994,66 +41490,66 @@ ${galleryText}`;
     return method(...args);
   }
   function escapeHtml19(...args) {
-    return legacyMethod38("escapeHtml", ...args);
+    return legacyMethod39("escapeHtml", ...args);
   }
   function isTaskArchived4(...args) {
-    return legacyMethod38("isTaskArchived", ...args);
+    return legacyMethod39("isTaskArchived", ...args);
   }
   function updatePreviewElapsedDisplay2(...args) {
-    return legacyMethod38("updatePreviewElapsedDisplay", ...args);
+    return legacyMethod39("updatePreviewElapsedDisplay", ...args);
   }
   function closePromptPopover7(...args) {
-    return legacyMethod38("closePromptPopover", ...args);
+    return legacyMethod39("closePromptPopover", ...args);
   }
   function currentSize2(...args) {
-    return legacyMethod38("currentSize", ...args);
+    return legacyMethod39("currentSize", ...args);
   }
   function syncActiveLightboxUrls2(...args) {
-    return legacyMethod38("syncActiveLightboxUrls", ...args);
+    return legacyMethod39("syncActiveLightboxUrls", ...args);
   }
   function collectReferenceOutput2(...args) {
-    return legacyMethod38("collectReferenceOutput", ...args);
+    return legacyMethod39("collectReferenceOutput", ...args);
   }
   function openPromptPopover(...args) {
-    return legacyMethod38("openPromptPopover", ...args);
+    return legacyMethod39("openPromptPopover", ...args);
   }
   function retryFailedTask2(...args) {
-    return legacyMethod38("retryFailedTask", ...args);
+    return legacyMethod39("retryFailedTask", ...args);
   }
   function acceptTaskSuccesses2(...args) {
-    return legacyMethod38("acceptTaskSuccesses", ...args);
+    return legacyMethod39("acceptTaskSuccesses", ...args);
   }
   function openConfirmPopover7(...args) {
-    return legacyMethod38("openConfirmPopover", ...args);
+    return legacyMethod39("openConfirmPopover", ...args);
   }
   function setStatus20(...args) {
-    return legacyMethod38("setStatus", ...args);
+    return legacyMethod39("setStatus", ...args);
   }
   function updateTaskInState3(...args) {
-    return legacyMethod38("updateTaskInState", ...args);
+    return legacyMethod39("updateTaskInState", ...args);
   }
   function renderTasks7(...args) {
-    return legacyMethod38("renderTasks", ...args);
+    return legacyMethod39("renderTasks", ...args);
   }
   function taskApiProviderId3(...args) {
-    return legacyMethod38("taskApiProviderId", ...args);
+    return legacyMethod39("taskApiProviderId", ...args);
   }
   function taskApiProviderLabel3(...args) {
-    return legacyMethod38("taskApiProviderLabel", ...args);
+    return legacyMethod39("taskApiProviderLabel", ...args);
   }
-  var taskOutputUrls3 = (...args) => legacyMethod38("taskOutputUrls", ...args);
-  var taskSelectedOutputIndexes2 = (...args) => legacyMethod38("taskSelectedOutputIndexes", ...args);
-  var taskOutputSelected2 = (...args) => legacyMethod38("taskOutputSelected", ...args);
-  var positiveInt2 = (...args) => legacyMethod38("positiveInt", ...args);
-  var taskFailureMessage2 = (...args) => legacyMethod38("taskFailureMessage", ...args);
-  var canRetryFailedTask3 = (...args) => legacyMethod38("canRetryFailedTask", ...args);
-  var canAcceptTaskSuccesses3 = (...args) => legacyMethod38("canAcceptTaskSuccesses", ...args);
-  var taskRetryStateText4 = (...args) => legacyMethod38("taskRetryStateText", ...args);
-  var elapsedTimerSpan2 = (...args) => legacyMethod38("elapsedTimerSpan", ...args);
-  var taskGeneratedCount2 = (...args) => legacyMethod38("taskGeneratedCount", ...args);
-  var taskTotalCount2 = (...args) => legacyMethod38("taskTotalCount", ...args);
-  var taskOutputIndex2 = (...args) => legacyMethod38("taskOutputIndex", ...args);
-  var taskProgressStartValue3 = (...args) => legacyMethod38("taskProgressStartValue", ...args);
+  var taskOutputUrls3 = (...args) => legacyMethod39("taskOutputUrls", ...args);
+  var taskSelectedOutputIndexes2 = (...args) => legacyMethod39("taskSelectedOutputIndexes", ...args);
+  var taskOutputSelected2 = (...args) => legacyMethod39("taskOutputSelected", ...args);
+  var positiveInt2 = (...args) => legacyMethod39("positiveInt", ...args);
+  var taskFailureMessage2 = (...args) => legacyMethod39("taskFailureMessage", ...args);
+  var canRetryFailedTask3 = (...args) => legacyMethod39("canRetryFailedTask", ...args);
+  var canAcceptTaskSuccesses3 = (...args) => legacyMethod39("canAcceptTaskSuccesses", ...args);
+  var taskRetryStateText4 = (...args) => legacyMethod39("taskRetryStateText", ...args);
+  var elapsedTimerSpan3 = (...args) => legacyMethod39("elapsedTimerSpan", ...args);
+  var taskGeneratedCount2 = (...args) => legacyMethod39("taskGeneratedCount", ...args);
+  var taskTotalCount2 = (...args) => legacyMethod39("taskTotalCount", ...args);
+  var taskOutputIndex2 = (...args) => legacyMethod39("taskOutputIndex", ...args);
+  var taskProgressStartValue4 = (...args) => legacyMethod39("taskProgressStartValue", ...args);
   function taskRequestPreviewPayload(task) {
     if (!task?.request) return null;
     const request = { ...task.request };
@@ -40699,7 +42195,7 @@ ${galleryText}`;
     return { originalPrompt, submittedPrompt, optimizedPrompt };
   }
   function runningProgressCard(task, visibleOutputCount) {
-    const elapsed = elapsedTimerSpan2("running", taskProgressStartValue3(task));
+    const elapsed = elapsedTimerSpan3("running", taskProgressStartValue4(task));
     const generated = taskGeneratedCount2(task, visibleOutputCount);
     const total = taskTotalCount2(task);
     const size = escapeHtml19(task.params?.size || currentSize2());
@@ -40722,7 +42218,7 @@ ${galleryText}`;
   }
   function waitingProgressCard(task, visibleOutputCount) {
     const elapsedFrom = task.queued_at || task.updated_at || task.created_at;
-    const elapsed = elapsedTimerSpan2("waiting", elapsedFrom);
+    const elapsed = elapsedTimerSpan3("waiting", elapsedFrom);
     const generated = taskGeneratedCount2(task, visibleOutputCount);
     const total = taskTotalCount2(task);
     const size = escapeHtml19(task.params?.size || currentSize2());
@@ -40779,7 +42275,7 @@ ${galleryText}`;
   }
   function renderRunningPreview(task) {
     clearPreviewGridLayout();
-    const elapsed = elapsedTimerSpan2("running", taskProgressStartValue3(task));
+    const elapsed = elapsedTimerSpan3("running", taskProgressStartValue4(task));
     const size = escapeHtml19(task.params?.size || currentSize2());
     const modeLabel = task.mode === "edit" ? translate("preview.editMode") : translate("preview.generateMode");
     const retryState = taskRetryStateText4(task);
@@ -40803,7 +42299,7 @@ ${galleryText}`;
     clearPreviewGridLayout();
     const submitting = task.status === "submitting";
     const elapsedFrom = task.started_at || task.queued_at || task.created_at;
-    const elapsed = elapsedTimerSpan2("waiting", elapsedFrom);
+    const elapsed = elapsedTimerSpan3("waiting", elapsedFrom);
     const size = escapeHtml19(task.params?.size || currentSize2());
     const title = submitting ? translate("preview.submittingTitle") : translate("preview.queuedTitle");
     const detail = submitting ? translate("preview.submittingDetail") : translate("preview.queuedDetail");
@@ -40859,24 +42355,24 @@ ${galleryText}`;
   var bridge35 = getLegacyBridge();
   var state29 = bridge35.state;
   var els38 = bridge35.els;
-  function legacyMethod39(name, ...args) {
+  function legacyMethod40(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
     }
     return method(...args);
   }
-  var updateTaskInState4 = (...args) => legacyMethod39("updateTaskInState", ...args);
-  var cleanupSessionSelections2 = (...args) => legacyMethod39("cleanupSessionSelections", ...args);
-  var renderTasks8 = (...args) => legacyMethod39("renderTasks", ...args);
-  var renderArchiveButton4 = (...args) => legacyMethod39("renderArchiveButton", ...args);
-  var renderArchiveModal4 = (...args) => legacyMethod39("renderArchiveModal", ...args);
-  var renderPreview6 = (...args) => legacyMethod39("renderPreview", ...args);
-  var migrateLegacyArchivedTasks2 = (...args) => legacyMethod39("migrateLegacyArchivedTasks", ...args);
-  var revokeTaskUploadPreviewUrls3 = (...args) => legacyMethod39("revokeTaskUploadPreviewUrls", ...args);
-  var taskHasViewableUpdate2 = (...args) => legacyMethod39("taskHasViewableUpdate", ...args);
-  var markTaskViewed2 = (...args) => legacyMethod39("markTaskViewed", ...args);
-  var ensureSelectedTaskDetail = (...args) => legacyMethod39("ensureSelectedTaskDetail", ...args);
+  var updateTaskInState4 = (...args) => legacyMethod40("updateTaskInState", ...args);
+  var cleanupSessionSelections2 = (...args) => legacyMethod40("cleanupSessionSelections", ...args);
+  var renderTasks8 = (...args) => legacyMethod40("renderTasks", ...args);
+  var renderArchiveButton4 = (...args) => legacyMethod40("renderArchiveButton", ...args);
+  var renderArchiveModal4 = (...args) => legacyMethod40("renderArchiveModal", ...args);
+  var renderPreview6 = (...args) => legacyMethod40("renderPreview", ...args);
+  var migrateLegacyArchivedTasks2 = (...args) => legacyMethod40("migrateLegacyArchivedTasks", ...args);
+  var revokeTaskUploadPreviewUrls3 = (...args) => legacyMethod40("revokeTaskUploadPreviewUrls", ...args);
+  var taskHasViewableUpdate2 = (...args) => legacyMethod40("taskHasViewableUpdate", ...args);
+  var markTaskViewed2 = (...args) => legacyMethod40("markTaskViewed", ...args);
+  var ensureSelectedTaskDetail = (...args) => legacyMethod40("ensureSelectedTaskDetail", ...args);
   var TASK_SEARCH_HISTORY_LIMIT = 100;
   var TASK_SEARCH_HISTORY_DEBOUNCE_MS = 180;
   var taskSearchHistoryTimerId = 0;
@@ -41061,7 +42557,7 @@ ${galleryText}`;
   var taskSelectionInitialized = false;
   var HISTORY_TASK_REUSE_HANDOFF_KEY = "codex-image-history-task-reuse-handoff";
   var selectedTaskDetailRequestSeq = 0;
-  function legacyMethod40(name, ...args) {
+  function legacyMethod41(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -41069,49 +42565,49 @@ ${galleryText}`;
     return method(...args);
   }
   function setStatus21(message, type) {
-    legacyMethod40("setStatus", message, type);
+    legacyMethod41("setStatus", message, type);
   }
   function closePromptPopover8() {
-    legacyMethod40("closePromptPopover");
+    legacyMethod41("closePromptPopover");
   }
   function markTaskViewed3(taskId) {
-    return legacyMethod40("markTaskViewed", taskId);
+    return legacyMethod41("markTaskViewed", taskId);
   }
   function applyTaskToForm2(task) {
-    legacyMethod40("applyTaskToForm", task);
+    legacyMethod41("applyTaskToForm", task);
   }
   function updateTaskSelectionVisuals3(taskId) {
-    legacyMethod40("updateTaskSelectionVisuals", taskId);
+    legacyMethod41("updateTaskSelectionVisuals", taskId);
   }
   function renderPreview7(task) {
-    legacyMethod40("renderPreview", task);
+    legacyMethod41("renderPreview", task);
   }
   function taskFailureMessage3(task) {
-    return legacyMethod40("taskFailureMessage", task);
+    return legacyMethod41("taskFailureMessage", task);
   }
   function taskRequestPreviewPayload2(task) {
-    return legacyMethod40("taskRequestPreviewPayload", task);
+    return legacyMethod41("taskRequestPreviewPayload", task);
   }
   function revokeUploadPreviewUrls2(sources) {
-    legacyMethod40("revokeUploadPreviewUrls", sources);
+    legacyMethod41("revokeUploadPreviewUrls", sources);
   }
   function renderImageStrip6() {
-    legacyMethod40("renderImageStrip");
+    legacyMethod41("renderImageStrip");
   }
   function updateRequestPreview12() {
-    legacyMethod40("updateRequestPreview");
+    legacyMethod41("updateRequestPreview");
   }
   function taskInputUrls2(task) {
-    return legacyMethod40("taskInputUrls", task);
+    return legacyMethod41("taskInputUrls", task);
   }
-  function uploadSource2(file) {
-    return legacyMethod40("uploadSource", file);
+  function uploadSource3(file) {
+    return legacyMethod41("uploadSource", file);
   }
   function gallerySource4(item) {
-    return legacyMethod40("gallerySource", item);
+    return legacyMethod41("gallerySource", item);
   }
   function assetSource2(item) {
-    return legacyMethod40("assetSource", item);
+    return legacyMethod41("assetSource", item);
   }
   function selectedTaskInputRestoreCurrent(taskId, restoreSeq) {
     if (restoreSeq == null) return true;
@@ -41189,6 +42685,30 @@ ${galleryText}`;
     }
     return task;
   }
+  async function restoreTaskReferenceFiles(task, options = {}) {
+    const taskId = options.taskId ?? task?.task_id;
+    const restoreSeq = options.restoreSeq;
+    const referenceFiles = Array.isArray(task?.reference_files) ? task.reference_files : [];
+    if (!selectedTaskInputRestoreCurrent(taskId, restoreSeq)) return false;
+    state30.referenceFiles = [];
+    legacyMethod41("renderReferenceFiles");
+    if (!referenceFiles.length) {
+      updateRequestPreview12();
+      return true;
+    }
+    state30.referenceFiles = referenceFiles.map((item) => ({
+      kind: "asset",
+      id: String(item?.id || item?.reference_file_id || ""),
+      filename: String(item?.filename || ""),
+      mime_type: String(item?.mime_type || "application/octet-stream"),
+      size_bytes: Number(item?.size_bytes || 0),
+      family: item?.family,
+      missing: Boolean(item?.missing)
+    })).filter((item) => item.id && ["pdf", "spreadsheet", "document", "text"].includes(item.family));
+    legacyMethod41("renderReferenceFiles");
+    updateRequestPreview12();
+    return true;
+  }
   async function fetchHistoryInputBlob(candidateUrls, sourceUrl) {
     for (const url of candidateUrls) {
       const response = await fetch(url);
@@ -41230,7 +42750,7 @@ ${galleryText}`;
             const candidateUrls = historyInputCandidateUrls(source.image_url, fallbackUrl);
             const blob = await fetchHistoryInputBlob(candidateUrls, source.image_url);
             const fallbackName = `history-input-${index + 1}`;
-            restoredSources.push(uploadSource2(new File([blob], source.filename || source.name || fallbackFileName || fallbackName, { type: blob.type || "application/octet-stream" })));
+            restoredSources.push(uploadSource3(new File([blob], source.filename || source.name || fallbackFileName || fallbackName, { type: blob.type || "application/octet-stream" })));
           } else {
             restoredSources.push(source);
           }
@@ -41263,7 +42783,7 @@ ${galleryText}`;
         }
         const blob = await response.blob();
         const fallbackName = `history-input-${index + 1}`;
-        files.push(uploadSource2(new File([blob], inputNames[index] || fallbackName, { type: blob.type || "application/octet-stream" })));
+        files.push(uploadSource3(new File([blob], inputNames[index] || fallbackName, { type: blob.type || "application/octet-stream" })));
       }
     } catch (error) {
       revokeUploadPreviewUrls2(files);
@@ -41293,6 +42813,8 @@ ${galleryText}`;
     const restoreSeq = ++state30.taskInputRestoreSeq;
     void markTaskViewed3(taskId);
     applyTaskToForm2(task);
+    await restoreTaskReferenceFiles(task, { taskId, restoreSeq });
+    if (!selectedTaskInputRestoreCurrent(taskId, restoreSeq)) return;
     renderSelectedTask(task, taskId);
     try {
       await restoreTaskInputs(task, { taskId, restoreSeq });
@@ -41326,6 +42848,8 @@ ${galleryText}`;
       replaceSelectedTaskDetail(taskId, task);
       const restoreSeq = ++state30.taskInputRestoreSeq;
       applyTaskToForm2(task);
+      await restoreTaskReferenceFiles(task, { taskId, restoreSeq });
+      if (!selectedTaskInputRestoreCurrent(taskId, restoreSeq)) return;
       renderSelectedTask(task, taskId);
       try {
         await restoreTaskInputs(task, { taskId, restoreSeq });
@@ -41373,7 +42897,7 @@ ${galleryText}`;
     optimizedPrompt: "",
     copyTimerId: null
   };
-  function legacyMethod41(name, ...args) {
+  function legacyMethod42(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -41381,52 +42905,52 @@ ${galleryText}`;
     return method(...args);
   }
   function escapeHtml20(value) {
-    return legacyMethod41("escapeHtml", value);
+    return legacyMethod42("escapeHtml", value);
   }
   function closeGalleryEditPopover4() {
-    legacyMethod41("closeGalleryEditPopover");
+    legacyMethod42("closeGalleryEditPopover");
   }
   function handlePromptDocumentClick2(event) {
-    legacyMethod41("handlePromptDocumentClick", event);
+    legacyMethod42("handlePromptDocumentClick", event);
   }
   function handleGalleryDocumentClick2(event) {
-    legacyMethod41("handleGalleryDocumentClick", event);
+    legacyMethod42("handleGalleryDocumentClick", event);
   }
   function closeCompressionPopover2() {
-    legacyMethod41("closeCompressionPopover");
+    legacyMethod42("closeCompressionPopover");
   }
   function handleImageEditorHistoryShortcut2(event) {
-    return legacyMethod41("handleImageEditorHistoryShortcut", event);
+    return legacyMethod42("handleImageEditorHistoryShortcut", event);
   }
   function hideMentionSuggest4() {
-    legacyMethod41("hideMentionSuggest");
+    legacyMethod42("hideMentionSuggest");
   }
   function hideColorSuggest5() {
-    legacyMethod41("hideColorSuggest");
+    legacyMethod42("hideColorSuggest");
   }
   function hidePromptSnippetSuggest4() {
-    legacyMethod41("hidePromptSnippetSuggest");
+    legacyMethod42("hidePromptSnippetSuggest");
   }
   function hidePromptSnippetSelectionButton4() {
-    legacyMethod41("hidePromptSnippetSelectionButton");
+    legacyMethod42("hidePromptSnippetSelectionButton");
   }
   function closePromptSnippetPopover4() {
-    legacyMethod41("closePromptSnippetPopover");
+    legacyMethod42("closePromptSnippetPopover");
   }
   function closeArchiveModal3() {
-    legacyMethod41("closeArchiveModal");
+    legacyMethod42("closeArchiveModal");
   }
   function closeImageEditor2() {
-    legacyMethod41("closeImageEditor");
+    legacyMethod42("closeImageEditor");
   }
   function closeGallery3() {
-    legacyMethod41("closeGallery");
+    legacyMethod42("closeGallery");
   }
   function closeApiSettingsModal2() {
-    legacyMethod41("closeApiSettingsModal");
+    legacyMethod42("closeApiSettingsModal");
   }
   function closePromptTemplateDrawer2() {
-    legacyMethod41("closePromptTemplateDrawer");
+    legacyMethod42("closePromptTemplateDrawer");
   }
   function bindOverlayPopoverEvents() {
     if (overlayPopoverEventsBound) return;
@@ -41758,7 +43282,7 @@ ${galleryText}`;
   var sidebarResizeFrameId = null;
   var sidebarResizePendingWidth = null;
   var themeTransitionLockFrameId = null;
-  function legacyMethod42(name, ...args) {
+  function legacyMethod43(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -41766,58 +43290,58 @@ ${galleryText}`;
     return method(...args);
   }
   function formatTaskStatus4(task) {
-    return legacyMethod42("formatTaskStatus", task);
+    return legacyMethod43("formatTaskStatus", task);
   }
   function closePromptPopover10() {
-    legacyMethod42("closePromptPopover");
+    legacyMethod43("closePromptPopover");
   }
   function closePromptSnippetPopover5() {
-    legacyMethod42("closePromptSnippetPopover");
+    legacyMethod43("closePromptSnippetPopover");
   }
   function closeArchiveModal4() {
-    legacyMethod42("closeArchiveModal");
+    legacyMethod43("closeArchiveModal");
   }
   function closeGallery4() {
-    legacyMethod42("closeGallery");
+    legacyMethod43("closeGallery");
   }
   function closeImageEditor3() {
-    legacyMethod42("closeImageEditor");
+    legacyMethod43("closeImageEditor");
   }
   function revokeUploadPreviewUrls3(sources) {
-    legacyMethod42("revokeUploadPreviewUrls", sources);
+    legacyMethod43("revokeUploadPreviewUrls", sources);
   }
   function finishBatchMarqueeSelection2() {
-    legacyMethod42("finishBatchMarqueeSelection");
+    legacyMethod43("finishBatchMarqueeSelection");
   }
   function setPromptText3(value) {
-    legacyMethod42("setPromptText", value);
+    legacyMethod43("setPromptText", value);
   }
   function setMode6(mode) {
-    legacyMethod42("setMode", mode);
+    legacyMethod43("setMode", mode);
   }
   function updateSizeFromPreset2() {
-    legacyMethod42("updateSizeFromPreset");
+    legacyMethod43("updateSizeFromPreset");
   }
   function updatePromptCount7() {
-    legacyMethod42("updatePromptCount");
+    legacyMethod43("updatePromptCount");
   }
   function updateQuantity3() {
-    legacyMethod42("updateQuantity");
+    legacyMethod43("updateQuantity");
   }
   function updateCompression3() {
-    legacyMethod42("updateCompression");
+    legacyMethod43("updateCompression");
   }
   function renderImageStrip7() {
-    legacyMethod42("renderImageStrip");
+    legacyMethod43("renderImageStrip");
   }
   function renderTasks9() {
-    legacyMethod42("renderTasks");
+    legacyMethod43("renderTasks");
   }
   function renderPreview8() {
-    legacyMethod42("renderPreview");
+    legacyMethod43("renderPreview");
   }
   function updateRequestPreview13() {
-    legacyMethod42("updateRequestPreview");
+    legacyMethod43("updateRequestPreview");
   }
   function handleShellLocaleChange() {
     if (!els41.statusText) return;
@@ -42106,6 +43630,7 @@ ${galleryText}`;
     state31.mode = "generate";
     revokeUploadPreviewUrls3(state31.images);
     state31.images = [];
+    legacyMethod43("clearReferenceFiles", { silent: true });
     state31.batchMode = false;
     state31.batchSelectedTaskIds = [];
     state31.batchSelectionAnchorTaskId = null;
@@ -42355,7 +43880,7 @@ ${galleryText}`;
     urls: [],
     index: 0
   };
-  function legacyMethod43(name, ...args) {
+  function legacyMethod44(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -42521,8 +44046,8 @@ ${galleryText}`;
   }
   async function addToInput(url) {
     try {
-      const file = await legacyMethod43("imageFileFromUrl", url, "preview-" + Date.now());
-      legacyMethod43("addImageFiles", [file]);
+      const file = await legacyMethod44("imageFileFromUrl", url, "preview-" + Date.now());
+      legacyMethod44("addImageFiles", [file]);
     } catch (error) {
       console.error("Failed to add image to input", error);
     }
@@ -42542,6 +44067,7 @@ ${galleryText}`;
   }
 
   // codex_image/webui/frontend/src/main.ts
+  initReferenceFileInputsFeature();
   initInputSourcesFeature();
   initImageEditorFeature();
   initImageStripFeature();
@@ -42552,6 +44078,7 @@ ${galleryText}`;
   initGalleryItemActionsFeature();
   initGalleryFeature();
   initApiSettingsFeature();
+  initApiAdvancedSettingsFeature();
   initStorageSettingsFeature();
   initSystemSettingsFeature();
   initColorPaletteFeature();
@@ -42559,6 +44086,7 @@ ${galleryText}`;
   initPromptSnippetsFeature();
   initPromptTemplatesFeature();
   initPromptFeature();
+  initPromptFidelityHelpFeature();
   initPromptFindReplaceFeature();
   initFormControlsFeature();
   initTaskListRenderFeature();

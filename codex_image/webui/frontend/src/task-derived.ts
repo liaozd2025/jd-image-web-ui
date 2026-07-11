@@ -573,10 +573,19 @@ function taskPartialFailureCanRetryGenericInvalidRequest(task: any) {
 
 function taskDurationSeconds(task: any) {
   if (!task || !["completed", "failed", "partial_failed"].includes(task.status)) return "";
-  const startedAt = timestampMs(task.started_at || task.created_at);
   const endedAt = timestampMs(task.completed_at || task.updated_at);
+  const startedAt = taskDurationStartMs(task, endedAt);
   if (startedAt === null || endedAt === null || endedAt < startedAt) return "";
   return Math.floor((endedAt - startedAt) / 1000);
+}
+
+function taskDurationStartMs(task: any, endedAt: any) {
+  const startedAt = timestampMs(task.started_at || task.created_at);
+  const attemptStartedAt = timestampMs(task.attempt_started_at);
+  if (startedAt !== null && attemptStartedAt !== null && attemptStartedAt > startedAt) {
+    if (endedAt === null || attemptStartedAt <= endedAt) return attemptStartedAt;
+  }
+  return startedAt;
 }
 
 function taskDurationText(task: any) {

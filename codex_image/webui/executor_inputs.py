@@ -10,6 +10,15 @@ from typing import Any
 from fastapi import HTTPException
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+from codex_image.client import ResponsesInputFile
+
+from .reference_files import (
+    ReferenceFileStorage,
+    dedupe_reference_file_records,
+    reference_file_task_record,
+    validate_reference_file,
+    validate_reference_file_total,
+)
 from .storage import GalleryStorage, ReferenceAssetStorage, TaskStorage
 from .task_metadata import _dedupe_preserve_order, _gallery_ref_response, _reference_asset_response
 
@@ -128,6 +137,85 @@ def _resolve_gallery_refs(gallery_storage: GalleryStorage, item_ids: list[str]) 
         refs.append(_gallery_ref_response(item))
         data_urls.append(_file_to_data_url(path, mime_type=str(item.get("mime_type") or "")))
     return refs, data_urls
+
+
+def _reference_file_to_responses_input(
+    path: Path,
+    record: dict[str, Any],
+    *,
+    data: bytes | None = None,
+) -> ResponsesInputFile:
+    payload = path.read_bytes() if data is None else data
+    mime_type = str(record.get("mime_type") or "application/octet-stream")
+    return ResponsesInputFile(
+        filename=str(record.get("filename") or "reference-file"),
+        mime_type=mime_type,
+        file_data=f"data:{mime_type};base64,{base64.b64encode(payload).decode('ascii')}",
+        detail="auto" if record.get("family") == "pdf" else None,
+    )
+
+
+def _resolve_reference_files(
+    storage: ReferenceFileStorage,
+    records: Any,
+) -> tuple[list[dict[str, Any]], list[ResponsesInputFile]]:
+    if records in (None, []):
+        return [], []
+    if not isinstance(records, list):
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "reference_file_missing", "message": "A referenced file is no longer available."},
+        )
+
+    try:
+        normalized_records = dedupe_reference_file_records(
+            reference_file_task_record(record) for record in records
+        )
+        validate_reference_file_total(normalized_records)
+        response_inputs: list[ResponsesInputFile] = []
+        for record in normalized_records:
+            asset_id = str(record["id"])
+            stored_metadata = storage.read_item(asset_id)
+            stored_record = reference_file_task_record(
+                {
+                    **stored_metadata,
+                    "filename": stored_metadata.get("last_filename"),
+                    "mime_type": stored_metadata.get("last_mime_type"),
+                    "family": stored_metadata.get("last_family"),
+                }
+            )
+            if stored_record["size_bytes"] != record["size_bytes"]:
+                raise ValueError("reference_file_invalid")
+            path = storage.verified_file_path(asset_id, expected_size=int(record["size_bytes"]))
+            data = path.read_bytes()
+            validated = validate_reference_file(
+                str(record["filename"]),
+                data,
+                str(record["mime_type"]),
+            )
+            if (
+                validated.asset_id != asset_id
+                or validated.size_bytes != record["size_bytes"]
+                or validated.mime_type != record["mime_type"]
+                or validated.family != record["family"]
+            ):
+                raise ValueError("reference_file_invalid")
+            response_inputs.append(_reference_file_to_responses_input(path, record, data=data))
+    except (FileNotFoundError, OSError, TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "reference_file_missing", "message": "A referenced file is no longer available."},
+        ) from exc
+    return normalized_records, response_inputs
+
+
+def _is_reference_file_missing_error(exc: BaseException) -> bool:
+    return (
+        isinstance(exc, HTTPException)
+        and exc.status_code == 404
+        and isinstance(exc.detail, dict)
+        and exc.detail.get("code") == "reference_file_missing"
+    )
 
 
 def _task_cancel_requested(storage: TaskStorage, task_id: str) -> bool:

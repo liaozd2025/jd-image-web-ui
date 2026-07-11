@@ -9,7 +9,7 @@ function legacyMethod(name: string, ...args: any[]) {
 }
 
 function addImages(event: any) {
-  legacyMethod("addImageFiles", event.target.files || []);
+  legacyMethod("addMixedInputFiles", event.target.files || []);
   event.target.value = "";
 }
 
@@ -17,6 +17,7 @@ function clearImages() {
   const state = getState();
   legacyMethod("revokeUploadPreviewUrls", state.images);
   state.images = [];
+  legacyMethod("clearReferenceFiles", { silent: true });
   legacyMethod("syncPromptGalleryMentionsFromInputs");
   legacyMethod("setMode", "generate");
   renderImageStrip();
@@ -42,10 +43,10 @@ function createThumbRemoveIcon() {
 function imageStripNeedsCompactGrid() {
   const state = getState();
   const els = getEls();
-  if (!els.imageUploaderGrid || !state.images.length) return false;
+  const thumbCount = state.images.length + state.referenceFiles.length;
+  if (!els.imageUploaderGrid || !thumbCount) return false;
   const availableWidth = Math.max(0, els.imageUploaderGrid.clientWidth - 24);
   if (!availableWidth) return false;
-  const thumbCount = state.images.length;
   const fullSizeThumbsWidth = thumbCount * 116 + Math.max(0, thumbCount - 1) * 10;
   const fullSizeUploadWidth = 118;
   const fullSizeUploadGap = 10;
@@ -56,8 +57,10 @@ function updateImageStripDensity() {
   const state = getState();
   const els = getEls();
   const hasImages = Boolean(state.images.length);
+  const hasInputs = Boolean(state.images.length + state.referenceFiles.length);
   const compactGrid = imageStripNeedsCompactGrid();
   els.imageUploaderGrid?.classList.toggle("has-images", hasImages);
+  els.imageUploaderGrid?.classList.toggle("has-inputs", hasInputs);
   els.imageUploaderGrid?.classList.toggle("compact-grid", compactGrid);
 }
 
@@ -73,7 +76,7 @@ function wheelDeltaInPixels(event: WheelEvent) {
 
 function handleImageStripWheel(event: WheelEvent) {
   const els = getEls();
-  const scrollTarget = els.imageUploaderGrid?.classList.contains("compact-grid") ? els.imageStrip : els.imageThumbList;
+  const scrollTarget = els.imageThumbList;
   if (!scrollTarget) return;
   const maxScrollLeft = Math.max(0, scrollTarget.scrollWidth - scrollTarget.clientWidth);
   if (!maxScrollLeft) return;
@@ -89,16 +92,16 @@ function renderImageStrip() {
   const state = getState();
   const els = getEls();
   const hasImages = Boolean(state.images.length);
-  const thumbList = els.imageThumbList || els.imageStrip;
+  const thumbItems = els.imageThumbItems;
   updateImageStripDensity();
-  if (!thumbList) return;
+  if (!thumbItems) return;
   if (!hasImages) {
-    thumbList.innerHTML = "";
+    thumbItems.innerHTML = "";
     legacyMethod("updateCustomRatioReferenceButtonState");
     return;
   }
 
-  thumbList.innerHTML = "";
+  thumbItems.innerHTML = "";
   state.images.forEach((source: any, index: number) => {
     const wrapper = document.createElement("div");
     wrapper.className = `thumb ${source.kind === "gallery" ? "gallery-thumb" : source.kind === "asset" ? "asset-thumb" : "upload-thumb"}${source.missing ? " missing-thumb" : ""}`;
@@ -173,7 +176,7 @@ function renderImageStrip() {
       editedBadge.textContent = translate("imageInput.editedBadge");
       wrapper.append(editedBadge);
     }
-    thumbList.append(wrapper);
+    thumbItems.append(wrapper);
   });
   legacyMethod("updateCustomRatioReferenceButtonState");
 }

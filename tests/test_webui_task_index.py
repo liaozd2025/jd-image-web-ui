@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sqlite3
 from tempfile import TemporaryDirectory
 import unittest
 
@@ -8,6 +9,35 @@ from codex_image.webui.task_index import RATIO_OTHER_VALUE, SQLiteTaskIndex, _en
 
 
 class WebUITaskIndexTests(unittest.TestCase):
+    def test_index_stores_reference_file_count_without_full_records(self) -> None:
+        with TemporaryDirectory() as tmp:
+            index = SQLiteTaskIndex(Path(tmp) / "tasks.db")
+            index.upsert(
+                {
+                    "task_id": "with-files",
+                    "created_at": "2026-07-11T00:00:00+00:00",
+                    "reference_file_count": 1,
+                    "reference_files": [{"id": "secret", "filename": "brief.md"}],
+                }
+            )
+            index.upsert(
+                {
+                    "task_id": "legacy",
+                    "created_at": "2026-07-10T00:00:00+00:00",
+                }
+            )
+            with sqlite3.connect(index.path) as connection:
+                connection.execute(
+                    "update task_index set summary_json = ? where task_id = ?",
+                    ('{"task_id":"legacy","created_at":"2026-07-10T00:00:00+00:00"}', "legacy"),
+                )
+
+            summaries = {task["task_id"]: task for task in index.list_summaries()}
+
+        self.assertEqual(summaries["with-files"]["reference_file_count"], 1)
+        self.assertNotIn("reference_files", summaries["with-files"])
+        self.assertEqual(summaries["legacy"]["reference_file_count"], 0)
+
     def test_index_upserts_and_lists_newest_first(self) -> None:
         with TemporaryDirectory() as tmp:
             index = SQLiteTaskIndex(Path(tmp) / "tasks.db")
@@ -91,7 +121,7 @@ class WebUITaskIndexTests(unittest.TestCase):
                     "created_at": shared_time,
                     "updated_at": shared_time,
                     "status": "failed",
-                    "mode": "generate",
+                    "mode": "animation_edit",
                     "prompt": "product packshot",
                     "params": {
                         "size": "1024x1024",
@@ -128,6 +158,7 @@ class WebUITaskIndexTests(unittest.TestCase):
             searched = index.query_history(limit=10, q="searchable")
             searched_by_task_id = index.query_history(limit=10, q="task-b")
             archived = index.query_history(limit=10, archived=True)
+            image_to_image = index.query_history(limit=10, mode="edit")
             backend = index.query_history(limit=10, backend="openai_images")
             provider = index.query_history(limit=10, provider="qian")
             prompt_mode = index.query_history(limit=10, prompt_mode="strict")
@@ -158,6 +189,7 @@ class WebUITaskIndexTests(unittest.TestCase):
         self.assertEqual([task["task_id"] for task in searched["tasks"]], ["task-b"])
         self.assertEqual([task["task_id"] for task in searched_by_task_id["tasks"]], ["task-b"])
         self.assertEqual([task["task_id"] for task in archived["tasks"]], ["task-a"])
+        self.assertEqual([task["task_id"] for task in image_to_image["tasks"]], ["task-a"])
         self.assertEqual([task["task_id"] for task in backend["tasks"]], ["task-b"])
         self.assertEqual([task["task_id"] for task in provider["tasks"]], ["task-b"])
         self.assertEqual([task["task_id"] for task in prompt_mode["tasks"]], ["task-b"])
@@ -198,6 +230,7 @@ class WebUITaskIndexTests(unittest.TestCase):
                     "task_id": "portrait",
                     "created_at": "2026-05-09T10:00:00+00:00",
                     "status": "completed",
+                    "mode": "generate",
                     "prompt": "portrait",
                     "params": {
                         "size": "1152x2048",
@@ -215,6 +248,7 @@ class WebUITaskIndexTests(unittest.TestCase):
                     "task_id": "square",
                     "created_at": "2026-05-08T10:00:00+00:00",
                     "status": "failed",
+                    "mode": "animation_edit",
                     "prompt": "square",
                     "params": {
                         "size": "1024x1024",
@@ -233,6 +267,7 @@ class WebUITaskIndexTests(unittest.TestCase):
                     "task_id": "landscape",
                     "created_at": "2026-04-07T10:00:00+00:00",
                     "status": "completed",
+                    "mode": "generate",
                     "prompt": "landscape",
                     "params": {
                         "size": "1536x864",
@@ -251,6 +286,9 @@ class WebUITaskIndexTests(unittest.TestCase):
         self.assertEqual(summary["total"], 3)
         self.assertEqual(summary["archived_total"], 1)
         self.assertEqual(summary["months"][0], {"month": "2026-05", "count": 2})
+        self.assertEqual(summary["modes"][0], {"value": "generate", "count": 2})
+        self.assertIn({"value": "generate", "count": 2}, summary["modes"])
+        self.assertIn({"value": "edit", "count": 1}, summary["modes"])
         self.assertIn({"value": "completed", "count": 2}, summary["statuses"])
         self.assertIn({"value": "9:16", "count": 1}, summary["ratios"])
         self.assertIn({"value": "portrait", "count": 1}, summary["orientations"])

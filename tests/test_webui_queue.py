@@ -188,6 +188,7 @@ class WebUIQueueTests(unittest.TestCase):
                 client_factory=lambda: fake,
                 auth_checker=lambda: True,
                 auth_settings_path=auth_settings_path,
+                api_settings_path=Path(tmp) / "api-settings.json",
                 batch_delay_seconds=0,
                 auto_start_queue=False,
             )
@@ -1309,6 +1310,140 @@ class WebUIQueueTests(unittest.TestCase):
         self.assertNotIn("orphaned_running", listed)
         self.assertEqual(queued["status"], "running")
         self.assertNotIn("orphaned_running", queued)
+    def test_queue_snapshot_prunes_running_tasks_from_inactive_response_channels(self) -> None:
+        from codex_image.webui.app import create_app
+        from codex_image.webui.settings_store import ApiSettings, AuthSettings
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            auth_settings_path = root / "auth-settings.json"
+            api_settings_path = root / "api-settings.json"
+            AuthSettings(auth_settings_path).write_source("api")
+            ApiSettings(api_settings_path).write(
+                {
+                    "base_url": "https://api.example.com/v1",
+                    "api_key": "test-api-key-responses-secret",
+                    "image_model": "gpt-image-2",
+                    "api_mode": "responses",
+                    "images_concurrency": 4,
+                }
+            )
+            app = create_app(
+                output_root=root / "tasks",
+                auth_settings_path=auth_settings_path,
+                api_settings_path=api_settings_path,
+                auth_checker=lambda: True,
+                auto_start_queue=False,
+            )
+            task = app.state.storage.create_task("generate")
+            app.state.storage.write_metadata(
+                task.task_id,
+                {
+                    "task_id": task.task_id,
+                    "created_at": "2026-07-09T09:00:00+00:00",
+                    "updated_at": "2026-07-09T09:00:00+00:00",
+                    "started_at": "2026-07-09T09:00:00+00:00",
+                    "mode": "generate",
+                    "status": "running",
+                    "prompt": "stale responses channel",
+                    "params": {"api_mode": "responses", "api_images_concurrency": 4},
+                    "requested_backend": "openai_responses",
+                    "backend": "openai_responses",
+                    "input_files": [],
+                },
+            )
+            app.state.queue_storage.write_state(
+                {
+                    "waiting": [],
+                    "running": {
+                        "api:default:5": {
+                            "task_id": task.task_id,
+                            "started_at": "2026-07-09T09:00:00+00:00",
+                            "auth_source": "api",
+                            "account_id": None,
+                        }
+                    },
+                }
+            )
+
+            response = TestClient(app).get("/api/queue")
+            queue_state = app.state.queue_storage.read_state()
+            metadata = app.state.storage.read_metadata(task.task_id)
+
+        payload = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["summary"]["channel_count"], 4)
+        self.assertEqual(payload["running"], [])
+        self.assertEqual(queue_state["running"], {})
+        self.assertEqual(metadata["status"], "failed")
+        self.assertEqual(metadata["error"], "Service restarted before this task completed.")
+    def test_queue_snapshot_keeps_active_task_on_inactive_channel(self) -> None:
+        from codex_image.webui.app import create_app
+        from codex_image.webui.settings_store import ApiSettings, AuthSettings
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            auth_settings_path = root / "auth-settings.json"
+            api_settings_path = root / "api-settings.json"
+            AuthSettings(auth_settings_path).write_source("api")
+            ApiSettings(api_settings_path).write(
+                {
+                    "base_url": "https://api.example.com/v1",
+                    "api_key": "test-api-key-responses-secret",
+                    "image_model": "gpt-image-2",
+                    "api_mode": "responses",
+                    "images_concurrency": 4,
+                }
+            )
+            app = create_app(
+                output_root=root / "tasks",
+                auth_settings_path=auth_settings_path,
+                api_settings_path=api_settings_path,
+                auth_checker=lambda: True,
+                auto_start_queue=False,
+            )
+            task = app.state.storage.create_task("generate")
+            app.state.active_task_ids.add(task.task_id)
+            app.state.storage.write_metadata(
+                task.task_id,
+                {
+                    "task_id": task.task_id,
+                    "created_at": "2026-07-09T09:00:00+00:00",
+                    "updated_at": "2026-07-09T09:00:00+00:00",
+                    "started_at": "2026-07-09T09:00:00+00:00",
+                    "mode": "generate",
+                    "status": "running",
+                    "prompt": "active responses channel",
+                    "params": {"api_mode": "responses", "api_images_concurrency": 4},
+                    "requested_backend": "openai_responses",
+                    "backend": "openai_responses",
+                    "input_files": [],
+                },
+            )
+            app.state.queue_storage.write_state(
+                {
+                    "waiting": [],
+                    "running": {
+                        "api:default:5": {
+                            "task_id": task.task_id,
+                            "started_at": "2026-07-09T09:00:00+00:00",
+                            "auth_source": "api",
+                            "account_id": None,
+                        }
+                    },
+                }
+            )
+
+            response = TestClient(app).get("/api/queue")
+            queue_state = app.state.queue_storage.read_state()
+            metadata = app.state.storage.read_metadata(task.task_id)
+
+        payload = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["summary"]["channel_count"], 4)
+        self.assertEqual([item["channel_id"] for item in payload["running"]], ["api:default:5"])
+        self.assertIn("api:default:5", queue_state["running"])
+        self.assertEqual(metadata["status"], "running")
     def test_active_running_task_stays_running(self) -> None:
         from codex_image.webui.app import create_app
 

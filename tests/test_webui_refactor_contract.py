@@ -357,6 +357,7 @@ class WebUIRefactorContractTests(unittest.TestCase):
                 ("/api/tasks/{task_id}/outputs.zip", "GET"),
                 ("/api/tasks/{task_id}/reveal-output", "POST"),
                 ("/api/tasks/{task_id}/inputs/{input_index}/thumbnail", "GET"),
+                ("/api/tasks/{task_id}/reference-files/{file_index}/download", "GET"),
                 ("/api/tasks/{task_id}/outputs/{output_index}/thumbnail", "GET"),
                 ("/api/tasks/{task_id}/outputs/{output_index}/selected", "PATCH"),
                 ("/api/tasks/{task_id}/outputs/delete-unselected", "POST"),
@@ -383,6 +384,7 @@ class WebUIRefactorContractTests(unittest.TestCase):
                 ("/api/reference-assets/recent", "GET"),
                 ("/api/reference-assets/{asset_id}", "DELETE"),
                 ("/api/reference-assets/{asset_id}/image", "GET"),
+                ("/api/reference-files/recent", "GET"),
                 ("/api/generate", "POST"),
                 ("/api/edit", "POST"),
             }

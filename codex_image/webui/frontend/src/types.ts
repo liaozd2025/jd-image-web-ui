@@ -61,6 +61,16 @@ export interface ReferenceAsset {
   missing?: boolean;
 }
 
+export interface ReferenceFileRef {
+  kind?: "upload" | "asset";
+  id?: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  family: "pdf" | "spreadsheet" | "document" | "text";
+  missing?: boolean;
+}
+
 export interface TaskParams {
   main_model?: string;
   model?: string;
@@ -104,6 +114,8 @@ export interface WebUITask {
   total_count?: number;
   gallery_refs?: GalleryRef[];
   reference_assets?: ReferenceAsset[];
+  reference_files?: ReferenceFileRef[];
+  reference_file_count?: number;
   input_sources?: Array<Record<string, unknown>>;
   last_error?: string;
   error?: string;

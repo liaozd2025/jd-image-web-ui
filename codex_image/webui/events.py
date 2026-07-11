@@ -4,14 +4,59 @@ import json
 from typing import Any, Iterable
 
 from .context import WebUIContext
+from .storage_utils import utc_now
 from .task_metadata import _gallery_item_response, _with_file_urls
 
 
+def _prune_inactive_running_channels(ctx: WebUIContext) -> None:
+    if ctx.queue_manager is None:
+        return
+    state = ctx.queue_storage.read_state()
+    running = state["running"]
+    if not running:
+        return
+    active_channel_ids = {channel.channel_id for channel in ctx.queue_manager.channels}
+    active_auth_sources = {channel.auth_source for channel in ctx.queue_manager.channels}
+    stale_channel_ids: list[str] = []
+    for channel_id, item in running.items():
+        if channel_id in active_channel_ids:
+            continue
+        if not str(channel_id).rsplit(":", 1)[-1].isdigit():
+            continue
+        if isinstance(item, dict):
+            if str(item.get("auth_source") or "") not in active_auth_sources:
+                continue
+            task_id = str(item.get("task_id") or "")
+            if task_id and task_id in ctx.active_task_ids:
+                continue
+            if task_id and ctx.storage.metadata_path(task_id).exists():
+                metadata = ctx.storage.read_metadata(task_id)
+                if metadata.get("status") == "running":
+                    message = "Service restarted before this task completed."
+                    metadata["status"] = "failed"
+                    metadata["updated_at"] = utc_now()
+                    metadata["error"] = message
+                    metadata["last_error"] = message
+                    metadata.pop("request", None)
+                    ctx.storage.write_metadata(task_id, metadata)
+        stale_channel_ids.append(str(channel_id))
+    for channel_id in stale_channel_ids:
+        ctx.queue_storage.clear_running(channel_id)
+
+
 def queue_snapshot(ctx: WebUIContext) -> dict[str, Any]:
+    _prune_inactive_running_channels(ctx)
     state = ctx.queue_storage.read_state()
     active_ids = ctx.route_helpers["visible_running_task_ids"]()
     waiting = [
-        _with_file_urls(task, active_ids, ctx.gallery_storage, ctx.reference_asset_storage, include_request=False)
+        _with_file_urls(
+            task,
+            active_ids,
+            ctx.gallery_storage,
+            ctx.reference_asset_storage,
+            ctx.reference_file_storage,
+            include_request=False,
+        )
         for task in (ctx.storage.read_metadata(task_id) for task_id in state["waiting"] if ctx.storage.metadata_path(task_id).exists())
     ]
     running = []
@@ -24,6 +69,7 @@ def queue_snapshot(ctx: WebUIContext) -> dict[str, Any]:
             active_ids,
             ctx.gallery_storage,
             ctx.reference_asset_storage,
+            ctx.reference_file_storage,
             include_request=False,
         )
         task["channel_id"] = channel_id
@@ -79,6 +125,7 @@ def task_event(ctx: WebUIContext, task_id: str) -> dict[str, Any] | None:
             ctx.route_helpers["visible_running_task_ids"](),
             ctx.gallery_storage,
             ctx.reference_asset_storage,
+            ctx.reference_file_storage,
             include_request=False,
         ),
     }

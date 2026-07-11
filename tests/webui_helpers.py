@@ -32,6 +32,44 @@ class FakeImageClient:
         return ImageResult(b"edited", "revised edit", "png", kwargs["size"], "auto", kwargs["quality"], {})
 
 
+class CapturingResponsesClient(FakeImageClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.reference_file_lists: list[list[Any]] = []
+        self.reference_file_snapshots: list[list[Any]] = []
+
+    def _capture_reference_files(self, kwargs: dict[str, Any]) -> None:
+        reference_files = kwargs.get("reference_files")
+        if not isinstance(reference_files, list):
+            return
+        self.reference_file_lists.append(reference_files)
+        self.reference_file_snapshots.append(list(reference_files))
+
+    def generate_image(self, **kwargs: Any):
+        self._capture_reference_files(kwargs)
+        return super().generate_image(**kwargs)
+
+    def edit_image(self, **kwargs: Any):
+        self._capture_reference_files(kwargs)
+        return super().edit_image(**kwargs)
+
+
+class RejectingResponsesClient(CapturingResponsesClient):
+    def __init__(self, error: Exception) -> None:
+        super().__init__()
+        self.error = error
+
+    def generate_image(self, **kwargs: Any):
+        self._capture_reference_files(kwargs)
+        self.generate_calls.append(kwargs)
+        raise self.error
+
+    def edit_image(self, **kwargs: Any):
+        self._capture_reference_files(kwargs)
+        self.edit_calls.append(kwargs)
+        raise self.error
+
+
 class CapturingApiImageClient(FakeImageClient):
     instances: list["CapturingApiImageClient"] = []
 
@@ -131,6 +169,10 @@ class ConcurrentApiImageClient(CapturingApiImageClient):
     def edit_images(self, **kwargs: Any):
         self.edit_images_calls.append(kwargs)
         raise AssertionError("direct Images API should issue separate single-image requests")
+
+
+class ConcurrentApiResponsesImageClient(ConcurrentApiImageClient):
+    instances: list["ConcurrentApiResponsesImageClient"] = []
 
 
 class BlockingConcurrentApiImageClient(CapturingApiImageClient):

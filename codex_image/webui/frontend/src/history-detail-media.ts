@@ -1,4 +1,5 @@
 import { formatTranslation, translate } from "./i18n";
+import { referenceFileIconSvgMarkup } from "./reference-file-icons";
 import { escapeHtml } from "./webui-utils";
 
 export type HistoryOutputRecord = {
@@ -14,6 +15,15 @@ type HistoryInputRecord = {
   url: string;
   thumbnailUrl: string;
   label: string;
+};
+
+type HistoryReferenceFileRecord = {
+  id: string;
+  filename: string;
+  sizeBytes: number;
+  family: "pdf" | "spreadsheet" | "document" | "text";
+  downloadUrl: string;
+  missing: boolean;
 };
 
 function positiveInt(value: unknown): number | null {
@@ -179,27 +189,29 @@ function historyDetailImageHtml(
   const revisedPrompt = outputRevisedPromptHtml(taskId, record, index);
   return `
     <article class="history-detail-image history-detail-output-card${selectedClass}">
-      <button
-        class="history-detail-image-preview history-detail-output-preview"
-        type="button"
-        data-history-lightbox-url="${escapeHtml(record.url)}"
-        data-history-lightbox-index="${index}"
-        aria-label="${escapeHtml(translate("history.openPreview"))}"
-      >
-        ${outputBadge}
-        <img src="${escapeHtml(record.url)}" alt="" loading="lazy" decoding="async">
-      </button>
-      <div class="history-detail-image-actions" aria-label="${escapeHtml(translate("history.outputActions"))}">
+      <div class="history-detail-image-media">
         <button
-          class="history-detail-overlay-button"
+          class="history-detail-image-preview history-detail-output-preview"
           type="button"
-          aria-pressed="${record.selected ? "true" : "false"}"
-          data-history-output-selected-task-id="${escapeHtml(taskId)}"
-          data-history-output-selected-index="${record.index}"
-        >${selectedText}</button>
-        <a class="history-detail-overlay-button" href="${escapeHtml(record.url)}" download>${escapeHtml(formatTranslation("history.downloadIndex", { index: index + 1 }))}</a>
-        <button class="history-detail-overlay-button primary" type="button" data-history-reference-handoff-url="${escapeHtml(record.url)}">${escapeHtml(translate("history.addReference"))}</button>
-        ${selectedCount === 1 && record.selected ? `<a class="history-detail-overlay-button" href="${escapeHtml(record.url)}" download>${escapeHtml(translate("history.downloadSelected"))}</a>` : ""}
+          data-history-lightbox-url="${escapeHtml(record.url)}"
+          data-history-lightbox-index="${index}"
+          aria-label="${escapeHtml(translate("history.openPreview"))}"
+        >
+          ${outputBadge}
+          <img src="${escapeHtml(record.url)}" alt="" loading="lazy" decoding="async">
+        </button>
+        <div class="history-detail-image-actions" aria-label="${escapeHtml(translate("history.outputActions"))}">
+          <button
+            class="history-detail-overlay-button"
+            type="button"
+            aria-pressed="${record.selected ? "true" : "false"}"
+            data-history-output-selected-task-id="${escapeHtml(taskId)}"
+            data-history-output-selected-index="${record.index}"
+          >${selectedText}</button>
+          <a class="history-detail-overlay-button" href="${escapeHtml(record.url)}" download>${escapeHtml(formatTranslation("history.downloadIndex", { index: index + 1 }))}</a>
+          <button class="history-detail-overlay-button primary" type="button" data-history-reference-handoff-url="${escapeHtml(record.url)}">${escapeHtml(translate("history.addReference"))}</button>
+          ${selectedCount === 1 && record.selected ? `<a class="history-detail-overlay-button" href="${escapeHtml(record.url)}" download>${escapeHtml(translate("history.downloadSelected"))}</a>` : ""}
+        </div>
       </div>
       ${revisedPrompt}
     </article>
@@ -233,6 +245,62 @@ export function historyInputReferencesHtml(task: any): string {
       <div class="history-detail-inputs-list">${thumbs}</div>
     </section>
   `;
+}
+
+function referenceFileSize(sizeBytes: number): string {
+  if (sizeBytes < 1024) return `${sizeBytes} B`;
+  if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(sizeBytes < 10 * 1024 ? 1 : 0)} KB`;
+  return `${(sizeBytes / (1024 * 1024)).toFixed(sizeBytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+}
+
+function referenceFileFamilyLabel(family: HistoryReferenceFileRecord["family"]): string {
+  if (family === "pdf") return translate("referenceFiles.familyPdf");
+  if (family === "spreadsheet") return translate("referenceFiles.familySpreadsheet");
+  if (family === "document") return translate("referenceFiles.familyDocument");
+  return translate("referenceFiles.familyText");
+}
+
+function referenceFileDownloadUrl(taskId: unknown, index: number): string {
+  const normalizedTaskId = String(taskId || "").trim();
+  if (!normalizedTaskId || !Number.isInteger(index) || index < 0) return "";
+  return `/api/tasks/${encodeURIComponent(normalizedTaskId)}/reference-files/${index + 1}/download`;
+}
+
+function referenceFileRowHtml(file: any, taskId: unknown, index: number): string {
+  const assetId = String(file?.id || file?.reference_file_id || "");
+  const validAssetId = /^[0-9a-f]{64}$/.test(assetId);
+  const record: HistoryReferenceFileRecord = {
+    id: validAssetId ? assetId : "",
+    filename: String(file?.filename || translate("referenceFiles.missing")),
+    sizeBytes: Math.max(0, Number(file?.size_bytes || 0)),
+    family: ["pdf", "spreadsheet", "document", "text"].includes(file?.family) ? file.family : "text",
+    downloadUrl: validAssetId && !file?.missing ? referenceFileDownloadUrl(taskId, index) : "",
+    missing: Boolean(file?.missing || !validAssetId),
+  };
+  const meta = `${referenceFileSize(record.sizeBytes)} · ${referenceFileFamilyLabel(record.family)}`;
+  const status = record.missing
+    ? `<span class="history-reference-file-missing" role="status"><span aria-hidden="true">!</span>${escapeHtml(translate("referenceFiles.missing"))}</span>`
+    : `<span class="history-reference-file-actions">
+        ${record.downloadUrl ? `<a class="ghost-button text-sm" href="${escapeHtml(record.downloadUrl)}" download aria-label="${escapeHtml(`${translate("history.downloadReferenceFile")} ${record.filename}`)}">${escapeHtml(translate("history.downloadReferenceFile"))}</a>` : ""}
+        <button class="ghost-button text-sm" type="button" data-history-reference-file-id="${record.id}" aria-label="${escapeHtml(`${translate("history.readdReferenceFile")} ${record.filename}`)}">${escapeHtml(translate("history.readdReferenceFile"))}</button>
+      </span>`;
+  return `<div class="history-reference-file-row${record.missing ? " is-missing" : ""}">
+    <span class="history-reference-file-icon" aria-hidden="true">${referenceFileIconSvgMarkup(record.filename)}</span>
+    <span class="history-reference-file-copy">
+      <span class="history-reference-file-name" title="${escapeHtml(record.filename)}">${escapeHtml(record.filename)}</span>
+      <span class="history-reference-file-meta">${escapeHtml(meta)}</span>
+    </span>
+    ${status}
+  </div>`;
+}
+
+export function historyReferenceFilesHtml(task: any): string {
+  const files = Array.isArray(task?.reference_files) ? task.reference_files : [];
+  if (!files.length) return "";
+  return `<section class="history-detail-reference-files" aria-label="${escapeHtml(translate("history.referenceFiles"))}">
+    <div class="history-detail-inputs-header"><h3>${escapeHtml(translate("history.referenceFiles"))}</h3><span>${files.length}</span></div>
+    <div class="history-detail-reference-file-list">${files.map((file: any, index: number) => referenceFileRowHtml(file, task?.task_id, index)).join("")}</div>
+  </section>`;
 }
 
 export function historyLightboxUrlsFromTask(task: any): string[] {

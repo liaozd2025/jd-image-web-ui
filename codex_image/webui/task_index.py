@@ -31,6 +31,7 @@ SUMMARY_KEYS = {
     "mask_file",
     "gallery_refs",
     "reference_assets",
+    "reference_file_count",
     "generated_count",
     "failed_count",
     "total_count",
@@ -317,6 +318,7 @@ class SQLiteTaskIndex:
             except json.JSONDecodeError:
                 continue
             if isinstance(summary, dict):
+                summary["reference_file_count"] = _nonnegative_int(summary.get("reference_file_count"))
                 summaries.append(summary)
         return summaries
 
@@ -342,6 +344,7 @@ class SQLiteTaskIndex:
         cursor: str | None = None,
         q: str = "",
         month: str = "",
+        mode: str = "",
         status: str = "",
         prompt_mode: str = "",
         size: str = "",
@@ -362,6 +365,13 @@ class SQLiteTaskIndex:
         if month:
             where.append("month_key = ?")
             params.append(month)
+        if mode == "generate":
+            where.append("mode = 'generate'")
+        elif mode == "edit":
+            where.append("mode != '' and mode != 'generate'")
+        elif mode:
+            where.append("mode = ?")
+            params.append(mode)
         if status:
             where.append("status = ?")
             params.append(status)
@@ -471,6 +481,7 @@ class SQLiteTaskIndex:
             total = int(connection.execute("select count(*) from task_index").fetchone()[0])
             archived_total = int(connection.execute("select count(*) from task_index where archived_at != ''").fetchone()[0])
             months = _count_rows(connection, "month_key", "month_key != ''", order_by="month_key desc")
+            modes = _mode_count_rows(connection)
             statuses = _count_rows(connection, "status", "status != ''")
             prompt_modes = _count_rows(connection, "prompt_mode", "prompt_mode != ''")
             sizes = _count_rows(connection, "size", "size != ''")
@@ -483,6 +494,7 @@ class SQLiteTaskIndex:
             "total": total,
             "archived_total": archived_total,
             "months": [{"month": item["value"], "count": item["count"]} for item in months],
+            "modes": modes,
             "statuses": statuses,
             "prompt_modes": prompt_modes,
             "sizes": sizes,
@@ -513,6 +525,7 @@ class SQLiteTaskIndex:
 
 def _summary_for_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     summary = {key: metadata[key] for key in SUMMARY_KEYS if key in metadata}
+    summary["reference_file_count"] = _nonnegative_int(metadata.get("reference_file_count"))
     params = summary.get("params")
     request_payload = metadata.get("request")
     if isinstance(params, dict) and not params.get("main_model") and isinstance(request_payload, dict) and request_payload.get("model"):
@@ -799,6 +812,19 @@ def _history_row_response(row: sqlite3.Row) -> dict[str, Any]:
 def _count_rows(connection: sqlite3.Connection, column: str, where: str, *, order_by: str = "count(*) desc, value") -> list[dict[str, Any]]:
     rows = connection.execute(
         f"select {column} as value, count(*) as count from task_index where {where} group by {column} order by {order_by}"
+    ).fetchall()
+    return [{"value": str(row["value"]), "count": int(row["count"])} for row in rows]
+
+
+def _mode_count_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        """
+        select case when mode = 'generate' then 'generate' else 'edit' end as value, count(*) as count
+        from task_index
+        where mode != ''
+        group by value
+        order by case value when 'generate' then 0 else 1 end
+        """
     ).fetchall()
     return [{"value": str(row["value"]), "count": int(row["count"])} for row in rows]
 

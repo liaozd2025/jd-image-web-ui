@@ -57,6 +57,8 @@ const taskRetryStateText = (...args: any[]) => legacyMethod("taskRetryStateText"
 const taskCardRetryStateText = (...args: any[]) => legacyMethod("taskCardRetryStateText", ...args);
 const taskDurationText = (...args: any[]) => legacyMethod("taskDurationText", ...args);
 const taskRuntimeText = (...args: any[]) => legacyMethod("taskRuntimeText", ...args);
+const taskProgressStartValue = (...args: any[]) => legacyMethod("taskProgressStartValue", ...args);
+const elapsedTimerSpan = (...args: any[]) => legacyMethod("elapsedTimerSpan", ...args);
 const taskCompletionTimestampText = (...args: any[]) => legacyMethod("taskCompletionTimestampText", ...args);
 const taskCompletionTimestampTitle = (...args: any[]) => legacyMethod("taskCompletionTimestampTitle", ...args);
 const timestampMs = (...args: any[]) => legacyMethod("timestampMs", ...args);
@@ -716,19 +718,25 @@ function taskCardHtml(task: any) {
   const unreadClass = unread ? " unread" : "";
   const statusClass = task.status ? ` ${escapeHtml(task.status)}` : "";
   const title = escapeHtml(task.prompt || task.mode || "Untitled");
+  const taskId = escapeHtml(task.task_id);
   const showImageSummary = taskImageSummaryVisible(task);
   const imageBlocks = showImageSummary ? taskImageBlocksHtml(task) : "";
   const imageSummary = showImageSummary ? escapeHtml(taskImageSummaryText(task)) : "";
   const imageSummaryHtml = imageSummary ? `<span class="task-image-summary">${imageSummary}</span>` : "";
   const retryFullText = taskRetryStateText(task);
   const retryText = taskCardRetryStateText(task) || retryFullText;
+  const runningTimerHtml = taskCardRunningTimerHtml(task, taskId);
   const statusLabel = taskStatusLabelHtml(task);
-  const statusMeta = escapeHtml(retryText ? taskMetaDetailsWithCompletionText(task) : taskMetaDetailsText(task));
+  const statusMetaText = runningTimerHtml && retryText
+    ? [taskMetaDetailsText(task), retryText].filter(Boolean).join(" · ")
+    : retryText
+      ? taskMetaDetailsWithCompletionText(task)
+      : taskMetaDetailsText(task);
+  const statusMeta = escapeHtml(statusMetaText);
   const taskTime = taskCardCompletionTimeText(task);
   const runtime = taskCardRuntimeText(task);
   const runtimeFullText = taskRuntimeText(task);
   const completionTitle = taskCompletionTimestampTitle(task);
-  const taskId = escapeHtml(task.task_id);
   const runtimeTitleText = [runtimeFullText, completionTitle].filter(Boolean).join(" · ");
   const runtimeTitle = runtimeTitleText ? ` title="${escapeHtml(runtimeTitleText)}"` : "";
   const runtimeHtml = runtime ? `<span class="task-runtime" data-task-runtime-id="${taskId}" data-task-completed-at-id="${taskId}"${runtimeTitle}>${escapeHtml(runtime)}</span>` : "";
@@ -742,9 +750,9 @@ function taskCardHtml(task: any) {
           </span>
     ` : "";
   const retryTitle = retryFullText && retryFullText !== retryText ? ` title="${escapeHtml(retryFullText)}"` : "";
-  const retryHtml = retryText ? `<span class="task-retry-state" data-task-retry-id="${taskId}"${retryTitle}>${escapeHtml(retryText)}</span>` : "";
+  const retryHtml = !runningTimerHtml && retryText ? `<span class="task-retry-state" data-task-retry-id="${taskId}"${retryTitle}>${escapeHtml(retryText)}</span>` : "";
   const timeHtml = !retryText && taskTime ? `<span class="task-card-time">${escapeHtml(taskTime)}</span>` : "";
-  const detailRightHtml = retryHtml || timeHtml;
+  const detailRightHtml = runningTimerHtml || retryHtml || timeHtml;
   const detailRowClass = detailRightHtml ? "task-detail-row" : "task-detail-row task-detail-row-meta-only";
   const detailRow = statusMeta || detailRightHtml ? `
         <div class="${detailRowClass}">
@@ -1046,6 +1054,22 @@ function taskMetaDetailsWithCompletionText(task: any) {
 function taskCardCompletionTimeText(task: any) {
   const completion = taskCompletionTimestampText(task);
   return completion?.shortText || "";
+}
+
+function taskCardElapsedLineHtml(key: string, values: Record<string, any>, elapsedHtml: string) {
+  const marker = "__TASK_CARD_ELAPSED_TIMER__";
+  return formatTranslation(key, { ...values, elapsed: marker })
+    .split(marker)
+    .map((part: string) => escapeHtml(part))
+    .join(elapsedHtml);
+}
+
+function taskCardRunningTimerHtml(task: any, taskId: string) {
+  if (task?.status !== "running") return "";
+  const startedAt = taskProgressStartValue(task);
+  if (!startedAt) return "";
+  const elapsed = elapsedTimerSpan("task-card-running", startedAt);
+  return `<span class="task-card-time task-card-running-timer" data-task-running-timer-id="${taskId}">${taskCardElapsedLineHtml("preview.elapsedLine", {}, elapsed)}</span>`;
 }
 
 function taskCardProviderLabel(task: any) {

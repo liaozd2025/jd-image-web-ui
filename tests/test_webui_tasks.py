@@ -72,7 +72,7 @@ class WebUITaskTests(unittest.TestCase):
                     "created_at": "2026-05-10T10:10:10+00:00" if index < 2 else "2026-04-09T10:10:10+00:00",
                     "updated_at": "2026-05-10T10:11:10+00:00" if index < 2 else "2026-04-09T10:11:10+00:00",
                     "status": "completed" if index != 1 else "failed",
-                    "mode": "generate",
+                    "mode": "generate" if index == 0 else "edit",
                     "prompt": "green portrait searchable" if index == 0 else "square product",
                     "prompt_for_model": "expanded hidden searchable text" if index == 0 else "",
                     "params": {
@@ -99,6 +99,7 @@ class WebUITaskTests(unittest.TestCase):
             second = client.get("/api/task-history/tasks", params={"month": "2026-05", "limit": 2, "cursor": first["next_cursor"]}).json()
             visible = client.get("/api/task-history/tasks", params={"month": "2026-05", "limit": 10, "archived": "false"}).json()
             searched = client.get("/api/task-history/tasks", params={"q": "hidden searchable", "limit": 10}).json()
+            image_to_image = client.get("/api/task-history/tasks", params={"mode": "edit", "limit": 10}).json()
             backend = client.get("/api/task-history/tasks", params={"backend": "openai_images", "limit": 10}).json()
             provider = client.get("/api/task-history/tasks", params={"provider": "openai", "limit": 10}).json()
             prompt_mode = client.get("/api/task-history/tasks", params={"prompt_mode": "strict", "limit": 10}).json()
@@ -120,12 +121,18 @@ class WebUITaskTests(unittest.TestCase):
         self.assertEqual(summary["total"], 3)
         self.assertEqual(summary["archived_total"], 1)
         self.assertEqual(summary["months"][0], {"month": "2026-05", "count": 2})
+        self.assertIn({"value": "generate", "count": 1}, summary["modes"])
+        self.assertIn({"value": "edit", "count": 2}, summary["modes"])
         self.assertEqual([task["task_id"] for task in first["tasks"]], ["20260510101010-bbbbbbbb"])
         self.assertIsNotNone(first["next_cursor"])
         self.assertEqual([task["task_id"] for task in second["tasks"]], ["20260510101010-aaaaaaaa"])
         self.assertIsNone(second["next_cursor"])
         self.assertEqual([task["task_id"] for task in visible["tasks"]], ["20260510101010-bbbbbbbb"])
         self.assertEqual([task["task_id"] for task in searched["tasks"]], ["20260510101010-bbbbbbbb"])
+        self.assertEqual(
+            [task["task_id"] for task in image_to_image["tasks"]],
+            ["20260510101010-aaaaaaaa", "20260409101010-cccccccc"],
+        )
         self.assertIn({"value": "openai", "count": 1}, summary["providers"])
         self.assertIn({"value": "strict", "count": 1}, summary["prompt_modes"])
         self.assertIn({"value": "1152x2048", "count": 1}, summary["sizes"])

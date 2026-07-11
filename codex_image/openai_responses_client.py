@@ -8,8 +8,13 @@ from .client_types import (
     DEFAULT_IMAGE_MODEL,
     DEFAULT_MAIN_MODEL,
     DEFAULT_OPENAI_API_BASE_URL,
+    OPENAI_COMPATIBLE_USER_AGENT,
     ImageResult,
+    ResponsesInputFile,
+    ResponsesRequestError,
+    _collect_responses_file_data_values,
     image_model_supports_input_fidelity,
+    safe_responses_error_message,
 )
 from .codex_responses_client import CodexImageClient
 from .http import Transport, UrllibTransport
@@ -41,6 +46,7 @@ class OpenAIResponsesImageClient:
         main_model: str = DEFAULT_MAIN_MODEL,
         model: str | None = None,
         reference_images: list[str] | None = None,
+        reference_files: list[ResponsesInputFile] | None = None,
         size: str | None = None,
         quality: str | None = None,
         background: str | None = None,
@@ -59,6 +65,7 @@ class OpenAIResponsesImageClient:
             main_model=main_model,
             model=model,
             input_images=reference_images or [],
+            input_files=reference_files,
             size=size,
             quality=quality,
             background=background,
@@ -75,6 +82,7 @@ class OpenAIResponsesImageClient:
         *,
         prompt: str,
         images: list[str],
+        reference_files: list[ResponsesInputFile] | None = None,
         mask_image: str | None = None,
         instructions: str | None = None,
         main_model: str = DEFAULT_MAIN_MODEL,
@@ -100,6 +108,7 @@ class OpenAIResponsesImageClient:
             main_model=main_model,
             model=model,
             input_images=images,
+            input_files=reference_files,
             mask_image=mask_image,
             size=size,
             quality=quality,
@@ -122,6 +131,7 @@ class OpenAIResponsesImageClient:
         main_model: str = DEFAULT_MAIN_MODEL,
         model: str | None = None,
         input_images: list[str] | None = None,
+        input_files: list[ResponsesInputFile] | None = None,
         mask_image: str | None = None,
         size: str | None = None,
         quality: str | None = None,
@@ -157,9 +167,11 @@ class OpenAIResponsesImageClient:
         if mask_image:
             tool["input_image_mask"] = {"image_url": mask_image}
 
-        content: list[dict[str, str]] = [{"type": "input_text", "text": prompt}]
+        content: list[dict[str, Any]] = [{"type": "input_text", "text": prompt}]
         for image_url in input_images or []:
             content.append({"type": "input_image", "image_url": image_url})
+        for input_file in input_files or []:
+            content.append(input_file.to_content_part())
 
         tools: list[dict[str, Any]] = [tool]
         tool_choice: Any = {"type": "image_generation"}
@@ -204,11 +216,18 @@ class OpenAIResponsesImageClient:
             body=body,
         )
         if response.status < 200 or response.status >= 300:
-            raise RuntimeError(
-                "OpenAI-compatible responses request failed: "
-                f"HTTP {response.status}: {response.body.decode('utf-8', errors='replace')}"
+            body_text = response.body.decode("utf-8", errors="replace")
+            raise ResponsesRequestError(
+                safe_responses_error_message(response.status, body_text),
+                status=response.status,
+                body=body_text,
+                sensitive_values=_collect_responses_file_data_values(payload),
             )
-        return self.parse_sse_response(response.body, debug_sse_path=debug_sse_path)
+        return self.parse_sse_response(
+            response.body,
+            debug_sse_path=debug_sse_path,
+            sensitive_values=_collect_responses_file_data_values(payload),
+        )
 
     @staticmethod
     def _json_request_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -219,6 +238,7 @@ class OpenAIResponsesImageClient:
             "Content-Type": "application/json",
             "Accept": "text/event-stream",
             "Authorization": f"Bearer {self.api_key}",
+            "User-Agent": OPENAI_COMPATIBLE_USER_AGENT,
         }
 
     parse_sse_response = CodexImageClient.parse_sse_response
@@ -243,5 +263,21 @@ class OpenAIResponsesImageClient:
         return CodexImageClient._extract_image_call(output)
 
     @staticmethod
-    def _write_sse_debug_event(path: str | PathLike[str], event: dict[str, Any]) -> None:
-        CodexImageClient._write_sse_debug_event(path, event)
+    def _format_missing_image_call_error(output: Any) -> str:
+        message = CodexImageClient._extract_output_failure_message(output)
+        if message:
+            return f"OpenAI-compatible responses image generation failed: {message}"
+        return "OpenAI-compatible responses completed without image_generation_call output"
+
+    @staticmethod
+    def _write_sse_debug_event(
+        path: str | PathLike[str],
+        event: dict[str, Any],
+        *,
+        sensitive_values: set[str] | None = None,
+    ) -> None:
+        CodexImageClient._write_sse_debug_event(
+            path,
+            event,
+            sensitive_values=sensitive_values,
+        )

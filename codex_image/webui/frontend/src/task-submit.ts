@@ -58,7 +58,55 @@ function startRunFeedback(...args: any[]) { return legacyMethod("startRunFeedbac
 function stopRunFeedback(...args: any[]) { return legacyMethod("stopRunFeedback", ...args); }
 function markPendingTaskFailed(...args: any[]) { return legacyMethod("markPendingTaskFailed", ...args); }
 function refreshRecentAssets(...args: any[]) { return legacyMethod("refreshRecentAssets", ...args); }
+function referenceFileUploads(...args: any[]) { return legacyMethod("referenceFileUploads", ...args); }
+function storedReferenceFileInputs(...args: any[]) { return legacyMethod("storedReferenceFileInputs", ...args); }
+function missingReferenceFileInputs(...args: any[]) { return legacyMethod("missingReferenceFileInputs", ...args); }
 function renderPreview(...args: any[]) { return legacyMethod("renderPreview", ...args); }
+
+const REFERENCE_FILE_ERROR_KEYS: Record<string, string> = {
+  reference_file_empty: "referenceFiles.errorEmpty",
+  reference_file_type_unsupported: "referenceFiles.errorUnsupported",
+  reference_file_type_mismatch: "referenceFiles.errorMismatch",
+  reference_file_invalid: "referenceFiles.errorInvalid",
+  reference_file_too_large: "referenceFiles.errorTooLarge",
+  reference_files_total_too_large: "referenceFiles.errorTotalTooLarge",
+  reference_file_missing: "referenceFiles.errorMissing",
+  reference_files_require_responses: "referenceFiles.requiresResponses",
+  provider_reference_files_unsupported: "referenceFiles.errorProviderUnsupported",
+};
+
+function apiErrorMessage(detail: unknown, fallback: string): string {
+  if (typeof detail === "string" && detail) return detail;
+  if (detail && typeof detail === "object" && "message" in detail) return String((detail as any).message || fallback);
+  return fallback;
+}
+
+function sanitizedApiMessage(detail: unknown, fallback: string): string {
+  return apiErrorMessage(detail, fallback).replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 500) || fallback;
+}
+
+function responseErrorMessage(detail: unknown): string {
+  const fallback = translate("taskSubmit.requestFailed");
+  const code = typeof detail === "string"
+    ? detail
+    : detail && typeof detail === "object" && "code" in detail
+      ? String((detail as any).code || "")
+      : "";
+  const localeKey = REFERENCE_FILE_ERROR_KEYS[code];
+  return localeKey ? translate(localeKey) : sanitizedApiMessage(detail, fallback);
+}
+
+function referenceFileMetadata(source: any) {
+  return {
+    ...(source.kind === "asset" && source.id ? { id: source.id } : {}),
+    kind: source.kind,
+    filename: source.filename,
+    mime_type: source.mime_type,
+    size_bytes: source.size_bytes,
+    family: source.family,
+    missing: Boolean(source.missing),
+  };
+}
 
 function applyTaskToForm(task: any) {
   const params = task.params || {};
@@ -105,6 +153,8 @@ function buildPreviewRequest() {
   const uploads = uploadInputs();
   const galleries = galleryInputs();
   const assets = referenceAssetInputs();
+  const fileUploads = referenceFileUploads();
+  const storedFiles = storedReferenceFileInputs();
   const authSource = currentAuthSource();
   const isApi = authSource === "api";
   const isCodex = authSource === "codex";
@@ -128,6 +178,8 @@ function buildPreviewRequest() {
     images: uploads.map((source: any) => source.name),
     gallery_image_ids: galleries.map((source: any) => source.id),
     reference_asset_ids: assets.map((source: any) => source.id),
+    reference_files: fileUploads.map((source: any) => source.filename),
+    reference_file_ids: storedFiles.map((source: any) => source.id),
   };
   if (isApi) {
     const apiMode = currentApiMode();
@@ -205,6 +257,7 @@ function createPendingTask() {
   const localInputFiles = state.images.slice();
   const previewSource = localInputFiles[0];
   const request = buildPreviewRequest();
+  const localReferenceFiles = state.referenceFiles.map(referenceFileMetadata);
   return {
     task_id: taskId,
     local_pending: true,
@@ -223,6 +276,8 @@ function createPendingTask() {
     gallery_refs: localInputFiles.filter((source: any) => source.kind === "gallery"),
     input_sources: localInputFiles,
     local_input_files: localInputFiles,
+    reference_files: localReferenceFiles,
+    local_reference_files: localReferenceFiles,
     preview_url: sourcePreviewUrl(previewSource),
     request,
   };
@@ -240,12 +295,18 @@ async function runTask() {
   const uploads = uploadInputs();
   const galleries = galleryInputs();
   const assets = referenceAssetInputs();
+  const fileUploads = referenceFileUploads();
+  const storedFiles = storedReferenceFileInputs();
   if (missingGalleryInputs().length) {
     setStatus(translate("status.missingGalleryReference"), "error");
     return;
   }
   if (missingReferenceAssetInputs().length) {
     setStatus(translate("status.missingRecentReference"), "error");
+    return;
+  }
+  if (missingReferenceFileInputs().length) {
+    setStatus(translate("referenceFiles.errorMissing"), "error");
     return;
   }
   if (!prompt) {
@@ -291,6 +352,8 @@ async function runTask() {
   }
   galleries.forEach((source: any) => form.append("gallery_image_ids", source.id));
   assets.forEach((source: any) => form.append("reference_asset_ids", source.id));
+  fileUploads.forEach((source: any) => form.append("reference_files", source.file));
+  storedFiles.forEach((source: any) => form.append("reference_file_ids", source.id));
 
   if (state.mode === "generate") {
     uploads.forEach((source: any) => form.append("reference_images", source.file));
@@ -316,7 +379,7 @@ async function runTask() {
     });
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.detail || translate("taskSubmit.requestFailed"));
+      throw new Error(responseErrorMessage(data.detail));
     }
     addQueuedTask(data.task);
     if (els.requestJson) {

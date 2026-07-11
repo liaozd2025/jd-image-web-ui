@@ -11,6 +11,12 @@ import { refreshHealth } from "./auth-source";
 import { updateModeSpecificSettings } from "./api-mode-settings";
 import { formatTranslation, translate } from "./i18n";
 import { closeSystemSettingsModal, openSystemSettingsModal } from "./system-settings";
+import { resetApiAdvancedSettings } from "./api-advanced-settings";
+import {
+  apiProviderMatchesSearch,
+  scrollActiveApiProviderCardIntoView,
+  updateApiProviderListPresentation,
+} from "./api-provider-list-ui";
 
 const bridge = getLegacyBridge();
 const state = bridge.state;
@@ -64,6 +70,30 @@ function providerById(providerId: any, settings: any = state.apiSettings): any {
 
 function providerMode(provider: any): string {
   return provider?.api_mode === "responses" ? "responses" : DEFAULT_API_MODE;
+}
+
+function apiBaseUrlForEndpoint(value: any): string {
+  const withoutQueryOrFragment = String(value || DEFAULT_API_BASE_URL).trim().split(/[?#]/, 1)[0] || "";
+  let baseUrl = withoutQueryOrFragment.replace(/\/+$/, "") || DEFAULT_API_BASE_URL;
+  for (const suffix of ["/responses", "/images/generations", "/images/edits"]) {
+    if (!baseUrl.endsWith(suffix)) continue;
+    baseUrl = baseUrl.slice(0, -suffix.length).replace(/\/+$/, "");
+    break;
+  }
+  return baseUrl || DEFAULT_API_BASE_URL;
+}
+
+export function updateApiRequestEndpointPreview(): void {
+  if (!els.apiRequestEndpointPreview) return;
+  const provider = state.apiProviderDraft || activeApiProvider();
+  const baseUrl = apiBaseUrlForEndpoint(els.apiBaseUrl?.value || provider?.base_url);
+  const mode = els.apiMode?.value || providerMode(provider);
+  const endpoint = mode === "responses"
+    ? "/responses"
+    : state.mode === "edit" ? "/images/edits" : "/images/generations";
+  const preview = `POST ${baseUrl}${endpoint}`;
+  els.apiRequestEndpointPreview.textContent = preview;
+  els.apiRequestEndpointPreview.title = preview;
 }
 
 function providerHasApiKey(provider: any): boolean {
@@ -158,6 +188,9 @@ function scrollApiProviderEditorIntoView(): void {
 
 function setApiProviderEditorVisible(visible: boolean): void {
   els.apiProviderSection?.classList.toggle("editing", visible);
+  els.apiProviderSection?.setAttribute("aria-hidden", visible ? "true" : "false");
+  if (visible) els.apiProviderSection?.setAttribute("inert", "");
+  else els.apiProviderSection?.removeAttribute("inert");
   els.apiProviderEditor?.classList.toggle("hidden", !visible);
   els.apiProviderEditor?.setAttribute("aria-hidden", visible ? "false" : "true");
   els.apiProviderDetail?.classList.toggle("hidden", visible);
@@ -210,12 +243,15 @@ function writeProviderForm(provider: any): void {
   }
   hideApiKeyReveal();
   updateApiKeyRevealButton();
+  updateApiRequestEndpointPreview();
+  resetApiAdvancedSettings();
 }
 
-function renderApiProviderList(): void {
+export function renderApiProviderList(): void {
   const settings = normalizeApiSettings(state.apiSettings);
   state.apiSettings = settings;
   const sorting = Boolean(state.apiProviderSortMode && settings.providers.length > 1);
+  const searchQuery = updateApiProviderListPresentation(settings.providers.length, sorting);
   setElementText(els.apiProviderCount, formatTranslation("apiSettings.providerCount", {
     count: String(settings.providers.length),
   }));
@@ -266,7 +302,8 @@ function renderApiProviderList(): void {
     els.apiProviderList.replaceChildren(...rows);
     return;
   }
-  const buttons = settings.providers.map((provider: any) => {
+  const visibleProviders = settings.providers.filter((provider: any) => apiProviderMatchesSearch(provider, searchQuery));
+  const buttons = visibleProviders.map((provider: any) => {
     const button = document.createElement("button");
     const active = provider.id === settings.active_provider_id;
     button.type = "button";
@@ -281,7 +318,15 @@ function renderApiProviderList(): void {
     button.append(name, meta);
     return button;
   });
+  if (!buttons.length) {
+    const empty = document.createElement("div");
+    empty.className = "api-provider-search-empty";
+    empty.textContent = translate("apiSettings.noProviderSearchResults");
+    els.apiProviderList.replaceChildren(empty);
+    return;
+  }
   els.apiProviderList.replaceChildren(...buttons);
+  if (!searchQuery) scrollActiveApiProviderCardIntoView(settings.active_provider_id, "center");
 }
 
 function renderApiProviderDetail(): void {
@@ -538,16 +583,18 @@ export function openApiSettingsModal(): void {
   state.apiProviderEditingId = null;
   state.apiProviderDraft = null;
   state.apiProviderDraftIsNew = false;
+  if (els.apiProviderSearch) els.apiProviderSearch.value = "";
   populateApiSettingsForm();
   setApiSettingsFeedback("", "");
   openSystemSettingsModal("api");
+  scrollActiveApiProviderCardIntoView(activeApiProvider().id, "center");
 }
 
 export function closeApiSettingsModal(): void {
   closeSystemSettingsModal();
 }
 
-export function selectApiProvider(providerId: any): void {
+export function selectApiProvider(providerId: any, anchor?: HTMLElement | null): void {
   const id = String(providerId || "").trim();
   if (!id) return;
   if (apiProviderEditorActive()) {
@@ -556,14 +603,23 @@ export function selectApiProvider(providerId: any): void {
   }
   if (state.apiProviderSortMode) return;
   const provider = providerById(id);
-  state.apiSettings = normalizeApiSettings({
-    ...state.apiSettings,
-    active_provider_id: provider.id,
-  });
-  populateApiSettingsForm();
-  persistApiSettings();
-  renderAuthSourceAfterProviderChange();
-  queueApiSettingsAutosave();
+  const continueSwitch = () => {
+    state.apiSettings = normalizeApiSettings({
+      ...state.apiSettings,
+      active_provider_id: provider.id,
+    });
+    populateApiSettingsForm();
+    scrollActiveApiProviderCardIntoView(provider.id, "nearest");
+    persistApiSettings();
+    renderAuthSourceAfterProviderChange();
+    queueApiSettingsAutosave();
+  };
+  if (provider.id === currentApiProviderId()) {
+    continueSwitch();
+    return;
+  }
+  void anchor;
+  continueSwitch();
 }
 
 export function editApiProvider(): void {
@@ -586,6 +642,7 @@ export function cancelApiProviderEdit(): void {
   state.apiProviderDraftIsNew = false;
   populateApiSettingsForm();
   setApiSettingsFeedback("", "");
+  scrollActiveApiProviderCardIntoView(activeApiProvider().id, "center");
 }
 
 export function toggleApiProviderSortMode(): void {
@@ -597,6 +654,7 @@ export function toggleApiProviderSortMode(): void {
   if (settings.providers.length <= 1) return;
   state.apiProviderSortMode = !state.apiProviderSortMode;
   renderApiProviderList();
+  if (!state.apiProviderSortMode) scrollActiveApiProviderCardIntoView(settings.active_provider_id, "center");
   setApiSettingsFeedback(state.apiProviderSortMode ? translate("apiSettings.sortProviderModeStatus") : "", state.apiProviderSortMode ? "running" : "");
 }
 
@@ -679,14 +737,22 @@ export function syncCodexModeNotes(): void {
   });
 }
 
-export function selectCodexMode(mode: any): void {
+export function selectCodexMode(mode: any, anchor?: HTMLElement | null): void {
   const normalized = normalizeCodexMode(mode);
-  if (els.codexMode) {
-    els.codexMode.value = normalized;
-    els.codexMode.dispatchEvent(new Event("input", { bubbles: true }));
-    els.codexMode.dispatchEvent(new Event("change", { bubbles: true }));
+  const continueSwitch = () => {
+    if (els.codexMode) {
+      els.codexMode.value = normalized;
+      els.codexMode.dispatchEvent(new Event("input", { bubbles: true }));
+      els.codexMode.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    syncCodexModeNotes();
+  };
+  if (normalized === currentCodexMode()) {
+    continueSwitch();
+    return;
   }
-  syncCodexModeNotes();
+  void anchor;
+  continueSwitch();
 }
 
 export function queueApiSettingsAutosave(): void {
@@ -774,13 +840,17 @@ function setSaveButtonText(stateName: "saving" | "saved" | "failed" | "default")
   if (els.saveApiProviderEditButton) els.saveApiProviderEditButton.textContent = providerText;
 }
 
-export async function saveApiSettings(options: any = {}): Promise<void> {
+export async function saveApiSettings(options: any = {}): Promise<boolean> {
   const autoSave = Boolean(options.auto);
-  if (autoSave && apiProviderEditorActive()) return;
+  if (autoSave && apiProviderEditorActive()) return true;
   if (state.apiSettingsSaveTimerId) {
     window.clearTimeout(state.apiSettingsSaveTimerId);
     state.apiSettingsSaveTimerId = null;
   }
+  const previousSettings = normalizeApiSettings(state.apiSettings);
+  const previousEditingId = state.apiProviderEditingId;
+  const previousDraft = state.apiProviderDraft ? { ...state.apiProviderDraft } : null;
+  const previousDraftIsNew = state.apiProviderDraftIsNew;
   const settings = readApiSettingsForm({ applyProviderDraft: !autoSave });
   persistApiSettings();
   const payload: any = {
@@ -836,10 +906,18 @@ export async function saveApiSettings(options: any = {}): Promise<void> {
     setStatus(translate("apiSettings.savedStatus"), "ok");
     await refreshHealth();
     updateRequestPreview();
+    return true;
   } catch (error: any) {
+    state.apiSettings = previousSettings;
+    state.apiProviderEditingId = previousEditingId;
+    state.apiProviderDraft = previousDraft;
+    state.apiProviderDraftIsNew = previousDraftIsNew;
+    persistApiSettings();
+    populateApiSettingsForm();
     setApiSettingsFeedback(error.message || translate("apiSettings.saveFailed"), "error");
     if (!autoSave) setSaveButtonText("failed");
     setStatus(error.message || translate("apiSettings.saveFailed"), "error");
+    return false;
   } finally {
     if (!autoSave) setSaveButtonsDisabled(false);
     if (!autoSave && !state.apiSettingsSaveTimerId && els.saveApiProviderEditButton?.textContent !== translate("apiSettings.saveProvider")) {

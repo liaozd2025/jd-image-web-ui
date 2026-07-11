@@ -4,6 +4,7 @@ import {
   historyDetailImagesLayoutClass,
   historyInputLightboxUrlsFromTask,
   historyInputReferencesHtml,
+  historyReferenceFilesHtml,
   historyLightboxUrlsFromTask,
   taskOutputRecords,
   taskSelectedOutputIndexes,
@@ -35,6 +36,7 @@ type HistorySummary = {
   total: number;
   archived_total: number;
   months: HistoryMonth[];
+  modes: HistoryFacet[];
   prompt_modes: HistoryFacet[];
   qualities: HistoryFacet[];
   ratios: HistoryFacet[];
@@ -63,14 +65,14 @@ type HistoryTask = {
   thumbnail_url: string;
   prompt_preview: string;
 };
-type HistoryFilterKey = "month" | "prompt_mode" | "quality" | "ratio" | "orientation" | "backend" | "provider" | "archived";
+type HistoryFilterKey = "mode" | "month" | "prompt_mode" | "quality" | "ratio" | "orientation" | "backend" | "provider" | "archived";
 type HistoryViewMode = "grid" | "list";
 type HistoryRenderPosition = "replace" | "append" | "prepend";
 type HistoryTaskPage = { tasks: HistoryTask[]; next_cursor: string | null; previous_cursor?: string | null; detail?: string };
 type HistoryContextMenuMode = "single" | "multi";
 type HistoryResizerSide = "left" | "right";
 
-const HISTORY_FILTER_KEYS: HistoryFilterKey[] = ["month", "prompt_mode", "quality", "ratio", "orientation", "backend", "provider", "archived"];
+const HISTORY_FILTER_KEYS: HistoryFilterKey[] = ["mode", "month", "prompt_mode", "quality", "ratio", "orientation", "backend", "provider", "archived"];
 const HISTORY_RATIO_OTHER_VALUE = "__other__";
 const HISTORY_PAGE_LIMIT = 50;
 const MAX_MOUNTED_TASK_CARDS = 300;
@@ -87,7 +89,6 @@ const HISTORY_LAYOUT_LIMITS = {
   rightMin: 300,
   rightMax: 620,
   middleMin: 360,
-  resizerWidth: 8,
 };
 
 type HistoryGridLayoutSettings = {
@@ -98,6 +99,7 @@ type HistoryGridLayoutSettings = {
 
 const historyState = {
   q: "",
+  mode: "",
   month: "",
   prompt_mode: "",
   quality: "",
@@ -135,14 +137,17 @@ const historyState = {
 
 let historyGridLayoutFrame = 0;
 let pendingHistoryGridKeepTaskId = "";
+let historyResizeFrame = 0;
 let historyDetailLoadToken = 0;
 let historyContextMenuEl: HTMLElement | null = null;
 let activeHistoryResizer: {
   side: HistoryResizerSide;
   pointerId: number;
   startX: number;
+  latestX: number;
   startLeft: number;
   startRight: number;
+  maxCombinedWidth: number;
   element: HTMLElement;
 } | null = null;
 
@@ -154,6 +159,7 @@ const els = {
   total: document.querySelector<HTMLElement>("#historyTotal"),
   search: document.querySelector<HTMLInputElement>("#historySearch"),
   searchClear: document.querySelector<HTMLButtonElement>("#historySearchClear"),
+  modeList: document.querySelector<HTMLElement>("#historyModeList"),
   monthList: document.querySelector<HTMLElement>("#historyMonthList"),
   promptModeList: document.querySelector<HTMLElement>("#historyPromptModeList"),
   qualityList: document.querySelector<HTMLElement>("#historyQualityList"),
@@ -245,6 +251,10 @@ function historyFilterAttribute(key: HistoryFilterKey): string {
 }
 
 function facetDisplayValue(key: HistoryFilterKey, value: string): string {
+  if (key === "mode") {
+    if (value === "generate") return translate("history.type.textToImage");
+    if (value === "edit") return translate("history.type.imageToImage");
+  }
   if (key === "prompt_mode") {
     if (value === "strict") return translate("history.promptMode.strict");
     if (value === "original") return translate("history.promptMode.original");
@@ -301,6 +311,10 @@ function syncStateFromUrl(): void {
   for (const key of HISTORY_FILTER_KEYS) {
     historyState[key] = params.get(key) || "";
   }
+  for (const key of ["backend", "provider"] as const) {
+    const section = document.querySelector<HTMLDetailsElement>(`[data-history-filter-section="${key}"]`);
+    if (section && historyState[key]) section.open = true;
+  }
   historyState.selectedTaskId = params.get("task") || "";
   if (els.search) els.search.value = historyState.q;
   syncHistorySortMode();
@@ -327,6 +341,7 @@ async function loadSummary(): Promise<void> {
     const summary = await response.json() as HistorySummary;
     if (!response.ok) throw new Error((summary as any).detail || translate("history.summaryFailed"));
     setText(els.total, formatTranslation("history.total", { total: summary.total, archived: summary.archived_total }));
+    renderFacetButtons(els.modeList, "mode", summary.modes || [], translate("history.allTypes"));
     renderFacetButtons(els.monthList, "month", summary.months.map((item) => ({ value: item.month, count: item.count })), translate("history.allMonths"));
     renderFacetButtons(els.promptModeList, "prompt_mode", summary.prompt_modes || [], translate("history.allPromptModes"));
     renderFacetButtons(els.qualityList, "quality", summary.qualities || [], translate("history.allQualities"));
@@ -446,7 +461,7 @@ function ensureHistoryTaskCardVisible(taskId: string): void {
 
 function scheduleHistoryGridLayout(options: { keepTaskId?: string } = {}): void {
   if (options.keepTaskId) pendingHistoryGridKeepTaskId = options.keepTaskId;
-  if (historyGridLayoutFrame) window.cancelAnimationFrame(historyGridLayoutFrame);
+  if (historyGridLayoutFrame) return;
   historyGridLayoutFrame = window.requestAnimationFrame(() => {
     historyGridLayoutFrame = 0;
     const keepTaskId = pendingHistoryGridKeepTaskId;
@@ -487,7 +502,7 @@ function historyLayoutMaxCombinedWidth(): number {
   const pageWidth = els.page?.getBoundingClientRect().width || window.innerWidth || 0;
   return Math.max(
     HISTORY_LAYOUT_LIMITS.leftMin + HISTORY_LAYOUT_LIMITS.rightMin,
-    pageWidth - HISTORY_LAYOUT_LIMITS.middleMin - (HISTORY_LAYOUT_LIMITS.resizerWidth * 2),
+    pageWidth - HISTORY_LAYOUT_LIMITS.middleMin,
   );
 }
 
@@ -495,10 +510,11 @@ function constrainHistoryLayoutWidths(
   left: number,
   right: number,
   prioritySide: HistoryResizerSide | "" = "",
+  maxCombinedWidth = historyLayoutMaxCombinedWidth(),
 ): { left: number; right: number } {
   let nextLeft = clampNumber(Math.round(left), HISTORY_LAYOUT_LIMITS.leftMin, HISTORY_LAYOUT_LIMITS.leftMax);
   let nextRight = clampNumber(Math.round(right), HISTORY_LAYOUT_LIMITS.rightMin, HISTORY_LAYOUT_LIMITS.rightMax);
-  let overflow = nextLeft + nextRight - historyLayoutMaxCombinedWidth();
+  let overflow = nextLeft + nextRight - maxCombinedWidth;
   if (overflow > 0) {
     if (prioritySide === "left") {
       const rightReduction = Math.min(overflow, nextRight - HISTORY_LAYOUT_LIMITS.rightMin);
@@ -526,22 +542,22 @@ function getCurrentHistoryLayoutWidths(): { left: number; right: number } {
   return constrainHistoryLayoutWidths(sidebarWidth, detailWidth);
 }
 
-function updateHistoryResizerAria(widths: { left: number; right: number }): void {
-  els.leftResizer?.setAttribute("aria-valuenow", String(widths.left));
-  els.rightResizer?.setAttribute("aria-valuenow", String(widths.right));
-}
-
 function applyHistoryLayoutWidths(
   left: number,
   right: number,
-  options: { persist?: boolean; preserveActiveTask?: boolean; prioritySide?: HistoryResizerSide | "" } = {},
+  options: {
+    persist?: boolean;
+    preserveActiveTask?: boolean;
+    prioritySide?: HistoryResizerSide | "";
+  } = {},
 ): void {
   if (!els.page) return;
   const keepTaskId = options.preserveActiveTask ? activeHistoryTaskVisible() : "";
   const widths = constrainHistoryLayoutWidths(left, right, options.prioritySide || "");
   els.page.style.setProperty("--history-sidebar-width", `${widths.left}px`);
   els.page.style.setProperty("--history-detail-width", `${widths.right}px`);
-  updateHistoryResizerAria(widths);
+  els.leftResizer?.setAttribute("aria-valuenow", String(widths.left));
+  els.rightResizer?.setAttribute("aria-valuenow", String(widths.right));
   scheduleHistoryGridLayout({ keepTaskId });
   if (options.persist) {
     try {
@@ -550,6 +566,26 @@ function applyHistoryLayoutWidths(
       // Browser storage may be unavailable in restricted contexts.
     }
   }
+}
+
+function applyPendingHistoryResize(): void {
+  historyResizeFrame = 0;
+  const resize = activeHistoryResizer;
+  if (!resize || !els.page) return;
+  const delta = resize.latestX - resize.startX;
+  const nextLeft = resize.side === "left" ? resize.startLeft + delta : resize.startLeft;
+  const nextRight = resize.side === "right" ? resize.startRight - delta : resize.startRight;
+  const widths = constrainHistoryLayoutWidths(
+    nextLeft,
+    nextRight,
+    resize.side,
+    resize.maxCombinedWidth,
+  );
+  els.page.style.setProperty("--history-sidebar-width", `${widths.left}px`);
+  els.page.style.setProperty("--history-detail-width", `${widths.right}px`);
+  els.leftResizer?.setAttribute("aria-valuenow", String(widths.left));
+  els.rightResizer?.setAttribute("aria-valuenow", String(widths.right));
+  layoutJustifiedHistoryGrid();
 }
 
 function restoreHistoryLayoutPreference(): void {
@@ -599,8 +635,10 @@ function startHistoryResize(side: HistoryResizerSide, event: PointerEvent, eleme
     side,
     pointerId: event.pointerId,
     startX: event.clientX,
+    latestX: event.clientX,
     startLeft: widths.left,
     startRight: widths.right,
+    maxCombinedWidth: historyLayoutMaxCombinedWidth(),
     element,
   };
   closeHistoryContextMenu();
@@ -611,26 +649,33 @@ function startHistoryResize(side: HistoryResizerSide, event: PointerEvent, eleme
 
 function updateHistoryResize(event: PointerEvent): void {
   if (!activeHistoryResizer || event.pointerId !== activeHistoryResizer.pointerId) return;
-  const delta = event.clientX - activeHistoryResizer.startX;
-  const nextLeft = activeHistoryResizer.side === "left"
-    ? activeHistoryResizer.startLeft + delta
-    : activeHistoryResizer.startLeft;
-  const nextRight = activeHistoryResizer.side === "right"
-    ? activeHistoryResizer.startRight - delta
-    : activeHistoryResizer.startRight;
-  applyHistoryLayoutWidths(nextLeft, nextRight, { preserveActiveTask: true, prioritySide: activeHistoryResizer.side });
+  activeHistoryResizer.latestX = event.clientX;
+  if (historyResizeFrame) return;
+  historyResizeFrame = window.requestAnimationFrame(applyPendingHistoryResize);
 }
 
 function endHistoryResize(event?: PointerEvent): void {
   if (!activeHistoryResizer) return;
   if (event && event.pointerId !== activeHistoryResizer.pointerId) return;
+  if (event) activeHistoryResizer.latestX = event.clientX;
+  const keepTaskId = activeHistoryTaskVisible();
+  if (historyResizeFrame) {
+    window.cancelAnimationFrame(historyResizeFrame);
+    historyResizeFrame = 0;
+  }
+  applyPendingHistoryResize();
   if (activeHistoryResizer.element.hasPointerCapture?.(activeHistoryResizer.pointerId)) {
     activeHistoryResizer.element.releasePointerCapture?.(activeHistoryResizer.pointerId);
   }
   const widths = getCurrentHistoryLayoutWidths();
-  applyHistoryLayoutWidths(widths.left, widths.right, { persist: true, preserveActiveTask: true, prioritySide: activeHistoryResizer.side });
+  try {
+    localStorage.setItem(HISTORY_LAYOUT_STORAGE_KEY, JSON.stringify(widths));
+  } catch {
+    // Browser storage may be unavailable in restricted contexts.
+  }
   activeHistoryResizer = null;
   els.page?.classList.remove("history-resizing");
+  if (keepTaskId) ensureHistoryTaskCardVisible(keepTaskId);
 }
 
 function bindHistoryResizerEvents(): void {
@@ -984,6 +1029,9 @@ function taskCardHtml(task: HistoryTask): string {
   const taskId = escapeHtml(task.task_id);
   const thumbnailUrl = historyThumbnailUrl(task);
   const ratioStyle = historyThumbnailRatioStyle(task);
+  const imageCount = historyTaskGeneratedCount(task);
+  const stackDepth = historyTaskStackDepth(imageCount);
+  const stackLayers = historyTaskStackLayers(stackDepth);
   const thumb = thumbnailUrl
     ? `<img src="${escapeHtml(thumbnailUrl)}" alt="" loading="lazy" decoding="async" draggable="false">`
     : "";
@@ -1007,6 +1055,8 @@ function taskCardHtml(task: HistoryTask): string {
       class="history-task-card${active ? " active" : ""}${selected ? " selected" : ""}"
       data-history-task-card-id="${taskId}"
       data-history-created-at="${escapeHtml(task.created_at)}"
+      data-history-image-count="${String(imageCount)}"
+      data-history-stack-depth="${String(stackDepth)}"
       role="option"
       aria-selected="${active ? "true" : "false"}"
       ${ratioStyle}
@@ -1014,9 +1064,11 @@ function taskCardHtml(task: HistoryTask): string {
       <label class="history-task-select" aria-label="${escapeHtml(translate("history.selectTask"))}">
         <input type="checkbox" data-history-task-select="${taskId}" ${selected ? "checked" : ""}>
       </label>
-      <span class="history-task-active-badge" aria-hidden="${active ? "false" : "true"}">${escapeHtml(translate("history.viewing"))}</span>
       <button class="history-task-open" type="button" data-history-task-id="${taskId}">
-        <span class="history-task-thumb">${thumb}</span>
+        <span class="history-task-thumb">
+          ${stackLayers}
+          <span class="history-task-thumb-frame">${thumb}</span>
+        </span>
         <span class="history-task-copy">
           <span class="history-task-title">${escapeHtml(task.prompt_preview || task.mode || task.task_id)}</span>
           <span class="history-task-meta">
@@ -1026,6 +1078,19 @@ function taskCardHtml(task: HistoryTask): string {
       </button>
     </article>
   `;
+}
+
+function historyTaskStackDepth(imageCount: number): number {
+  if (!Number.isFinite(imageCount) || imageCount <= 1) return 0;
+  return Math.min(3, imageCount - 1);
+}
+
+function historyTaskStackLayers(stackDepth: number): string {
+  if (!Number.isFinite(stackDepth) || stackDepth <= 0) return "";
+  return Array.from({ length: stackDepth }, (_, index) => {
+    const layer = index + 1;
+    return `<span class="history-task-stack-layer" data-history-stack-layer="${String(layer)}" aria-hidden="true"></span>`;
+  }).join("");
 }
 
 function historyTaskSourceLabel(task: Partial<HistoryTask> & Record<string, any>): string {
@@ -1109,8 +1174,6 @@ function updateTaskSelectionVisuals(taskId = historyState.selectedTaskId): void 
     card.classList.toggle("active", active);
     card.classList.toggle("selected", selected);
     card.setAttribute("aria-selected", active ? "true" : "false");
-    const activeBadge = card.querySelector<HTMLElement>(".history-task-active-badge");
-    activeBadge?.setAttribute("aria-hidden", active ? "false" : "true");
     const input = card.querySelector<HTMLInputElement>("[data-history-task-select]");
     if (input) input.checked = selected;
   });
@@ -1130,6 +1193,7 @@ function focusHistoryTaskButton(taskId: string): void {
 }
 
 function handleHistoryTaskArrowNavigation(event: KeyboardEvent): boolean {
+  if (isHistoryLightboxOpen()) return false;
   if (!isHistoryTaskArrowKey(event.key)) return false;
   if (event.altKey || event.metaKey || event.ctrlKey) return false;
   const target = event.target as HTMLElement | null;
@@ -1294,8 +1358,7 @@ function renderDetailShell(message: string, className = "history-detail-empty"):
   els.detail.innerHTML = `
     <div class="history-detail-header">
       <div>
-        <p class="history-detail-kicker">${escapeHtml(translate("history.detail"))}</p>
-        <h2 class="history-detail-title">${escapeHtml(translate("history.detailTitle"))}</h2>
+        <h2 class="history-detail-title history-detail-empty-title">${escapeHtml(translate("history.detail"))}</h2>
       </div>
       <button id="historyDetailClose" class="drawer-close-button history-detail-close" type="button" data-history-detail-close aria-label="${escapeHtml(translate("history.closeDetail"))}">×</button>
     </div>
@@ -1356,8 +1419,11 @@ function renderTaskDetail(task: any): void {
   const images = historyDetailImagesHtml(taskId, urls, selectedCount);
   const imageLayoutClass = historyDetailImagesLayoutClass(urls);
   const inputReferences = historyInputReferencesHtml(task);
+  const referenceFiles = historyReferenceFilesHtml(task);
   const zipHref = `/api/tasks/${encodeURIComponent(taskId)}/outputs.zip`;
   const canZip = urls.length > 1;
+  const singleDownloadHref = urls.length === 1 ? String(urls[0]?.url || "") : "";
+  const hasSelectedOutputs = selectedCount > 0;
   const canDeleteUnselected = selectedCount > 0 && selectedCount < urls.length;
   const confirmingDeleteUnselected = historyState.deleteUnselectedConfirmTaskId === taskId;
   const archived = historyTaskArchived(task);
@@ -1381,16 +1447,26 @@ function renderTaskDetail(task: any): void {
       <span>${escapeHtml(historyTaskSourceLabel(task))}</span>
     </div>
     <div class="history-detail-actions">
-      <button class="ghost-button text-sm" type="button" data-history-reuse-task="${escapeHtml(taskId)}">${escapeHtml(translate("history.reuseTask"))}</button>
-      <button class="ghost-button text-sm" type="button" data-history-archive-task="${escapeHtml(taskId)}" data-history-archive-value="${archived ? "false" : "true"}">${escapeHtml(archived ? translate("archive.restore") : translate("action.archive"))}</button>
-      <button class="ghost-button text-sm danger-button" type="button" data-history-delete-task="${escapeHtml(taskId)}" ${deleteBlocked ? "disabled" : ""}>${escapeHtml(confirmingDeleteTask ? translate("history.confirmDelete") : translate("action.delete"))}</button>
-      ${canZip ? `<a class="ghost-button text-sm" href="${escapeHtml(zipHref)}" download>${escapeHtml(translate("history.downloadAll"))}</a>` : ""}
-      ${selectedCount > 1 ? `<a class="ghost-button text-sm" href="${escapeHtml(zipHref)}?selected=1" download>${escapeHtml(translate("history.downloadSelected"))}</a>` : ""}
-      ${canDeleteUnselected ? `<button class="ghost-button text-sm danger-button" type="button" data-history-delete-unselected="${escapeHtml(taskId)}">${escapeHtml(confirmingDeleteUnselected ? translate("history.confirmDeleteUnselected") : translate("history.deleteUnselected"))}</button>` : ""}
-      ${confirmingDeleteUnselected ? `<button class="ghost-button text-sm" type="button" data-history-delete-unselected-cancel>${escapeHtml(translate("action.cancel"))}</button>` : ""}
+      <div class="history-detail-actions-primary">
+        <button class="ghost-button text-sm" type="button" data-history-reuse-task="${escapeHtml(taskId)}">${escapeHtml(translate("history.reuseTask"))}</button>
+        <button class="ghost-button text-sm" type="button" data-history-archive-task="${escapeHtml(taskId)}" data-history-archive-value="${archived ? "false" : "true"}">${escapeHtml(archived ? translate("archive.restore") : translate("action.archive"))}</button>
+        ${hasSelectedOutputs
+          ? `<button class="ghost-button text-sm danger-button" type="button" ${canDeleteUnselected && !deleteBlocked ? `data-history-delete-unselected="${escapeHtml(taskId)}"` : "disabled"}>${escapeHtml(confirmingDeleteUnselected ? translate("history.confirmDeleteUnselected") : translate("history.deleteUnselected"))}</button>`
+          : `<button class="ghost-button text-sm danger-button" type="button" data-history-delete-task="${escapeHtml(taskId)}" ${deleteBlocked ? "disabled" : ""}>${escapeHtml(confirmingDeleteTask ? translate("history.confirmDelete") : translate("action.delete"))}</button>`}
+      </div>
+      <div class="history-detail-actions-output">
+        ${selectedCount > 1
+          ? `<a class="ghost-button text-sm" href="${escapeHtml(zipHref)}?selected=1" download>${escapeHtml(translate("history.downloadSelected"))}</a>`
+          : canZip
+          ? `<a class="ghost-button text-sm" href="${escapeHtml(zipHref)}" download>${escapeHtml(translate("history.downloadAll"))}</a>`
+          : singleDownloadHref
+            ? `<a class="ghost-button text-sm" href="${escapeHtml(singleDownloadHref)}" download>${escapeHtml(translate("history.downloadImage"))}</a>`
+            : ""}
+      </div>
     </div>
     <div class="history-detail-images${imageLayoutClass}">${images || `<div class="history-detail-empty">${escapeHtml(translate("history.noPreview"))}</div>`}</div>
     ${inputReferences}
+    ${referenceFiles}
     ${promptCompareHtml(task)}
   `;
 }
@@ -1701,6 +1777,8 @@ async function updateOutputSelection(button: HTMLElement): Promise<void> {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.detail || translate("taskActions.updated"));
+    historyState.deleteConfirmTaskId = "";
+    historyState.deleteUnselectedConfirmTaskId = "";
     renderTaskDetail(data.task || {});
   } catch (error) {
     setText(els.resultSummary, errorMessage(error, translate("taskContext.actionFailed")));
@@ -2108,6 +2186,30 @@ function handoffReferenceToMain(url: string): void {
   window.location.href = "/";
 }
 
+function handoffReferenceFileToMain(assetId: string): void {
+  if (!/^[0-9a-f]{64}$/.test(assetId)) return;
+  const task = historyState.detailTask || {};
+  const file = Array.isArray(task.reference_files)
+    ? task.reference_files.find((item: any) => String(item?.id || item?.reference_file_id || "") === assetId)
+    : null;
+  if (!file || file.missing) return;
+  const requestedBackend = String(task.requested_backend || task.backend || "");
+  const apiProviderId = String(task.api_provider_id || task.provider_id || task.params?.api_provider_id || "");
+  const handoff = {
+    reference_file_id: assetId,
+    filename: String(file.filename || ""),
+    mime_type: String(file.mime_type || ""),
+    size_bytes: Number(file.size_bytes || 0),
+    family: String(file.family || "text"),
+    requested_backend: requestedBackend,
+    api_provider_id: apiProviderId,
+    source: "history",
+    added_at: new Date().toISOString(),
+  };
+  localStorage.setItem(HISTORY_REFERENCE_HANDOFF_KEY, JSON.stringify([handoff]));
+  window.location.href = "/";
+}
+
 function openHistoryDetailLightbox(index: number): void {
   const urls = historyLightboxUrlsFromTask(historyState.detailTask || {});
   openHistoryLightbox(urls, index, {
@@ -2152,28 +2254,57 @@ function syncHistoryLightboxDetail(taskId: string, detail: any): void {
   renderTaskDetail(detail);
 }
 
+async function historyTaskLightboxDetail(taskId: string): Promise<{ detail: any; urls: string[] }> {
+  const detail = historyState.detailTask?.task_id === taskId ? historyState.detailTask : await fetchHistoryTaskDetail(taskId);
+  const urls = historyLightboxUrlsFromTask(detail);
+  return { detail, urls };
+}
+
 async function openHistoryTaskLightboxByDirection(
   direction: HistoryLightboxTaskDirection,
   context: HistoryLightboxTaskNavigationContext,
 ): Promise<void> {
   const currentTaskId = context.taskId || historyState.selectedTaskId;
-  let nextTaskId = historyAdjacentTaskId(currentTaskId, direction);
-  if (!nextTaskId && shouldLoadHistoryAdjacentTask(currentTaskId, direction)) {
-    await loadTasks({ direction });
-    nextTaskId = historyAdjacentTaskId(currentTaskId, direction);
+  let cursorTaskId = currentTaskId;
+  const visitedTaskIds = new Set<string>([currentTaskId]);
+  for (;;) {
+    let nextTaskId = historyAdjacentTaskId(cursorTaskId, direction);
+    if (!nextTaskId && shouldLoadHistoryAdjacentTask(cursorTaskId, direction)) {
+      await loadTasks({ direction });
+      nextTaskId = historyAdjacentTaskId(cursorTaskId, direction);
+    }
+    if (!nextTaskId) {
+      setText(els.resultSummary, translate("history.noMore"));
+      return;
+    }
+    if (visitedTaskIds.has(nextTaskId)) {
+      setText(els.resultSummary, translate("history.noMore"));
+      return;
+    }
+    visitedTaskIds.add(nextTaskId);
+    try {
+      const { detail, urls } = await historyTaskLightboxDetail(nextTaskId);
+      if (!urls.length) {
+        cursorTaskId = nextTaskId;
+        continue;
+      }
+      syncHistoryLightboxDetail(nextTaskId, detail);
+      openHistoryLightbox(urls, context.imageIndex, {
+        taskId: nextTaskId,
+        onTaskNavigate: openHistoryTaskLightboxByDirection,
+      });
+      return;
+    } catch (error) {
+      setText(els.resultSummary, errorMessage(error, translate("history.detailFailed")));
+      return;
+    }
   }
-  if (!nextTaskId) {
-    setText(els.resultSummary, translate("history.noMore"));
-    return;
-  }
-  await openHistoryTaskLightbox(nextTaskId, context.imageIndex);
 }
 
 async function openHistoryTaskLightbox(taskId: string, index = 0): Promise<void> {
   if (!taskId) return;
   try {
-    const detail = historyState.detailTask?.task_id === taskId ? historyState.detailTask : await fetchHistoryTaskDetail(taskId);
-    const urls = historyLightboxUrlsFromTask(detail);
+    const { detail, urls } = await historyTaskLightboxDetail(taskId);
     if (!urls.length) throw new Error(translate("history.noPreview"));
     syncHistoryLightboxDetail(taskId, detail);
     openHistoryLightbox(urls, index, {
@@ -2288,6 +2419,11 @@ function bindEvents(): void {
       handoffReferenceToMain(referenceHandoffButton.dataset.historyReferenceHandoffUrl || "");
       return;
     }
+    const referenceFileHandoffButton = target?.closest<HTMLElement>("[data-history-reference-file-id]");
+    if (referenceFileHandoffButton) {
+      handoffReferenceFileToMain(referenceFileHandoffButton.dataset.historyReferenceFileId || "");
+      return;
+    }
     const copyOutputPromptButton = target?.closest<HTMLElement>("[data-history-copy-output-prompt-index]");
     if (copyOutputPromptButton) {
       void copyOutputPromptToClipboard(copyOutputPromptButton.dataset.historyCopyOutputPromptIndex, copyOutputPromptButton);
@@ -2322,11 +2458,6 @@ function bindEvents(): void {
     const lightbox = target?.closest<HTMLElement>(".history-lightbox");
     if (lightbox && target === lightbox) {
       closeHistoryLightbox();
-      return;
-    }
-    if (target?.closest("[data-history-delete-unselected-cancel]")) {
-      historyState.deleteUnselectedConfirmTaskId = "";
-      renderTaskDetail(historyState.detailTask || {});
       return;
     }
     if (target?.closest("[data-history-bulk-archive]")) {
@@ -2419,9 +2550,6 @@ function bindEvents(): void {
     document.title = historyDocumentTitle();
     syncHistoryViewMode();
     syncArchiveButtons();
-    els.taskList?.querySelectorAll<HTMLElement>(".history-task-active-badge").forEach((badge) => {
-      badge.textContent = translate("history.viewing");
-    });
     if (historyState.detailTask) {
       renderTaskDetail(historyState.detailTask);
     } else if (!historyState.selectedTaskId) {

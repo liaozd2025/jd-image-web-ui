@@ -33,6 +33,16 @@ button:disabled {
 }
 
 @media (max-height: 1080px) and (min-width: 1024px) {
+  .reference-file-thumb .reference-file-format-icon {
+    width: 39px;
+    height: 45px;
+  }
+
+  .reference-file-name {
+    min-height: 29px;
+    font-size: 10px;
+  }
+
   .sidebar-footer {
     padding: 8px 12px;
     gap: 4px;

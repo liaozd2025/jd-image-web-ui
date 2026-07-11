@@ -5,6 +5,7 @@ import type { Locale } from "./i18n/types";
 export interface WebUIState {
   [key: string]: any;
   tasks: WebUITask[];
+  referenceFiles: any[];
   selectedTaskId: string | null;
   queue: QueueState;
   queueRenderKey: string | null;

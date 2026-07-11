@@ -370,6 +370,7 @@ function resetForm() {
   state.mode = "generate";
   revokeUploadPreviewUrls(state.images);
   state.images = [];
+  legacyMethod("clearReferenceFiles", { silent: true });
   state.batchMode = false;
   state.batchSelectedTaskIds = [];
   state.batchSelectionAnchorTaskId = null;

@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/brand/favicon.svg" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <script src="/static/pwa.js?v=pwa-1" defer></script>
-  <link rel="stylesheet" href="/static/styles.css?v=runtime-398" />
+  <link rel="stylesheet" href="/static/styles.css?v=runtime-491" />
 </head>
 <body>
   <main class="history-page">
@@ -23,50 +23,56 @@
         <input id="historySearch" class="control" type="search" autocomplete="off" placeholder="搜索提示词" data-i18n-attr="placeholder:history.searchPlaceholder" />
         <button id="historySearchClear" class="ghost-button text-sm" type="button" data-i18n="history.clear">清空</button>
       </div>
-      <div class="history-filter-block">
-        <h2 data-i18n="history.month">月份</h2>
+      <details class="history-filter-block" data-history-filter-section="mode" open>
+        <summary class="history-filter-summary"><h2 data-i18n="history.type">类型</h2></summary>
+        <div id="historyModeList" class="history-filter-list"></div>
+      </details>
+      <details class="history-filter-block" data-history-filter-section="month" open>
+        <summary class="history-filter-summary"><h2 data-i18n="history.month">月份</h2></summary>
         <div id="historyMonthList" class="history-filter-list"></div>
-      </div>
-      <div class="history-filter-block">
-        <h2 data-i18n="history.promptMode">提示词模式</h2>
+      </details>
+      <details class="history-filter-block" data-history-filter-section="prompt_mode" open>
+        <summary class="history-filter-summary"><h2 data-i18n="history.promptMode">提示词模式</h2></summary>
         <div id="historyPromptModeList" class="history-filter-list"></div>
-      </div>
-      <div class="history-filter-block">
-        <h2 data-i18n="history.quality">质量</h2>
+      </details>
+      <details class="history-filter-block" data-history-filter-section="quality" open>
+        <summary class="history-filter-summary"><h2 data-i18n="history.quality">质量</h2></summary>
         <div id="historyQualityList" class="history-filter-list"></div>
-      </div>
-      <div class="history-filter-block">
-        <h2 data-i18n="history.ratio">比例</h2>
+      </details>
+      <details class="history-filter-block" data-history-filter-section="ratio" open>
+        <summary class="history-filter-summary"><h2 data-i18n="history.ratio">比例</h2></summary>
         <div id="historyRatioList" class="history-filter-list"></div>
-      </div>
-      <div class="history-filter-block">
-        <h2 class="history-filter-heading history-filter-heading-orientation">
-          <svg class="history-filter-heading-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-            <rect x="5" y="3.5" width="10" height="13" rx="2.5"></rect>
-            <path d="M7.5 6.5h5M7.5 10h5M7.5 13.5h5"></path>
-          </svg>
-          <span data-i18n="history.orientation">方向</span>
-        </h2>
+      </details>
+      <details class="history-filter-block" data-history-filter-section="orientation" open>
+        <summary class="history-filter-summary">
+          <h2 class="history-filter-heading history-filter-heading-orientation">
+            <svg class="history-filter-heading-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+              <rect x="5" y="3.5" width="10" height="13" rx="2.5"></rect>
+              <path d="M7.5 6.5h5M7.5 10h5M7.5 13.5h5"></path>
+            </svg>
+            <span data-i18n="history.orientation">方向</span>
+          </h2>
+        </summary>
         <div id="historyOrientationList" class="history-filter-list"></div>
-      </div>
-      <div class="history-filter-block">
-        <h2 data-i18n="history.backend">后端</h2>
+      </details>
+      <details class="history-filter-block history-filter-block-secondary" data-history-filter-section="backend">
+        <summary class="history-filter-summary"><h2 data-i18n="history.backend">后端</h2></summary>
         <div id="historyBackendList" class="history-filter-list"></div>
-      </div>
-      <div class="history-filter-block">
-        <h2 data-i18n="history.provider">供应商</h2>
+      </details>
+      <details class="history-filter-block history-filter-block-secondary" data-history-filter-section="provider">
+        <summary class="history-filter-summary"><h2 data-i18n="history.provider">供应商</h2></summary>
         <div id="historyProviderList" class="history-filter-list"></div>
-      </div>
-      <div class="history-filter-block">
-        <h2 data-i18n="history.archived">归档</h2>
+      </details>
+      <details class="history-filter-block" data-history-filter-section="archived" open>
+        <summary class="history-filter-summary"><h2 data-i18n="history.archived">归档</h2></summary>
         <div id="historyArchiveList" class="history-filter-list">
           <button class="history-filter-button active" type="button" data-history-archived="" data-i18n="history.all">全部</button>
           <button class="history-filter-button" type="button" data-history-archived="false" data-i18n="history.unarchived">未归档</button>
           <button class="history-filter-button" type="button" data-history-archived="true" data-i18n="history.archivedOnly">已归档</button>
         </div>
-      </div>
+      </details>
     </aside>
-    <div class="history-resizer history-resizer-left" role="separator" tabindex="0" aria-orientation="vertical" aria-valuemin="220" aria-valuemax="420" aria-valuenow="280" aria-label="调整筛选栏宽度" data-history-resizer="left" data-i18n-attr="aria-label:history.resizeFilters"></div>
+    <div class="history-resize-hit-area history-resize-hit-area-left" role="separator" tabindex="0" aria-orientation="vertical" aria-valuemin="220" aria-valuemax="420" aria-valuenow="280" aria-label="调整筛选栏宽度" data-history-resizer="left" data-i18n-attr="aria-label:history.resizeFilters"></div>
     <section class="history-results" aria-label="历史任务" data-i18n-attr="aria-label:history.tasksAria">
       <header class="history-toolbar">
         <div>
@@ -97,18 +103,17 @@
       <div id="historyTaskList" class="history-task-list history-view-grid" role="listbox" aria-live="polite"></div>
       <div id="historyLoadSentinel" class="history-load-sentinel" data-history-load-more role="status" aria-live="polite" hidden></div>
     </section>
-    <div class="history-resizer history-resizer-right" role="separator" tabindex="0" aria-orientation="vertical" aria-valuemin="300" aria-valuemax="620" aria-valuenow="380" aria-label="调整详情栏宽度" data-history-resizer="right" data-i18n-attr="aria-label:history.resizeDetail"></div>
+    <div class="history-resize-hit-area history-resize-hit-area-right" role="separator" tabindex="0" aria-orientation="vertical" aria-valuemin="300" aria-valuemax="620" aria-valuenow="380" aria-label="调整详情栏宽度" data-history-resizer="right" data-i18n-attr="aria-label:history.resizeDetail"></div>
     <aside id="historyDetail" class="history-detail" aria-live="polite">
       <div class="history-detail-header">
         <div>
-          <p class="history-detail-kicker" data-i18n="history.detail">任务详情</p>
-          <h2 class="history-detail-title" data-i18n="history.detailTitle">历史任务</h2>
+          <h2 class="history-detail-title history-detail-empty-title" data-i18n="history.detail">任务详情</h2>
         </div>
         <button id="historyDetailClose" class="drawer-close-button history-detail-close" type="button" data-history-detail-close aria-label="关闭任务详情" data-i18n-attr="aria-label:history.closeDetail">×</button>
       </div>
       <div class="history-detail-empty" data-i18n="history.detailEmpty">选择一个历史任务查看详情</div>
     </aside>
   </main>
-  <script src="/static/history.js?v=history-42"></script>
+  <script src="/static/history.js?v=history-67"></script>
 </body>
 </html>

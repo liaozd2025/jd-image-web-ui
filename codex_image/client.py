@@ -12,8 +12,11 @@ from .client_types import (
     DEFAULT_MAIN_MODEL,
     DEFAULT_OPENAI_API_BASE_URL,
     DEFAULT_RESPONSES_URL,
+    OPENAI_COMPATIBLE_USER_AGENT,
     AuthProvider,
     ImageResult,
+    ResponsesInputFile,
+    ResponsesRequestError,
     image_model_supports_input_fidelity,
 )
 from .codex_images_client import CodexImagesImageClient
@@ -32,8 +35,11 @@ __all__ = [
     "DEFAULT_MAIN_MODEL",
     "DEFAULT_OPENAI_API_BASE_URL",
     "DEFAULT_RESPONSES_URL",
+    "OPENAI_COMPATIBLE_USER_AGENT",
     "ImageResult",
     "OpenAIImagesImageClient",
     "OpenAIResponsesImageClient",
+    "ResponsesInputFile",
+    "ResponsesRequestError",
     "image_model_supports_input_fidelity",
 ]

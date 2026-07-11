@@ -44,6 +44,7 @@ import {
   queueApiSettingsAutosave,
   readApiSettingsForm,
   revealApiKeyWhilePressed,
+  renderApiProviderList,
   refreshApiSettings,
   restoreApiSettings,
   cancelApiProviderEdit,
@@ -61,6 +62,7 @@ import {
   moveApiProvider,
   toggleApiProviderSortMode,
   updateApiKeyRevealButton,
+  updateApiRequestEndpointPreview,
 } from "./api-provider-settings";
 
 let apiSettingsFeatureInitialized = false;
@@ -115,7 +117,9 @@ export function initApiSettingsFeature(): void {
     selectCodexMode,
     setApiKeyRevealVisible,
     updateApiKeyRevealButton,
+    updateApiRequestEndpointPreview,
     revealApiKeyWhilePressed,
+    renderApiProviderList,
     syncCodexModeNotes,
     moveApiProvider,
     toggleApiProviderSortMode,

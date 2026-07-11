@@ -113,7 +113,7 @@
         });
       })();
     </script>
-    <link rel="stylesheet" href="/static/styles.css?v=runtime-433" />
+    <link rel="stylesheet" href="/static/styles.css?v=runtime-491" />
   </head>
   <body>
     <div class="layout-container">
@@ -216,11 +216,11 @@
                   <option value="portrait" data-i18n="output.portrait">竖图</option>
                   <option value="landscape" data-i18n="output.landscape">横图</option>
                 </select>
-                <select id="taskPromptFidelityFilter" class="task-filter-select" aria-label="按提示词模式筛选">
+                <select id="taskPromptFidelityFilter" class="task-filter-select" aria-label="按提示词处理筛选">
                   <option value="" data-i18n="sidebar.allModes">全部模式</option>
-                  <option value="original" data-i18n="output.modeOriginal">原始模式</option>
-                  <option value="strict" data-i18n="output.modeStrict">保真模式</option>
-                  <option value="off" data-i18n="output.modeCreative">创意模式</option>
+                  <option value="original" data-i18n="output.modeOriginal">原文</option>
+                  <option value="strict" data-i18n="output.modeStrict">保真</option>
+                  <option value="off" data-i18n="output.modeCreative">自动</option>
                 </select>
                 <select id="taskResolutionFilter" class="task-filter-select" aria-label="按分辨率筛选">
                   <option value="" data-i18n="sidebar.allResolutions">全部分辨率</option>
@@ -355,7 +355,7 @@
             <!-- Image Input -->
             <section class="panel image-panel">
               <div class="panel-heading">
-                <h2 data-i18n="imageInput.title">图像输入</h2>
+                <h2 data-i18n="imageInput.referenceTitle">参考输入</h2>
               </div>
 
               <div class="image-input-workspace">
@@ -363,18 +363,21 @@
                   <div class="image-input-main">
                     <div class="image-uploader-grid">
                       <div id="imageStrip" class="image-strip">
-                        <div id="imageThumbList" class="image-thumb-list"></div>
-                        <div id="imageUploadSource" class="image-upload-source" tabindex="0" aria-label="点击、拖入或粘贴图片" data-i18n-attr="aria-label:imageInput.uploadAria">
+                        <div id="imageThumbList" class="image-thumb-list">
+                          <div id="imageThumbItems" class="image-thumb-items"></div>
+                          <div id="referenceFileSelection" class="reference-file-selection hidden" aria-live="polite"></div>
+                        </div>
+                        <div id="imageUploadSource" class="image-upload-source" tabindex="0" aria-label="点击、拖入或粘贴图片与文件" data-i18n-attr="aria-label:imageInput.uploadAria">
                           <label class="upload-tile">
-                            <input id="imageInput" type="file" accept="image/*" multiple />
+                            <input id="imageInput" type="file" accept="image/*,.pdf,.xla,.xlb,.xlc,.xlm,.xls,.xlt,.xlw,.xlsx,.csv,.tsv,.iif,.doc,.docx,.dot,.odt,.rtf,.pot,.ppa,.pps,.ppt,.pwz,.wiz,.pptx,.asm,.bat,.c,.cc,.conf,.cpp,.css,.cxx,.def,.dic,.eml,.h,.hh,.htm,.html,.ics,.ifb,.in,.js,.json,.ksh,.list,.log,.markdown,.md,.mht,.mhtml,.mime,.mjs,.nws,.pl,.py,.rst,.s,.sql,.srt,.text,.txt,.vcf,.vtt,.xml" multiple />
                             <span class="icon" aria-hidden="true">
                               <svg viewBox="0 0 24 24" focusable="false">
                                 <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
                               </svg>
                             </span>
-                            <span class="upload-title upload-title-full" data-i18n="imageInput.uploadFull">点击、拖入或粘贴图片</span>
-                            <span class="upload-title upload-title-compact" data-i18n="imageInput.uploadCompact">添加图片</span>
-                            <span class="upload-subtitle" data-i18n="imageInput.uploadSubtitle">支持多张参考图</span>
+                            <span class="upload-title upload-title-full" data-i18n="imageInput.uploadFull">点击、拖入或粘贴图片与文件</span>
+                            <span class="upload-title upload-title-compact" data-i18n="imageInput.uploadCompact">添加输入</span>
+                            <span class="upload-subtitle" data-i18n="imageInput.uploadSubtitle">支持图片与 Responses 参考文件</span>
                           </label>
                         </div>
                       </div>
@@ -534,7 +537,7 @@
                         <span data-i18n="output.apiDirect">API 直连</span>
                         <div class="api-direct-settings-control">
                           <div class="api-direct-settings-header">
-                            <strong data-i18n="output.apiToolModel">使用 API 图像工具模型</strong>
+                            <strong data-i18n="output.apiToolModel">使用 API 图像生成模型</strong>
                             <span data-i18n="output.mainModelUnused">主模型不参与本次请求</span>
                           </div>
                           <button id="apiDirectSettingsButton" class="ghost-button text-sm icon-text-button api-direct-settings-button" type="button">
@@ -558,16 +561,34 @@
                     </div>
 
                     <div id="promptFidelityField" class="field">
-                      <span data-i18n="output.promptMode">提示词模式</span>
+                      <div class="prompt-fidelity-label">
+                        <span data-i18n="output.promptMode">提示词处理</span>
+                        <button
+                          id="promptFidelityHelpButton"
+                          class="prompt-fidelity-help-button"
+                          type="button"
+                          aria-label="查看提示词处理说明"
+                          aria-controls="promptFidelityHelpPopover"
+                          aria-describedby="promptFidelityHelpPopover"
+                          aria-expanded="false"
+                          data-i18n-attr="aria-label:output.promptHelp"
+                        >
+                          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                            <circle cx="10" cy="10" r="7.25"></circle>
+                            <path d="M7.9 7.7a2.35 2.35 0 0 1 4.55.8c0 1.65-1.75 1.95-2.25 3.1"></path>
+                            <circle cx="10" cy="14.25" r=".7" class="prompt-fidelity-help-dot"></circle>
+                          </svg>
+                        </button>
+                      </div>
                       <div class="radio-group" id="promptFidelityGroup">
-                        <button class="radio-btn" data-val="original" type="button" data-i18n="output.modeOriginal">原始模式</button>
-                        <button class="radio-btn active" data-val="strict" type="button" data-i18n="output.modeStrict">保真模式</button>
-                        <button class="radio-btn" data-val="off" type="button" data-i18n="output.modeCreative">创意模式</button>
+                        <button class="radio-btn" data-val="original" type="button" data-i18n="output.modeOriginal">原文</button>
+                        <button class="radio-btn active" data-val="strict" type="button" data-i18n="output.modeStrict">保真</button>
+                        <button class="radio-btn" data-val="off" type="button" data-i18n="output.modeCreative">自动</button>
                       </div>
                       <select id="promptFidelity" class="hidden">
-                        <option value="original" data-i18n="output.modeOriginal">原始模式</option>
-                        <option value="strict" selected data-i18n="output.modeStrict">保真模式</option>
-                        <option value="off" data-i18n="output.modeCreative">创意模式</option>
+                        <option value="original" data-i18n="output.modeOriginal">原文</option>
+                        <option value="strict" selected data-i18n="output.modeStrict">保真</option>
+                        <option value="off" data-i18n="output.modeCreative">自动</option>
                       </select>
                     </div>
                   </div>
@@ -801,8 +822,16 @@
                 <div class="preview-heading-actions">
                   <div class="preview-selection-actions hidden" id="previewSelectionActions" aria-live="polite">
                     <span id="previewSelectionCount" class="preview-selection-count" data-i18n="preview.selectedZero">已选 0</span>
+                    <button id="deleteUnselectedOutputsButton" class="ghost-button text-sm danger-action hidden" type="button" aria-label="删除未精选" title="删除未精选" data-i18n-attr="aria-label:preview.deleteUnselected;title:preview.deleteUnselected">
+                      <svg class="preview-delete-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                        <path d="M5 5h10" />
+                        <path d="M8 5l1-2h2l1 2" />
+                        <path d="M6 5l1 12h6l1-12" />
+                        <path d="M8.5 8v6M11.5 8v6" />
+                      </svg>
+                      <span data-i18n="preview.deleteUnselected">删除未精选</span>
+                    </button>
                     <a id="downloadSelectedButton" class="ghost-button text-sm hidden" href="#" download data-i18n="preview.downloadSelected">只下载精选</a>
-                    <button id="deleteUnselectedOutputsButton" class="ghost-button text-sm danger-action hidden" type="button" data-i18n="preview.deleteUnselected">删除未精选</button>
                   </div>
                   <a id="downloadAllButton" class="ghost-button text-sm hidden" href="#" download data-i18n="preview.downloadAll">打包下载</a>
                   <button id="refreshButton" class="ghost-button icon-button" type="button" data-i18n="action.refresh">↻ 刷新</button>
@@ -905,6 +934,21 @@
               </div>
               <button id="sortApiProvidersButton" class="ghost-button text-sm api-provider-sort-toggle hidden" type="button" data-i18n="apiSettings.sortProviders">排序</button>
             </div>
+            <label id="apiProviderSearchField" class="api-provider-search hidden">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <circle cx="11" cy="11" r="6.5"></circle>
+                <path d="m16 16 4 4"></path>
+              </svg>
+              <input
+                id="apiProviderSearch"
+                class="control"
+                type="search"
+                autocomplete="off"
+                placeholder="搜索供应商名称"
+                aria-label="搜索供应商名称"
+                data-i18n-attr="placeholder:apiSettings.searchProviders;aria-label:apiSettings.searchProviders"
+              />
+            </label>
             <div class="api-provider-choice-grid">
               <div id="apiProviderList" class="api-provider-list" role="listbox" aria-label="API 供应商" data-i18n-attr="aria-label:apiSettings.providers"></div>
               <button id="addApiProviderButton" class="api-provider-add-card" type="button" data-i18n="apiSettings.newProviderAction">新建供应商</button>
@@ -946,17 +990,6 @@
                 <span data-i18n="apiSettings.providerName">供应商名称</span>
                 <input id="apiProviderName" class="control" type="text" autocomplete="off" placeholder="OpenAI" />
               </label>
-              <div class="field api-mode-field">
-                <span data-i18n="apiSettings.mode">调用方式</span>
-                <div class="radio-group" id="apiModeGroup">
-                  <button class="radio-btn active" data-val="images" type="button" data-i18n="apiSettings.images">直连 Image API</button>
-                  <button class="radio-btn" data-val="responses" type="button" data-i18n="apiSettings.responses">Responses API</button>
-                </div>
-                <select id="apiMode" class="hidden">
-                  <option value="images" selected data-i18n="apiSettings.images">直连 Image API</option>
-                  <option value="responses" data-i18n="apiSettings.responses">Responses API</option>
-                </select>
-              </div>
               <label class="field api-base-url-field">
                 <span>Base URL</span>
                 <input id="apiBaseUrl" class="control" type="url" autocomplete="off" placeholder="https://api.openai.com/v1" />
@@ -981,14 +1014,42 @@
                   </button>
                 </div>
               </label>
-              <label class="field api-image-model-field">
-                <span data-i18n="apiSettings.imageModel">图像工具模型</span>
-                <input id="apiImageModel" class="control" type="text" autocomplete="off" value="gpt-image-2" />
-              </label>
-              <label class="field api-concurrency-field">
-                <span data-i18n="apiSettings.concurrency">Provider 总并发上限</span>
-                <input id="apiImagesConcurrency" class="control" type="number" min="1" max="32" step="1" value="4" />
-              </label>
+              <div class="field api-mode-field">
+                <div class="radio-group" id="apiModeGroup" role="group" aria-label="调用方式" data-i18n-attr="aria-label:apiSettings.mode">
+                  <button class="radio-btn active" data-val="images" type="button" data-i18n="apiSettings.images">直连 Image API</button>
+                  <button class="radio-btn" data-val="responses" type="button" data-i18n="apiSettings.responses">Responses API</button>
+                </div>
+                <select id="apiMode" class="hidden">
+                  <option value="images" selected data-i18n="apiSettings.images">直连 Image API</option>
+                  <option value="responses" data-i18n="apiSettings.responses">Responses API</option>
+                </select>
+              </div>
+              <small class="api-request-endpoint-preview">
+                <span data-i18n="apiSettings.actualRequest">实际请求</span>
+                <code id="apiRequestEndpointPreview">POST https://api.openai.com/v1/images/generations</code>
+              </small>
+              <details id="apiAdvancedSettings" class="api-advanced-settings">
+                <summary>
+                  <strong data-i18n="apiSettings.advancedSettings">高级设置</strong>
+                  <span class="api-advanced-settings-summary">
+                    <span id="apiAdvancedImageModelSummary">gpt-image-2</span>
+                    <span aria-hidden="true">·</span>
+                    <span data-i18n="apiSettings.concurrencyShort">并发</span>
+                    <span id="apiAdvancedConcurrencySummary">4</span>
+                  </span>
+                  <span class="api-advanced-settings-chevron" aria-hidden="true"></span>
+                </summary>
+                <div class="api-advanced-settings-body">
+                  <label class="field api-image-model-field">
+                    <span data-i18n="apiSettings.imageModel">图像生成模型</span>
+                    <input id="apiImageModel" class="control" type="text" autocomplete="off" value="gpt-image-2" />
+                  </label>
+                  <label class="field api-concurrency-field">
+                    <span data-i18n="apiSettings.concurrency">并发上限</span>
+                    <input id="apiImagesConcurrency" class="control" type="number" min="1" max="32" step="1" value="4" />
+                  </label>
+                </div>
+              </details>
             </div>
             <div class="api-provider-editor-actions">
               <button id="cancelApiProviderEditButton" class="ghost-button" type="button" data-i18n="apiSettings.cancelEdit">取消编辑</button>
@@ -1349,7 +1410,7 @@
     </div>
 
     <div id="taskNotificationToastRegion" class="task-notification-toast-region" aria-live="polite"></div>
-  <script src="/static/app.js?v=runtime-433"></script>
+  <script src="/static/app.js?v=runtime-491"></script>
     <script>
       (() => {
         document.querySelectorAll(".radio-group").forEach((group) => {

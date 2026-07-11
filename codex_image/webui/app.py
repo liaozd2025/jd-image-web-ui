@@ -4,6 +4,7 @@ import base64
 from io import BytesIO
 import json
 import mimetypes
+import re
 import zipfile
 from pathlib import Path
 from typing import Any, Callable
@@ -96,10 +97,12 @@ from .schemas import (
     DEFAULT_WEBUI_PROMPT_SNIPPETS_PATH,
     DEFAULT_WEBUI_PROMPT_TEMPLATES_PATH,
     DEFAULT_WEBUI_REFERENCE_ASSET_SUBDIR,
+    DEFAULT_WEBUI_REFERENCE_FILE_SUBDIR,
     DEFAULT_WEBUI_SETTINGS_PATH,
     DEFAULT_WEBUI_SOURCE_DATA_SUBDIR,
 )
 from .storage import GalleryStorage, QueueStorage, ReferenceAssetStorage, SQLiteQueueStorage, TaskStorage, _guess_mime_type, utc_now
+from .reference_files import ReferenceFileStorage
 from .settings_store import (
     ApiSettings,
     AuthSettings,
@@ -188,6 +191,7 @@ def create_app(
     output_root: Path | str = DEFAULT_WEBUI_OUTPUT_ROOT,
     gallery_root: Path | str | None = None,
     reference_asset_root: Path | str | None = None,
+    reference_file_root: Path | str | None = None,
     source_data_root: Path | str | None = None,
     client_factory: ClientFactory | None = None,
     auth_checker: AuthChecker | None = None,
@@ -210,6 +214,7 @@ def create_app(
     input_path = Path(input_root) if input_root is not None else (output_path / "inputs" if custom_output else configured_paths["input_root"])
     gallery_path = Path(gallery_root) if gallery_root is not None else (input_path / DEFAULT_WEBUI_GALLERY_SUBDIR if custom_output else configured_paths["gallery_root"])
     reference_asset_path = Path(reference_asset_root) if reference_asset_root is not None else input_path / DEFAULT_WEBUI_REFERENCE_ASSET_SUBDIR
+    reference_file_path = Path(reference_file_root) if reference_file_root is not None else input_path / DEFAULT_WEBUI_REFERENCE_FILE_SUBDIR
     source_data_path = (
         Path(source_data_root)
         if source_data_root is not None
@@ -219,6 +224,7 @@ def create_app(
     _migrate_legacy_gallery_directory(gallery_path, [Path("output") / "webui-gallery"])
     gallery_storage = GalleryStorage(gallery_path)
     reference_asset_storage = ReferenceAssetStorage(reference_asset_path)
+    reference_file_storage = ReferenceFileStorage(reference_file_path)
     queue_storage = (
         QueueStorage(Path(queue_path))
         if queue_path is not None
@@ -243,6 +249,7 @@ def create_app(
         storage=storage,
         gallery_storage=gallery_storage,
         reference_asset_storage=reference_asset_storage,
+        reference_file_storage=reference_file_storage,
         queue_storage=queue_storage,
         webui_settings=settings,
         auth_settings=auth_settings,
@@ -256,6 +263,7 @@ def create_app(
         output_root=output_path,
         gallery_root=gallery_path,
         reference_asset_root=reference_asset_path,
+        reference_file_root=reference_file_path,
         source_data_root=source_data_path,
         auto_start_queue=auto_start_queue,
     )
@@ -450,9 +458,10 @@ def _slim_request_payload(
     input_files: list[str],
     gallery_refs: list[dict[str, Any]],
     reference_assets: list[dict[str, Any]],
+    reference_files: list[dict[str, Any]] | None = None,
     mask_file: str | None = None,
 ) -> dict[str, Any]:
-    slim = _redact_request_image_data(request_payload)
+    slim = _redact_request_data(request_payload)
     if isinstance(slim, dict):
         refs: dict[str, Any] = {
             "input_files": list(input_files),
@@ -462,16 +471,23 @@ def _slim_request_payload(
         if mask_file:
             refs["mask_file"] = mask_file
         slim["webui_image_refs"] = refs
+        slim["webui_file_refs"] = {
+            "reference_files": reference_files or [],
+        }
     return slim if isinstance(slim, dict) else {}
 
 
-def _redact_request_image_data(value: Any) -> Any:
+def _redact_request_data(value: Any, *, key: str | None = None) -> Any:
     if isinstance(value, dict):
-        return {str(key): _redact_request_image_data(item) for key, item in value.items()}
+        return {
+            str(item_key): _redact_request_data(item_value, key=str(item_key))
+            for item_key, item_value in value.items()
+        }
     if isinstance(value, list):
-        return [_redact_request_image_data(item) for item in value]
-    if isinstance(value, str) and value.startswith("data:image/"):
-        return f"<redacted image data url, {len(value)} chars>"
+        return [_redact_request_data(item) for item in value]
+    if isinstance(value, str) and (key == "file_data" or re.match(r"^data:[^;,]+;base64,", value)):
+        label = "image data url" if value.startswith("data:image/") else "data url"
+        return f"<redacted {label}, {len(value)} chars>"
     return value
 
 

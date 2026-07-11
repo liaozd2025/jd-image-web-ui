@@ -7,6 +7,94 @@ from tests.webui_helpers import WebUIStaticTestCase
 
 
 class WebUIStaticI18nTests(WebUIStaticTestCase):
+    def test_mixed_upload_copy_is_localized_in_every_locale(self) -> None:
+        expected = {
+            "zh-cn.ts": ("点击、拖入或粘贴图片与文件", "点击、拖入或粘贴图片与文件", "添加输入", "支持图片与 Responses 参考文件"),
+            "zh-tw.ts": ("點選、拖曳或貼上圖片與檔案", "點選、拖曳或貼上圖片與檔案", "新增輸入", "支援圖片與 Responses 參考檔案"),
+            "zh-hk.ts": ("點選、拖曳或貼上圖片與檔案", "點選、拖曳或貼上圖片與檔案", "新增輸入", "支援圖片與 Responses 參考檔案"),
+            "ja.ts": ("画像とファイルをクリック、ドロップ、または貼り付け", "画像とファイルをクリック、ドロップ、または貼り付け", "入力を追加", "画像と Responses の参照ファイルに対応"),
+            "ko.ts": ("이미지와 파일을 클릭, 드롭 또는 붙여넣기", "이미지와 파일을 클릭, 드롭 또는 붙여넣기", "입력 추가", "이미지 및 Responses 참조 파일 지원"),
+            "en.ts": ("Click, drop, or paste images and files", "Click, drop, or paste images and files", "Add input", "Supports images and Responses reference files"),
+            "es.ts": ("Haz clic, suelta o pega imágenes y archivos", "Haz clic, suelta o pega imágenes y archivos", "Añadir entrada", "Admite imágenes y archivos de referencia de Responses"),
+            "pt.ts": ("Clique, solte ou cole imagens e arquivos", "Clique, solte ou cole imagens e arquivos", "Adicionar entrada", "Compatível com imagens e arquivos de referência do Responses"),
+            "fr.ts": ("Cliquez, déposez ou collez des images et des fichiers", "Cliquez, déposez ou collez des images et des fichiers", "Ajouter une entrée", "Images et fichiers de référence pour Responses"),
+            "de.ts": ("Bilder und Dateien anklicken, ablegen oder einfügen", "Bilder und Dateien anklicken, ablegen oder einfügen", "Eingabe hinzufügen", "Unterstützt Bilder und Responses-Referenzdateien"),
+            "ru.ts": ("Нажмите, перетащите или вставьте изображения и файлы", "Нажмите, перетащите или вставьте изображения и файлы", "Добавить источник", "Изображения и файлы-источники для Responses"),
+            "it.ts": ("Fai clic, rilascia o incolla immagini e file", "Fai clic, rilascia o incolla immagini e file", "Aggiungi input", "Immagini e file di riferimento per Responses"),
+            "hi.ts": ("चित्र और फ़ाइलें जोड़ने के लिए क्लिक करें, ड्रॉप करें या पेस्ट करें", "चित्र और फ़ाइलें जोड़ने के लिए क्लिक करें, ड्रॉप करें या पेस्ट करें", "इनपुट जोड़ें", "चित्र और Responses संदर्भ फ़ाइलें समर्थित हैं"),
+        }
+        keys = ("uploadAria", "uploadFull", "uploadCompact", "uploadSubtitle")
+        locale_dir = Path("codex_image/webui/frontend/src/i18n")
+        self.assertEqual(13, len(expected))
+        for filename, values in expected.items():
+            source = (locale_dir / filename).read_text(encoding="utf-8")
+            for key, value in zip(keys, values):
+                self.assertIn(f'"imageInput.{key}": "{value}"', source)
+
+    def test_reference_file_copy_exists_in_every_locale(self) -> None:
+        required_keys = (
+            "imageInput.referenceTitle",
+            "referenceFiles.add",
+            "referenceFiles.selected",
+            "referenceFiles.recent",
+            "referenceFiles.familyPdf",
+            "referenceFiles.familySpreadsheet",
+            "referenceFiles.familyDocument",
+            "referenceFiles.familyText",
+            "referenceFiles.visualLimit",
+            "referenceFiles.remove",
+            "referenceFiles.switchTitle",
+            "referenceFiles.switchMessage",
+            "referenceFiles.removeAndSwitch",
+            "referenceFiles.requiresResponses",
+            "referenceFiles.switchToResponses",
+            "referenceFiles.openApiSettings",
+            "referenceFiles.providerMissing",
+            "referenceFiles.missing",
+            "referenceFiles.loadFailed",
+            "referenceFiles.errorEmpty",
+            "referenceFiles.errorUnsupported",
+            "referenceFiles.errorMismatch",
+            "referenceFiles.errorInvalid",
+            "referenceFiles.errorTooLarge",
+            "referenceFiles.errorTotalTooLarge",
+            "referenceFiles.errorMissing",
+            "referenceFiles.errorProviderUnsupported",
+            "referenceFiles.responsesEnabled",
+            "referenceFiles.historyPathMismatch",
+            "history.referenceFiles",
+            "history.downloadReferenceFile",
+            "history.readdReferenceFile",
+        )
+        locale_paths = sorted(Path("codex_image/webui/frontend/src/i18n").glob("*.ts"))
+        locale_paths = [path for path in locale_paths if path.name not in {"types.ts", "dictionaries.ts"}]
+        self.assertEqual(13, len(locale_paths))
+        for path in locale_paths:
+            source = path.read_text(encoding="utf-8")
+            for key in required_keys:
+                self.assertIn(f'"{key}"', source, f"{path.name} is missing {key}")
+
+    def test_reference_file_document_family_translation_is_specific_in_every_locale(self) -> None:
+        expected = {
+            "de.ts": "Dokument",
+            "en.ts": "Document",
+            "es.ts": "Documento",
+            "fr.ts": "Document",
+            "hi.ts": "दस्तावेज़",
+            "it.ts": "Documento",
+            "ja.ts": "ドキュメント",
+            "ko.ts": "문서",
+            "pt.ts": "Documento",
+            "ru.ts": "Документ",
+            "zh-cn.ts": "文档",
+            "zh-hk.ts": "文件",
+            "zh-tw.ts": "文件",
+        }
+        locale_dir = Path("codex_image/webui/frontend/src/i18n")
+        for filename, translation in expected.items():
+            source = (locale_dir / filename).read_text(encoding="utf-8")
+            self.assertIn(f'"referenceFiles.familyDocument": "{translation}"', source)
+
     def test_language_bootstrap_detects_browser_language_and_settings_select_replaces_top_nav(self) -> None:
         html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
         nav_actions = html[html.index('<div class="nav-actions">'):html.index('<div id="taskNotificationCenter"')]
@@ -192,7 +280,7 @@ class WebUIStaticI18nTests(WebUIStaticTestCase):
             "app.newTask",
             "queue.empty",
             "theme.system",
-            "imageInput.title",
+            "imageInput.referenceTitle",
             "prompt.title",
             "prompt.run",
             "outputSettings.title",
@@ -273,6 +361,7 @@ class WebUIStaticI18nTests(WebUIStaticTestCase):
             "gallery.dragSort",
             "preview.addReference",
             "apiSettings.modeImagesShort",
+            "apiSettings.actualRequest",
             "apiSettings.newProviderAction",
             "apiSettings.copyProvider",
             "apiSettings.copyProviderStatus",

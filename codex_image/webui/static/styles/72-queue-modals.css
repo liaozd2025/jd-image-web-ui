@@ -266,7 +266,7 @@
 }
 
 .system-settings-modal-panel {
-  width: min(760px, 94vw);
+  width: min(624px, calc(100vw - 60px));
   max-height: min(760px, calc(100vh - var(--system-settings-modal-top, 30px) - 30px));
   overflow: auto;
   padding: 22px 28px 24px;
@@ -493,7 +493,8 @@
   flex: 0 1 auto;
   min-height: 0;
   max-height: calc(100vh - 190px);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding-right: 0;
   display: flex;
   flex-direction: column;

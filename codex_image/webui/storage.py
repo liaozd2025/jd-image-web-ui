@@ -10,6 +10,7 @@ from typing import Any
 from .schemas import (
     CreatedTask,
     DEFAULT_WEBUI_OUTPUT_ROOT,
+    DEFAULT_WEBUI_REFERENCE_FILE_SUBDIR,
 )
 from .gallery_storage import (
     DEFAULT_GALLERY_CATEGORIES,
@@ -29,6 +30,11 @@ from .reference_assets import (
     REFERENCE_ASSET_SUFFIXES,
     ReferenceAssetStorage,
     _reference_asset_suffix,
+)
+from .reference_files import (
+    MAX_REFERENCE_FILE_BYTES,
+    MAX_REFERENCE_FILES_TOTAL_BYTES,
+    ReferenceFileStorage,
 )
 from .queue_storage import QueueStorage, SQLiteQueueStorage
 from .task_index import SQLiteTaskIndex
@@ -182,6 +188,7 @@ class TaskStorage:
         cursor: str | None = None,
         q: str = "",
         month: str = "",
+        mode: str = "",
         status: str = "",
         prompt_mode: str = "",
         size: str = "",
@@ -200,6 +207,7 @@ class TaskStorage:
             cursor=cursor,
             q=q,
             month=month,
+            mode=mode,
             status=status,
             prompt_mode=prompt_mode,
             size=size,

@@ -16,6 +16,7 @@ class QueueChannel:
 
 TaskExecutor = Callable[[str, QueueChannel, bool], Awaitable[None]]
 ChannelAvailability = Callable[[QueueChannel], bool]
+TaskClaim = Callable[[str, QueueChannel], bool]
 
 
 class NonRetryableTaskError(RuntimeError):
@@ -29,6 +30,7 @@ class QueueManager:
     execute_task: TaskExecutor
     max_attempts: int = 2
     channel_available: ChannelAvailability | None = None
+    claim_task: TaskClaim | None = None
     auto_retry: bool = True
     attempts: dict[str, int] = field(default_factory=dict)
     failed_channels: dict[str, set[str]] = field(default_factory=dict)
@@ -77,10 +79,14 @@ class QueueManager:
         for task_id in state["waiting"]:
             blocked = self.failed_channels.get(task_id, set())
             if channel.channel_id not in blocked:
+                if not self._claim_task(task_id, channel):
+                    continue
                 self.queue_storage.remove_waiting(task_id)
                 return task_id
             if len(blocked) >= self._available_channel_count():
                 self.failed_channels[task_id] = set()
+                if not self._claim_task(task_id, channel):
+                    continue
                 self.queue_storage.remove_waiting(task_id)
                 return task_id
         return None
@@ -89,6 +95,11 @@ class QueueManager:
         if self.channel_available is None:
             return True
         return bool(self.channel_available(channel))
+
+    def _claim_task(self, task_id: str, channel: QueueChannel) -> bool:
+        if self.claim_task is None:
+            return True
+        return bool(self.claim_task(task_id, channel))
 
     def _available_channel_count(self) -> int:
         return max(1, sum(1 for channel in self.channels if self._channel_can_take_work(channel)))

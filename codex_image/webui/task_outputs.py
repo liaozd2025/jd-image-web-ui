@@ -38,6 +38,16 @@ def _safe_nonnegative_int(value: Any) -> int:
     return max(0, parsed)
 
 
+def _reference_files_for_metadata(
+    reference_files: list[dict[str, Any]] | None,
+    existing_metadata: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    if reference_files:
+        return list(reference_files)
+    existing = (existing_metadata or {}).get("reference_files")
+    return list(existing) if isinstance(existing, list) else []
+
+
 def _append_output_record_state(output_records: list[dict[str, Any]], record: dict[str, Any]) -> None:
     index = _positive_int(record.get("index"))
     if index is not None:
@@ -624,8 +634,14 @@ def _write_running_metadata(
     input_files: list[str],
     gallery_refs: list[dict[str, Any]],
     reference_assets: list[dict[str, Any]] | None = None,
+    reference_files: list[dict[str, Any]] | None = None,
 ) -> None:
     input_urls = _input_urls(task_id, input_files)
+    try:
+        existing_metadata = storage.read_metadata(task_id)
+    except FileNotFoundError:
+        existing_metadata = {}
+    file_references = _reference_files_for_metadata(reference_files, existing_metadata)
     storage.write_metadata(
         task_id,
         {
@@ -642,6 +658,8 @@ def _write_running_metadata(
             "input_urls": input_urls,
             "gallery_refs": gallery_refs,
             "reference_assets": reference_assets or [],
+            "reference_files": file_references,
+            "reference_file_count": len(file_references),
             "input_sources": _input_sources(task_id, input_files, gallery_refs, reference_assets or []),
         },
     )
@@ -660,10 +678,12 @@ def _write_queued_metadata(
     mask_file: str | None,
     gallery_refs: list[dict[str, Any]],
     reference_assets: list[dict[str, Any]] | None = None,
+    reference_files: list[dict[str, Any]] | None = None,
     prompt_constraints: list[str] | None = None,
     requested_backend: str | None = None,
     max_attempts: int = 2,
 ) -> dict[str, Any]:
+    file_references = _reference_files_for_metadata(reference_files)
     metadata = {
         "task_id": task_id,
         "created_at": created_at,
@@ -680,6 +700,8 @@ def _write_queued_metadata(
         "input_urls": _input_urls(task_id, input_files),
         "gallery_refs": gallery_refs,
         "reference_assets": reference_assets or [],
+        "reference_files": file_references,
+        "reference_file_count": len(file_references),
         "input_sources": _input_sources(task_id, input_files, gallery_refs, reference_assets or []),
         "attempts": 0,
         "max_attempts": max_attempts,
@@ -712,11 +734,13 @@ def _write_progress_metadata(
     request_payload: dict[str, Any],
     params: dict[str, Any],
     output_records: list[dict[str, Any]] | None = None,
+    reference_files: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     input_names = [path.name for path in input_files]
     results, output_paths, output_records = _ordered_output_progress(results, output_paths, output_records or [])
     failed_records = [record for record in output_records if record.get("status") == "failed"]
     metadata = storage.read_metadata(task_id)
+    file_references = _reference_files_for_metadata(reference_files, metadata)
     metadata.update(
         {
             "task_id": task_id,
@@ -731,6 +755,8 @@ def _write_progress_metadata(
             "input_urls": _input_urls(task_id, input_names),
             "gallery_refs": gallery_refs,
             "reference_assets": reference_assets or [],
+            "reference_files": file_references,
+            "reference_file_count": len(file_references),
             "input_sources": _input_sources(task_id, input_names, gallery_refs, reference_assets or []),
             "generated_count": len(results),
             "failed_count": len(failed_records),
@@ -834,6 +860,7 @@ def _finalize_generated_task(
     params: dict[str, Any],
     output_paths: list[Path],
     output_records: list[dict[str, Any]],
+    reference_files: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     del request_payload
     if not results or not output_paths:
@@ -846,6 +873,7 @@ def _finalize_generated_task(
     first_output_path = output_paths[0]
     total_count = int(params.get("n") or len(output_records) or len(results) or 1)
     metadata = storage.read_metadata(task_id)
+    file_references = _reference_files_for_metadata(reference_files, metadata)
     metadata.update(
         {
             "task_id": task_id,
@@ -860,6 +888,8 @@ def _finalize_generated_task(
             "input_urls": _input_urls(task_id, input_names),
             "gallery_refs": gallery_refs,
             "reference_assets": reference_assets or [],
+            "reference_files": file_references,
+            "reference_file_count": len(file_references),
             "input_sources": _input_sources(task_id, input_names, gallery_refs, reference_assets or []),
             "generated_count": len(results),
             "failed_count": len(failed_records),
@@ -912,6 +942,7 @@ def _complete_task(
     reference_assets: list[dict[str, Any]] | None,
     request_payload: dict[str, Any],
     params: dict[str, Any],
+    reference_files: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     result_list = results if isinstance(results, list) else [results]
     output_paths: list[Path] = []
@@ -945,6 +976,7 @@ def _complete_task(
     input_names = [path.name for path in input_files]
     total_count = int(params.get("n") or len(result_list) or 1)
     metadata = storage.read_metadata(task_id)
+    file_references = _reference_files_for_metadata(reference_files, metadata)
     metadata.update(
         {
             "task_id": task_id,
@@ -959,6 +991,8 @@ def _complete_task(
             "input_urls": _input_urls(task_id, input_names),
             "gallery_refs": gallery_refs,
             "reference_assets": reference_assets or [],
+            "reference_files": file_references,
+            "reference_file_count": len(file_references),
             "input_sources": _input_sources(task_id, input_names, gallery_refs, reference_assets or []),
             "generated_count": len(result_list),
             "total_count": total_count,
@@ -1003,8 +1037,14 @@ def _fail_task(
     request_payload: dict[str, Any],
     params: dict[str, Any],
     exc: Exception,
+    reference_files: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     input_names = [path.name for path in input_files]
+    try:
+        existing_metadata = storage.read_metadata(task_id)
+    except FileNotFoundError:
+        existing_metadata = {}
+    file_references = _reference_files_for_metadata(reference_files, existing_metadata)
     metadata = {
         "task_id": task_id,
         "created_at": created_at,
@@ -1018,6 +1058,8 @@ def _fail_task(
         "input_urls": _input_urls(task_id, input_names),
         "gallery_refs": gallery_refs,
         "reference_assets": reference_assets or [],
+        "reference_files": file_references,
+        "reference_file_count": len(file_references),
         "input_sources": _input_sources(task_id, input_names, gallery_refs, reference_assets or []),
         "error": str(exc),
     }

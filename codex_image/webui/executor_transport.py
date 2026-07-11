@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncContextManager, Callable
 
-from codex_image.client import CodexImagesImageClient, ImageResult, OpenAIImagesImageClient
+from codex_image.client import CodexImagesImageClient, ImageResult, OpenAIImagesImageClient, OpenAIResponsesImageClient
 from codex_image.prompt_guard import build_guarded_prompt
 
 from .storage import TaskStorage
@@ -104,21 +104,25 @@ async def _call_image_client(
 
 
 def _direct_images_concurrent_enabled(client: Any, auth_source: str, api_mode: str | None) -> bool:
-    client_classes: tuple[type[Any], ...] = (OpenAIImagesImageClient, CodexImagesImageClient)
+    image_client_classes: tuple[type[Any], ...] = (OpenAIImagesImageClient, CodexImagesImageClient)
+    api_responses_client_classes: tuple[type[Any], ...] = (OpenAIResponsesImageClient,)
     try:
         from . import executor as executor_module
 
-        client_classes = (
+        image_client_classes = (
             getattr(executor_module, "OpenAIImagesImageClient", OpenAIImagesImageClient),
             getattr(executor_module, "CodexImagesImageClient", CodexImagesImageClient),
         )
+        api_responses_client_classes = (
+            getattr(executor_module, "OpenAIResponsesImageClient", OpenAIResponsesImageClient),
+        )
     except Exception:
-        client_classes = (OpenAIImagesImageClient, CodexImagesImageClient)
-    return (
-        auth_source in {"api", "codex"}
-        and _normalize_api_mode(api_mode) == "images"
-        and isinstance(client, client_classes)
-    )
+        image_client_classes = (OpenAIImagesImageClient, CodexImagesImageClient)
+        api_responses_client_classes = (OpenAIResponsesImageClient,)
+    mode = _normalize_api_mode(api_mode)
+    if auth_source == "api" and mode == "responses":
+        return isinstance(client, api_responses_client_classes)
+    return auth_source in {"api", "codex"} and mode == "images" and isinstance(client, image_client_classes)
 
 
 def _debug_sse_path(storage: TaskStorage, task_id: str) -> Path | None:

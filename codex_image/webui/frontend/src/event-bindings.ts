@@ -81,6 +81,7 @@ export function bindWebUIEvents(state: WebUIState, els: WebUIElements, methods: 
   els.apiProvider?.addEventListener("change", () => {
     call(methods, "selectApiProvider", els.apiProvider?.value || call(methods, "currentApiProviderId"));
   });
+  els.apiProviderSearch?.addEventListener("input", () => call(methods, "renderApiProviderList"));
   els.apiProviderList?.addEventListener("click", (event: Event) => {
     const sortButton = (event.target as HTMLElement | null)?.closest?.("[data-api-provider-sort]") as HTMLElement | null;
     if (sortButton) {
@@ -108,6 +109,8 @@ export function bindWebUIEvents(state: WebUIState, els: WebUIElements, methods: 
   });
   els.apiKeyRevealButton?.addEventListener("keyup", () => call(methods, "hideApiKeyReveal"));
   els.apiKey?.addEventListener("input", () => call(methods, "updateApiKeyRevealButton"));
+  els.apiBaseUrl?.addEventListener("input", () => call(methods, "updateApiRequestEndpointPreview"));
+  els.apiMode?.addEventListener("change", () => call(methods, "updateApiRequestEndpointPreview"));
   [els.codexMode].filter(Boolean).forEach((element) => {
     element?.addEventListener("input", () => {
       call(methods, "readApiSettingsForm");

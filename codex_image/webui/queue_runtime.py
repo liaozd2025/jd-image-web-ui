@@ -12,8 +12,10 @@ from codex_image.client import CodexImageClient, CodexImagesImageClient
 
 from .auth_routing import (
     DEFAULT_API_PROVIDER_ID,
+    _apply_api_execution_snapshot,
     _api_client_from_settings,
-    _backend_for_queue_channel,
+    _backend_for_api_mode,
+    _backend_for_codex_mode,
     _codex_mode_for_task_metadata,
     _normalize_api_images_concurrency,
     _normalize_api_mode,
@@ -26,7 +28,14 @@ from .executor import (
     _is_usage_limit_error,
     _task_cancel_requested,
 )
+from .executor_inputs import _is_reference_file_missing_error
 from .queue import NonRetryableTaskError, QueueChannel, QueueManager
+from .reference_file_capabilities import (
+    CapabilityKey,
+    effective_reference_file_main_model,
+    is_explicit_file_input_rejection,
+    reference_file_capability_key_for_resolved_backend,
+)
 from .storage import utc_now
 
 
@@ -35,6 +44,13 @@ class QueueRuntimeResult:
     lifespan: Callable[[FastAPI], AsyncContextManager[None]]
     ensure_queue_worker_running: Callable[[], None]
     queue_channel_available: Callable[[QueueChannel], bool]
+
+
+@dataclass(frozen=True)
+class QueueExecutionContract:
+    client: Any
+    backend: str
+    reference_file_capability_key: CapabilityKey
 
 
 def _queue_channel_by_id(app_instance: FastAPI, channel_id: str) -> QueueChannel | None:
@@ -104,18 +120,78 @@ def _queue_channel_available(ctx: WebUIContext, channel: QueueChannel) -> bool:
     return True
 
 
-def _client_for_queue_channel(ctx: WebUIContext, channel: QueueChannel, metadata: dict[str, Any] | None = None, *, client_factory_overridden: bool = False) -> Any:
-    if client_factory_overridden:
-        return ctx.client_factory()
+def _provider_from_settings_snapshot(settings: dict[str, Any], provider_id: str) -> dict[str, Any]:
+    providers = settings.get("providers") if isinstance(settings.get("providers"), list) else []
+    target_id = str(provider_id or settings.get("active_provider_id") or "")
+    provider = next(
+        (item for item in providers if isinstance(item, dict) and str(item.get("id") or "") == target_id),
+        None,
+    )
+    if provider is None:
+        active_provider_id = str(settings.get("active_provider_id") or "")
+        provider = next(
+            (item for item in providers if isinstance(item, dict) and str(item.get("id") or "") == active_provider_id),
+            None,
+        )
+    if provider is None:
+        provider = next((item for item in providers if isinstance(item, dict)), settings)
+    return dict(provider)
+
+
+def _queue_execution_contract(
+    ctx: WebUIContext,
+    channel: QueueChannel,
+    metadata: dict[str, Any] | None = None,
+    *,
+    client_factory_overridden: bool = False,
+) -> QueueExecutionContract:
+    params = metadata.get("params") if isinstance(metadata, dict) and isinstance(metadata.get("params"), dict) else {}
+    main_model = effective_reference_file_main_model(params.get("main_model"))
     if channel.auth_source == "api":
         settings_payload = ctx.api_settings.read()
-        params = metadata.get("params") if isinstance(metadata, dict) and isinstance(metadata.get("params"), dict) else {}
-        provider_settings = ctx.api_settings.provider_settings(str(params.get("api_provider_id") or settings_payload.get("active_provider_id") or ""))
+        provider_settings = _provider_from_settings_snapshot(
+            settings_payload,
+            str(params.get("api_provider_id") or settings_payload.get("active_provider_id") or ""),
+        )
         api_mode = _normalize_api_mode(params.get("api_mode") or provider_settings.get("api_mode"))
-        return _api_client_from_settings(provider_settings, api_mode=api_mode)
+        backend = _backend_for_api_mode(api_mode)
+        client = ctx.client_factory() if client_factory_overridden else _api_client_from_settings(provider_settings, api_mode=api_mode)
+        return QueueExecutionContract(
+            client=client,
+            backend=backend,
+            reference_file_capability_key=reference_file_capability_key_for_resolved_backend(
+                requested_backend=backend,
+                provider_id=str(provider_settings.get("id") or ""),
+                base_url=str(provider_settings.get("base_url") or ""),
+                main_model=main_model,
+            ),
+        )
     codex_mode = _codex_mode_for_task_metadata(metadata, ctx.api_settings)
-    client_class = CodexImageClient if codex_mode == "responses" else CodexImagesImageClient
-    return client_class(load_auth_state())
+    backend = _backend_for_codex_mode(codex_mode)
+    if client_factory_overridden:
+        client = ctx.client_factory()
+    else:
+        client_class = CodexImageClient if codex_mode == "responses" else CodexImagesImageClient
+        client = client_class(load_auth_state())
+    return QueueExecutionContract(
+        client=client,
+        backend=backend,
+        reference_file_capability_key=reference_file_capability_key_for_resolved_backend(
+            requested_backend=backend,
+            provider_id="codex",
+            base_url="",
+            main_model=main_model,
+        ),
+    )
+
+
+def _client_for_queue_channel(ctx: WebUIContext, channel: QueueChannel, metadata: dict[str, Any] | None = None, *, client_factory_overridden: bool = False) -> Any:
+    return _queue_execution_contract(
+        ctx,
+        channel,
+        metadata,
+        client_factory_overridden=client_factory_overridden,
+    ).client
 
 
 def _api_provider_request_context(ctx: WebUIContext, params: dict[str, Any]) -> AsyncContextManager[None]:
@@ -126,6 +202,72 @@ def _api_provider_request_context(ctx: WebUIContext, params: dict[str, Any]) -> 
         record = {"limit": limit, "semaphore": asyncio.Semaphore(limit)}
         ctx.api_request_semaphores[provider_id] = record
     return record["semaphore"]
+
+
+def _positive_int(value: Any, default: int = 1) -> int:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return default
+    return number if number > 0 else default
+
+
+def _completed_output_numbers(metadata: dict[str, Any]) -> set[int]:
+    completed: set[int] = set()
+    for output in metadata.get("outputs") or []:
+        if not isinstance(output, dict) or output.get("status") != "completed":
+            continue
+        index = _positive_int(output.get("index"), 0)
+        if index > 0:
+            completed.add(index)
+    return completed
+
+
+def _api_task_slot_demand(metadata: dict[str, Any], limit: int) -> int:
+    params = metadata.get("params") if isinstance(metadata.get("params"), dict) else {}
+    count = _positive_int(params.get("n") or metadata.get("total_count"), 1)
+    retry_slots = [
+        index
+        for index in (_positive_int(value, 0) for value in metadata.get("retrying_failed_slots") or [])
+        if 1 <= index <= count
+    ]
+    candidates = retry_slots or list(range(1, count + 1))
+    completed = _completed_output_numbers(metadata)
+    remaining = [index for index in candidates if index not in completed]
+    if not remaining:
+        return 0
+    return max(1, min(len(remaining), limit))
+
+
+def _api_responses_task_slot_claim(ctx: WebUIContext, task_id: str, channel: QueueChannel) -> bool:
+    if channel.auth_source != "api":
+        return True
+    try:
+        metadata = ctx.storage.read_metadata(task_id)
+    except FileNotFoundError:
+        return True
+    params = metadata.get("params") if isinstance(metadata.get("params"), dict) else {}
+    if _normalize_api_mode(params.get("api_mode")) != "responses":
+        return True
+    provider_id = str(params.get("api_provider_id") or DEFAULT_API_PROVIDER_ID).strip() or DEFAULT_API_PROVIDER_ID
+    limit = _normalize_api_images_concurrency(params.get("api_images_concurrency"))
+    demand = _api_task_slot_demand(metadata, limit)
+    if demand <= 0:
+        return True
+    used = sum(
+        int(record.get("slots") or 0)
+        for reserved_task_id, record in ctx.api_task_slot_reservations.items()
+        if reserved_task_id != task_id and record.get("provider_id") == provider_id and record.get("api_mode") == "responses"
+    )
+    if used + demand > limit:
+        return False
+    ctx.api_task_slot_reservations[task_id] = {
+        "provider_id": provider_id,
+        "api_mode": "responses",
+        "slots": demand,
+        "limit": limit,
+    }
+    return True
 
 
 def _mark_task_cancelled(ctx: WebUIContext, task_id: str) -> dict[str, Any]:
@@ -157,10 +299,17 @@ async def execute_task(
 ) -> None:
     ctx.active_task_ids.add(task_id)
     current_task = asyncio.current_task()
+    execution_contract: QueueExecutionContract | None = None
     if current_task is not None:
         ctx.running_worker_tasks[task_id] = current_task
     try:
         metadata = ctx.storage.read_metadata(task_id)
+        execution_contract = _queue_execution_contract(
+            ctx,
+            channel,
+            metadata,
+            client_factory_overridden=client_factory_overridden,
+        )
         attempt_started_at = utc_now()
         metadata["status"] = "running"
         metadata["started_at"] = metadata.get("started_at") or attempt_started_at
@@ -168,17 +317,26 @@ async def execute_task(
         metadata["updated_at"] = attempt_started_at
         metadata["assigned_auth_source"] = channel.auth_source
         metadata["assigned_account_id"] = channel.account_id
-        metadata["backend"] = _backend_for_queue_channel(channel, metadata, api_settings=ctx.api_settings)
+        metadata["backend"] = execution_contract.backend
+        if channel.auth_source == "api":
+            params = metadata.get("params") if isinstance(metadata.get("params"), dict) else {}
+            _apply_api_execution_snapshot(
+                ctx.storage,
+                task_id,
+                metadata,
+                ctx.api_settings,
+                str(params.get("api_provider_id") or "") or None,
+            )
         metadata["attempts"] = int(metadata.get("attempts") or 0) + 1
         ctx.storage.write_metadata(task_id, metadata)
 
-        client = _client_for_queue_channel(ctx, channel, metadata, client_factory_overridden=client_factory_overridden)
         await _execute_stored_task(
             storage=ctx.storage,
             gallery_storage=ctx.gallery_storage,
             reference_asset_storage=ctx.reference_asset_storage,
+            reference_file_storage=ctx.reference_file_storage,
             task_id=task_id,
-            client=client,
+            client=execution_contract.client,
             batch_delay_seconds=batch_delay_seconds,
             request_context=(lambda params: _api_provider_request_context(ctx, params)) if channel.auth_source == "api" else None,
         )
@@ -193,7 +351,18 @@ async def execute_task(
         usage_limit_error = _is_usage_limit_error(exc)
         local_usage_limit_error = channel.auth_source != "api" and usage_limit_error
         metadata = ctx.storage.read_metadata(task_id)
-        non_retryable = _is_non_retryable_error(exc) or local_usage_limit_error
+        reference_file_missing = _is_reference_file_missing_error(exc)
+        explicit_file_rejection = (
+            execution_contract is not None
+            and bool(metadata.get("reference_files"))
+            and is_explicit_file_input_rejection(exc)
+        )
+        if reference_file_missing:
+            exc = RuntimeError("reference_file_missing")
+        elif explicit_file_rejection:
+            ctx.responses_file_unsupported_keys.add(execution_contract.reference_file_capability_key)
+            exc = RuntimeError("provider_reference_files_unsupported")
+        non_retryable = reference_file_missing or explicit_file_rejection or _is_non_retryable_error(exc) or local_usage_limit_error
         metadata["status"] = "failed" if is_final_attempt or non_retryable else "queued"
         metadata["updated_at"] = utc_now()
         metadata["last_error"] = str(exc)
@@ -203,6 +372,7 @@ async def execute_task(
             raise NonRetryableTaskError(str(exc)) from exc
         raise
     finally:
+        ctx.api_task_slot_reservations.pop(task_id, None)
         if ctx.running_worker_tasks.get(task_id) is current_task:
             ctx.running_worker_tasks.pop(task_id, None)
         ctx.active_task_ids.discard(task_id)
@@ -221,6 +391,7 @@ def install_queue_runtime(
     client_factory_overridden: bool = False,
 ) -> QueueRuntimeResult:
     queue_channel_available = lambda channel: _queue_channel_available(ctx, channel)
+    queue_task_claim = lambda task_id, channel: _api_responses_task_slot_claim(ctx, task_id, channel)
     task_executor = lambda task_id, channel, is_final_attempt: execute_task(
         ctx,
         task_id,
@@ -236,6 +407,7 @@ def install_queue_runtime(
         execute_task=task_executor,
         max_attempts=_queue_max_attempts_for_channels(initial_channels),
         channel_available=queue_channel_available,
+        claim_task=queue_task_claim,
         auto_retry=auto_retry,
     )
     ctx.install_on_app_state()

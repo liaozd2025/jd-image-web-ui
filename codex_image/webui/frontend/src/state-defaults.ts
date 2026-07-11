@@ -35,6 +35,7 @@ export function createDefaultState(): WebUIState {
   return {
   mode: "generate",
   images: [],
+  referenceFiles: [],
   tasks: [],
   selectedTaskId: null,
   taskInputRestoreSeq: 0,

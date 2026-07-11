@@ -7,14 +7,15 @@ import uuid
 from io import BytesIO
 from os import PathLike
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
 
 from .client_types import (
     DEFAULT_IMAGE_MODEL,
     DEFAULT_MAIN_MODEL,
     DEFAULT_OPENAI_API_BASE_URL,
+    OPENAI_COMPATIBLE_USER_AGENT,
     ImageResult,
     image_model_supports_input_fidelity,
+    normalize_openai_base_url,
 )
 from .http import Transport, UrllibTransport
 
@@ -266,6 +267,7 @@ class OpenAIImagesImageClient:
             "Content-Type": content_type,
             "Accept": "application/json",
             "Authorization": f"Bearer {self.api_key}",
+            "User-Agent": OPENAI_COMPATIBLE_USER_AGENT,
         }
 
     @staticmethod
@@ -365,7 +367,7 @@ class OpenAIImagesImageClient:
     def _build_image_download_headers(self, *, include_auth: bool = False) -> dict[str, str]:
         headers = {
             "Accept": "image/*,*/*",
-            "User-Agent": "codex-image-webui/1.0",
+            "User-Agent": OPENAI_COMPATIBLE_USER_AGENT,
         }
         if include_auth:
             headers["Authorization"] = f"Bearer {self.api_key}"
@@ -506,17 +508,7 @@ class OpenAIImagesImageClient:
 
     @staticmethod
     def _normalize_base_url(base_url: str) -> str:
-        raw = str(base_url or DEFAULT_OPENAI_API_BASE_URL).strip().rstrip("/")
-        if not raw:
-            raw = DEFAULT_OPENAI_API_BASE_URL
-        parts = urlsplit(raw)
-        if not parts.scheme or not parts.netloc:
-            raise RuntimeError("OpenAI-compatible base_url must be an absolute URL")
-        path = parts.path.rstrip("/")
-        for suffix in ("/responses", "/images/generations", "/images/edits"):
-            if path.endswith(suffix):
-                path = path[: -len(suffix)]
-                break
-        if not path:
-            path = "/v1"
-        return urlunsplit((parts.scheme, parts.netloc, path, "", ""))
+        try:
+            return normalize_openai_base_url(base_url)
+        except ValueError as exc:
+            raise RuntimeError(str(exc)) from exc

@@ -12,6 +12,7 @@ import unittest
 import zipfile
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -29,6 +30,7 @@ from tests.webui_helpers import (
     CapturingApiImageClient,
     CapturingApiResponsesImageClient,
     ConcurrentApiImageClient,
+    ConcurrentApiResponsesImageClient,
     FailFastSlowCompleteQueueTestExecutor,
     FailsSecondImageClient,
     FakeImageClient,
@@ -60,6 +62,48 @@ def _fake_jwt(payload: dict[str, object]) -> str:
 
 
 class WebUISettingsTests(unittest.TestCase):
+    def test_api_responses_provider_concurrency_uses_multiple_queue_task_channels(self) -> None:
+        from codex_image.webui.auth_routing import _queue_channels_for_source
+        from codex_image.webui.settings_store import ApiSettings
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings = ApiSettings(Path(tmp) / "api-settings.json")
+            settings.write(
+                {
+                    "base_url": "https://api.example.com/v1",
+                    "api_key": "test-api-key-responses-secret",
+                    "image_model": "gpt-image-2",
+                    "api_mode": "responses",
+                    "images_concurrency": 4,
+                }
+            )
+
+            channels = _queue_channels_for_source("api", api_settings=settings)
+
+        self.assertEqual([channel.channel_id for channel in channels], ["api:default:1", "api:default:2", "api:default:3", "api:default:4"])
+        self.assertEqual([channel.auth_source for channel in channels], ["api", "api", "api", "api"])
+
+    def test_api_images_provider_concurrency_still_uses_multiple_queue_task_channels(self) -> None:
+        from codex_image.webui.auth_routing import _queue_channels_for_source
+        from codex_image.webui.settings_store import ApiSettings
+
+        with tempfile.TemporaryDirectory() as tmp:
+            settings = ApiSettings(Path(tmp) / "api-settings.json")
+            settings.write(
+                {
+                    "base_url": "https://api.example.com/v1",
+                    "api_key": "test-api-key-images-secret",
+                    "image_model": "gpt-image-2",
+                    "api_mode": "images",
+                    "images_concurrency": 4,
+                }
+            )
+
+            channels = _queue_channels_for_source("api", api_settings=settings)
+
+        self.assertEqual([channel.channel_id for channel in channels], ["api:default:1", "api:default:2", "api:default:3", "api:default:4"])
+        self.assertEqual([channel.auth_source for channel in channels], ["api", "api", "api", "api"])
+
     def test_health_reports_missing_auth(self) -> None:
         from codex_image.webui.app import create_app
 
@@ -427,6 +471,48 @@ class WebUISettingsTests(unittest.TestCase):
         self.assertEqual(persisted["api_key"], "test-api-key-test-secret")
         self.assertEqual(persisted["api_mode"], "responses")
         self.assertNotIn("test-api-key-test-secret", response_text)
+
+    def test_api_settings_preserve_custom_root_base_url_after_save_and_reload(self) -> None:
+        from codex_image.webui.app import create_app
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            api_settings_path = root / "api-settings.json"
+            app = create_app(
+                output_root=root / "tasks",
+                auth_settings_path=root / "auth-settings.json",
+                api_settings_path=api_settings_path,
+                auto_start_queue=False,
+            )
+            client = TestClient(app)
+            saved = client.patch(
+                "/api/api-settings",
+                json={
+                    "active_provider_id": "proxy",
+                    "providers": [
+                        {
+                            "id": "proxy",
+                            "name": "Proxy",
+                            "base_url": "https://proxy.example.com",
+                            "api_key": "test-api-key-root-url-secret",
+                            "image_model": "gpt-image-2",
+                            "api_mode": "responses",
+                            "images_concurrency": 4,
+                        }
+                    ],
+                },
+            )
+            reported = client.get("/api/api-settings").json()["settings"]
+            persisted = json.loads(api_settings_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(saved.status_code, 200)
+        self.assertEqual(saved.json()["settings"]["base_url"], "https://proxy.example.com")
+        self.assertEqual(saved.json()["settings"]["providers"][0]["base_url"], "https://proxy.example.com")
+        self.assertEqual(reported["base_url"], "https://proxy.example.com")
+        self.assertEqual(reported["providers"][0]["base_url"], "https://proxy.example.com")
+        self.assertEqual(persisted["base_url"], "https://proxy.example.com")
+        self.assertEqual(persisted["providers"][0]["base_url"], "https://proxy.example.com")
+
     def test_api_settings_persist_codex_channel_mode(self) -> None:
         from codex_image.webui.app import create_app
 
@@ -1747,6 +1833,506 @@ class WebUISettingsTests(unittest.TestCase):
         self.assertEqual(api_client.api_key, "test-api-key-worker-responses-secret")
         self.assertEqual(api_client.base_url, "https://api.example.com/v1")
         self.assertEqual(api_client.image_model, "gpt-image-2")
+
+    def test_api_responses_queue_worker_generates_multiple_outputs_concurrently(self) -> None:
+        from codex_image.webui.app import create_app
+
+        ConcurrentApiResponsesImageClient.reset()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with patch("codex_image.webui.auth_routing.OpenAIResponsesImageClient", ConcurrentApiResponsesImageClient, create=True):
+                app = create_app(
+                    output_root=root / "tasks",
+                    auth_settings_path=root / "auth-settings.json",
+                    api_settings_path=root / "api-settings.json",
+                    batch_delay_seconds=0,
+                    auto_start_queue=False,
+                )
+                client = TestClient(app)
+                client.patch(
+                    "/api/api-settings",
+                    json={
+                        "base_url": "https://api.example.com/v1",
+                        "api_key": "test-api-key-worker-responses-secret",
+                        "image_model": "gpt-image-2",
+                        "api_mode": "responses",
+                        "images_concurrency": 3,
+                    },
+                )
+                client.patch("/api/auth", json={"source": "api"})
+                created = client.post(
+                    "/api/generate",
+                    data={
+                        "prompt": "api responses concurrent batch",
+                        "main_model": "gpt-5.5",
+                        "size": "1024x1024",
+                        "quality": "low",
+                        "api_mode": "responses",
+                        "n": "4",
+                    },
+                )
+                task_id = created.json()["task"]["task_id"]
+
+                asyncio.run(app.state.queue_manager.run_available_once())
+                task = client.get(f"/api/tasks/{task_id}").json()["task"]
+
+        self.assertEqual(task["status"], "completed")
+        self.assertEqual(task["requested_backend"], "openai_responses")
+        self.assertEqual(task["backend"], "openai_responses")
+        self.assertEqual(task["params"]["api_images_concurrency"], 3)
+        self.assertEqual(task["api_images_concurrency"], 3)
+        self.assertEqual(task["generated_count"], 4)
+        self.assertEqual(task["total_count"], 4)
+        self.assertEqual(len(ConcurrentApiResponsesImageClient.instances), 1)
+        api_client = ConcurrentApiResponsesImageClient.instances[0]
+        self.assertEqual(len(api_client.generate_calls), 4)
+        self.assertEqual(api_client.max_active_requests, 3)
+
+    def test_api_responses_provider_concurrency_keeps_next_task_waiting_until_slots_are_available(self) -> None:
+        from codex_image.client import ImageResult
+        from codex_image.webui.app import create_app
+
+        class BlockingSharedApiResponsesImageClient(CapturingApiResponsesImageClient):
+            instances: list["BlockingSharedApiResponsesImageClient"] = []
+            generate_call_count = 0
+            active_requests = 0
+            max_active_requests = 0
+            request_lock = threading.Lock()
+            four_requests_active = threading.Event()
+            release_requests = threading.Event()
+
+            @classmethod
+            def reset(cls) -> None:
+                cls.instances = []
+                cls.generate_call_count = 0
+                cls.active_requests = 0
+                cls.max_active_requests = 0
+                cls.four_requests_active = threading.Event()
+                cls.release_requests = threading.Event()
+
+            def generate_image(self, **kwargs: Any):
+                with type(self).request_lock:
+                    self.generate_calls.append(kwargs)
+                    type(self).generate_call_count += 1
+                    call_number = type(self).generate_call_count
+                    type(self).active_requests += 1
+                    type(self).max_active_requests = max(type(self).max_active_requests, type(self).active_requests)
+                    if type(self).active_requests >= 4:
+                        type(self).four_requests_active.set()
+                try:
+                    type(self).release_requests.wait(timeout=5)
+                    return ImageResult(
+                        f"api-responses-shared-{call_number}".encode("utf-8"),
+                        f"api responses shared revised {call_number}",
+                        "png",
+                        kwargs["size"],
+                        "auto",
+                        kwargs["quality"],
+                        {"call_number": call_number},
+                    )
+                finally:
+                    with type(self).request_lock:
+                        type(self).active_requests -= 1
+
+        BlockingSharedApiResponsesImageClient.reset()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with patch("codex_image.webui.auth_routing.OpenAIResponsesImageClient", BlockingSharedApiResponsesImageClient, create=True):
+                app = create_app(
+                    output_root=root / "tasks",
+                    auth_settings_path=root / "auth-settings.json",
+                    api_settings_path=root / "api-settings.json",
+                    batch_delay_seconds=0,
+                    auto_start_queue=False,
+                )
+                client = TestClient(app)
+                client.patch(
+                    "/api/api-settings",
+                    json={
+                        "base_url": "https://api.example.com/v1",
+                        "api_key": "test-api-key-worker-responses-secret",
+                        "image_model": "gpt-image-2",
+                        "api_mode": "responses",
+                        "images_concurrency": 4,
+                    },
+                )
+                client.patch("/api/auth", json={"source": "api"})
+                created_a = client.post(
+                    "/api/generate",
+                    data={
+                        "prompt": "api responses shared batch a",
+                        "main_model": "gpt-5.5",
+                        "size": "1024x1024",
+                        "quality": "low",
+                        "api_mode": "responses",
+                        "n": "2",
+                    },
+                )
+                created_b = client.post(
+                    "/api/generate",
+                    data={
+                        "prompt": "api responses shared batch b",
+                        "main_model": "gpt-5.5",
+                        "size": "1024x1024",
+                        "quality": "low",
+                        "api_mode": "responses",
+                        "n": "2",
+                    },
+                )
+                created_c = client.post(
+                    "/api/generate",
+                    data={
+                        "prompt": "api responses shared batch c",
+                        "main_model": "gpt-5.5",
+                        "size": "1024x1024",
+                        "quality": "low",
+                        "api_mode": "responses",
+                        "n": "2",
+                    },
+                )
+                task_ids = [
+                    created_a.json()["task"]["task_id"],
+                    created_b.json()["task"]["task_id"],
+                    created_c.json()["task"]["task_id"],
+                ]
+                worker_error: list[BaseException] = []
+
+                def run_worker() -> None:
+                    try:
+                        asyncio.run(app.state.queue_manager.run_available_once())
+                    except BaseException as exc:  # pragma: no cover - surfaced below
+                        worker_error.append(exc)
+
+                worker = threading.Thread(target=run_worker)
+                worker.start()
+                try:
+                    self.assertTrue(BlockingSharedApiResponsesImageClient.four_requests_active.wait(timeout=5))
+                    running_outputs: list[tuple[str, int]] = []
+                    for task_id in task_ids:
+                        metadata = json.loads(metadata_path(root / "tasks", task_id).read_text(encoding="utf-8"))
+                        running_outputs.extend(
+                            (task_id, int(output["index"]))
+                            for output in metadata.get("outputs", [])
+                            if isinstance(output, dict) and output.get("status") == "running"
+                        )
+                    self.assertEqual(len(running_outputs), 4, running_outputs)
+                    self.assertEqual({task_id for task_id, _ in running_outputs}, {task_ids[0], task_ids[1]})
+                    queue_state = app.state.queue_storage.read_state()
+                    self.assertEqual({item["task_id"] for item in queue_state["running"].values()}, {task_ids[0], task_ids[1]})
+                    self.assertEqual(queue_state["waiting"], [task_ids[2]])
+                    self.assertEqual(BlockingSharedApiResponsesImageClient.max_active_requests, 4)
+                finally:
+                    BlockingSharedApiResponsesImageClient.release_requests.set()
+                    worker.join(timeout=5)
+
+                tasks = [client.get(f"/api/tasks/{task_id}").json()["task"] for task_id in task_ids]
+
+        self.assertFalse(worker_error)
+        self.assertEqual([task["status"] for task in tasks], ["completed", "completed", "queued"])
+        self.assertEqual(BlockingSharedApiResponsesImageClient.generate_call_count, 4)
+
+    def test_api_responses_provider_concurrency_keeps_full_size_next_task_waiting(self) -> None:
+        from codex_image.client import ImageResult
+        from codex_image.webui.app import create_app
+
+        class ReleasableSharedApiResponsesImageClient(CapturingApiResponsesImageClient):
+            instances: list["ReleasableSharedApiResponsesImageClient"] = []
+            generate_call_count = 0
+            active_requests = 0
+            max_active_requests = 0
+            request_lock = threading.Lock()
+            four_requests_active = threading.Event()
+            release_requests = threading.Event()
+
+            @classmethod
+            def reset(cls) -> None:
+                cls.instances = []
+                cls.generate_call_count = 0
+                cls.active_requests = 0
+                cls.max_active_requests = 0
+                cls.four_requests_active = threading.Event()
+                cls.release_requests = threading.Event()
+
+            def generate_image(self, **kwargs: Any):
+                with type(self).request_lock:
+                    self.generate_calls.append(kwargs)
+                    type(self).generate_call_count += 1
+                    call_number = type(self).generate_call_count
+                    type(self).active_requests += 1
+                    type(self).max_active_requests = max(type(self).max_active_requests, type(self).active_requests)
+                    if type(self).active_requests >= 4:
+                        type(self).four_requests_active.set()
+                try:
+                    type(self).release_requests.wait(timeout=5)
+                    return ImageResult(
+                        f"api-responses-release-{call_number}".encode("utf-8"),
+                        f"api responses release revised {call_number}",
+                        "png",
+                        kwargs["size"],
+                        "auto",
+                        kwargs["quality"],
+                        {"call_number": call_number},
+                    )
+                finally:
+                    with type(self).request_lock:
+                        type(self).active_requests -= 1
+
+        ReleasableSharedApiResponsesImageClient.reset()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with patch("codex_image.webui.auth_routing.OpenAIResponsesImageClient", ReleasableSharedApiResponsesImageClient, create=True):
+                app = create_app(
+                    output_root=root / "tasks",
+                    auth_settings_path=root / "auth-settings.json",
+                    api_settings_path=root / "api-settings.json",
+                    batch_delay_seconds=0,
+                    auto_start_queue=False,
+                )
+                client = TestClient(app)
+                client.patch(
+                    "/api/api-settings",
+                    json={
+                        "base_url": "https://api.example.com/v1",
+                        "api_key": "test-api-key-worker-responses-secret",
+                        "image_model": "gpt-image-2",
+                        "api_mode": "responses",
+                        "images_concurrency": 4,
+                    },
+                )
+                client.patch("/api/auth", json={"source": "api"})
+                task_ids = [
+                    client.post(
+                        "/api/generate",
+                        data={
+                            "prompt": f"api responses release batch {index}",
+                            "main_model": "gpt-5.5",
+                            "size": "1024x1024",
+                            "quality": "low",
+                            "api_mode": "responses",
+                            "n": "4",
+                        },
+                    ).json()["task"]["task_id"]
+                    for index in ("a", "b")
+                ]
+
+                worker_error: list[BaseException] = []
+
+                def run_worker() -> None:
+                    try:
+                        asyncio.run(app.state.queue_manager.run_available_once())
+                    except BaseException as exc:  # pragma: no cover - surfaced below
+                        worker_error.append(exc)
+
+                worker = threading.Thread(target=run_worker)
+                worker.start()
+                try:
+                    self.assertTrue(ReleasableSharedApiResponsesImageClient.four_requests_active.wait(timeout=5))
+                    queue_state = app.state.queue_storage.read_state()
+                    self.assertEqual({item["task_id"] for item in queue_state["running"].values()}, {task_ids[0]})
+                    self.assertEqual(queue_state["waiting"], [task_ids[1]])
+                    self.assertEqual(ReleasableSharedApiResponsesImageClient.max_active_requests, 4)
+                finally:
+                    ReleasableSharedApiResponsesImageClient.release_requests.set()
+                    worker.join(timeout=5)
+
+                tasks = [client.get(f"/api/tasks/{task_id}").json()["task"] for task_id in task_ids]
+
+        self.assertFalse(worker_error)
+        self.assertEqual([task["status"] for task in tasks], ["completed", "queued"])
+        self.assertEqual(ReleasableSharedApiResponsesImageClient.generate_call_count, 4)
+        self.assertEqual(ReleasableSharedApiResponsesImageClient.max_active_requests, 4)
+
+    def test_api_responses_provider_concurrency_skips_blocked_provider_for_later_provider(self) -> None:
+        from codex_image.client import ImageResult
+        from codex_image.webui.app import create_app
+
+        class BlockingMultiProviderResponsesImageClient(CapturingApiResponsesImageClient):
+            instances: list["BlockingMultiProviderResponsesImageClient"] = []
+            active_by_base_url: dict[str, int] = {}
+            max_active_by_base_url: dict[str, int] = {}
+            calls_by_base_url: dict[str, int] = {}
+            request_lock = threading.Lock()
+            jt_four_active = threading.Event()
+            huang_two_active = threading.Event()
+            release_requests = threading.Event()
+
+            @classmethod
+            def reset(cls) -> None:
+                cls.instances = []
+                cls.active_by_base_url = {}
+                cls.max_active_by_base_url = {}
+                cls.calls_by_base_url = {}
+                cls.jt_four_active = threading.Event()
+                cls.huang_two_active = threading.Event()
+                cls.release_requests = threading.Event()
+
+            def generate_image(self, **kwargs: Any):
+                from codex_image.client import ImageResult
+
+                base_url = self.base_url
+                with type(self).request_lock:
+                    self.generate_calls.append(kwargs)
+                    type(self).calls_by_base_url[base_url] = type(self).calls_by_base_url.get(base_url, 0) + 1
+                    call_number = type(self).calls_by_base_url[base_url]
+                    active = type(self).active_by_base_url.get(base_url, 0) + 1
+                    type(self).active_by_base_url[base_url] = active
+                    type(self).max_active_by_base_url[base_url] = max(type(self).max_active_by_base_url.get(base_url, 0), active)
+                    if base_url == "https://jt.example.com/v1" and active >= 4:
+                        type(self).jt_four_active.set()
+                    if base_url == "https://huang.example.com/v1" and active >= 2:
+                        type(self).huang_two_active.set()
+                try:
+                    type(self).release_requests.wait(timeout=5)
+                    return ImageResult(
+                        f"api-responses-{base_url}-{call_number}".encode("utf-8"),
+                        f"api responses {base_url} revised {call_number}",
+                        "png",
+                        kwargs["size"],
+                        "auto",
+                        kwargs["quality"],
+                        {"call_number": call_number},
+                    )
+                finally:
+                    with type(self).request_lock:
+                        type(self).active_by_base_url[base_url] = type(self).active_by_base_url.get(base_url, 1) - 1
+
+        BlockingMultiProviderResponsesImageClient.reset()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with patch("codex_image.webui.auth_routing.OpenAIResponsesImageClient", BlockingMultiProviderResponsesImageClient, create=True):
+                app = create_app(
+                    output_root=root / "tasks",
+                    auth_settings_path=root / "auth-settings.json",
+                    api_settings_path=root / "api-settings.json",
+                    batch_delay_seconds=0,
+                    auto_start_queue=False,
+                )
+                client = TestClient(app)
+                client.patch(
+                    "/api/api-settings",
+                    json={
+                        "active_provider_id": "jt",
+                        "providers": [
+                            {
+                                "id": "jt",
+                                "name": "JT",
+                                "base_url": "https://jt.example.com/v1",
+                                "api_key": "test-api-key-jt-secret",
+                                "image_model": "gpt-image-2",
+                                "api_mode": "responses",
+                                "images_concurrency": 4,
+                            },
+                            {
+                                "id": "huang",
+                                "name": "HuangZong",
+                                "base_url": "https://huang.example.com/v1",
+                                "api_key": "test-api-key-huang-secret",
+                                "image_model": "gpt-image-2",
+                                "api_mode": "responses",
+                                "images_concurrency": 4,
+                            },
+                        ],
+                    },
+                )
+                client.patch("/api/auth", json={"source": "api"})
+                task_specs = [
+                    ("jt running a", "jt"),
+                    ("jt running b", "jt"),
+                    ("jt should wait", "jt"),
+                    ("huang should run", "huang"),
+                ]
+                task_ids = [
+                    client.post(
+                        "/api/generate",
+                        data={
+                            "prompt": prompt,
+                            "main_model": "gpt-5.5",
+                            "size": "1024x1024",
+                            "quality": "low",
+                            "api_mode": "responses",
+                            "api_provider_id": provider_id,
+                            "n": "2",
+                        },
+                    ).json()["task"]["task_id"]
+                    for prompt, provider_id in task_specs
+                ]
+                worker_error: list[BaseException] = []
+
+                def run_worker() -> None:
+                    try:
+                        asyncio.run(app.state.queue_manager.run_available_once())
+                    except BaseException as exc:  # pragma: no cover - surfaced below
+                        worker_error.append(exc)
+
+                worker = threading.Thread(target=run_worker)
+                worker.start()
+                try:
+                    self.assertTrue(BlockingMultiProviderResponsesImageClient.jt_four_active.wait(timeout=5))
+                    self.assertTrue(BlockingMultiProviderResponsesImageClient.huang_two_active.wait(timeout=5))
+                    queue_state = app.state.queue_storage.read_state()
+                    self.assertEqual({item["task_id"] for item in queue_state["running"].values()}, {task_ids[0], task_ids[1], task_ids[3]})
+                    self.assertEqual(queue_state["waiting"], [task_ids[2]])
+                    self.assertEqual(BlockingMultiProviderResponsesImageClient.max_active_by_base_url["https://jt.example.com/v1"], 4)
+                    self.assertEqual(BlockingMultiProviderResponsesImageClient.max_active_by_base_url["https://huang.example.com/v1"], 2)
+                finally:
+                    BlockingMultiProviderResponsesImageClient.release_requests.set()
+                    worker.join(timeout=5)
+
+                tasks = [client.get(f"/api/tasks/{task_id}").json()["task"] for task_id in task_ids]
+
+        self.assertFalse(worker_error)
+        self.assertEqual([task["status"] for task in tasks], ["completed", "completed", "queued", "completed"])
+        self.assertEqual(BlockingMultiProviderResponsesImageClient.calls_by_base_url["https://jt.example.com/v1"], 4)
+        self.assertEqual(BlockingMultiProviderResponsesImageClient.calls_by_base_url["https://huang.example.com/v1"], 2)
+
+    def test_codex_responses_queue_worker_keeps_multiple_outputs_serial(self) -> None:
+        from codex_image.webui.app import create_app
+
+        class ConcurrentCodexResponsesClient(ConcurrentApiImageClient):
+            instances: list["ConcurrentCodexResponsesClient"] = []
+
+            def __init__(self, *_: Any, **__: Any) -> None:
+                super().__init__(api_key="codex", base_url="https://codex.test/v1", image_model="gpt-image-2")
+
+        ConcurrentCodexResponsesClient.reset()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with patch("codex_image.webui.queue_runtime.CodexImageClient", ConcurrentCodexResponsesClient):
+                app = create_app(
+                    output_root=root / "tasks",
+                    auth_settings_path=root / "auth-settings.json",
+                    api_settings_path=root / "api-settings.json",
+                    auth_checker=lambda: True,
+                    batch_delay_seconds=0,
+                    auto_start_queue=False,
+                )
+                client = TestClient(app)
+                client.patch("/api/api-settings", json={"codex_mode": "responses"})
+                created = client.post(
+                    "/api/generate",
+                    data={
+                        "prompt": "codex responses serial batch",
+                        "main_model": "gpt-5.5",
+                        "size": "1024x1024",
+                        "quality": "low",
+                        "codex_mode": "responses",
+                        "n": "4",
+                    },
+                )
+                task_id = created.json()["task"]["task_id"]
+
+                asyncio.run(app.state.queue_manager.run_available_once())
+                task = client.get(f"/api/tasks/{task_id}").json()["task"]
+
+        self.assertEqual(task["status"], "completed")
+        self.assertEqual(task["requested_backend"], "codex_responses")
+        self.assertEqual(task["backend"], "codex_responses")
+        self.assertEqual(task["generated_count"], 4)
+        self.assertEqual(task["total_count"], 4)
+        self.assertEqual(len(ConcurrentCodexResponsesClient.instances), 1)
+        codex_client = ConcurrentCodexResponsesClient.instances[0]
+        self.assertEqual(len(codex_client.generate_calls), 4)
+        self.assertEqual(codex_client.max_active_requests, 1)
     def test_settings_routes_report_paths_and_persist_restart_required_changes(self) -> None:
         from codex_image.webui.app import create_app
 
