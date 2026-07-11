@@ -2287,6 +2287,7 @@ class WebUISettingsTests(unittest.TestCase):
 
     def test_codex_responses_queue_worker_keeps_multiple_outputs_serial(self) -> None:
         from codex_image.webui.app import create_app
+        from codex_image.webui.settings_store import AuthSettings
 
         class ConcurrentCodexResponsesClient(ConcurrentApiImageClient):
             instances: list["ConcurrentCodexResponsesClient"] = []
@@ -2297,10 +2298,12 @@ class WebUISettingsTests(unittest.TestCase):
         ConcurrentCodexResponsesClient.reset()
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            auth_settings_path = root / "auth-settings.json"
+            AuthSettings(auth_settings_path).write_source("codex")
             with patch("codex_image.webui.queue_runtime.CodexImageClient", ConcurrentCodexResponsesClient):
                 app = create_app(
                     output_root=root / "tasks",
-                    auth_settings_path=root / "auth-settings.json",
+                    auth_settings_path=auth_settings_path,
                     api_settings_path=root / "api-settings.json",
                     auth_checker=lambda: True,
                     batch_delay_seconds=0,

@@ -400,7 +400,8 @@ def install_queue_runtime(
         batch_delay_seconds=batch_delay_seconds,
         client_factory_overridden=client_factory_overridden,
     )
-    initial_channels = _queue_channels_for_source(ctx.auth_settings.read_source(), api_settings=ctx.api_settings)
+    initial_source = "codex" if client_factory_overridden else ctx.auth_settings.read_source()
+    initial_channels = _queue_channels_for_source(initial_source, api_settings=ctx.api_settings)
     ctx.queue_manager = QueueManager(
         queue_storage=ctx.queue_storage,
         channels=initial_channels,

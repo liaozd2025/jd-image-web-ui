@@ -357,7 +357,10 @@ class ReferenceFileFrontendContractTests(unittest.TestCase):
         self.assertIn('ilab-gpt-conjure-shell-v50', worker)
 
     def test_design_system_documents_shared_input_rail_and_filename_summary_tiles(self) -> None:
-        design = (ROOT / "DESIGN.md").read_text(encoding="utf-8")
+        design_path = ROOT / "DESIGN.md"
+        if not design_path.exists():
+            self.skipTest("private design contract is not exported")
+        design = design_path.read_text(encoding="utf-8")
         self.assertIn("已选图片与文件共用同一条缩略图轨道", design)
         self.assertIn("生成页不提供最近参考文件列表", design)
         self.assertNotIn("已选文件覆盖在上传区底部", design)
