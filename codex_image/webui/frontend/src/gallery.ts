@@ -70,7 +70,7 @@ async function refreshGallery() {
     ensureActiveGalleryCategory();
     renderGalleryCategoryControls();
     renderQuickGalleryDock();
-    renderGalleryGrid();
+    if (els.galleryDrawer?.classList.contains("open")) renderGalleryGrid();
   } catch (error: any) {
     state.galleryItems = [];
     state.galleryCategories = defaultGalleryCategories();

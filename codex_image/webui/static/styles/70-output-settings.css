@@ -1,3 +1,355 @@
+/* Output Settings Lock */
+.output-settings-header {
+  position: relative;
+  z-index: 3;
+  min-height: 18px;
+  margin-bottom: 16px;
+}
+
+.output-settings-header h2 {
+  margin: 0;
+}
+
+.output-settings-stage {
+  position: relative;
+  min-width: 0;
+}
+
+.output-panel.is-locked-view .settings-grid {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.output-settings-lock-button {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--line) 86%, transparent);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    color var(--motion-fast),
+    border-color var(--motion-fast),
+    background var(--motion-fast),
+    box-shadow var(--motion-fast);
+}
+
+.output-settings-lock-button svg {
+  width: 17px;
+  height: 17px;
+}
+
+.output-settings-lock-button:hover,
+.output-settings-lock-button:focus-visible,
+.output-settings-lock-button.is-locked {
+  border-color: color-mix(in srgb, var(--primary) 46%, var(--line));
+  background: var(--primary-light);
+  color: var(--primary-strong);
+}
+
+.output-settings-lock-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 44%, transparent);
+  outline-offset: 2px;
+}
+
+.output-settings-lock-button:not(.is-locked) .output-settings-lock-shackle {
+  transform: translate(3px, -1px) rotate(18deg);
+  transform-origin: 8px 10px;
+}
+
+.output-settings-locked-summary {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-soft) 72%, var(--surface));
+}
+
+.output-settings-summary-content {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+}
+
+.output-settings-summary-main {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(8px, 1.5vh, 18px) 0 clamp(36px, 5vh, 64px);
+}
+
+.output-settings-summary-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.output-settings-summary-context,
+.output-settings-summary-model-label,
+.output-settings-summary-card-label,
+.output-settings-summary-detail-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.output-settings-summary-context {
+  margin-bottom: 4px;
+  color: var(--primary-strong);
+  font-size: 12px;
+}
+
+.output-settings-summary-model-line {
+  min-width: 0;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+}
+
+.output-settings-summary-model {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.output-settings-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.output-settings-summary-main > .output-settings-summary-cards:first-child {
+  margin-top: 0;
+}
+
+.output-settings-summary-card {
+  position: relative;
+  min-width: 0;
+  min-height: 166px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.output-settings-ratio-visual,
+.output-settings-count-visual {
+  min-height: 92px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.output-settings-ratio-frame {
+  width: 86px;
+  aspect-ratio: var(--output-settings-ratio, 1);
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, var(--line));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--primary-light) 48%, var(--surface));
+  box-shadow: inset 0 0 0 6px var(--surface);
+}
+
+.output-settings-ratio-frame.is-portrait {
+  width: auto;
+  height: 86px;
+}
+
+.output-settings-ratio-value {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--primary-strong);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.output-settings-count-visual {
+  gap: 6px;
+}
+
+.output-settings-count-visual.is-wide-four {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  grid-template-rows: repeat(2, max-content);
+  align-content: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.output-settings-count-card {
+  position: relative;
+  width: min(var(--output-settings-count-card-max-width, 38px), calc((100% - 18px) / 4));
+  min-width: 0;
+  max-width: 38px;
+  aspect-ratio: var(--output-settings-count-ratio, 1);
+  flex: 0 1 38px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, var(--line));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--primary-light) 62%, var(--surface));
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.output-settings-count-visual.is-wide-four .output-settings-count-card {
+  width: 46px;
+  max-width: 46px;
+  flex: 0 0 46px;
+}
+
+.output-settings-count-card-sun {
+  position: absolute;
+  top: 20%;
+  right: 20%;
+  width: 16%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary) 34%, var(--surface));
+}
+
+.output-settings-count-card-land {
+  position: absolute;
+  right: 13%;
+  bottom: 18%;
+  left: 13%;
+  height: 34%;
+  background: color-mix(in srgb, var(--primary) 26%, var(--surface));
+  clip-path: polygon(0 100%, 28% 34%, 48% 66%, 67% 28%, 100% 100%);
+}
+
+.output-settings-format-visual {
+  width: 86px;
+  aspect-ratio: 1;
+  place-self: center;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary-light) 62%, var(--surface));
+  color: var(--primary-strong);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.output-settings-card-meta {
+  justify-self: center;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.output-settings-summary-details {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 0;
+}
+
+.output-settings-summary-details::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--primary) 18%, var(--line)) 18%,
+    color-mix(in srgb, var(--primary) 18%, var(--line)) 82%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.output-settings-summary-detail {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 0 7px;
+  border-left: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  text-align: center;
+}
+
+.output-settings-summary-detail:first-child {
+  border-left: 0;
+}
+
+.output-settings-summary-detail-value {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.output-settings-summary-hint {
+  margin: 0;
+  padding-top: 28px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.output-settings-locked-summary.is-task-context .output-settings-summary-hint {
+  padding-right: 190px;
+}
+
+.output-settings-task-action {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.output-settings-task-action .ghost-button {
+  min-height: 32px;
+}
+
 /* Settings Grid */
 .settings-grid {
   --custom-size-mode-card-height: 175px;
@@ -435,9 +787,40 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .output-settings-lock-button,
+  .output-settings-lock-shackle,
   .settings-grid,
   .mode-transition {
     transition: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .output-settings-summary-content {
+    padding: 16px;
+  }
+
+  .output-settings-summary-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .output-settings-summary-card {
+    min-height: 148px;
+  }
+
+  .output-settings-summary-details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 0;
+  }
+
+  .output-settings-summary-detail:nth-child(odd) {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .output-settings-task-action {
+    right: 16px;
+    bottom: 16px;
   }
 }
 

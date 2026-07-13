@@ -113,7 +113,7 @@
         });
       })();
     </script>
-    <link rel="stylesheet" href="/static/styles.css?v=runtime-491" />
+    <link rel="stylesheet" href="/static/styles.css?v=runtime-556" />
   </head>
   <body>
     <div class="layout-container">
@@ -355,7 +355,7 @@
             <!-- Image Input -->
             <section class="panel image-panel">
               <div class="panel-heading">
-                <h2 data-i18n="imageInput.referenceTitle">参考输入</h2>
+                <h2 data-i18n="imageInput.referenceTitle">参考输入（可选）</h2>
               </div>
 
               <div class="image-input-workspace">
@@ -501,8 +501,32 @@
 
             <!-- Output Settings -->
             <section class="panel output-panel">
-              <h2 data-i18n="outputSettings.title">输出设置</h2>
-              <div id="settingsGrid" class="settings-grid">
+              <div id="outputSettingsHeader" class="output-settings-header">
+                <h2 data-i18n="outputSettings.title">输出设置</h2>
+                <button
+                  id="outputSettingsLockButton"
+                  class="output-settings-lock-button"
+                  type="button"
+                  aria-pressed="false"
+                  aria-label="锁定参数"
+                  title="锁定参数"
+                  data-i18n-attr="aria-label:output.lock.lock;title:output.lock.lock"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path class="output-settings-lock-shackle" d="M7.5 10V7.75a4.5 4.5 0 0 1 9 0V10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                    <rect x="5.5" y="10" width="13" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+                    <path d="M12 14v2.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>
+              <div id="outputSettingsStage" class="output-settings-stage">
+                <div id="outputSettingsLockedSummary" class="output-settings-locked-summary hidden" aria-hidden="true">
+                  <div id="outputSettingsSummaryContent" class="output-settings-summary-content"></div>
+                  <div id="outputSettingsTaskAction" class="output-settings-task-action hidden">
+                    <button id="adoptTaskOutputSettingsButton" class="ghost-button" type="button" data-i18n="output.lock.adoptTask">使用此任务参数</button>
+                  </div>
+                </div>
+                <div id="settingsGrid" class="settings-grid">
                 <div id="modeSettingsSlot" class="mode-settings-slot full-width">
                   <div id="modeSpecificSettings" class="mode-specific-settings mode-transition">
                     <div class="model-tool-row">
@@ -809,6 +833,7 @@
                     <option value="auto">auto</option>
                     <option value="low">low</option>
                   </select>
+                </div>
                 </div>
               </div>
             </section>
@@ -1410,7 +1435,7 @@
     </div>
 
     <div id="taskNotificationToastRegion" class="task-notification-toast-region" aria-live="polite"></div>
-  <script src="/static/app.js?v=runtime-491"></script>
+  <script src="/static/app.js?v=runtime-556"></script>
     <script>
       (() => {
         document.querySelectorAll(".radio-group").forEach((group) => {

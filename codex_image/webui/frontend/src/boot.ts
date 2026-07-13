@@ -26,6 +26,7 @@ export function bootWebUI(state: WebUIState, els: WebUIElements, methods: Legacy
   call(methods, "updateCompression");
   call(methods, "updateSizeFromPreset");
   call(methods, "updateCustomSize");
+  call(methods, "restoreOutputSettingsLock");
   call(methods, "renderImageStrip");
   void call(methods, "restoreHistoryReferenceHandoff");
   void call(methods, "restoreHistoryTaskReuseHandoff");
@@ -41,6 +42,5 @@ export function bootWebUI(state: WebUIState, els: WebUIElements, methods: Legacy
   }
   call(methods, "startUiClock");
   call(methods, "updateRequestPreview");
-  call(methods, "setupPreviewPanelHeightSync");
   call(methods, "openSystemSettingsFromUrl");
 }

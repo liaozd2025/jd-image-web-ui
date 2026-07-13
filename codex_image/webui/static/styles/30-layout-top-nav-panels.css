@@ -4,6 +4,9 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  container-type: inline-size;
+  container-name: workspace;
   background-image: var(--workspace-texture);
   background-size: 22px 22px, 100% 100%;
 }
@@ -448,10 +451,11 @@
 .dashboard {
   flex: 1;
   width: min(100%, 1760px);
-  min-height: calc(100dvh - var(--header-height));
+  min-height: 0;
   margin-inline: auto;
   padding: 24px;
   overflow-y: auto;
+  overflow-x: hidden;
   display: grid;
   grid-template-columns: minmax(520px, 760px) minmax(520px, 1fr);
   gap: 24px;
@@ -460,6 +464,7 @@
 }
 
 .dashboard-col {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -473,14 +478,14 @@
 
 .preview-col {
   position: relative;
-  height: var(--controls-col-height, auto);
+  height: auto;
   min-height: 0;
   overflow: hidden;
 }
 
 .preview-panel {
-  height: var(--controls-col-height, 100%);
-  max-height: var(--controls-col-height, 100%);
+  height: 100%;
+  max-height: none;
   min-height: 0;
   display: flex;
   flex-direction: column;

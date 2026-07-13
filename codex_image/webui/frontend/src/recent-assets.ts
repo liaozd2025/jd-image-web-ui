@@ -6,6 +6,9 @@ const state = bridge.state;
 const els = bridge.els;
 
 let recentAssetsFeatureInitialized = false;
+const RECENT_ASSET_RENDER_BATCH_SIZE = 12;
+const RECENT_ASSET_LOAD_AHEAD_PX = 96;
+let recentAssetRenderLimit = RECENT_ASSET_RENDER_BATCH_SIZE;
 
 function legacyMethod(name: string, ...args: any[]): any {
   const method = getLegacyBridge().methods[name];
@@ -36,9 +39,11 @@ async function refreshRecentAssets() {
       throw new Error(data.detail || translate("recentAssets.loadFailed"));
     }
     state.recentAssets = Array.isArray(data.items) ? data.items : [];
+    recentAssetRenderLimit = RECENT_ASSET_RENDER_BATCH_SIZE;
     renderRecentAssets();
   } catch {
     state.recentAssets = [];
+    recentAssetRenderLimit = RECENT_ASSET_RENDER_BATCH_SIZE;
     renderRecentAssets();
   }
 }
@@ -46,39 +51,53 @@ async function refreshRecentAssets() {
 function renderRecentAssets() {
   if (!els.recentAssetDock || !els.recentAssetList) return;
   const items = state.recentAssets.filter((item: any) => item?.id && item?.image_url);
+  const visibleItems = items.slice(0, recentAssetRenderLimit);
   els.recentAssetDock.classList.toggle("hidden", !items.length);
-  els.recentAssetList.innerHTML = items.map((item: any) => {
+  els.recentAssetList.innerHTML = visibleItems.map((item: any) => {
     const name = recentAssetName(item);
     return `
     <div class="recent-asset-button" title="${escapeHtml(name)}">
       <button class="recent-asset-use" type="button" data-reference-asset-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(formatTranslation("recentAssets.use", { name }))}">
-        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(name)}">
+        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(name)}" loading="lazy" decoding="async">
         <span>${escapeHtml(name)}</span>
       </button>
       <button class="recent-asset-delete" type="button" data-reference-asset-delete="${escapeHtml(item.id)}" aria-label="${escapeHtml(formatTranslation("recentAssets.delete", { name }))}">×</button>
     </div>
   `;
   }).join("");
-  els.recentAssetList.querySelectorAll("[data-reference-asset-id]").forEach((button: any) => {
-    button.addEventListener("click", () => {
-      const item = state.recentAssets.find((candidate: any) => candidate.id === button.dataset.referenceAssetId);
-      addReferenceAssetInput(item);
+}
+
+function handleRecentAssetClick(event: Event) {
+  const target = event.target instanceof Element ? event.target : null;
+  const deleteButton = target?.closest("[data-reference-asset-delete]") as HTMLElement | null;
+  if (deleteButton) {
+    event.stopPropagation();
+    const item = state.recentAssets.find((candidate: any) => candidate.id === deleteButton.dataset.referenceAssetDelete);
+    if (!item) return;
+    openConfirmPopover(deleteButton, {
+      title: translate("recentAssets.deleteTitle"),
+      message: translate("recentAssets.deleteMessage"),
+      detail: recentAssetName(item),
+      confirmText: translate("action.delete"),
+      onConfirm: () => deleteRecentAsset(item.id),
     });
-  });
-  els.recentAssetList.querySelectorAll("[data-reference-asset-delete]").forEach((button: any) => {
-    button.addEventListener("click", (event: any) => {
-      event.stopPropagation();
-      const item = state.recentAssets.find((candidate: any) => candidate.id === button.dataset.referenceAssetDelete);
-      if (!item) return;
-      openConfirmPopover(button, {
-        title: translate("recentAssets.deleteTitle"),
-        message: translate("recentAssets.deleteMessage"),
-        detail: recentAssetName(item),
-        confirmText: translate("action.delete"),
-        onConfirm: () => deleteRecentAsset(item.id),
-      });
-    });
-  });
+    return;
+  }
+  const useButton = target?.closest("[data-reference-asset-id]") as HTMLElement | null;
+  if (!useButton) return;
+  const item = state.recentAssets.find((candidate: any) => candidate.id === useButton.dataset.referenceAssetId);
+  if (item) addReferenceAssetInput(item);
+}
+
+function handleRecentAssetScroll() {
+  const list = els.recentAssetList;
+  if (!list || recentAssetRenderLimit >= state.recentAssets.length) return;
+  const remaining = list.scrollWidth - list.clientWidth - list.scrollLeft;
+  if (remaining > RECENT_ASSET_LOAD_AHEAD_PX) return;
+  const scrollLeft = list.scrollLeft;
+  recentAssetRenderLimit += RECENT_ASSET_RENDER_BATCH_SIZE;
+  renderRecentAssets();
+  list.scrollLeft = scrollLeft;
 }
 
 function wheelDeltaInPixels(event: WheelEvent) {
@@ -131,11 +150,14 @@ export function initRecentAssetsFeature() {
   if (recentAssetsFeatureInitialized) return;
   recentAssetsFeatureInitialized = true;
   els.recentAssetList?.addEventListener("wheel", handleRecentAssetWheel, { passive: false });
+  els.recentAssetList?.addEventListener("scroll", handleRecentAssetScroll, { passive: true });
+  els.recentAssetList?.addEventListener("click", handleRecentAssetClick);
   document.addEventListener(LOCALE_CHANGE_EVENT, renderRecentAssets);
   Object.assign(getLegacyBridge().methods, {
     refreshRecentAssets,
     renderRecentAssets,
     handleRecentAssetWheel,
+    handleRecentAssetScroll,
     deleteRecentAsset,
   });
 }

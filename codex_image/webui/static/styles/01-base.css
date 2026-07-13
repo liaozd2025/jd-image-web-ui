@@ -71,6 +71,6 @@ button, input, select, textarea {
 
 .layout-container {
   display: flex;
-  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }

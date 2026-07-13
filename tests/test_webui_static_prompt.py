@@ -605,7 +605,7 @@ class WebUIStaticPromptTests(WebUIStaticTestCase):
         self.assertRegex(styles, r"\.prompt-template-recent-cell\.find-active \.prompt-template-recent-dock\s*\{[^}]*display:\s*none")
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.prompt-find-panel\s*\{[\s\S]*grid-template-columns:\s*minmax\(68px,\s*1fr\)\s+minmax\(68px,\s*1fr\)\s+max-content",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.prompt-find-panel\s*\{[\s\S]*grid-template-columns:\s*minmax\(68px,\s*1fr\)\s+minmax\(68px,\s*1fr\)\s+max-content",
         )
     def test_prompt_editor_core_modules_have_typescript_source_contract(self) -> None:
         prompt_source = self._prompt_source()
@@ -1209,8 +1209,8 @@ console.log(cases.map((color) => readableTextColor(color)).join("\\n"));
         self.assertIn('id="mainModelToggle"', html)
         self.assertIn('id="mainModelOptions"', html)
         self.assertIn('role="listbox"', html)
-        self.assertIn('/static/app.js?v=runtime-491', html)
-        self.assertIn('/static/styles.css?v=runtime-491', html)
+        self.assertIn('/static/app.js?v=runtime-556', html)
+        self.assertIn('/static/styles.css?v=runtime-556', html)
         self.assertIn("mainModel: document.querySelector", script)
         self.assertIn("mainModelCombobox: document.querySelector", script)
         self.assertIn("mainModelToggle: document.querySelector", script)
@@ -1235,7 +1235,7 @@ console.log(cases.map((color) => readableTextColor(color)).join("\\n"));
         self.assertIn('localStorage.setItem(MAIN_MODEL_STORAGE_KEY', script)
         self.assertIn("main_model: currentMainModel()", script)
         self.assertIn('form.append("main_model", currentMainModel())', script)
-        self.assertIn("params.main_model || task.request?.model", script)
+        self.assertIn('params.main_model || request.main_model || (usesResponses ? request.model : "")', script)
         self.assertRegex(styles, r"\.model-combobox\s*\{[^}]*position:\s*relative")
         self.assertRegex(styles, r"\.model-combobox-options\s*\{[^}]*position:\s*absolute")
         self.assertRegex(styles, r"\.model-combobox-option\s*\{[^}]*display:\s*flex")

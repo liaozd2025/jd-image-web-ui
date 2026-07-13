@@ -21,7 +21,7 @@ function legacyMethod(name, ...args) {
 function setStatus(message, type) { legacyMethod("setStatus", message, type); }
 function closePromptPopover() { legacyMethod("closePromptPopover"); }
 function markTaskViewed(taskId) { return legacyMethod("markTaskViewed", taskId); }
-function applyTaskToForm(task) { legacyMethod("applyTaskToForm", task); }
+function applyTaskToForm(task, options = {}) { legacyMethod("applyTaskToForm", task, options); }
 function updateTaskSelectionVisuals(taskId) { legacyMethod("updateTaskSelectionVisuals", taskId); }
 function renderPreview(task) { legacyMethod("renderPreview", task); }
 function taskFailureMessage(task) { return legacyMethod("taskFailureMessage", task); }
@@ -33,6 +33,13 @@ function taskInputUrls(task) { return legacyMethod("taskInputUrls", task); }
 function uploadSource(file) { return legacyMethod("uploadSource", file); }
 function gallerySource(item) { return legacyMethod("gallerySource", item); }
 function assetSource(item) { return legacyMethod("assetSource", item); }
+
+function applyTaskToFormWithOutputLock(task) {
+  const outputSettingsLocked = Boolean(legacyMethod("isOutputSettingsLocked"));
+  applyTaskToForm(task, { preserveOutputSettings: outputSettingsLocked });
+  if (outputSettingsLocked) legacyMethod("showTaskOutputSettings", task);
+  else legacyMethod("showLockedOutputSettings");
+}
 
 function selectedTaskInputRestoreCurrent(taskId, restoreSeq) {
   if (restoreSeq == null) return true;
@@ -255,7 +262,7 @@ async function selectTask(taskId) {
   }
   const restoreSeq = ++state.taskInputRestoreSeq;
   void markTaskViewed(taskId);
-  applyTaskToForm(task);
+  applyTaskToFormWithOutputLock(task);
   await restoreTaskReferenceFiles(task, { taskId, restoreSeq });
   if (!selectedTaskInputRestoreCurrent(taskId, restoreSeq)) return;
   renderSelectedTask(task, taskId);
@@ -291,7 +298,7 @@ async function restoreHistoryTaskReuseHandoff() {
     state.selectedTaskId = taskId;
     replaceSelectedTaskDetail(taskId, task);
     const restoreSeq = ++state.taskInputRestoreSeq;
-    applyTaskToForm(task);
+    applyTaskToFormWithOutputLock(task);
     await restoreTaskReferenceFiles(task, { taskId, restoreSeq });
     if (!selectedTaskInputRestoreCurrent(taskId, restoreSeq)) return;
     renderSelectedTask(task, taskId);

@@ -17,7 +17,7 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         i18n_source = self._i18n_dictionary_source()
         sidebar_styles = Path("codex_image/webui/static/styles/10-sidebar.css").read_text(encoding="utf-8")
 
-        self.assertIn('fetch("/api/tasks/recent?limit=200")', tasks_source)
+        self.assertIn('fetch("/api/tasks/recent?limit=50")', tasks_source)
         self.assertNotIn('fetch("/api/tasks")', tasks_source)
         self.assertNotIn('["older", translate("taskGroup.older")]', render_source)
         self.assertIn("historyLibraryGroup", render_source)
@@ -45,7 +45,7 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertIn('id="historyMonthList"', history_html)
         self.assertIn('id="historyTaskList"', history_html)
         self.assertIn('id="historyDetail"', history_html)
-        self.assertIn('/static/history.js?v=history-67', history_html)
+        self.assertIn('/static/history.js?v=history-69', history_html)
         self.assertIn('fetch("/api/task-history/summary")', history_source)
         self.assertIn('new URLSearchParams', history_source)
         self.assertIn('/api/task-history/tasks?', history_source)
@@ -658,7 +658,8 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertRegex(styles, r"\.task-thumb-stack-spinner\s*\{[^}]*left:\s*50%")
         self.assertRegex(styles, r"\.task-thumb-stack-spinner\s*\{[^}]*top:\s*50%")
         self.assertRegex(styles, r"\.task-thumb-stack-spinner\s*\{[^}]*width:\s*24px")
-        self.assertRegex(styles, r"\.task-thumb-stack-spinner::before\s*\{[^}]*animation:\s*soft-spin 1\.2s linear infinite")
+        self.assertRegex(styles, r"\.task-thumb-stack-spinner::before\s*\{[^}]*animation:\s*generation-relay-spin 1\.3s linear infinite")
+        self.assertRegex(styles, r"\.task-thumb-stack-spinner::after\s*\{[^}]*animation:\s*generation-relay-spin-reverse 0\.95s linear infinite")
         self.assertNotIn("width 0.18s ease", styles)
         self.assertNotIn("height 0.18s ease", styles)
         self.assertRegex(styles, r"\.task-thumb-reference\s*\{[^}]*right:\s*0")
@@ -1612,6 +1613,7 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
                 self._extract_javascript_function(output_source, "updateRangeProgress"),
                 self._extract_javascript_function(output_source, "updateQuantity"),
                 self._extract_javascript_function(output_source, "syncRadioButtons"),
+                self._extract_javascript_function(script, "applyTaskOutputParams"),
                 self._extract_javascript_function(script, "applyTaskToForm"),
                 """
                 applyTaskToForm({ mode: "generate", prompt: "history", params: { n: 4 } });
@@ -1674,6 +1676,7 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
                 self._extract_javascript_function(output_source, "updateRangeProgress"),
                 self._extract_javascript_function(output_source, "updateQuantity"),
                 self._extract_javascript_function(output_source, "syncRadioButtons"),
+                self._extract_javascript_function(script, "applyTaskOutputParams"),
                 self._extract_javascript_function(script, "applyTaskToForm"),
                 """
                 applyTaskToForm({
@@ -2248,13 +2251,37 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
         self.assertRegex(styles, r"\.waiting-preview\s+\.elapsed-timer\s*\{[^}]*font-size:\s*40px")
         self.assertRegex(styles, r"\.waiting-spinner\s*\{[^}]*width:\s*38px")
         self.assertRegex(styles, r"\.waiting-spinner\s*\{[^}]*height:\s*38px")
-        self.assertRegex(styles, r"\.waiting-spinner::before\s*\{[^}]*border-right-color:\s*var\(--primary\)")
-        self.assertNotRegex(styles, r"\.waiting-spinner::before\s*\{[^}]*conic-gradient")
-        self.assertRegex(styles, r"\.waiting-spinner\s*\{[^}]*spinner-breathe")
-        self.assertNotIn(".waiting-spinner::after", styles)
+        self.assertRegex(styles, r"\.waiting-spinner::before\s*\{[^}]*animation:\s*generation-relay-spin 1\.6s linear infinite")
+        self.assertRegex(styles, r"\.waiting-spinner::after\s*\{[^}]*animation:\s*generation-relay-spin-reverse 1\.15s linear infinite")
+        self.assertRegex(styles, r"\.waiting-spinner::before\s*\{[^}]*conic-gradient")
+        self.assertRegex(styles, r"\.waiting-spinner::after\s*\{[^}]*conic-gradient")
+        self.assertNotRegex(styles, r"\.waiting-spinner\s*\{[^}]*spinner-breathe")
         self.assertNotIn("spinner-core", styles)
         self.assertRegex(styles, r"\.run-button\.running::before\s*\{[^}]*width:\s*20px")
         self.assertRegex(styles, r"\.run-button\.running::before\s*\{[^}]*conic-gradient")
+
+    def test_generation_progress_uses_dual_relay_arcs(self) -> None:
+        source_styles = Path("codex_image/webui/static/styles/20-tasks.css").read_text(encoding="utf-8")
+        support_styles = Path("codex_image/webui/static/styles/75-gallery-card-image-editor.css").read_text(encoding="utf-8")
+        styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
+
+        for stylesheet in (source_styles, styles):
+            self.assertRegex(stylesheet, r"\.running-thumb span\s*\{[^}]*width:\s*30px")
+            self.assertRegex(stylesheet, r"\.running-thumb span\s*\{[^}]*height:\s*30px")
+            self.assertRegex(stylesheet, r"\.running-thumb span::before\s*\{[^}]*animation:\s*generation-relay-spin 1\.3s linear infinite")
+            self.assertRegex(stylesheet, r"\.running-thumb span::after\s*\{[^}]*animation:\s*generation-relay-spin-reverse 0\.95s linear infinite")
+            self.assertRegex(stylesheet, r"\.waiting-spinner::before\s*\{[^}]*animation:\s*generation-relay-spin 1\.6s linear infinite")
+            self.assertRegex(stylesheet, r"\.waiting-spinner::after\s*\{[^}]*animation:\s*generation-relay-spin-reverse 1\.15s linear infinite")
+            self.assertRegex(stylesheet, r"@keyframes generation-relay-spin\s*\{[^}]*rotate\(360deg\)")
+            self.assertRegex(stylesheet, r"@keyframes generation-relay-spin-reverse\s*\{[^}]*rotate\(-360deg\)")
+            self.assertRegex(
+                stylesheet,
+                r"@media \(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.waiting-spinner::before,[\s\S]*?\.task-thumb-stack-spinner::after\s*\{[^}]*animation:\s*none",
+            )
+
+        self.assertNotIn("spinner-breathe", source_styles)
+        self.assertNotIn("@keyframes spinner-breathe", support_styles)
+
     def test_running_preview_shows_failed_slot_reason(self) -> None:
         source = self._task_preview_source()
         script = self._frontend_script_source()

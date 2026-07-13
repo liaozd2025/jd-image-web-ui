@@ -171,7 +171,7 @@ function galleryGridContentHtml(items: any) {
         <span>${translate("gallery.dragSort")}</span>
       </button>
       <div class="gallery-card-media">
-        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.name)}" draggable="false">
+        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.name)}" draggable="false" loading="lazy" decoding="async">
       </div>
       <div class="gallery-card-body">
         <div class="gallery-card-heading">
@@ -394,7 +394,7 @@ export function initGalleryGridFeature() {
   if (galleryGridFeatureInitialized) return;
   galleryGridFeatureInitialized = true;
   document.addEventListener(LOCALE_CHANGE_EVENT, () => {
-    renderGalleryGrid();
+    if (els.galleryDrawer?.classList.contains("open")) renderGalleryGrid();
   });
   bindGalleryGridEvents();
   Object.assign(getLegacyBridge().methods, {

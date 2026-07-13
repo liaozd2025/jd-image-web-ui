@@ -10,6 +10,20 @@ from tests.webui_helpers import WebUIStaticTestCase
 
 
 class WebUIStaticLayoutTests(WebUIStaticTestCase):
+    def _extract_css_at_rule(self, styles: str, marker: str) -> str:
+        start = styles.index(marker)
+        brace_start = styles.index("{", start)
+        depth = 0
+        for index in range(brace_start, len(styles)):
+            char = styles[index]
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return styles[start:index + 1]
+        raise AssertionError(f"Could not extract CSS at-rule {marker}")
+
     def test_selected_reference_files_do_not_expand_or_reflow_footer(self) -> None:
         module = Path("codex_image/webui/frontend/src/reference-file-inputs.ts").read_text(encoding="utf-8")
         styles = Path("codex_image/webui/static/styles/50-image-input-gallery.css").read_text(encoding="utf-8")
@@ -166,8 +180,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn('/static/app.js?v=runtime-491', html)
-        self.assertIn('/static/styles.css?v=runtime-491', html)
+        self.assertIn('/static/app.js?v=runtime-556', html)
+        self.assertIn('/static/styles.css?v=runtime-556', html)
         self.assertIn('id="recentAssetDock"', html)
         self.assertRegex(html, r'class="image-input-footer"[\s\S]*id="recentAssetDock"[\s\S]*id="recentAssetList"')
         self.assertRegex(html, r'id="recentAssetDock"[\s\S]*id="quickGalleryDock"[\s\S]*id="galleryManagePanel"')
@@ -643,7 +657,9 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertIn("function bindShellUiEvents()", shell_source)
         self.assertIn("function restoreThemePreference()", shell_source)
         self.assertIn("function restoreSidebarWidth()", shell_source)
-        self.assertIn("function setupPreviewPanelHeightSync()", shell_source)
+        self.assertNotIn("setupPreviewPanelHeightSync", shell_source)
+        self.assertNotIn("syncPreviewPanelHeight", shell_source)
+        self.assertNotIn("ResizeObserver", shell_source)
         self.assertIn("function resetForm()", shell_source)
         self.assertIn("function setStatus(message, type)", shell_source)
         self.assertIn("Object.assign(getLegacyBridge().methods", shell_source)
@@ -652,8 +668,6 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
             "applyThemePreference",
             "restoreSidebarWidth",
             "startSidebarResize",
-            "setupPreviewPanelHeightSync",
-            "syncPreviewPanelHeight",
             "updateDocumentTitle",
             "setStatus",
             "resetForm",
@@ -661,7 +675,7 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         ]:
             self.assertNotRegex(legacy_source, rf"\n(?:async\s+)?function {function_name}\(")
         self.assertIn('restoreThemePreference: proxy("restoreThemePreference")', legacy_source)
-        self.assertIn('setupPreviewPanelHeightSync: proxy("setupPreviewPanelHeightSync")', legacy_source)
+        self.assertNotIn("setupPreviewPanelHeightSync", legacy_source)
     def test_account_quota_drawer_is_removed(self) -> None:
         html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
         script = self._frontend_script_source()
@@ -783,78 +797,176 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertIn("version.onboardingStatus", script)
         self.assertIn("version.standardDownload", script)
         self.assertIn("document.addEventListener(LOCALE_CHANGE_EVENT", script)
+
+    def test_workspace_profiles_use_available_container_width(self) -> None:
+        base = Path("codex_image/webui/static/styles/01-base.css").read_text(encoding="utf-8")
+        layout = Path("codex_image/webui/static/styles/30-layout-top-nav-panels.css").read_text(encoding="utf-8")
+        responsive = Path("codex_image/webui/static/styles/80-utilities-responsive.css").read_text(encoding="utf-8")
+
+        main_wrapper = self._extract_css_block(layout, ".main-wrapper")
+        dashboard = self._extract_css_block(layout, ".dashboard")
+        self.assertIn(
+            "container-type: inline-size",
+            main_wrapper,
+            "the remaining workspace width must drive its own layout profile",
+        )
+        self.assertIn("container-name: workspace", main_wrapper)
+        self.assertIn("min-height: 0", main_wrapper)
+        self.assertRegex(
+            self._extract_css_block(base, ".layout-container"),
+            r"height:\s*100dvh",
+        )
+        self.assertIn("width: min(100%, 1760px)", dashboard)
+        self.assertIn("padding: 24px", dashboard)
+        self.assertIn("gap: 24px", dashboard)
+
+        compact = self._extract_css_at_rule(responsive, "@container workspace (max-width: 1100px)")
+        self.assertRegex(
+            compact,
+            r"\.dashboard\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1\.1fr\)\s+minmax\(320px,\s*0?\.9fr\)",
+        )
+        stacked = self._extract_css_at_rule(responsive, "@container workspace (max-width: 899px)")
+        self.assertRegex(stacked, r"\.dashboard\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)")
+
+    def test_compact_shell_and_workspace_profiles_have_separate_authority(self) -> None:
+        responsive = Path("codex_image/webui/static/styles/80-utilities-responsive.css").read_text(encoding="utf-8")
+
+        self.assertNotRegex(
+            responsive,
+            r"\(min-width:\s*1024px\)",
+            "the old desktop width authority must not overlap the compact shell",
+        )
+        self.assertNotRegex(
+            responsive,
+            r"@media\s*\(max-width:\s*1024px\)",
+            "workspace stacking belongs to the workspace container, not the viewport",
+        )
+        shell = self._extract_css_at_rule(responsive, "@media (max-width: 1180px)")
+        self.assertRegex(shell, r"\.layout-container\s*\{[^}]*flex-direction:\s*column")
+        self.assertRegex(shell, r"\.sidebar\s*\{[^}]*width:\s*100%")
+        self.assertIn(".sidebar-search", shell)
+        self.assertNotRegex(shell, r"\.dashboard\s*\{[^}]*grid-template-columns")
+        self.assertNotRegex(shell, r"\.preview-col\s*\{[^}]*height:")
+        self.assertIn("@container workspace (max-width: 1100px)", responsive)
+        self.assertIn("@container workspace (max-width: 899px)", responsive)
+
+    def test_compact_navigation_scroll_does_not_clip_notification_center(self) -> None:
+        responsive = Path("codex_image/webui/static/styles/80-utilities-responsive.css").read_text(encoding="utf-8")
+
+        shell = self._extract_css_at_rule(responsive, "@media (max-width: 1180px)")
+        self.assertNotRegex(shell, r"\.top-nav\s*\{[^}]*(?:overflow|overflow-x):\s*auto")
+        self.assertRegex(shell, r"\.nav-actions\s*\{[^}]*overflow-x:\s*auto")
+        self.assertRegex(shell, r"\.auth-source-detail\s*\{[^}]*display:\s*none")
+
+    def test_responsive_scroll_owners_are_explicit(self) -> None:
+        html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
+        layout = Path("codex_image/webui/static/styles/30-layout-top-nav-panels.css").read_text(encoding="utf-8")
+        output = Path("codex_image/webui/static/styles/70-output-settings.css").read_text(encoding="utf-8")
+        prompt = Path("codex_image/webui/static/styles/60-prompt.css").read_text(encoding="utf-8")
+        responsive = Path("codex_image/webui/static/styles/80-utilities-responsive.css").read_text(encoding="utf-8")
+        shell = Path("codex_image/webui/frontend/src/shell-ui.ts").read_text(encoding="utf-8")
+
+        self.assertNotIn(
+            "--controls-col-height",
+            shell,
+            "CSS grid must be the only preview-height authority",
+        )
+        self.assertNotIn("setupPreviewPanelHeightSync", shell)
+        self.assertNotIn("syncPreviewPanelHeight", shell)
+        self.assertNotIn("ResizeObserver", shell)
+
+        dashboard = self._extract_css_block(layout, ".dashboard")
+        controls = self._extract_css_block(layout, ".controls-col")
+        preview = self._extract_css_block(layout, ".preview-col")
+        self.assertIn("min-height: 0", dashboard)
+        self.assertIn("overflow-y: auto", dashboard)
+        self.assertNotIn("grid-template-rows", dashboard)
+        self.assertNotIn("overflow-y", controls)
+        self.assertNotIn("height: 100%", controls)
+        self.assertRegex(preview, r"height:\s*auto")
+        self.assertRegex(preview, r"overflow:\s*hidden")
+
+        stacked = self._extract_css_at_rule(responsive, "@container workspace (max-width: 899px)")
+        self.assertRegex(stacked, r"\.dashboard\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)[^}]*align-content:\s*start")
+        self.assertRegex(
+            stacked,
+            r"\.controls-col\s*\{[^}]*max-width:\s*none[^}]*height:\s*auto[^}]*min-height:\s*auto[^}]*overflow:\s*visible",
+        )
+        self.assertRegex(stacked, r"\.preview-col\s*\{[^}]*height:\s*auto[^}]*min-height:\s*260px[^}]*overflow:\s*visible")
+        self.assertRegex(stacked, r"\.preview-panel\s*\{[^}]*min-height:\s*260px")
+
+        for title in ("参考输入（可选）", "提示词", "输出设置"):
+            self.assertIn(title, html)
+        self.assertIn("justify-content: space-between", self._extract_css_block(layout, ".panel-heading"))
+        self.assertIn("justify-content: space-between", self._extract_css_block(prompt, ".prompt-heading-main"))
+        self.assertIn("position: relative", self._extract_css_block(output, ".output-settings-header"))
+        self.assertNotIn("@media (max-height: 860px)", responsive)
+        self.assertNotRegex(
+            responsive,
+            r"\.controls-col\s+\.output-settings-header\s+h2\s*\{[^}]*position:\s*absolute[^}]*width:\s*1px",
+        )
+
     def test_short_desktop_layout_compacts_sidebar_footer_and_workbench(self) -> None:
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn("@media (max-height: 1080px) and (min-width: 1024px)", styles)
+        self.assertIn("@media (max-height: 1390px) and (min-width: 900px)", styles)
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.sidebar-footer\s*\{[^}]*padding:\s*8px\s+12px",
-        )
-        self.assertRegex(
-            styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.sidebar-footer\s*\{[^}]*gap:\s*4px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.sidebar-footer\s*\{[^}]*padding:\s*8px\s+12px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.version-info\s*\{[^}]*display:\s*inline-flex",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.sidebar-footer\s*\{[^}]*gap:\s*4px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.dashboard\s*\{[^}]*padding:\s*14px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.version-info\s*\{[^}]*display:\s*inline-flex",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.dashboard\s*\{[^}]*align-content:\s*start",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.dashboard\s*\{[^}]*padding:\s*14px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.preview-col\s*\{[^}]*height:\s*calc\(100dvh\s*-\s*var\(--header-height\)\s*-\s*28px\)",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.preview-panel\s*\{[^}]*height:\s*100%",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.preview-panel\s*\{[^}]*height:\s*100%",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.preview-panel\s*\{[^}]*max-height:\s*none",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.preview-panel\s*\{[^}]*max-height:\s*none",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.dashboard-col\s*\{[^}]*gap:\s*clamp\([^}]*12px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.dashboard-col\s*\{[^}]*gap:\s*12px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.controls-col\s*\{[^}]*min-height:\s*calc\(100dvh\s*-\s*var\(--header-height\)\s*-\s*28px\)[^}]*height:\s*calc\(100dvh\s*-\s*var\(--header-height\)\s*-\s*28px\)",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.controls-col\s*\{[^}]*min-height:\s*calc\(100dvh\s*-\s*var\(--header-height\)\s*-\s*28px\)",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.controls-col\s*\{[^}]*justify-content:\s*flex-start",
+        )
+        self.assertNotIn("@media (max-height: 860px)", styles)
+        self.assertNotRegex(
+            styles,
+            r"\.controls-col\s+\.panel-heading\s+h2,[\s\S]*\.controls-col\s+\.output-settings-header\s+h2\s*\{[^}]*clip:\s*rect\(0 0 0 0\)",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.controls-col\s*\{[^}]*height:\s*calc\(100dvh\s*-\s*var\(--header-height\)\s*-\s*28px\)",
+            r"\.controls-col\s+\.image-panel\s*\{[^}]*flex:\s*1\s+1\s+194px[^}]*min-height:\s*clamp\([\s\S]*194px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.controls-col\s*\{[^}]*justify-content:\s*flex-start",
-        )
-        self.assertNotIn(
-            ".controls-col {\n    justify-content: space-between;\n  }",
-            styles,
-        )
-        self.assertNotIn(
-            ".controls-col .image-panel,\n  .controls-col .prompt-panel {\n    flex: 1 1 0;",
-            styles,
-        )
-        self.assertIn(
-            ".controls-col .image-panel {\n    flex: 1 1 194px;\n    min-height: 194px;",
-            styles,
-        )
-        self.assertIn(
-            ".controls-col .prompt-panel {\n    flex: 2 1 148px;\n    min-height: 148px;\n    overflow: hidden;",
-            styles,
+            r"\.controls-col\s+\.prompt-panel\s*\{[^}]*flex:\s*2\s+1\s+148px[^}]*min-height:\s*clamp\([\s\S]*148px",
         )
         self.assertIn(
             ".controls-col .output-panel {\n    flex: 0 0 auto;",
             styles,
         )
+        compact_start = styles.index("@media (max-height: 1390px) and (min-width: 900px)")
+        compact_end = styles.index("@media (max-width: 640px)", compact_start)
+        compact_block = styles[compact_start:compact_end]
+        self.assertNotIn("align-content: space-between", compact_block)
         self.assertIn(
             ".controls-col .image-input-workspace {\n    flex: 1 1 auto;",
             styles,
@@ -869,11 +981,11 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.controls-col\s+\.prompt-panel\s*\{[^}]*overflow:\s*hidden",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.controls-col\s+\.prompt-panel\s*\{[^}]*overflow:\s*hidden",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.panel\s*\{[^}]*padding:\s*14px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.panel\s*\{[^}]*padding:\s*14px",
         )
     def test_sidebar_width_can_be_resized_and_persisted(self) -> None:
         html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
@@ -897,7 +1009,7 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertIn("scheduleSidebarResizeWidth", script)
         self.assertIn("flushSidebarResizeWidth", script)
         self.assertIn("window.requestAnimationFrame(() =>", script)
-        self.assertIn("syncPreviewHeight: false", script)
+        self.assertIn("applySidebarWidth(nextWidth, { persist: false });", script)
         self.assertIn("const currentWidth = currentSidebarWidth();", script)
         self.assertIn('(els.sidebar || document.documentElement).style.setProperty("--sidebar-width"', script)
         self.assertNotIn('document.documentElement.style.setProperty("--sidebar-width"', script)
@@ -906,8 +1018,9 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertIn("els.sidebarResizeShield.hidden = true;", script)
         self.assertNotIn('document.body.classList.add("sidebar-resizing")', script)
         self.assertNotIn('document.body.classList.remove("sidebar-resizing")', script)
-        self.assertIn("if (state.sidebarResize) {\n    return;\n  }", script)
-        self.assertIn("function syncPreviewPanelHeight() {\n  if (state.sidebarResize) return;", script)
+        self.assertNotIn("getBoundingClientRect", self._shell_ui_source())
+        self.assertNotIn("ResizeObserver", self._shell_ui_source())
+        self.assertNotIn("--controls-col-height", self._shell_ui_source())
         self.assertLess(
             script.index("state.sidebarResize = null;", script.index("function finishSidebarResize")),
             script.index("flushSidebarResizeWidth(nextWidth);", script.index("function finishSidebarResize")),
@@ -1015,7 +1128,7 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertNotIn('id="gallerySearch"', html)
         self.assertNotIn('id="galleryButtons"', html)
         self.assertNotIn("gallery-picker-row", html)
-        self.assertRegex(html, r'<div class="panel-heading">\s*<h2[^>]*>参考输入</h2>\s*</div>')
+        self.assertRegex(html, r'<div class="panel-heading">\s*<h2[^>]*>参考输入（可选）</h2>\s*</div>')
         self.assertRegex(html, r'<div class="image-input-footer">[\s\S]*<div class="image-input-actions">[\s\S]*<button id="clearImagesButton"')
         self.assertRegex(html, r'<div class="image-input-footer">[\s\S]*id="recentAssetDock"[\s\S]*id="recentAssetList"')
         self.assertRegex(html, r'<div class="image-gallery-column">[\s\S]*id="quickGalleryDock"[\s\S]*id="galleryManagePanel"')
@@ -1091,7 +1204,7 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertRegex(styles, r"\.image-input-workspace\s*\{[^}]*--image-input-action-height:\s*40px")
         self.assertRegex(styles, r"\.image-input-workspace\s*\{[^}]*--image-input-thumb-size:\s*116px")
         self.assertRegex(styles, r"\.image-input-workspace\s*\{[^}]*--quick-gallery-height:\s*var\(--image-input-main-height\)")
-        self.assertRegex(styles, r"@container\s*\(max-width:\s*520px\)\s*\{[\s\S]*\.image-input-workspace\s*\{[^}]*grid-template-columns:\s*1fr")
+        self.assertRegex(styles, r"@container\s+workspace\s*\(max-width:\s*520px\)\s*\{[\s\S]*\.image-input-workspace[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)")
         self.assertNotIn("@container (max-width: 620px)", styles)
         self.assertRegex(styles, r"\.image-input-main\s*\{[^}]*border:\s*1px dashed color-mix\(in srgb, var\(--text-secondary\) 36%, var\(--line\)\)")
         self.assertRegex(styles, r"\.image-input-main\s*\{[^}]*height:\s*var\(--image-input-main-height\)")
@@ -1210,258 +1323,247 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
 
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.image-input-workspace\s*\{[^}]*--image-input-main-height:\s*124px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.image-input-workspace\s*\{[^}]*--image-input-main-height:\s*clamp\([\s\S]*124px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.image-input-workspace\s*\{[^}]*--image-input-action-height:\s*34px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.image-input-workspace\s*\{[^}]*--image-input-action-height:\s*clamp\([\s\S]*34px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.image-input-workspace\s*\{[^}]*--image-input-thumb-size:\s*104px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.image-input-workspace\s*\{[^}]*--image-input-thumb-size:\s*104px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.image-input-workspace\s*\{[^}]*--recent-asset-size:\s*32px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.image-input-workspace\s*\{[^}]*--recent-asset-size:\s*32px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.image-uploader-grid\s*\{[^}]*padding:\s*8px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.image-uploader-grid\s*\{[^}]*padding:\s*8px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.controls-col\s+\.add-upload-to-gallery\s*\{[^}]*width:\s*28px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.controls-col\s+\.add-upload-to-gallery\s*\{[^}]*width:\s*28px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.controls-col\s+\.add-upload-to-gallery\s*\{[^}]*font-size:\s*0",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.controls-col\s+\.add-upload-to-gallery\s*\{[^}]*font-size:\s*0",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.controls-col\s+\.add-upload-to-gallery\s+\.thumb-add-icon\s*\{[^}]*width:\s*14px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.controls-col\s+\.add-upload-to-gallery\s+\.thumb-add-icon\s*\{[^}]*width:\s*14px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.prompt-box\s*\{[^}]*min-height:\s*0",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.prompt-box\s*\{[^}]*min-height:\s*0",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.prompt-box\s*\{[^}]*height:\s*100%",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.prompt-box\s*\{[^}]*height:\s*100%",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.prompt-box\s*\{[^}]*max-height:\s*100%",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.prompt-box\s*\{[^}]*max-height:\s*100%",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.prompt-box\s*\{[^}]*resize:\s*none",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.prompt-box\s*\{[^}]*resize:\s*none",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.prompt-compose\s+\.run-button\s*\{[^}]*min-height:\s*0",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.prompt-compose\s+\.run-button\s*\{[^}]*min-height:\s*0",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.prompt-compose\s+\.run-button\s*\{[^}]*height:\s*100%",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.prompt-compose\s+\.run-button\s*\{[^}]*height:\s*100%",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.prompt-template-row\s*\{[^}]*margin-top:\s*6px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.prompt-template-row\s*\{[^}]*margin-top:\s*6px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.settings-grid\s*\{[^}]*gap:\s*6px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.settings-grid\s*\{[^}]*gap:\s*clamp\([^}]*6px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.settings-grid\s+\.radio-group\s*\{[^}]*--segmented-control-height:\s*24px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.settings-grid\s+\.radio-group\s*\{[^}]*--segmented-control-height:\s*var\(--compact-settings-segment-height\)",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.settings-grid\s+\.radio-btn\s*\{[^}]*white-space:\s*nowrap",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.settings-grid\s+\.radio-btn\s*\{[^}]*white-space:\s*nowrap",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.controls-col\s+\.panel-heading\s+h2,\s*\.controls-col\s+\.output-panel\s*>\s*h2\s*\{[^}]*clip-path:\s*inset\(50%\)",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.controls-col\s+\.output-settings-header\s*\{[^}]*min-height:\s*28px[^}]*margin-bottom:\s*4px",
+        )
+        self.assertNotRegex(
+            styles,
+            r"\.controls-col\s+\.panel-heading h2,[\s\S]*clip-path:\s*inset\(50%\)",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.controls-col\s+\.output-panel\s*>\s*h2\s*\{[^}]*height:\s*0",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.custom-size-control\s*\{[^}]*grid-column:\s*1\s*/\s*2",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.custom-size-control\s*\{[^}]*grid-column:\s*1\s*/\s*2",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.custom-size-control\s*\{[^}]*gap:\s*4px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.custom-size-control\s*\{[^}]*gap:\s*4px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.custom-size-control\s+\.field-label\s*\{[^}]*display:\s*block",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.custom-size-control\s+\.field-label\s*\{[^}]*display:\s*block",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.custom-size-control\s+\.field-label\s*\{[^}]*font-size:\s*12px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.custom-size-control\s+\.field-label\s*\{[^}]*font-size:\s*12px",
-        )
-        self.assertRegex(
-            styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.size-mode-group\s*\{[^}]*width:\s*100%",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.size-mode-group\s*\{[^}]*width:\s*100%",
         )
 
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.ratio-field\s*\{[^}]*grid-column:\s*1\s*/\s*2",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.ratio-field\s*\{[^}]*grid-column:\s*1\s*/\s*2",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.ratio-field\s*\{[^}]*grid-row:\s*4\s*/\s*6",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.ratio-field\s*\{[^}]*grid-row:\s*4\s*/\s*6",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.quantity-quality-row\s*\{[^}]*display:\s*contents",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.quantity-quality-row\s*\{[^}]*display:\s*contents",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.quantity-field\s*\{[^}]*grid-column:\s*2\s*/\s*3",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.quantity-field\s*\{[^}]*grid-column:\s*2\s*/\s*3",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.quantity-field\s*\{[^}]*grid-row:\s*2\s*/\s*3",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.quantity-field\s*\{[^}]*grid-row:\s*2\s*/\s*3",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.quality-field\s*\{[^}]*grid-row:\s*4\s*/\s*5",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.quality-field\s*\{[^}]*grid-row:\s*4\s*/\s*5",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.ratio-group\s*\{[^}]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.ratio-group\s*\{[^}]*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.ratio-group\s*\{[^}]*grid-template-rows:\s*repeat\(2,\s*24px\)",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.ratio-group\s*\{[^}]*grid-template-rows:\s*repeat\(2,\s*var\(--compact-settings-segment-height\)\)",
         )
         self.assertNotRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.ratio-group\s+\.radio-btn\[data-val\]\s*\{[^}]*grid-column:\s*auto",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.ratio-group\s+\.radio-btn\[data-val\]\s*\{[^}]*grid-column:\s*auto",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.mode-settings-slot\s*\{[^}]*--mode-settings-stable-height:\s*52px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.mode-settings-slot\s*\{[^}]*--mode-settings-stable-height:\s*clamp\([\s\S]*52px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.mode-specific-settings\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.mode-specific-settings\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.model-tool-row\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(92px,\s*0\.32fr\)",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.model-tool-row\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(92px,\s*0\.32fr\)",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*#promptFidelityField\s*\{[^}]*grid-column:\s*2\s*/\s*3",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*#promptFidelityField\s*\{[^}]*grid-column:\s*2\s*/\s*3",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.web-search-toggle\s*\{[^}]*height:\s*30px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.web-search-toggle\s*\{[^}]*height:\s*var\(--compact-settings-control-height\)",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.api-direct-settings-notice\s*\{[^}]*min-height:\s*46px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.api-direct-settings-notice\s*\{[^}]*min-height:\s*46px",
         )
         self.assertNotIn(".api-direct-settings-grid", styles)
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*#pixelPreview\s*\{[^}]*padding:\s*3px\s+8px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*#pixelPreview\s*\{[^}]*padding:\s*3px\s+8px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*#pixelPreview\s*\{[^}]*grid-column:\s*2\s*/\s*3",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*#pixelPreview\s*\{[^}]*grid-column:\s*2\s*/\s*3",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*#pixelPreview\s*\{[^}]*grid-row:\s*5\s*/\s*6",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*#pixelPreview\s*\{[^}]*grid-row:\s*5\s*/\s*6",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*#pixelPreview\s*\{[^}]*white-space:\s*nowrap",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*#pixelPreview\s*\{[^}]*white-space:\s*nowrap",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*#outputFormatField\s*\{[^}]*grid-row:\s*6\s*/\s*7",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*#outputFormatField\s*\{[^}]*grid-row:\s*6\s*/\s*7",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.moderation-field\s*\{[^}]*grid-row:\s*6\s*/\s*7",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.moderation-field\s*\{[^}]*grid-row:\s*6\s*/\s*7",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.settings-grid\.custom-size-mode\s+\.custom-size\s*\{[^}]*grid-column:\s*1\s*/\s*2",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.settings-grid\.custom-size-mode\s+\.custom-size\s*\{[^}]*grid-column:\s*1\s*/\s*2",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.settings-grid\.custom-size-mode\s+\.custom-size\s*\{[^}]*grid-row:\s*3\s*/\s*4",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.settings-grid\.custom-size-mode\s+\.custom-size\s*\{[^}]*grid-row:\s*3\s*/\s*4",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.settings-grid\.custom-size-mode\s*\{[^}]*--custom-size-mode-card-height:\s*142px",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.settings-grid\.custom-size-mode\s*\{[^}]*--custom-size-mode-card-height:\s*142px",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.settings-grid\.custom-size-mode\s+\.custom-size\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.settings-grid\.custom-size-mode\s+\.custom-size\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.settings-grid\.custom-size-mode\s+\.quality-field\s*\{[^}]*grid-row:\s*3\s*/\s*4",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.settings-grid\.custom-size-mode\s+\.quality-field\s*\{[^}]*grid-row:\s*3\s*/\s*4",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.settings-grid\.custom-size-mode\s+#pixelPreview\s*\{[^}]*grid-row:\s*4\s*/\s*5",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.settings-grid\.custom-size-mode\s+#pixelPreview\s*\{[^}]*grid-row:\s*4\s*/\s*5",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.settings-grid\.custom-size-mode\s+#pixelPreview\s*\{[^}]*grid-column:\s*1\s*/\s*-1",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.settings-grid\.custom-size-mode\s+#pixelPreview\s*\{[^}]*grid-column:\s*1\s*/\s*-1",
         )
         self.assertRegex(
             styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\)\s*\{[\s\S]*\.custom-ratio-hint\s*\{[^}]*display:\s*none",
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.custom-ratio-hint\s*\{[^}]*display:\s*none",
         )
+
+    def test_very_short_desktop_uses_continuous_summary_height(self) -> None:
+        responsive = Path("codex_image/webui/static/styles/80-utilities-responsive.css").read_text(encoding="utf-8")
+        output = Path("codex_image/webui/static/styles/70-output-settings.css").read_text(encoding="utf-8")
+        lock_source = Path("codex_image/webui/frontend/src/output-settings-lock.ts").read_text(encoding="utf-8")
+
+        self.assertNotIn("@media (max-height: 820px)", responsive)
+        self.assertNotIn("@media (max-height: 860px)", responsive)
+        self.assertRegex(
+            responsive,
+            r"@media \(max-height:\s*1390px\) and \(min-width:\s*900px\)\s*\{[\s\S]*\.controls-col\s+\.image-panel\s*\{[^}]*flex:\s*1\s+1\s+194px",
+        )
+        self.assertRegex(output, r"\.output-settings-locked-summary\s*\{[^}]*position:\s*absolute[^}]*inset:\s*0")
+        self.assertNotIn("--output-settings-editor-height", responsive + output + lock_source)
+        self.assertNotIn("getBoundingClientRect", lock_source)
 
     def test_mid_width_short_desktop_keeps_input_gallery_side_rail_aligned(self) -> None:
-        styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
+        responsive = Path("codex_image/webui/static/styles/80-utilities-responsive.css").read_text(encoding="utf-8")
+        compact = self._extract_css_at_rule(responsive, "@container workspace (max-width: 1100px)")
 
-        self.assertIn(
-            "@media (max-height: 1080px) and (min-width: 1024px) and (max-width: 1560px)",
-            styles,
-        )
-        self.assertRegex(
-            styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\) and \(max-width:\s*1560px\)\s*\{[\s\S]*\.dashboard\s*\{[^}]*grid-template-columns:\s*minmax\(600px,\s*1\.08fr\)\s+minmax\(400px,\s*0\.92fr\)",
-        )
-        self.assertRegex(
-            styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\) and \(max-width:\s*1560px\)\s*\{[\s\S]*\.controls-col\s+\.image-input-workspace\s*\{[^}]*--quick-gallery-column-width:\s*132px",
-        )
-        self.assertRegex(
-            styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\) and \(max-width:\s*1560px\)\s*\{[\s\S]*\.controls-col\s+\.image-input-workspace\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+var\(--quick-gallery-column-width\)",
-        )
-        self.assertRegex(
-            styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\) and \(max-width:\s*1560px\)\s*\{[\s\S]*\.controls-col\s+\.image-input-workspace\s*\{[^}]*grid-template-rows:\s*none",
-        )
-        self.assertRegex(
-            styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\) and \(max-width:\s*1560px\)\s*\{[\s\S]*\.controls-col\s+\.image-input-left,\s*\.controls-col\s+\.image-gallery-column\s*\{[^}]*height:\s*var\(--image-input-total-height\)",
-        )
-        self.assertRegex(
-            styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\) and \(max-width:\s*1560px\)\s*\{[\s\S]*\.controls-col\s+\.quick-gallery-dock,\s*\.controls-col\s+\.quick-gallery-list,\s*\.controls-col\s+\.quick-gallery-rail\s*\{[^}]*height:\s*var\(--quick-gallery-height\)",
-        )
-        self.assertRegex(
-            styles,
-            r"@media \(max-height:\s*1080px\) and \(min-width:\s*1024px\) and \(max-width:\s*1560px\)\s*\{[\s\S]*\.controls-col\s+\.prompt-panel\s*\{[^}]*--prompt-action-column-width:\s*132px",
-        )
+        self.assertRegex(compact, r"\.dashboard\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1\.1fr\)\s+minmax\(320px,\s*0\.9fr\)")
+        self.assertRegex(compact, r"\.controls-col\s+\.image-input-workspace\s*\{[^}]*--quick-gallery-column-width:\s*132px")
+        self.assertRegex(compact, r"\.controls-col\s+\.image-input-workspace\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+var\(--quick-gallery-column-width\)")
+        self.assertRegex(compact, r"\.controls-col\s+\.image-input-left,\s*\.controls-col\s+\.image-gallery-column\s*\{[^}]*height:\s*var\(--image-input-total-height\)")
+        self.assertRegex(compact, r"\.controls-col\s+\.prompt-panel\s*\{[^}]*--prompt-action-column-width:\s*132px")
     def test_gallery_categories_are_managed_from_server_in_management_sheet(self) -> None:
         html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
         script = self._frontend_script_source()
@@ -3022,6 +3124,7 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
     def test_dashboard_uses_two_column_workspace(self) -> None:
         html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
         script = self._frontend_script_source()
+        shell = self._shell_ui_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
         self.assertIn("controls-col", html)
@@ -3029,28 +3132,31 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertIn("controlsCol: document.querySelector", script)
         self.assertIn("previewCol: document.querySelector", script)
         self.assertIn("previewPanel: document.querySelector", script)
-        self.assertIn("setupPreviewPanelHeightSync", script)
-        self.assertIn("syncPreviewPanelHeight", script)
-        self.assertIn("ResizeObserver", script)
-        self.assertIn("--controls-col-height", script)
+        self.assertNotIn("setupPreviewPanelHeightSync", shell)
+        self.assertNotIn("syncPreviewPanelHeight", shell)
+        self.assertNotIn("--controls-col-height", shell)
         self.assertNotIn('class="settings-panel"', html)
         self.assertNotIn('class="status-panel"', html)
         self.assertNotIn('class="json-panel"', html)
         self.assertRegex(styles, r"\.dashboard\s*\{[^}]*width:\s*min\(100%,\s*1760px\)")
         self.assertRegex(styles, r"\.dashboard\s*\{[^}]*margin-inline:\s*auto")
         self.assertRegex(styles, r"\.dashboard\s*\{[^}]*grid-template-columns:\s*minmax\(520px,\s*760px\)\s+minmax\(520px,\s*1fr\)")
-        self.assertRegex(styles, r"\.dashboard\s*\{[^}]*min-height:\s*calc\(100dvh - var\(--header-height\)\)")
+        self.assertRegex(styles, r"\.dashboard\s*\{[^}]*min-height:\s*0")
+        self.assertNotRegex(styles, r"\.dashboard\s*\{[^}]*grid-template-rows:")
         self.assertRegex(styles, r"\.dashboard\s*\{[^}]*align-content:\s*safe center")
         self.assertRegex(styles, r"\.dashboard\s*\{[^}]*align-items:\s*stretch")
         self.assertRegex(styles, r"\.controls-col\s*\{[^}]*max-width:\s*760px")
         self.assertRegex(styles, r"\.controls-col\s*\{[^}]*width:\s*100%")
+        controls_block = self._extract_css_block(styles, ".controls-col")
+        self.assertNotIn("height:", controls_block)
+        self.assertNotIn("overflow-y:", controls_block)
         self.assertNotRegex(styles, r"\.controls-col\s*>\s*\.output-panel\s*\{[^}]*flex:\s*1\s+1\s+auto")
         self.assertNotRegex(styles, r"\.preview-col\s*\{[^}]*position:\s*sticky")
         self.assertRegex(styles, r"\.preview-col\s*\{[^}]*position:\s*relative")
-        self.assertRegex(styles, r"\.preview-col\s*\{[^}]*height:\s*var\(--controls-col-height,\s*auto\)")
+        self.assertRegex(styles, r"\.preview-col\s*\{[^}]*height:\s*auto")
         self.assertRegex(styles, r"\.preview-col\s*\{[^}]*overflow:\s*hidden")
-        self.assertRegex(styles, r"\.preview-panel\s*\{[^}]*height:\s*var\(--controls-col-height,\s*100%\)")
-        self.assertRegex(styles, r"\.preview-panel\s*\{[^}]*max-height:\s*var\(--controls-col-height,\s*100%\)")
+        self.assertRegex(styles, r"\.preview-panel\s*\{[^}]*height:\s*100%")
+        self.assertRegex(styles, r"\.preview-panel\s*\{[^}]*max-height:\s*none")
         self.assertRegex(styles, r"\.preview-panel\s*\{[^}]*display:\s*flex")
         self.assertRegex(styles, r"\.preview-grid\s*\{[^}]*flex:\s*1")
         self.assertRegex(styles, r"\.preview-grid\s*\{[^}]*min-height:\s*0")
@@ -3138,8 +3244,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn('/static/app.js?v=runtime-491', html)
-        self.assertIn('/static/styles.css?v=runtime-491', html)
+        self.assertIn('/static/app.js?v=runtime-556', html)
+        self.assertIn('/static/styles.css?v=runtime-556', html)
         self.assertIn('id="pasteClipboardButton"', html)
         self.assertIn('id="statusText"', html)
         self.assertRegex(
@@ -3584,8 +3690,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn("/static/app.js?v=runtime-491", html)
-        self.assertIn("/static/styles.css?v=runtime-491", html)
+        self.assertIn("/static/app.js?v=runtime-556", html)
+        self.assertIn("/static/styles.css?v=runtime-556", html)
         self.assertIn('const THEME_STORAGE_KEY = "codex-image-theme-preference";', script)
         self.assertIn('themePreference: "system"', script)
         self.assertIn('call(methods, "restoreThemePreference")', script)

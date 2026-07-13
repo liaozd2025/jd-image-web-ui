@@ -9,6 +9,7 @@ const SIDEBAR_WIDTH_STORAGE_KEY = "codex-image-sidebar-width";
 const SIDEBAR_MIN_WIDTH = 280;
 const SIDEBAR_MAX_WIDTH = 520;
 const SIDEBAR_DEFAULT_WIDTH = 347;
+const COMPACT_SHELL_MAX_WIDTH = 1180;
 
 const bridge = getLegacyBridge();
 const state = bridge.state;
@@ -16,7 +17,6 @@ const els = bridge.els;
 
 let shellUiInitialized = false;
 let shellUiEventsBound = false;
-let previewPanelHeightFrameId = null;
 let sidebarResizeFrameId = null;
 let sidebarResizePendingWidth = null;
 let themeTransitionLockFrameId = null;
@@ -159,7 +159,7 @@ function restoreSidebarWidth() {
 
 function sidebarMaxWidth() {
   const viewportWidth = window.innerWidth || SIDEBAR_MAX_WIDTH;
-  if (viewportWidth <= 1024) return viewportWidth;
+  if (viewportWidth <= COMPACT_SHELL_MAX_WIDTH) return viewportWidth;
   return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, viewportWidth - 760));
 }
 
@@ -190,7 +190,7 @@ function syncSidebarResizeHandleAria(width = null) {
   handle.setAttribute("aria-valuenow", String(currentWidth));
 }
 
-function applySidebarWidth(width, { persist = true, syncPreviewHeight = true } = {}) {
+function applySidebarWidth(width, { persist = true } = {}) {
   const nextWidth = clampSidebarWidth(width);
   (els.sidebar || document.documentElement).style.setProperty("--sidebar-width", `${nextWidth}px`);
   syncSidebarResizeHandleAria(nextWidth);
@@ -200,9 +200,6 @@ function applySidebarWidth(width, { persist = true, syncPreviewHeight = true } =
     } catch {
       // Browser storage may be unavailable in restricted contexts.
     }
-  }
-  if (syncPreviewHeight) {
-    schedulePreviewPanelHeightSync();
   }
 }
 
@@ -218,7 +215,7 @@ function scheduleSidebarResizeWidth(width) {
     const nextWidth = sidebarResizePendingWidth;
     sidebarResizePendingWidth = null;
     if (nextWidth === null) return;
-    applySidebarWidth(nextWidth, { persist: false, syncPreviewHeight: false });
+    applySidebarWidth(nextWidth, { persist: false });
   });
 }
 
@@ -228,7 +225,7 @@ function flushSidebarResizeWidth(width) {
     sidebarResizeFrameId = null;
   }
   sidebarResizePendingWidth = null;
-  applySidebarWidth(width, { persist: true, syncPreviewHeight: true });
+  applySidebarWidth(width, { persist: true });
 }
 
 function startSidebarResize(event) {
@@ -294,47 +291,6 @@ function handleSidebarResizeKeydown(event) {
   }
 }
 
-function setupPreviewPanelHeightSync() {
-  if (!els.controlsCol || !els.previewCol || !els.previewPanel) return;
-  window.addEventListener("resize", schedulePreviewPanelHeightSync);
-  if (window.ResizeObserver) {
-    const observer = new ResizeObserver(schedulePreviewPanelHeightSync);
-    observer.observe(els.controlsCol);
-    els.controlsCol.querySelectorAll(":scope > .panel").forEach((panel) => observer.observe(panel));
-  }
-  schedulePreviewPanelHeightSync();
-}
-
-function schedulePreviewPanelHeightSync() {
-  if (state.sidebarResize) {
-    return;
-  }
-  if (previewPanelHeightFrameId !== null) {
-    window.cancelAnimationFrame(previewPanelHeightFrameId);
-  }
-  previewPanelHeightFrameId = window.requestAnimationFrame(() => {
-    previewPanelHeightFrameId = null;
-    syncPreviewPanelHeight();
-  });
-}
-
-function syncPreviewPanelHeight() {
-  if (state.sidebarResize) return;
-  if (!els.controlsCol || !els.previewCol || !els.previewPanel) return;
-  if (window.matchMedia("(max-width: 1024px)").matches) {
-    els.previewCol.style.removeProperty("--controls-col-height");
-    els.previewPanel.style.removeProperty("--controls-col-height");
-    return;
-  }
-  const panels = [...els.controlsCol.querySelectorAll(":scope > .panel")];
-  if (!panels.length) return;
-  const firstPanelRect = panels[0].getBoundingClientRect();
-  const lastPanelRect = panels[panels.length - 1].getBoundingClientRect();
-  const height = Math.max(260, Math.ceil(lastPanelRect.bottom - firstPanelRect.top));
-  els.previewCol.style.setProperty("--controls-col-height", `${height}px`);
-  els.previewPanel.style.setProperty("--controls-col-height", `${height}px`);
-}
-
 function updateDocumentTitle() {
   const summary = state.queue.summary || {};
   const waitingCount = Number(summary.waiting_count ?? state.queue.waiting.length ?? 0);
@@ -361,6 +317,7 @@ function setStatus(message, type) {
 }
 
 function resetForm() {
+  const outputSettingsLocked = Boolean(legacyMethod("isOutputSettingsLocked"));
   closePromptPopover();
   closePromptSnippetPopover();
   closeArchiveModal();
@@ -376,23 +333,25 @@ function resetForm() {
   state.batchSelectionAnchorTaskId = null;
   finishBatchMarqueeSelection();
   setPromptText("");
-  if (els.customSizeToggle) els.customSizeToggle.checked = false;
-  if (els.nInput) els.nInput.value = "1";
-  if (els.resolution) els.resolution.value = "standard";
-  if (els.ratio) els.ratio.value = "1:1";
-  if (els.orientation) els.orientation.value = "square";
-  els.size.value = "1024x1024";
-  els.quality.value = "auto";
-  els.outputFormat.value = "png";
-  els.moderation.value = "auto";
-  els.compression.value = "80";
-  if (els.promptFidelity) els.promptFidelity.value = "strict";
-  if (els.webSearch) els.webSearch.checked = false;
-  [els.nInput, els.resolution, els.ratio, els.orientation, els.quality, els.outputFormat, els.moderation, els.promptFidelity, els.webSearch].forEach((sel) => {
-    if (sel) sel.dispatchEvent(new Event("change"));
-  });
+  if (!outputSettingsLocked) {
+    if (els.customSizeToggle) els.customSizeToggle.checked = false;
+    if (els.nInput) els.nInput.value = "1";
+    if (els.resolution) els.resolution.value = "standard";
+    if (els.ratio) els.ratio.value = "1:1";
+    if (els.orientation) els.orientation.value = "square";
+    els.size.value = "1024x1024";
+    els.quality.value = "auto";
+    els.outputFormat.value = "png";
+    els.moderation.value = "auto";
+    els.compression.value = "80";
+    if (els.promptFidelity) els.promptFidelity.value = "strict";
+    if (els.webSearch) els.webSearch.checked = false;
+    [els.nInput, els.resolution, els.ratio, els.orientation, els.quality, els.outputFormat, els.moderation, els.promptFidelity, els.webSearch].forEach((sel) => {
+      if (sel) sel.dispatchEvent(new Event("change"));
+    });
+    updateSizeFromPreset();
+  }
   setMode("generate");
-  updateSizeFromPreset();
   updatePromptCount();
   updateQuantity();
   updateCompression();
@@ -400,6 +359,7 @@ function resetForm() {
   renderTasks();
   renderPreview();
   updateRequestPreview();
+  if (outputSettingsLocked) legacyMethod("showLockedOutputSettings");
   setStatus(translate("status.waiting"), "");
 }
 
@@ -430,9 +390,6 @@ export function initShellUiFeature() {
     updateSidebarResize,
     finishSidebarResize,
     handleSidebarResizeKeydown,
-    setupPreviewPanelHeightSync,
-    schedulePreviewPanelHeightSync,
-    syncPreviewPanelHeight,
     updateDocumentTitle,
     setStatus,
     resetForm,

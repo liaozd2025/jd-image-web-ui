@@ -53,6 +53,11 @@ Download standard app packages and portable transition packages from
   path recommended for public or shared use.
 - Concurrent task execution, local queue state, paged history library,
   thumbnails, and result archive.
+- Performance-focused generation page with compact realtime task snapshots,
+  incremental media rendering, deferred hidden drawers, and a CSS-driven
+  responsive workspace for smoother refresh and window resizing.
+- One-click output parameter lock with a read-only summary, preventing
+  accidental setting changes while generating or browsing historical tasks.
 - Independent `/history` page with SQLite-backed pagination, search, filters,
   grid/list views, and lazy detail loading.
 - Optional web search for Codex Responses and API Responses image generation,
@@ -152,15 +157,15 @@ http://127.0.0.1:8787/
 ## App packages
 
 Download the current packages from [Downloads / Releases](RELEASES.md), or open
-[GitHub Release v0.6.0](https://github.com/kadevin/ilab-gpt-conjure/releases/tag/v0.6.0)
+[GitHub Release v0.6.1](https://github.com/kadevin/ilab-gpt-conjure/releases/tag/v0.6.1)
 directly.
 
 New users should choose the standard packages:
 
-1. macOS: download `iLab-GPT-CONJURE-macos-arm64-0.6.0.dmg`
-   for Apple Silicon or `iLab-GPT-CONJURE-macos-x64-0.6.0.dmg`
+1. macOS: download `iLab-GPT-CONJURE-macos-arm64-0.6.1.dmg`
+   for Apple Silicon or `iLab-GPT-CONJURE-macos-x64-0.6.1.dmg`
    for Intel, then drag `iLab GPT CONJURE.app` to Applications.
-2. Windows: download `iLab-GPT-CONJURE-windows-x64_0.6.0.zip`,
+2. Windows: download `iLab-GPT-CONJURE-windows-x64_0.6.1.zip`,
    extract it into a normal user directory, and run `iLab GPT CONJURE.exe`.
 
 Standard packages store user data in `~/Library/Application Support/iLab GPT

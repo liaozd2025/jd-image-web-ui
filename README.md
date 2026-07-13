@@ -47,6 +47,8 @@ Images API 或 Responses API 形态。
 - 面向 GPT-image-2 的文生图、参考图生成和图像编辑工作流。
 - 支持 Codex Image、Codex Responses 和 OpenAI 兼容 API 接入；公开或共享使用优先选择 API 模式。
 - 多任务并发、本地队列状态、分页历史库、缩略图和结果归档。
+- 生成页按需加载最近任务和媒体，隐藏图库与模板仅在打开后渲染；响应式工作区由 CSS Grid 与容器查询驱动，刷新和调整窗口尺寸更流畅。
+- 输出参数支持一键锁定并以只读摘要展示，避免连续生成或浏览历史任务时误改设置；切换任务不会覆盖当前锁定参数。
 - 独立 `/history` 页面支持 SQLite 分页、搜索、筛选、网格/列表视图和懒加载详情。
 - Codex Responses 和 API Responses 生图可选启用联网搜索；生成页和历史库搜索支持提示词与任务 ID，并可命中历史任务。
 - 单任务多图输出、部分失败处理和失败重试。
@@ -126,14 +128,14 @@ http://127.0.0.1:8787/
 ## 应用包下载
 
 当前可用的标准包和一键包见 [下载 / Releases](RELEASES.md)，也可以直接打开
-[GitHub Release v0.6.0](https://github.com/kadevin/ilab-gpt-conjure/releases/tag/v0.6.0)。
+[GitHub Release v0.6.1](https://github.com/kadevin/ilab-gpt-conjure/releases/tag/v0.6.1)。
 
 新用户建议优先下载标准包：
 
-1. macOS：Apple Silicon 下载 `iLab-GPT-CONJURE-macos-arm64-0.6.0.dmg`，
-   Intel 下载 `iLab-GPT-CONJURE-macos-x64-0.6.0.dmg`，然后把
+1. macOS：Apple Silicon 下载 `iLab-GPT-CONJURE-macos-arm64-0.6.1.dmg`，
+   Intel 下载 `iLab-GPT-CONJURE-macos-x64-0.6.1.dmg`，然后把
    `iLab GPT CONJURE.app` 拖到 Applications。
-2. Windows：下载 `iLab-GPT-CONJURE-windows-x64_0.6.0.zip`，
+2. Windows：下载 `iLab-GPT-CONJURE-windows-x64_0.6.1.zip`，
    解压到普通用户目录，双击 `iLab GPT CONJURE.exe`。
 
 标准包的用户数据会写入 macOS 的

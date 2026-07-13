@@ -743,18 +743,6 @@
   }
 }
 
-@keyframes spinner-breathe {
-  0%,
-  100% {
-    transform: scale(0.96);
-    opacity: 0.82;
-  }
-  50% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
 @keyframes waiting-bar {
   0% {
     transform: translateX(-110%);

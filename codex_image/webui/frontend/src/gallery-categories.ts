@@ -575,7 +575,7 @@ export function initGalleryCategoriesFeature() {
   document.addEventListener(LOCALE_CHANGE_EVENT, () => {
     renderGalleryCategoryControls();
     renderQuickGalleryDock();
-    renderGalleryGrid();
+    if (els.galleryDrawer?.classList.contains("open")) renderGalleryGrid();
     renderImageStrip();
     updateRequestPreview();
   });

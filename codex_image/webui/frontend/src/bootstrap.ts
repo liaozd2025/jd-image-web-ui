@@ -161,7 +161,6 @@ const bridgeMethods: LegacyMethods = {
   setPromptWithGalleryRefs: proxy("setPromptWithGalleryRefs"),
   setStatus: proxy("setStatus"),
   setTaskArchiveState: proxy("setTaskArchiveState"),
-  setupPreviewPanelHeightSync: proxy("setupPreviewPanelHeightSync"),
   sourceName: proxy("sourceName"),
   sourcePreviewUrl: proxy("sourcePreviewUrl"),
   startRunFeedback,

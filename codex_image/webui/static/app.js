@@ -144,6 +144,7 @@
     call2(methods, "updateCompression");
     call2(methods, "updateSizeFromPreset");
     call2(methods, "updateCustomSize");
+    call2(methods, "restoreOutputSettingsLock");
     call2(methods, "renderImageStrip");
     void call2(methods, "restoreHistoryReferenceHandoff");
     void call2(methods, "restoreHistoryTaskReuseHandoff");
@@ -159,7 +160,6 @@
     }
     call2(methods, "startUiClock");
     call2(methods, "updateRequestPreview");
-    call2(methods, "setupPreviewPanelHeightSync");
     call2(methods, "openSystemSettingsFromUrl");
   }
 
@@ -381,6 +381,12 @@
       promptFindStatus: document.querySelector("#promptFindStatus"),
       promptFindClose: document.querySelector("#promptFindClose"),
       modeSettingsSlot: document.querySelector("#modeSettingsSlot"),
+      outputSettingsHeader: document.querySelector("#outputSettingsHeader"),
+      outputSettingsLockButton: document.querySelector("#outputSettingsLockButton"),
+      outputSettingsLockedSummary: document.querySelector("#outputSettingsLockedSummary"),
+      outputSettingsSummaryContent: document.querySelector("#outputSettingsSummaryContent"),
+      outputSettingsTaskAction: document.querySelector("#outputSettingsTaskAction"),
+      adoptTaskOutputSettingsButton: document.querySelector("#adoptTaskOutputSettingsButton"),
       modeSpecificSettings: document.querySelector("#modeSpecificSettings"),
       mainModelField: document.querySelector("#mainModelField"),
       mainModelCombobox: document.querySelector("#mainModelCombobox"),
@@ -920,6 +926,24 @@
     "promptModel.galleryHeader": "Reference image notes:",
     "promptModel.galleryInstruction": '- Reference image {number}: gallery "{name}", role: {role}. @{name} in the prompt refers to this image.{note}',
     "outputSettings.title": "Output",
+    "output.lock.lock": "Lock parameters",
+    "output.lock.unlock": "Unlock and edit",
+    "output.lock.current": "Current lock",
+    "output.lock.task": "Selected task parameters",
+    "output.lock.adoptTask": "Use these task parameters",
+    "output.lock.frame": "Frame",
+    "output.lock.outputCount": "Output count",
+    "output.lock.output": "Output",
+    "output.lock.search": "Search",
+    "output.lock.call": "Call",
+    "output.lock.sheets": "images",
+    "output.lock.imageModel": "Image model",
+    "output.lock.prompt": "Prompt",
+    "output.lock.fileFormat": "File format",
+    "output.lock.taskHint": "Viewing the selected task only; your locked parameters stay unchanged. Using them does not change the system channel.",
+    "output.lock.lockedHint": "Parameters are fixed. Use the lock icon at the top right to edit.",
+    "output.lock.enabled": "On",
+    "output.lock.disabled": "Off",
     "output.mainModel": "Main model",
     "output.selectMainModel": "Select main model",
     "output.mainModelCustomForInput": "Use a custom model for the current input",
@@ -1398,7 +1422,7 @@
     "close.gallery": "Close gallery panel",
     "close.addGallery": "Close add to gallery panel",
     "close.version": "Close version update panel",
-    "imageInput.referenceTitle": "Reference input",
+    "imageInput.referenceTitle": "Reference input (optional)",
     "referenceFiles.add": "Add file",
     "referenceFiles.selected": "Reference files",
     "referenceFiles.recent": "Recent files",
@@ -1873,6 +1897,24 @@
     "promptModel.galleryHeader": "Referenzbildhinweise:",
     "promptModel.galleryInstruction": "- Referenzbild {number}: Galerie \u201E{name}\u201C, Rolle: {role}. @{name} in der Eingabeaufforderung bezieht sich auf dieses Bild.{note}",
     "outputSettings.title": "Ausgabe",
+    "output.lock.lock": "Parameter sperren",
+    "output.lock.unlock": "Entsperren und bearbeiten",
+    "output.lock.current": "Aktuelle Sperre",
+    "output.lock.task": "Parameter der Aufgabe",
+    "output.lock.adoptTask": "Parameter dieser Aufgabe verwenden",
+    "output.lock.frame": "Bildformat",
+    "output.lock.outputCount": "Ausgabeanzahl",
+    "output.lock.output": "Ausgabe",
+    "output.lock.search": "Suche",
+    "output.lock.call": "Aufruf",
+    "output.lock.sheets": "Bilder",
+    "output.lock.imageModel": "Bildmodell",
+    "output.lock.prompt": "Prompt",
+    "output.lock.fileFormat": "Dateiformat",
+    "output.lock.taskHint": "Es werden nur die Aufgabenparameter angezeigt; die aktuelle Sperre bleibt unver\xE4ndert. Ihre Verwendung \xE4ndert den Systemkanal nicht.",
+    "output.lock.lockedHint": "Die Parameter sind fixiert. Zum Bearbeiten das Schloss oben rechts verwenden.",
+    "output.lock.enabled": "Ein",
+    "output.lock.disabled": "Aus",
     "output.mainModel": "Hauptmodell",
     "output.selectMainModel": "Hauptmodell ausw\xE4hlen",
     "output.mainModelCustomForInput": "Verwenden Sie ein benutzerdefiniertes Modell f\xFCr die aktuelle Eingabe",
@@ -2351,7 +2393,7 @@
     "close.gallery": "Galeriefenster schlie\xDFen",
     "close.addGallery": "Schlie\xDFen Sie das Fenster \u201EZur Galerie hinzuf\xFCgen\u201C.",
     "close.version": "Schlie\xDFen Sie das Versionsaktualisierungsfenster",
-    "imageInput.referenceTitle": "Referenzeingabe",
+    "imageInput.referenceTitle": "Referenzeingabe (optional)",
     "referenceFiles.add": "Datei hinzuf\xFCgen",
     "referenceFiles.selected": "Referenzdateien",
     "referenceFiles.recent": "Letzte Dateien",
@@ -2826,6 +2868,24 @@
     "promptModel.galleryHeader": "Notas de la imagen de referencia:",
     "promptModel.galleryInstruction": '- Imagen de referencia {number}: galer\xEDa "{name}", rol: {role}. @{name} en el mensaje se refiere a esta imagen.{note}',
     "outputSettings.title": "Salida",
+    "output.lock.lock": "Bloquear par\xE1metros",
+    "output.lock.unlock": "Desbloquear y editar",
+    "output.lock.current": "Bloqueo actual",
+    "output.lock.task": "Par\xE1metros de la tarea",
+    "output.lock.adoptTask": "Usar par\xE1metros de esta tarea",
+    "output.lock.frame": "Encuadre",
+    "output.lock.outputCount": "Cantidad de salidas",
+    "output.lock.output": "Salida",
+    "output.lock.search": "B\xFAsqueda",
+    "output.lock.call": "Llamada",
+    "output.lock.sheets": "im\xE1genes",
+    "output.lock.imageModel": "Modelo de imagen",
+    "output.lock.prompt": "Prompt",
+    "output.lock.fileFormat": "Formato de archivo",
+    "output.lock.taskHint": "Solo se muestran los par\xE1metros de la tarea; el bloqueo actual no cambia. Usarlos no cambia el canal del sistema.",
+    "output.lock.lockedHint": "Los par\xE1metros est\xE1n fijados. Usa el candado superior para editar.",
+    "output.lock.enabled": "Activada",
+    "output.lock.disabled": "Desactivada",
     "output.mainModel": "modelo principal",
     "output.selectMainModel": "Seleccionar modelo principal",
     "output.mainModelCustomForInput": "Utilice un modelo personalizado para la entrada actual",
@@ -3304,7 +3364,7 @@
     "close.gallery": "Cerrar panel de galer\xEDa",
     "close.addGallery": "Cerrar agregar al panel de la galer\xEDa",
     "close.version": "Cerrar panel de actualizaci\xF3n de versi\xF3n",
-    "imageInput.referenceTitle": "Entrada de referencia",
+    "imageInput.referenceTitle": "Entrada de referencia (opcional)",
     "referenceFiles.add": "A\xF1adir archivo",
     "referenceFiles.selected": "Archivos de referencia",
     "referenceFiles.recent": "Archivos recientes",
@@ -3779,6 +3839,24 @@
     "promptModel.galleryHeader": "Remarques sur l'image de r\xE9f\xE9rence:",
     "promptModel.galleryInstruction": `- Image de r\xE9f\xE9rence {number}: galerie "{name}", r\xF4le: {role}. @{name} dans l'invite fait r\xE9f\xE9rence \xE0 cette image.{note}`,
     "outputSettings.title": "Sortie",
+    "output.lock.lock": "Verrouiller les param\xE8tres",
+    "output.lock.unlock": "D\xE9verrouiller et modifier",
+    "output.lock.current": "Verrouillage actuel",
+    "output.lock.task": "Param\xE8tres de la t\xE2che",
+    "output.lock.adoptTask": "Utiliser les param\xE8tres de cette t\xE2che",
+    "output.lock.frame": "Cadrage",
+    "output.lock.outputCount": "Nombre de sorties",
+    "output.lock.output": "Sortie",
+    "output.lock.search": "Recherche",
+    "output.lock.call": "Appel",
+    "output.lock.sheets": "images",
+    "output.lock.imageModel": "Mod\xE8le d\u2019image",
+    "output.lock.prompt": "Prompt",
+    "output.lock.fileFormat": "Format de fichier",
+    "output.lock.taskHint": "Seuls les param\xE8tres de la t\xE2che sont affich\xE9s ; le verrouillage actuel reste inchang\xE9. Leur utilisation ne change pas le canal syst\xE8me.",
+    "output.lock.lockedHint": "Les param\xE8tres sont fix\xE9s. Utilisez le cadenas en haut \xE0 droite pour les modifier.",
+    "output.lock.enabled": "Activ\xE9e",
+    "output.lock.disabled": "D\xE9sactiv\xE9e",
     "output.mainModel": "Mod\xE8le principal",
     "output.selectMainModel": "S\xE9lectionnez le mod\xE8le principal",
     "output.mainModelCustomForInput": "Utiliser un mod\xE8le personnalis\xE9 pour l'entr\xE9e actuelle",
@@ -4257,7 +4335,7 @@
     "close.gallery": "Fermer le panneau de la galerie",
     "close.addGallery": "Fermer le panneau Ajouter \xE0 la galerie",
     "close.version": "Fermer le panneau de mise \xE0 jour de la version",
-    "imageInput.referenceTitle": "Entr\xE9e de r\xE9f\xE9rence",
+    "imageInput.referenceTitle": "Entr\xE9e de r\xE9f\xE9rence (facultative)",
     "referenceFiles.add": "Ajouter un fichier",
     "referenceFiles.selected": "Fichiers de r\xE9f\xE9rence",
     "referenceFiles.recent": "Fichiers r\xE9cents",
@@ -4732,6 +4810,24 @@
     "promptModel.galleryHeader": "\u53C2\u8003\u753B\u50CF\u306E\u30E1\u30E2:",
     "promptModel.galleryInstruction": "- \u53C2\u7167\u753B\u50CF {number}: \u30AE\u30E3\u30E9\u30EA\u30FC\u300C{name}\u300D\u3001\u7528\u9014: {role}\u3002\u30D7\u30ED\u30F3\u30D7\u30C8\u5185\u306E @{name} \u306F\u3053\u306E\u753B\u50CF\u3092\u6307\u3057\u307E\u3059\u3002{note}",
     "outputSettings.title": "\u51FA\u529B\u8A2D\u5B9A",
+    "output.lock.lock": "\u30D1\u30E9\u30E1\u30FC\u30BF\u3092\u56FA\u5B9A",
+    "output.lock.unlock": "\u56FA\u5B9A\u3092\u89E3\u9664\u3057\u3066\u7DE8\u96C6",
+    "output.lock.current": "\u73FE\u5728\u306E\u56FA\u5B9A\u8A2D\u5B9A",
+    "output.lock.task": "\u9078\u629E\u3057\u305F\u30BF\u30B9\u30AF\u306E\u8A2D\u5B9A",
+    "output.lock.adoptTask": "\u3053\u306E\u30BF\u30B9\u30AF\u8A2D\u5B9A\u3092\u4F7F\u7528",
+    "output.lock.frame": "\u753B\u89D2",
+    "output.lock.outputCount": "\u51FA\u529B\u679A\u6570",
+    "output.lock.output": "\u51FA\u529B",
+    "output.lock.search": "\u691C\u7D22",
+    "output.lock.call": "\u547C\u3073\u51FA\u3057",
+    "output.lock.sheets": "\u679A",
+    "output.lock.imageModel": "\u753B\u50CF\u30E2\u30C7\u30EB",
+    "output.lock.prompt": "\u30D7\u30ED\u30F3\u30D7\u30C8",
+    "output.lock.fileFormat": "\u30D5\u30A1\u30A4\u30EB\u5F62\u5F0F",
+    "output.lock.taskHint": "\u9078\u629E\u3057\u305F\u30BF\u30B9\u30AF\u306E\u8A2D\u5B9A\u3092\u8868\u793A\u4E2D\u3067\u3059\u3002\u73FE\u5728\u306E\u56FA\u5B9A\u8A2D\u5B9A\u306F\u5909\u66F4\u3055\u308C\u307E\u305B\u3093\u3002\u4F7F\u7528\u3057\u3066\u3082\u30B7\u30B9\u30C6\u30E0\u30C1\u30E3\u30F3\u30CD\u30EB\u306F\u5909\u66F4\u3055\u308C\u307E\u305B\u3093\u3002",
+    "output.lock.lockedHint": "\u8A2D\u5B9A\u306F\u56FA\u5B9A\u3055\u308C\u3066\u3044\u307E\u3059\u3002\u53F3\u4E0A\u306E\u9375\u30A2\u30A4\u30B3\u30F3\u3067\u7DE8\u96C6\u306B\u623B\u308C\u307E\u3059\u3002",
+    "output.lock.enabled": "\u30AA\u30F3",
+    "output.lock.disabled": "\u30AA\u30D5",
     "output.mainModel": "\u30E1\u30A4\u30F3\u30E2\u30C7\u30EB",
     "output.selectMainModel": "\u30E1\u30A4\u30F3\u30E2\u30C7\u30EB\u3092\u9078\u629E",
     "output.mainModelCustomForInput": "\u73FE\u5728\u306E\u5165\u529B\u306B\u30AB\u30B9\u30BF\u30E0 \u30E2\u30C7\u30EB\u3092\u4F7F\u7528\u3057\u307E\u3059",
@@ -5210,7 +5306,7 @@
     "close.gallery": "\u30AE\u30E3\u30E9\u30EA\u30FC \u30D1\u30CD\u30EB\u3092\u9589\u3058\u308B",
     "close.addGallery": "\u30AE\u30E3\u30E9\u30EA\u30FC\u8FFD\u52A0\u30D1\u30CD\u30EB\u3092\u9589\u3058\u308B",
     "close.version": "\u30D0\u30FC\u30B8\u30E7\u30F3\u66F4\u65B0\u30D1\u30CD\u30EB\u3092\u9589\u3058\u308B",
-    "imageInput.referenceTitle": "\u53C2\u7167\u5165\u529B",
+    "imageInput.referenceTitle": "\u53C2\u7167\u5165\u529B\uFF08\u4EFB\u610F\uFF09",
     "referenceFiles.add": "\u30D5\u30A1\u30A4\u30EB\u3092\u8FFD\u52A0",
     "referenceFiles.selected": "\u53C2\u7167\u30D5\u30A1\u30A4\u30EB",
     "referenceFiles.recent": "\u6700\u8FD1\u306E\u30D5\u30A1\u30A4\u30EB",
@@ -5685,6 +5781,24 @@
     "promptModel.galleryHeader": "\uCC38\uC870 \uC774\uBBF8\uC9C0 \uCC38\uACE0\uC0AC\uD56D:",
     "promptModel.galleryInstruction": '- \uCC38\uC870 \uC774\uBBF8\uC9C0 {number}: \uAC24\uB7EC\uB9AC "{name}", \uC6A9\uB3C4: {role}. \uD504\uB86C\uD504\uD2B8\uC758 @{name}\uC740 \uC774 \uC774\uBBF8\uC9C0\uB97C \uAC00\uB9AC\uD0B5\uB2C8\uB2E4.{note}',
     "outputSettings.title": "\uCD9C\uB825 \uC124\uC815",
+    "output.lock.lock": "\uB9E4\uAC1C\uBCC0\uC218 \uC7A0\uAE08",
+    "output.lock.unlock": "\uC7A0\uAE08 \uD574\uC81C \uBC0F \uD3B8\uC9D1",
+    "output.lock.current": "\uD604\uC7AC \uC7A0\uAE08",
+    "output.lock.task": "\uC120\uD0DD\uD55C \uC791\uC5C5 \uB9E4\uAC1C\uBCC0\uC218",
+    "output.lock.adoptTask": "\uC774 \uC791\uC5C5 \uB9E4\uAC1C\uBCC0\uC218 \uC0AC\uC6A9",
+    "output.lock.frame": "\uD654\uBA74 \uBE44\uC728",
+    "output.lock.outputCount": "\uCD9C\uB825 \uC218",
+    "output.lock.output": "\uCD9C\uB825",
+    "output.lock.search": "\uAC80\uC0C9",
+    "output.lock.call": "\uD638\uCD9C",
+    "output.lock.sheets": "\uC7A5",
+    "output.lock.imageModel": "\uC774\uBBF8\uC9C0 \uBAA8\uB378",
+    "output.lock.prompt": "\uD504\uB86C\uD504\uD2B8",
+    "output.lock.fileFormat": "\uD30C\uC77C \uD615\uC2DD",
+    "output.lock.taskHint": "\uC120\uD0DD\uD55C \uC791\uC5C5\uC758 \uB9E4\uAC1C\uBCC0\uC218\uB9CC \uD45C\uC2DC\uD569\uB2C8\uB2E4. \uD604\uC7AC \uC7A0\uAE08\uC740 \uC720\uC9C0\uB429\uB2C8\uB2E4. \uC0AC\uC6A9\uD574\uB3C4 \uC2DC\uC2A4\uD15C \uCC44\uB110\uC740 \uBCC0\uACBD\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
+    "output.lock.lockedHint": "\uB9E4\uAC1C\uBCC0\uC218\uAC00 \uACE0\uC815\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uC624\uB978\uCABD \uC704 \uC7A0\uAE08 \uC544\uC774\uCF58\uC73C\uB85C \uD3B8\uC9D1\uD558\uC138\uC694.",
+    "output.lock.enabled": "\uCF1C\uC9D0",
+    "output.lock.disabled": "\uAEBC\uC9D0",
     "output.mainModel": "\uBA54\uC778 \uBAA8\uB378",
     "output.selectMainModel": "\uBA54\uC778 \uBAA8\uB378 \uC120\uD0DD",
     "output.mainModelCustomForInput": "\uD604\uC7AC \uC785\uB825\uC5D0 \uC0AC\uC6A9\uC790 \uC815\uC758 \uBAA8\uB378\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4.",
@@ -6163,7 +6277,7 @@
     "close.gallery": "\uAC24\uB7EC\uB9AC \uD328\uB110 \uB2EB\uAE30",
     "close.addGallery": "\uAC24\uB7EC\uB9AC \uCD94\uAC00 \uD328\uB110 \uB2EB\uAE30",
     "close.version": "\uBC84\uC804 \uC5C5\uB370\uC774\uD2B8 \uD328\uB110 \uB2EB\uAE30",
-    "imageInput.referenceTitle": "\uCC38\uC870 \uC785\uB825",
+    "imageInput.referenceTitle": "\uCC38\uC870 \uC785\uB825(\uC120\uD0DD \uC0AC\uD56D)",
     "referenceFiles.add": "\uD30C\uC77C \uCD94\uAC00",
     "referenceFiles.selected": "\uCC38\uC870 \uD30C\uC77C",
     "referenceFiles.recent": "\uCD5C\uADFC \uD30C\uC77C",
@@ -6638,6 +6752,24 @@
     "promptModel.galleryHeader": "Notas de imagem de refer\xEAncia:",
     "promptModel.galleryInstruction": '- Imagem de refer\xEAncia {number}: galeria "{name}", fun\xE7\xE3o: {role}. @{name} no prompt refere-se a esta imagem.{note}',
     "outputSettings.title": "Sa\xEDda",
+    "output.lock.lock": "Bloquear par\xE2metros",
+    "output.lock.unlock": "Desbloquear e editar",
+    "output.lock.current": "Bloqueio atual",
+    "output.lock.task": "Par\xE2metros da tarefa",
+    "output.lock.adoptTask": "Usar par\xE2metros desta tarefa",
+    "output.lock.frame": "Enquadramento",
+    "output.lock.outputCount": "Quantidade de sa\xEDdas",
+    "output.lock.output": "Sa\xEDda",
+    "output.lock.search": "Pesquisa",
+    "output.lock.call": "Chamada",
+    "output.lock.sheets": "imagens",
+    "output.lock.imageModel": "Modelo de imagem",
+    "output.lock.prompt": "Prompt",
+    "output.lock.fileFormat": "Formato de arquivo",
+    "output.lock.taskHint": "Apenas os par\xE2metros da tarefa s\xE3o exibidos; o bloqueio atual n\xE3o muda. Us\xE1-los n\xE3o altera o canal do sistema.",
+    "output.lock.lockedHint": "Os par\xE2metros est\xE3o fixos. Use o cadeado no canto superior para editar.",
+    "output.lock.enabled": "Ativada",
+    "output.lock.disabled": "Desativada",
     "output.mainModel": "Modelo principal",
     "output.selectMainModel": "Selecione o modelo principal",
     "output.mainModelCustomForInput": "Use um modelo personalizado para a entrada atual",
@@ -7116,7 +7248,7 @@
     "close.gallery": "Fechar painel da galeria",
     "close.addGallery": "Fechar adicionar ao painel da galeria",
     "close.version": "Fechar painel de atualiza\xE7\xE3o de vers\xE3o",
-    "imageInput.referenceTitle": "Entrada de refer\xEAncia",
+    "imageInput.referenceTitle": "Entrada de refer\xEAncia (opcional)",
     "referenceFiles.add": "Adicionar arquivo",
     "referenceFiles.selected": "Arquivos de refer\xEAncia",
     "referenceFiles.recent": "Arquivos recentes",
@@ -7591,6 +7723,24 @@
     "promptModel.galleryHeader": "\u0421\u0441\u044B\u043B\u043A\u0430 image \u043E\u0442\u043C\u0435\u0447\u0430\u0435\u0442:",
     "promptModel.galleryInstruction": "- \u0421\u0441\u044B\u043B\u043A\u0430 image {number}: \u0433\u0430\u043B\u0435\u0440\u0435\u044F \xAB{name}\xBB, \u0440\u043E\u043B\u044C: {role}. @{name} \u0432 \u043F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u0438 \u043E\u0442\u043D\u043E\u0441\u0438\u0442\u0441\u044F \u043A \u044D\u0442\u043E\u043C\u0443 image.{note}.",
     "outputSettings.title": "\u0412\u044B\u0432\u043E\u0434",
+    "output.lock.lock": "\u0417\u0430\u0444\u0438\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u044B",
+    "output.lock.unlock": "\u0420\u0430\u0437\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0438 \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C",
+    "output.lock.current": "\u0422\u0435\u043A\u0443\u0449\u0430\u044F \u0444\u0438\u043A\u0441\u0430\u0446\u0438\u044F",
+    "output.lock.task": "\u041F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u044B \u0437\u0430\u0434\u0430\u0447\u0438",
+    "output.lock.adoptTask": "\u0418\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u044B \u0437\u0430\u0434\u0430\u0447\u0438",
+    "output.lock.frame": "\u0424\u043E\u0440\u043C\u0430\u0442 \u043A\u0430\u0434\u0440\u0430",
+    "output.lock.outputCount": "\u041A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439",
+    "output.lock.output": "\u0412\u044B\u0432\u043E\u0434",
+    "output.lock.search": "\u041F\u043E\u0438\u0441\u043A",
+    "output.lock.call": "\u0412\u044B\u0437\u043E\u0432",
+    "output.lock.sheets": "\u0438\u0437\u043E\u0431\u0440.",
+    "output.lock.imageModel": "\u041C\u043E\u0434\u0435\u043B\u044C \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439",
+    "output.lock.prompt": "\u041F\u0440\u043E\u043C\u043F\u0442",
+    "output.lock.fileFormat": "\u0424\u043E\u0440\u043C\u0430\u0442 \u0444\u0430\u0439\u043B\u0430",
+    "output.lock.taskHint": "\u041F\u043E\u043A\u0430\u0437\u0430\u043D\u044B \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u044B \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438; \u0442\u0435\u043A\u0443\u0449\u0430\u044F \u0444\u0438\u043A\u0441\u0430\u0446\u0438\u044F \u043D\u0435 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0430. \u0418\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u0435 \u043D\u0435 \u043C\u0435\u043D\u044F\u0435\u0442 \u0441\u0438\u0441\u0442\u0435\u043C\u043D\u044B\u0439 \u043A\u0430\u043D\u0430\u043B.",
+    "output.lock.lockedHint": "\u041F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u044B \u0437\u0430\u0444\u0438\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u043D\u044B. \u0414\u043B\u044F \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u0437\u0430\u043C\u043E\u043A \u0441\u043F\u0440\u0430\u0432\u0430 \u0432\u0432\u0435\u0440\u0445\u0443.",
+    "output.lock.enabled": "\u0412\u043A\u043B.",
+    "output.lock.disabled": "\u0412\u044B\u043A\u043B.",
     "output.mainModel": "\u041E\u0441\u043D\u043E\u0432\u043D\u0430\u044F \u043C\u043E\u0434\u0435\u043B\u044C",
     "output.selectMainModel": "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043E\u0441\u043D\u043E\u0432\u043D\u0443\u044E \u043C\u043E\u0434\u0435\u043B\u044C",
     "output.mainModelCustomForInput": "\u0418\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C\u0441\u043A\u0443\u044E \u043C\u043E\u0434\u0435\u043B\u044C \u0434\u043B\u044F \u0442\u0435\u043A\u0443\u0449\u0435\u0433\u043E \u0432\u0432\u043E\u0434\u0430",
@@ -8069,7 +8219,7 @@
     "close.gallery": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C \u043F\u0430\u043D\u0435\u043B\u044C \u0433\u0430\u043B\u0435\u0440\u0435\u0438",
     "close.addGallery": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C \u043F\u0430\u043D\u0435\u043B\u044C \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0432 \u0433\u0430\u043B\u0435\u0440\u0435\u044E",
     "close.version": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C \u043F\u0430\u043D\u0435\u043B\u044C \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F \u0432\u0435\u0440\u0441\u0438\u0438",
-    "imageInput.referenceTitle": "\u0412\u0445\u043E\u0434\u043D\u044B\u0435 \u043C\u0430\u0442\u0435\u0440\u0438\u0430\u043B\u044B",
+    "imageInput.referenceTitle": "\u0412\u0445\u043E\u0434\u043D\u044B\u0435 \u043C\u0430\u0442\u0435\u0440\u0438\u0430\u043B\u044B (\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E)",
     "referenceFiles.add": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0444\u0430\u0439\u043B",
     "referenceFiles.selected": "\u0424\u0430\u0439\u043B\u044B-\u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0438",
     "referenceFiles.recent": "\u041D\u0435\u0434\u0430\u0432\u043D\u0438\u0435 \u0444\u0430\u0439\u043B\u044B",
@@ -8544,6 +8694,24 @@
     "promptModel.galleryHeader": "Riferimento image note:",
     "promptModel.galleryInstruction": '- Riferimento image {number}: galleria "{name}", ruolo: {role}. @{name} nel prompt si riferisce a questo image.{note}',
     "outputSettings.title": "Output",
+    "output.lock.lock": "Blocca parametri",
+    "output.lock.unlock": "Sblocca e modifica",
+    "output.lock.current": "Blocco attuale",
+    "output.lock.task": "Parametri dell\u2019attivit\xE0",
+    "output.lock.adoptTask": "Usa i parametri di questa attivit\xE0",
+    "output.lock.frame": "Inquadratura",
+    "output.lock.outputCount": "Numero di output",
+    "output.lock.output": "Output",
+    "output.lock.search": "Ricerca",
+    "output.lock.call": "Chiamata",
+    "output.lock.sheets": "immagini",
+    "output.lock.imageModel": "Modello immagine",
+    "output.lock.prompt": "Prompt",
+    "output.lock.fileFormat": "Formato file",
+    "output.lock.taskHint": "Sono mostrati solo i parametri dell\u2019attivit\xE0; il blocco attuale resta invariato. Il loro uso non cambia il canale di sistema.",
+    "output.lock.lockedHint": "I parametri sono fissati. Usa il lucchetto in alto a destra per modificarli.",
+    "output.lock.enabled": "Attiva",
+    "output.lock.disabled": "Disattiva",
     "output.mainModel": "Modello principale",
     "output.selectMainModel": "Seleziona il modello principale",
     "output.mainModelCustomForInput": "Utilizza un modello personalizzato per l'input corrente",
@@ -9022,7 +9190,7 @@
     "close.gallery": "Chiudi il pannello della galleria",
     "close.addGallery": "Chiudi Aggiungi al pannello Galleria",
     "close.version": "Chiudi il pannello di aggiornamento della versione",
-    "imageInput.referenceTitle": "Input di riferimento",
+    "imageInput.referenceTitle": "Input di riferimento (facoltativo)",
     "referenceFiles.add": "Aggiungi file",
     "referenceFiles.selected": "File di riferimento",
     "referenceFiles.recent": "File recenti",
@@ -9497,6 +9665,24 @@
     "promptModel.galleryHeader": "\u0938\u0902\u0926\u0930\u094D\u092D \u091A\u093F\u0924\u094D\u0930 \u0928\u094B\u091F\u094D\u0938:",
     "promptModel.galleryInstruction": '- \u0938\u0902\u0926\u0930\u094D\u092D \u091A\u093F\u0924\u094D\u0930 {number}: \u0917\u0948\u0932\u0930\u0940 "{name}", \u092D\u0942\u092E\u093F\u0915\u093E: {role}\u0964 \u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F \u092E\u0947\u0902 @{name} \u0907\u0938 \u091A\u093F\u0924\u094D\u0930 \u0915\u094B \u0938\u0902\u0926\u0930\u094D\u092D\u093F\u0924 \u0915\u0930\u0924\u093E \u0939\u0948\u0964{note}',
     "outputSettings.title": "\u0906\u0909\u091F\u092A\u0941\u091F",
+    "output.lock.lock": "\u092A\u0948\u0930\u093E\u092E\u0940\u091F\u0930 \u0932\u0949\u0915 \u0915\u0930\u0947\u0902",
+    "output.lock.unlock": "\u0905\u0928\u0932\u0949\u0915 \u0915\u0930\u0915\u0947 \u0938\u0902\u092A\u093E\u0926\u093F\u0924 \u0915\u0930\u0947\u0902",
+    "output.lock.current": "\u0935\u0930\u094D\u0924\u092E\u093E\u0928 \u0932\u0949\u0915",
+    "output.lock.task": "\u091A\u0941\u0928\u0947 \u0917\u090F \u0915\u093E\u0930\u094D\u092F \u0915\u0947 \u092A\u0948\u0930\u093E\u092E\u0940\u091F\u0930",
+    "output.lock.adoptTask": "\u0907\u0938 \u0915\u093E\u0930\u094D\u092F \u0915\u0947 \u092A\u0948\u0930\u093E\u092E\u0940\u091F\u0930 \u0909\u092A\u092F\u094B\u0917 \u0915\u0930\u0947\u0902",
+    "output.lock.frame": "\u092B\u093C\u094D\u0930\u0947\u092E",
+    "output.lock.outputCount": "\u0906\u0909\u091F\u092A\u0941\u091F \u0938\u0902\u0916\u094D\u092F\u093E",
+    "output.lock.output": "\u0906\u0909\u091F\u092A\u0941\u091F",
+    "output.lock.search": "\u0916\u094B\u091C",
+    "output.lock.call": "\u0915\u0949\u0932",
+    "output.lock.sheets": "\u0907\u092E\u0947\u091C",
+    "output.lock.imageModel": "\u0907\u092E\u0947\u091C \u092E\u0949\u0921\u0932",
+    "output.lock.prompt": "\u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F",
+    "output.lock.fileFormat": "\u092B\u093C\u093E\u0907\u0932 \u092B\u093C\u0949\u0930\u094D\u092E\u0948\u091F",
+    "output.lock.taskHint": "\u0915\u0947\u0935\u0932 \u091A\u0941\u0928\u0947 \u0917\u090F \u0915\u093E\u0930\u094D\u092F \u0915\u0947 \u092A\u0948\u0930\u093E\u092E\u0940\u091F\u0930 \u0926\u093F\u0916 \u0930\u0939\u0947 \u0939\u0948\u0902; \u0935\u0930\u094D\u0924\u092E\u093E\u0928 \u0932\u0949\u0915 \u0928\u0939\u0940\u0902 \u092C\u0926\u0932\u093E \u0939\u0948\u0964 \u0907\u0928\u094D\u0939\u0947\u0902 \u0909\u092A\u092F\u094B\u0917 \u0915\u0930\u0928\u0947 \u0938\u0947 \u0938\u093F\u0938\u094D\u091F\u092E \u091A\u0948\u0928\u0932 \u0928\u0939\u0940\u0902 \u092C\u0926\u0932\u0924\u093E\u0964",
+    "output.lock.lockedHint": "\u092A\u0948\u0930\u093E\u092E\u0940\u091F\u0930 \u0924\u092F \u0939\u0948\u0902\u0964 \u0938\u0902\u092A\u093E\u0926\u0928 \u0915\u0947 \u0932\u093F\u090F \u090A\u092A\u0930 \u0926\u093E\u0908\u0902 \u0913\u0930 \u0932\u0949\u0915 \u0906\u0907\u0915\u0928 \u0926\u092C\u093E\u090F\u0901\u0964",
+    "output.lock.enabled": "\u091A\u093E\u0932\u0942",
+    "output.lock.disabled": "\u092C\u0902\u0926",
     "output.mainModel": "\u092E\u0941\u0916\u094D\u092F \u092E\u0949\u0921\u0932",
     "output.selectMainModel": "\u092E\u0941\u0916\u094D\u092F \u092E\u0949\u0921\u0932 \u0915\u093E \u091A\u092F\u0928 \u0915\u0930\u0947\u0902",
     "output.mainModelCustomForInput": "\u0935\u0930\u094D\u0924\u092E\u093E\u0928 \u0907\u0928\u092A\u0941\u091F \u0915\u0947 \u0932\u093F\u090F \u090F\u0915 \u0915\u0938\u094D\u091F\u092E \u092E\u0949\u0921\u0932 \u0915\u093E \u0909\u092A\u092F\u094B\u0917 \u0915\u0930\u0947\u0902",
@@ -9975,7 +10161,7 @@
     "close.gallery": "\u0917\u0948\u0932\u0930\u0940 \u092A\u0948\u0928\u0932 \u092C\u0902\u0926 \u0915\u0930\u0947\u0902",
     "close.addGallery": "\u0917\u0948\u0932\u0930\u0940 \u092A\u0948\u0928\u0932 \u092E\u0947\u0902 \u091C\u094B\u0921\u093C\u0947\u0902 \u092C\u0902\u0926 \u0915\u0930\u0947\u0902",
     "close.version": "\u0938\u0902\u0938\u094D\u0915\u0930\u0923 \u0905\u0926\u094D\u092F\u0924\u0928 \u092A\u0948\u0928\u0932 \u092C\u0902\u0926 \u0915\u0930\u0947\u0902",
-    "imageInput.referenceTitle": "\u0938\u0902\u0926\u0930\u094D\u092D \u0907\u0928\u092A\u0941\u091F",
+    "imageInput.referenceTitle": "\u0938\u0902\u0926\u0930\u094D\u092D \u0907\u0928\u092A\u0941\u091F (\u0935\u0948\u0915\u0932\u094D\u092A\u093F\u0915)",
     "referenceFiles.add": "\u092B\u093C\u093E\u0907\u0932 \u091C\u094B\u0921\u093C\u0947\u0902",
     "referenceFiles.selected": "\u0938\u0902\u0926\u0930\u094D\u092D \u092B\u093C\u093E\u0907\u0932\u0947\u0902",
     "referenceFiles.recent": "\u0939\u093E\u0932 \u0915\u0940 \u092B\u093C\u093E\u0907\u0932\u0947\u0902",
@@ -10460,6 +10646,24 @@
     "promptModel.galleryHeader": "\u53C2\u8003\u56FE\u8BF4\u660E\uFF1A",
     "promptModel.galleryInstruction": "- \u53C2\u8003\u56FE {number}\uFF1A\u56FE\u5E93\u300C{name}\u300D\uFF0C\u7528\u9014\uFF1A{role}\u3002\u63D0\u793A\u8BCD\u4E2D\u7684 @{name} \u6307\u8FD9\u5F20\u56FE\u3002{note}",
     "outputSettings.title": "\u8F93\u51FA\u8BBE\u7F6E",
+    "output.lock.lock": "\u9501\u5B9A\u53C2\u6570",
+    "output.lock.unlock": "\u89E3\u9501\u5E76\u4FEE\u6539",
+    "output.lock.current": "\u5F53\u524D\u9501\u5B9A",
+    "output.lock.task": "\u6240\u9009\u4EFB\u52A1\u53C2\u6570",
+    "output.lock.adoptTask": "\u4F7F\u7528\u6B64\u4EFB\u52A1\u53C2\u6570",
+    "output.lock.frame": "\u753B\u5E45",
+    "output.lock.outputCount": "\u8F93\u51FA\u5F20\u6570",
+    "output.lock.output": "\u8F93\u51FA",
+    "output.lock.search": "\u641C\u7D22",
+    "output.lock.call": "\u8C03\u7528",
+    "output.lock.sheets": "\u5F20",
+    "output.lock.imageModel": "\u56FE\u50CF\u6A21\u578B",
+    "output.lock.prompt": "\u63D0\u793A\u8BCD",
+    "output.lock.fileFormat": "\u6587\u4EF6\u683C\u5F0F",
+    "output.lock.taskHint": "\u4EC5\u67E5\u770B\u6240\u9009\u4EFB\u52A1\u53C2\u6570\uFF1B\u5F53\u524D\u9501\u5B9A\u53C2\u6570\u4FDD\u6301\u4E0D\u53D8\u3002\u4F7F\u7528\u540E\u4E0D\u6539\u53D8\u7CFB\u7EDF\u901A\u9053\u3002",
+    "output.lock.lockedHint": "\u53C2\u6570\u5DF2\u56FA\u5B9A\u3002\u70B9\u51FB\u53F3\u4E0A\u89D2\u9501\u56FE\u6807\u6062\u590D\u7F16\u8F91\u3002",
+    "output.lock.enabled": "\u5F00\u542F",
+    "output.lock.disabled": "\u5173\u95ED",
     "output.mainModel": "\u4E3B\u6A21\u578B",
     "output.selectMainModel": "\u9009\u62E9\u4E3B\u6A21\u578B",
     "output.mainModelCustomForInput": "\u6309\u5F53\u524D\u8F93\u5165\u4F7F\u7528\u81EA\u5B9A\u4E49\u6A21\u578B",
@@ -10938,7 +11142,7 @@
     "close.gallery": "\u5173\u95ED\u516C\u7528\u56FE\u5E93\u9762\u677F",
     "close.addGallery": "\u5173\u95ED\u6DFB\u52A0\u5230\u56FE\u5E93\u9762\u677F",
     "close.version": "\u5173\u95ED\u7248\u672C\u66F4\u65B0\u9762\u677F",
-    "imageInput.referenceTitle": "\u53C2\u8003\u8F93\u5165",
+    "imageInput.referenceTitle": "\u53C2\u8003\u8F93\u5165\uFF08\u53EF\u9009\uFF09",
     "referenceFiles.add": "\u6DFB\u52A0\u6587\u4EF6",
     "referenceFiles.selected": "\u53C2\u8003\u6587\u4EF6",
     "referenceFiles.recent": "\u6700\u8FD1\u6587\u4EF6",
@@ -11423,6 +11627,24 @@
     "promptModel.galleryHeader": "\u53C3\u8003\u5716\u8AAA\u660E\uFF1A",
     "promptModel.galleryInstruction": "- \u53C3\u8003\u5716{number}\uFF1A\u5716\u5EAB\u300C{name}\u300D\uFF0C\u7528\u9014\uFF1A{role}\u3002\u63D0\u793A\u8A5E\u4E2D\u7684 @{name}\u6307\u9019\u5F35\u5716\u3002{note}",
     "outputSettings.title": "\u8F38\u51FA\u8A2D\u5B9A",
+    "output.lock.lock": "\u9396\u5B9A\u53C3\u6578",
+    "output.lock.unlock": "\u89E3\u9396\u4E26\u4FEE\u6539",
+    "output.lock.current": "\u76EE\u524D\u9396\u5B9A",
+    "output.lock.task": "\u6240\u9078\u4EFB\u52D9\u53C3\u6578",
+    "output.lock.adoptTask": "\u4F7F\u7528\u6B64\u4EFB\u52D9\u53C3\u6578",
+    "output.lock.frame": "\u756B\u5E45",
+    "output.lock.outputCount": "\u8F38\u51FA\u5F35\u6578",
+    "output.lock.output": "\u8F38\u51FA",
+    "output.lock.search": "\u641C\u5C0B",
+    "output.lock.call": "\u547C\u53EB",
+    "output.lock.sheets": "\u5F35",
+    "output.lock.imageModel": "\u5716\u50CF\u6A21\u578B",
+    "output.lock.prompt": "\u63D0\u793A\u8A5E",
+    "output.lock.fileFormat": "\u6A94\u6848\u683C\u5F0F",
+    "output.lock.taskHint": "\u53EA\u67E5\u770B\u6240\u9078\u4EFB\u52D9\u53C3\u6578\uFF1B\u76EE\u524D\u9396\u5B9A\u53C3\u6578\u4FDD\u6301\u4E0D\u8B8A\u3002\u4F7F\u7528\u5F8C\u4E0D\u6703\u6539\u8B8A\u7CFB\u7D71\u901A\u9053\u3002",
+    "output.lock.lockedHint": "\u53C3\u6578\u5DF2\u56FA\u5B9A\u3002\u9EDE\u64CA\u53F3\u4E0A\u89D2\u9396\u5716\u793A\u6062\u5FA9\u7DE8\u8F2F\u3002",
+    "output.lock.enabled": "\u958B\u555F",
+    "output.lock.disabled": "\u95DC\u9589",
     "output.mainModel": "\u4E3B\u6A21\u578B",
     "output.selectMainModel": "\u9078\u64C7\u4E3B\u6A21\u578B",
     "output.mainModelCustomForInput": "\u4F9D\u76EE\u524D\u8F38\u5165\u4F7F\u7528\u81EA\u8A02\u6A21\u578B",
@@ -11901,7 +12123,7 @@
     "close.gallery": "\u95DC\u9589\u516C\u7528\u5716\u5EAB\u9762\u677F",
     "close.addGallery": "\u95DC\u9589\u5DF2\u65B0\u589E\u81F3\u5716\u5EAB\u9762\u677F",
     "close.version": "\u95DC\u9589\u7248\u672C\u66F4\u65B0\u9762\u677F",
-    "imageInput.referenceTitle": "\u53C3\u8003\u8F38\u5165",
+    "imageInput.referenceTitle": "\u53C3\u8003\u8F38\u5165\uFF08\u53EF\u9078\uFF09",
     "referenceFiles.add": "\u65B0\u589E\u6A94\u6848",
     "referenceFiles.selected": "\u53C3\u8003\u6A94\u6848",
     "referenceFiles.recent": "\u6700\u8FD1\u6A94\u6848",
@@ -12386,6 +12608,24 @@
     "promptModel.galleryHeader": "\u53C3\u8003\u5716\u8AAA\u660E\uFF1A",
     "promptModel.galleryInstruction": "- \u53C3\u8003\u5716{number}\uFF1A\u5716\u5EAB\u300C{name}\u300D\uFF0C\u7528\u9014\uFF1A{role}\u3002\u63D0\u793A\u8A5E\u4E2D\u7684 @{name}\u6307\u9019\u5F35\u5716\u3002{note}",
     "outputSettings.title": "\u8F38\u51FA\u8A2D\u5B9A",
+    "output.lock.lock": "\u9396\u5B9A\u53C3\u6578",
+    "output.lock.unlock": "\u89E3\u9396\u4E26\u4FEE\u6539",
+    "output.lock.current": "\u76EE\u524D\u9396\u5B9A",
+    "output.lock.task": "\u6240\u9078\u4EFB\u52D9\u53C3\u6578",
+    "output.lock.adoptTask": "\u4F7F\u7528\u6B64\u4EFB\u52D9\u53C3\u6578",
+    "output.lock.frame": "\u756B\u5E45",
+    "output.lock.outputCount": "\u8F38\u51FA\u5F35\u6578",
+    "output.lock.output": "\u8F38\u51FA",
+    "output.lock.search": "\u641C\u5C0B",
+    "output.lock.call": "\u547C\u53EB",
+    "output.lock.sheets": "\u5F35",
+    "output.lock.imageModel": "\u5716\u50CF\u6A21\u578B",
+    "output.lock.prompt": "\u63D0\u793A\u8A5E",
+    "output.lock.fileFormat": "\u6A94\u6848\u683C\u5F0F",
+    "output.lock.taskHint": "\u50C5\u6AA2\u8996\u6240\u9078\u4EFB\u52D9\u53C3\u6578\uFF1B\u76EE\u524D\u9396\u5B9A\u53C3\u6578\u4FDD\u6301\u4E0D\u8B8A\u3002\u4F7F\u7528\u5F8C\u4E0D\u6703\u6539\u8B8A\u7CFB\u7D71\u901A\u9053\u3002",
+    "output.lock.lockedHint": "\u53C3\u6578\u5DF2\u56FA\u5B9A\u3002\u9EDE\u64CA\u53F3\u4E0A\u89D2\u9396\u5716\u793A\u6062\u5FA9\u7DE8\u8F2F\u3002",
+    "output.lock.enabled": "\u958B\u555F",
+    "output.lock.disabled": "\u95DC\u9589",
     "output.mainModel": "\u4E3B\u6A21\u578B",
     "output.selectMainModel": "\u9078\u64C7\u4E3B\u6A21\u578B",
     "output.mainModelCustomForInput": "\u4F9D\u76EE\u524D\u8F38\u5165\u4F7F\u7528\u81EA\u8A02\u6A21\u578B",
@@ -12864,7 +13104,7 @@
     "close.gallery": "\u95DC\u9589\u516C\u7528\u5716\u5EAB\u9762\u677F",
     "close.addGallery": "\u95DC\u9589\u5DF2\u65B0\u589E\u81F3\u5716\u5EAB\u9762\u677F",
     "close.version": "\u95DC\u9589\u7248\u672C\u66F4\u65B0\u9762\u677F",
-    "imageInput.referenceTitle": "\u53C3\u8003\u8F38\u5165",
+    "imageInput.referenceTitle": "\u53C3\u8003\u8F38\u5165\uFF08\u53EF\u9078\uFF09",
     "referenceFiles.add": "\u65B0\u589E\u6A94\u6848",
     "referenceFiles.selected": "\u53C3\u8003\u6A94\u6848",
     "referenceFiles.recent": "\u6700\u8FD1\u6A94\u6848",
@@ -13609,7 +13849,6 @@
     setPromptWithGalleryRefs: proxy("setPromptWithGalleryRefs"),
     setStatus: proxy("setStatus"),
     setTaskArchiveState: proxy("setTaskArchiveState"),
-    setupPreviewPanelHeightSync: proxy("setupPreviewPanelHeightSync"),
     sourceName: proxy("sourceName"),
     sourcePreviewUrl: proxy("sourcePreviewUrl"),
     startRunFeedback,
@@ -28591,7 +28830,7 @@ ${hint}` : hint;
     document.addEventListener(LOCALE_CHANGE_EVENT, () => {
       renderGalleryCategoryControls();
       renderQuickGalleryDock();
-      renderGalleryGrid();
+      if (els2.galleryDrawer?.classList.contains("open")) renderGalleryGrid();
       renderImageStrip2();
       updateRequestPreview();
     });
@@ -28633,6 +28872,9 @@ ${hint}` : hint;
   var state3 = bridge2.state;
   var els3 = bridge2.els;
   var recentAssetsFeatureInitialized = false;
+  var RECENT_ASSET_RENDER_BATCH_SIZE = 12;
+  var RECENT_ASSET_LOAD_AHEAD_PX = 96;
+  var recentAssetRenderLimit = RECENT_ASSET_RENDER_BATCH_SIZE;
   function legacyMethod7(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -28673,48 +28915,62 @@ ${hint}` : hint;
         throw new Error(data.detail || translate("recentAssets.loadFailed"));
       }
       state3.recentAssets = Array.isArray(data.items) ? data.items : [];
+      recentAssetRenderLimit = RECENT_ASSET_RENDER_BATCH_SIZE;
       renderRecentAssets();
     } catch {
       state3.recentAssets = [];
+      recentAssetRenderLimit = RECENT_ASSET_RENDER_BATCH_SIZE;
       renderRecentAssets();
     }
   }
   function renderRecentAssets() {
     if (!els3.recentAssetDock || !els3.recentAssetList) return;
     const items = state3.recentAssets.filter((item) => item?.id && item?.image_url);
+    const visibleItems = items.slice(0, recentAssetRenderLimit);
     els3.recentAssetDock.classList.toggle("hidden", !items.length);
-    els3.recentAssetList.innerHTML = items.map((item) => {
+    els3.recentAssetList.innerHTML = visibleItems.map((item) => {
       const name = recentAssetName(item);
       return `
     <div class="recent-asset-button" title="${escapeHtml4(name)}">
       <button class="recent-asset-use" type="button" data-reference-asset-id="${escapeHtml4(item.id)}" aria-label="${escapeHtml4(formatTranslation("recentAssets.use", { name }))}">
-        <img src="${escapeHtml4(item.image_url)}" alt="${escapeHtml4(name)}">
+        <img src="${escapeHtml4(item.image_url)}" alt="${escapeHtml4(name)}" loading="lazy" decoding="async">
         <span>${escapeHtml4(name)}</span>
       </button>
       <button class="recent-asset-delete" type="button" data-reference-asset-delete="${escapeHtml4(item.id)}" aria-label="${escapeHtml4(formatTranslation("recentAssets.delete", { name }))}">\xD7</button>
     </div>
   `;
     }).join("");
-    els3.recentAssetList.querySelectorAll("[data-reference-asset-id]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const item = state3.recentAssets.find((candidate) => candidate.id === button.dataset.referenceAssetId);
-        addReferenceAssetInput2(item);
+  }
+  function handleRecentAssetClick(event) {
+    const target = event.target instanceof Element ? event.target : null;
+    const deleteButton = target?.closest("[data-reference-asset-delete]");
+    if (deleteButton) {
+      event.stopPropagation();
+      const item2 = state3.recentAssets.find((candidate) => candidate.id === deleteButton.dataset.referenceAssetDelete);
+      if (!item2) return;
+      openConfirmPopover2(deleteButton, {
+        title: translate("recentAssets.deleteTitle"),
+        message: translate("recentAssets.deleteMessage"),
+        detail: recentAssetName(item2),
+        confirmText: translate("action.delete"),
+        onConfirm: () => deleteRecentAsset(item2.id)
       });
-    });
-    els3.recentAssetList.querySelectorAll("[data-reference-asset-delete]").forEach((button) => {
-      button.addEventListener("click", (event) => {
-        event.stopPropagation();
-        const item = state3.recentAssets.find((candidate) => candidate.id === button.dataset.referenceAssetDelete);
-        if (!item) return;
-        openConfirmPopover2(button, {
-          title: translate("recentAssets.deleteTitle"),
-          message: translate("recentAssets.deleteMessage"),
-          detail: recentAssetName(item),
-          confirmText: translate("action.delete"),
-          onConfirm: () => deleteRecentAsset(item.id)
-        });
-      });
-    });
+      return;
+    }
+    const useButton = target?.closest("[data-reference-asset-id]");
+    if (!useButton) return;
+    const item = state3.recentAssets.find((candidate) => candidate.id === useButton.dataset.referenceAssetId);
+    if (item) addReferenceAssetInput2(item);
+  }
+  function handleRecentAssetScroll() {
+    const list = els3.recentAssetList;
+    if (!list || recentAssetRenderLimit >= state3.recentAssets.length) return;
+    const remaining = list.scrollWidth - list.clientWidth - list.scrollLeft;
+    if (remaining > RECENT_ASSET_LOAD_AHEAD_PX) return;
+    const scrollLeft = list.scrollLeft;
+    recentAssetRenderLimit += RECENT_ASSET_RENDER_BATCH_SIZE;
+    renderRecentAssets();
+    list.scrollLeft = scrollLeft;
   }
   function wheelDeltaInPixels2(event) {
     const dominantDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
@@ -28763,11 +29019,14 @@ ${hint}` : hint;
     if (recentAssetsFeatureInitialized) return;
     recentAssetsFeatureInitialized = true;
     els3.recentAssetList?.addEventListener("wheel", handleRecentAssetWheel, { passive: false });
+    els3.recentAssetList?.addEventListener("scroll", handleRecentAssetScroll, { passive: true });
+    els3.recentAssetList?.addEventListener("click", handleRecentAssetClick);
     document.addEventListener(LOCALE_CHANGE_EVENT, renderRecentAssets);
     Object.assign(getLegacyBridge().methods, {
       refreshRecentAssets,
       renderRecentAssets,
       handleRecentAssetWheel,
+      handleRecentAssetScroll,
       deleteRecentAsset
     });
   }
@@ -29186,7 +29445,7 @@ ${hint}` : hint;
         <span>${translate("gallery.dragSort")}</span>
       </button>
       <div class="gallery-card-media">
-        <img src="${escapeHtml6(item.image_url)}" alt="${escapeHtml6(item.name)}" draggable="false">
+        <img src="${escapeHtml6(item.image_url)}" alt="${escapeHtml6(item.name)}" draggable="false" loading="lazy" decoding="async">
       </div>
       <div class="gallery-card-body">
         <div class="gallery-card-heading">
@@ -29387,7 +29646,7 @@ ${hint}` : hint;
     if (galleryGridFeatureInitialized) return;
     galleryGridFeatureInitialized = true;
     document.addEventListener(LOCALE_CHANGE_EVENT, () => {
-      renderGalleryGrid2();
+      if (els5.galleryDrawer?.classList.contains("open")) renderGalleryGrid2();
     });
     bindGalleryGridEvents();
     Object.assign(getLegacyBridge().methods, {
@@ -29924,7 +30183,7 @@ ${hint}` : hint;
       ensureActiveGalleryCategory3();
       renderGalleryCategoryControls4();
       renderQuickGalleryDock4();
-      renderGalleryGrid4();
+      if (els7.galleryDrawer?.classList.contains("open")) renderGalleryGrid4();
     } catch (error) {
       state7.galleryItems = [];
       state7.galleryCategories = defaultGalleryCategories3();
@@ -30086,6 +30345,8 @@ ${hint}` : hint;
     setModeSettingsVariant(isDirectApi);
     updateWebSearchAvailability(authSource);
     legacyMethod12("syncReferenceFileAvailability");
+    const refreshOutputSettingsLock2 = getLegacyBridge().methods.refreshOutputSettingsLock;
+    if (typeof refreshOutputSettingsLock2 === "function") refreshOutputSettingsLock2();
   }
 
   // codex_image/webui/frontend/src/auth-source.ts
@@ -33108,10 +33369,15 @@ ${hint}` : hint;
     if (state13.promptTemplateCategory && !state13.promptTemplateCategories.some((category) => category.id === state13.promptTemplateCategory)) {
       state13.promptTemplateCategory = "";
     }
-    renderPromptTemplateCategories();
-    renderPromptTemplateCategoryPanel();
     renderPromptTemplateRecentDock();
-    renderPromptTemplateList();
+    if (promptTemplateDrawerIsOpen()) {
+      renderPromptTemplateCategories();
+      renderPromptTemplateCategoryPanel();
+      renderPromptTemplateList();
+    }
+  }
+  function promptTemplateDrawerIsOpen() {
+    return Boolean(els15.promptTemplateDrawer?.classList.contains("open"));
   }
   async function refreshPromptTemplates() {
     try {
@@ -33123,9 +33389,11 @@ ${hint}` : hint;
       console.warn(error.message || translate("templates.loadFailed"));
       state13.promptTemplates = [];
       state13.promptTemplateCategories = normalizePromptTemplateCategoryList([]);
-      renderPromptTemplateCategories();
       renderPromptTemplateRecentDock();
-      renderPromptTemplateList();
+      if (promptTemplateDrawerIsOpen()) {
+        renderPromptTemplateCategories();
+        renderPromptTemplateList();
+      }
     }
   }
   function syncPromptTemplateSearchInput() {
@@ -33158,11 +33426,11 @@ ${hint}` : hint;
     updatePromptTemplateSearchClearButton();
     renderPromptTemplateList();
   }
-  function setPromptTemplateSearchLocked(locked) {
+  function setPromptTemplateSearchLocked(locked2) {
     const input = els15.promptTemplateSearch;
     if (!input) return;
-    input.readOnly = locked;
-    if (locked) {
+    input.readOnly = locked2;
+    if (locked2) {
       input.setAttribute("readonly", "");
     } else {
       input.removeAttribute("readonly");
@@ -33293,7 +33561,7 @@ ${hint}` : hint;
     }
     els15.promptTemplateList.innerHTML = templates.map((template) => `
     <button class="prompt-template-card" type="button" data-prompt-template-id="${escapeHtml10(template.id)}">
-      ${template.thumbnail_url ? `<span class="prompt-template-card-thumb"><img src="${escapeHtml10(template.thumbnail_url)}" alt=""></span>` : ""}
+      ${template.thumbnail_url ? `<span class="prompt-template-card-thumb"><img src="${escapeHtml10(template.thumbnail_url)}" alt="" loading="lazy" decoding="async"></span>` : ""}
       <span class="prompt-template-card-title">${escapeHtml10(promptTemplateCardTitle(template))}</span>
       ${promptTemplateCardSubtitle(template) ? `<span class="prompt-template-card-subtitle">${escapeHtml10(promptTemplateCardSubtitle(template))}</span>` : ""}
       <span class="prompt-template-card-preview">${escapeHtml10(promptTemplatePreview(template.content, 64))}</span>
@@ -33338,7 +33606,7 @@ ${hint}` : hint;
       <button class="ghost-button prompt-template-detail-back" type="button" data-prompt-template-back>${translate("templates.back")}</button>
       <button class="ghost-button prompt-template-detail-edit" type="button" data-prompt-template-edit="${escapeHtml10(template.id)}">${translate("templates.edit")}</button>
     </div>
-    ${template.thumbnail_url ? `<img class="prompt-template-detail-thumb" src="${escapeHtml10(template.thumbnail_url)}" alt="">` : ""}
+    ${template.thumbnail_url ? `<img class="prompt-template-detail-thumb" src="${escapeHtml10(template.thumbnail_url)}" alt="" loading="lazy" decoding="async">` : ""}
     <h3>${escapeHtml10(template.title)}</h3>
     <div class="prompt-template-detail-meta">
       <span>${escapeHtml10(promptTemplateCategoryLabel(template.category))}</span>
@@ -33848,10 +34116,12 @@ ${hint}` : hint;
   }
   function initPromptTemplatesFeature() {
     document.addEventListener(LOCALE_CHANGE_EVENT, () => {
-      renderPromptTemplateCategories();
-      renderPromptTemplateList();
-      if (state13.selectedPromptTemplateId && !els15.promptTemplateDetail?.classList.contains("hidden")) {
-        selectPromptTemplate(state13.selectedPromptTemplateId);
+      if (promptTemplateDrawerIsOpen()) {
+        renderPromptTemplateCategories();
+        renderPromptTemplateList();
+        if (state13.selectedPromptTemplateId && !els15.promptTemplateDetail?.classList.contains("hidden")) {
+          selectPromptTemplate(state13.selectedPromptTemplateId);
+        }
       }
     });
     Object.assign(getLegacyBridge().methods, {
@@ -35941,8 +36211,8 @@ ${galleryText}`;
     return String(boundedValue);
   }
   function updateCustomRatioFieldState() {
-    const locked = Boolean(state17.customAspectRatioLocked);
-    els26.customRatioField?.classList.toggle("active", locked);
+    const locked2 = Boolean(state17.customAspectRatioLocked);
+    els26.customRatioField?.classList.toggle("active", locked2);
   }
   function setCustomAspectRatioFromManualInputs() {
     const ratio = customAspectRatioFromManualInputs();
@@ -36489,6 +36759,334 @@ ${galleryText}`;
     });
   }
 
+  // codex_image/webui/frontend/src/output-settings-lock.ts
+  var STORAGE_KEY = "codex-image-output-settings-lock-v1";
+  var initialized2 = false;
+  var locked = false;
+  var lockedSnapshot = null;
+  var taskSnapshot = null;
+  var taskContext = null;
+  function legacyMethod30(name, ...args) {
+    const method = getLegacyBridge().methods[name];
+    if (typeof method !== "function") {
+      throw new Error(`Legacy method ${name} is not initialized`);
+    }
+    return method(...args);
+  }
+  function greatestCommonDivisor(left, right) {
+    let a = Math.abs(Math.round(left));
+    let b = Math.abs(Math.round(right));
+    while (b) [a, b] = [b, a % b];
+    return a || 1;
+  }
+  function normalizedDimensions(value) {
+    const match = String(value || "").match(/^(\d+)x(\d+)$/i);
+    if (!match) return [1024, 1024];
+    const width = Math.max(1, Number(match[1]) || 1024);
+    const height = Math.max(1, Number(match[2]) || 1024);
+    return [width, height];
+  }
+  function normalizeOutputSettingsSnapshot(params) {
+    const [width, height] = normalizedDimensions(params?.size);
+    const divisor = greatestCommonDivisor(width, height);
+    const fidelity = String(params?.prompt_fidelity || "strict");
+    const compression = params?.output_compression;
+    return {
+      main_model: String(params?.main_model || ""),
+      model: String(params?.model || "gpt-image-2"),
+      size: `${width}x${height}`,
+      ratio: String(params?.ratio || `${width / divisor}:${height / divisor}`),
+      n: Math.max(1, Math.min(4, Math.round(Number(params?.n) || 1))),
+      prompt_fidelity: fidelity === "original" || fidelity === "off" ? fidelity : "strict",
+      quality: String(params?.quality || "auto"),
+      output_format: String(params?.output_format || "png").toLowerCase(),
+      output_compression: compression === null || compression === void 0 ? null : Number(compression),
+      moderation: String(params?.moderation || "auto"),
+      web_search: Boolean(params?.web_search)
+    };
+  }
+  function promptFidelityLabel(value) {
+    return translate(value === "original" ? "output.modeOriginal" : value === "off" ? "output.modeCreative" : "output.modeStrict");
+  }
+  function qualityLabel(value) {
+    const key = value === "low" ? "output.qualityLow" : value === "medium" ? "output.qualityMedium" : value === "high" ? "output.qualityHigh" : "output.qualityAuto";
+    return translate(key);
+  }
+  function outputCountCardRatio(value) {
+    const [width = 1, height = 1] = String(value || "").split(":").map(Number);
+    return width > 0 && height > 0 ? width / height : 1;
+  }
+  function usesWideFourGrid(count, ratioValue) {
+    return count === 4 && outputCountCardRatio(ratioValue) >= 16 / 9;
+  }
+  function buildOutputSettingsSummaryModel(snapshot, context) {
+    const details = [
+      { label: translate("output.lock.prompt"), value: promptFidelityLabel(snapshot.prompt_fidelity) },
+      { label: translate("output.quality"), value: qualityLabel(snapshot.quality) }
+    ];
+    if (context.responses) {
+      details.push({
+        label: translate("output.lock.search"),
+        value: translate(snapshot.web_search ? "output.lock.enabled" : "output.lock.disabled")
+      });
+    } else {
+      details.push({ label: translate("output.lock.call"), value: context.callLabel });
+    }
+    details.push({ label: translate("output.moderation"), value: snapshot.moderation });
+    return {
+      contextLabel: context.task ? translate("output.lock.task") : "",
+      showModel: context.responses,
+      modelLabel: translate(context.responses ? "output.mainModel" : "output.lock.imageModel"),
+      modelValue: context.responses ? snapshot.main_model || snapshot.model : snapshot.model,
+      hint: translate(context.task ? "output.lock.taskHint" : "output.lock.lockedHint"),
+      ratio: snapshot.ratio,
+      pixels: snapshot.size.replace("x", " \xD7 "),
+      count: snapshot.n,
+      format: snapshot.output_format.toUpperCase(),
+      details
+    };
+  }
+  function currentSummaryContext() {
+    const authSource = String(legacyMethod30("currentAuthSource") || "codex");
+    const currentCodexMode5 = authSource === "codex" ? String(legacyMethod30("currentCodexMode") || "image") : "";
+    const currentApiMode5 = authSource === "api" ? String(legacyMethod30("currentApiMode") || "images") : "";
+    const responses = authSource === "api" ? currentApiMode5 === "responses" : currentCodexMode5 === "responses";
+    const callLabel = authSource === "api" ? "Images API" : "Codex Image";
+    return { responses, task: false, callLabel };
+  }
+  function taskSummaryContext(task) {
+    const params = task?.params || {};
+    const request = task?.request || {};
+    const responses = params.api_mode === "responses" || params.codex_mode === "responses" || request.api_mode === "responses" || request.codex_mode === "responses" || request.endpoint === "/responses" || String(task?.backend || "").includes("responses");
+    const apiTask = Boolean(params.api_mode || request.api_mode || task?.api_provider_id || task?.api_provider_name);
+    return { responses, task: true, callLabel: apiTask ? "Images API" : "Codex Image" };
+  }
+  function snapshotFromTask(task) {
+    const params = task?.params || {};
+    const request = task?.request || {};
+    const responses = params.api_mode === "responses" || params.codex_mode === "responses" || request.api_mode === "responses" || request.codex_mode === "responses" || request.endpoint === "/responses";
+    return normalizeOutputSettingsSnapshot({
+      ...params,
+      main_model: params.main_model || request.main_model || (responses ? request.model : ""),
+      model: params.model || request.image_model || request.model,
+      size: params.size || request.size,
+      n: params.n || request.n
+    });
+  }
+  function createElement(tag, className, text = "") {
+    const element2 = document.createElement(tag);
+    element2.className = className;
+    if (text) element2.textContent = text;
+    return element2;
+  }
+  function createSummaryCard(label) {
+    const card = createElement("div", "output-settings-summary-card");
+    card.append(createElement("span", "output-settings-summary-card-label", label));
+    return card;
+  }
+  function renderRatioCard(model) {
+    const card = createSummaryCard(translate("output.lock.frame"));
+    const visual = createElement("div", "output-settings-ratio-visual");
+    const ratio = outputCountCardRatio(model.ratio);
+    const frame = createElement("div", "output-settings-ratio-frame");
+    frame.style.setProperty("--output-settings-ratio", String(ratio));
+    frame.classList.toggle("is-portrait", ratio < 1);
+    frame.append(createElement("strong", "output-settings-ratio-value", model.ratio));
+    visual.append(frame);
+    card.append(visual, createElement("span", "output-settings-card-meta", model.pixels));
+    return card;
+  }
+  function renderCountCard(model) {
+    const card = createSummaryCard(translate("output.lock.outputCount"));
+    const visual = createElement("div", "output-settings-count-visual");
+    const ratio = outputCountCardRatio(model.ratio);
+    const wideFour = usesWideFourGrid(model.count, model.ratio);
+    visual.classList.toggle("is-wide-four", wideFour);
+    visual.style.setProperty("--output-settings-count-ratio", String(ratio));
+    visual.style.setProperty("--output-settings-count-card-max-width", `${wideFour ? 46 : Math.min(38, 58 * ratio)}px`);
+    for (let index = 0; index < model.count; index += 1) {
+      const thumbnail = createElement("span", "output-settings-count-card");
+      thumbnail.append(createElement("span", "output-settings-count-card-sun"), createElement("span", "output-settings-count-card-land"));
+      visual.append(thumbnail);
+    }
+    card.append(visual, createElement("span", "output-settings-card-meta", `${model.count} ${translate("output.lock.sheets")}`));
+    return card;
+  }
+  function renderFormatCard(model) {
+    const card = createSummaryCard(translate("output.lock.output"));
+    const visual = createElement("div", "output-settings-format-visual", model.format);
+    card.append(visual, createElement("span", "output-settings-card-meta", translate("output.lock.fileFormat")));
+    return card;
+  }
+  function renderSummary(snapshot, context) {
+    const els43 = getLegacyBridge().els;
+    const root = els43.outputSettingsSummaryContent;
+    if (!root) return;
+    const model = buildOutputSettingsSummaryModel(snapshot, context);
+    root.replaceChildren();
+    els43.outputSettingsLockedSummary?.classList.toggle("is-task-context", context.task);
+    const intro = createElement("div", "output-settings-summary-intro");
+    if (model.contextLabel) {
+      intro.append(createElement("span", "output-settings-summary-context", model.contextLabel));
+    }
+    if (model.showModel) {
+      const modelLine = createElement("div", "output-settings-summary-model-line");
+      modelLine.append(
+        createElement("span", "output-settings-summary-model-label", model.modelLabel),
+        createElement("strong", "output-settings-summary-model", model.modelValue)
+      );
+      intro.append(modelLine);
+    }
+    const cards = createElement("div", "output-settings-summary-cards");
+    cards.append(renderRatioCard(model), renderCountCard(model), renderFormatCard(model));
+    const details = createElement("div", "output-settings-summary-details");
+    model.details.forEach((detail) => {
+      const item = createElement("div", "output-settings-summary-detail");
+      item.append(
+        createElement("span", "output-settings-summary-detail-label", detail.label),
+        createElement("strong", "output-settings-summary-detail-value", detail.value)
+      );
+      details.append(item);
+    });
+    const main = createElement("div", "output-settings-summary-main");
+    if (intro.childElementCount) main.append(intro);
+    main.append(cards, details);
+    root.append(main, createElement("p", "output-settings-summary-hint", model.hint));
+    els43.outputSettingsTaskAction?.classList.toggle("hidden", !context.task);
+  }
+  function updateLockButton() {
+    const button = getLegacyBridge().els.outputSettingsLockButton;
+    if (!button) return;
+    const label = translate(locked ? "output.lock.unlock" : "output.lock.lock");
+    button.classList.toggle("is-locked", locked);
+    button.setAttribute("aria-pressed", locked ? "true" : "false");
+    button.setAttribute("aria-label", label);
+    button.title = label;
+  }
+  function setLockedViewVisible(visible) {
+    const els43 = getLegacyBridge().els;
+    const panel = els43.outputSettingsHeader?.closest(".output-panel");
+    panel?.classList.toggle("is-locked-view", visible);
+    els43.settingsGrid?.toggleAttribute("inert", visible);
+    els43.settingsGrid?.setAttribute("aria-hidden", visible ? "true" : "false");
+    els43.outputSettingsLockedSummary?.classList.toggle("hidden", !visible);
+    els43.outputSettingsLockedSummary?.setAttribute("aria-hidden", visible ? "false" : "true");
+  }
+  function persistLockState() {
+    try {
+      if (!locked || !lockedSnapshot) {
+        localStorage.removeItem(STORAGE_KEY);
+        return;
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ locked: true, snapshot: lockedSnapshot }));
+    } catch {
+    }
+  }
+  function readPersistedLockState() {
+    try {
+      const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      return value?.locked && value?.snapshot ? normalizeOutputSettingsSnapshot(value.snapshot) : null;
+    } catch {
+      return null;
+    }
+  }
+  function applySnapshot(snapshot) {
+    legacyMethod30("applyTaskOutputParams", { params: snapshot });
+  }
+  function isOutputSettingsLocked() {
+    return locked;
+  }
+  function showLockedOutputSettings() {
+    if (!locked) return;
+    taskSnapshot = null;
+    taskContext = null;
+    lockedSnapshot = normalizeOutputSettingsSnapshot(legacyMethod30("currentTaskParams"));
+    persistLockState();
+    renderSummary(lockedSnapshot, currentSummaryContext());
+    setLockedViewVisible(true);
+    updateLockButton();
+  }
+  function showTaskOutputSettings(task) {
+    if (!locked) return;
+    taskSnapshot = snapshotFromTask(task);
+    taskContext = taskSummaryContext(task);
+    renderSummary(taskSnapshot, taskContext);
+    setLockedViewVisible(true);
+    updateLockButton();
+  }
+  function refreshOutputSettingsLock() {
+    if (!locked) return;
+    if (taskSnapshot && taskContext) {
+      renderSummary(taskSnapshot, taskContext);
+      return;
+    }
+    showLockedOutputSettings();
+  }
+  function adoptTaskOutputSettings() {
+    if (!locked || !taskSnapshot) return;
+    applySnapshot(taskSnapshot);
+    lockedSnapshot = normalizeOutputSettingsSnapshot(legacyMethod30("currentTaskParams"));
+    taskSnapshot = null;
+    taskContext = null;
+    persistLockState();
+    renderSummary(lockedSnapshot, currentSummaryContext());
+    getLegacyBridge().els.outputSettingsTaskAction?.classList.add("hidden");
+  }
+  function lockOutputSettings() {
+    lockedSnapshot = normalizeOutputSettingsSnapshot(legacyMethod30("currentTaskParams"));
+    locked = true;
+    taskSnapshot = null;
+    taskContext = null;
+    persistLockState();
+    renderSummary(lockedSnapshot, currentSummaryContext());
+    setLockedViewVisible(true);
+    updateLockButton();
+  }
+  function unlockOutputSettings() {
+    if (lockedSnapshot) applySnapshot(lockedSnapshot);
+    locked = false;
+    lockedSnapshot = null;
+    taskSnapshot = null;
+    taskContext = null;
+    persistLockState();
+    setLockedViewVisible(false);
+    updateLockButton();
+  }
+  function toggleOutputSettingsLock() {
+    if (locked) unlockOutputSettings();
+    else lockOutputSettings();
+  }
+  function restoreOutputSettingsLock() {
+    const snapshot = readPersistedLockState();
+    if (!snapshot) {
+      locked = false;
+      setLockedViewVisible(false);
+      updateLockButton();
+      return;
+    }
+    applySnapshot(snapshot);
+    lockedSnapshot = normalizeOutputSettingsSnapshot(legacyMethod30("currentTaskParams"));
+    locked = true;
+    renderSummary(lockedSnapshot, currentSummaryContext());
+    setLockedViewVisible(true);
+    updateLockButton();
+  }
+  function initOutputSettingsLockFeature() {
+    if (initialized2) return;
+    initialized2 = true;
+    Object.assign(getLegacyBridge().methods, {
+      isOutputSettingsLocked,
+      restoreOutputSettingsLock,
+      refreshOutputSettingsLock,
+      showLockedOutputSettings,
+      showTaskOutputSettings,
+      adoptTaskOutputSettings
+    });
+    getLegacyBridge().els.outputSettingsLockButton?.addEventListener("click", toggleOutputSettingsLock);
+    getLegacyBridge().els.adoptTaskOutputSettingsButton?.addEventListener("click", adoptTaskOutputSettings);
+    document.addEventListener(LOCALE_CHANGE_EVENT, refreshOutputSettingsLock);
+  }
+
   // codex_image/webui/frontend/src/task-list-render.ts
   var bridge25 = getLegacyBridge();
   var state19 = bridge25.state;
@@ -36499,7 +37097,7 @@ ${galleryText}`;
   var expandedTaskGroupRenderToken = 0;
   var queueTaskIdsCacheKey = "";
   var queueTaskIdsCache = null;
-  function legacyMethod30(name, ...args) {
+  function legacyMethod31(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -36507,69 +37105,69 @@ ${galleryText}`;
     return method(...args);
   }
   function escapeHtml13(...args) {
-    return legacyMethod30("escapeHtml", ...args);
+    return legacyMethod31("escapeHtml", ...args);
   }
   function updateDocumentTitle(...args) {
-    return legacyMethod30("updateDocumentTitle", ...args);
+    return legacyMethod31("updateDocumentTitle", ...args);
   }
   function isTaskArchived(...args) {
-    return legacyMethod30("isTaskArchived", ...args);
+    return legacyMethod31("isTaskArchived", ...args);
   }
   function taskArchived(...args) {
-    return legacyMethod30("taskArchived", ...args);
+    return legacyMethod31("taskArchived", ...args);
   }
   function renderBatchToolbar(...args) {
-    return legacyMethod30("renderBatchToolbar", ...args);
+    return legacyMethod31("renderBatchToolbar", ...args);
   }
   function updateTaskElapsedDisplays2(...args) {
-    return legacyMethod30("updateTaskElapsedDisplays", ...args);
+    return legacyMethod31("updateTaskElapsedDisplays", ...args);
   }
   function taskBackendLabel2(...args) {
-    return legacyMethod30("taskBackendLabel", ...args);
+    return legacyMethod31("taskBackendLabel", ...args);
   }
   function taskApiProviderId2(...args) {
-    return legacyMethod30("taskApiProviderId", ...args);
+    return legacyMethod31("taskApiProviderId", ...args);
   }
   function taskApiProviderLabel2(...args) {
-    return legacyMethod30("taskApiProviderLabel", ...args);
+    return legacyMethod31("taskApiProviderLabel", ...args);
   }
   function formatTaskStatus2(...args) {
-    return legacyMethod30("formatTaskStatus", ...args);
+    return legacyMethod31("formatTaskStatus", ...args);
   }
   function ensureExpandedTaskGroupKey(...args) {
-    return legacyMethod30("ensureExpandedTaskGroupKey", ...args);
+    return legacyMethod31("ensureExpandedTaskGroupKey", ...args);
   }
   function renderTaskHistoryAnchors(...args) {
-    return legacyMethod30("renderTaskHistoryAnchors", ...args);
+    return legacyMethod31("renderTaskHistoryAnchors", ...args);
   }
   function scrollExpandedTaskGroupToTop(...args) {
-    return legacyMethod30("scrollExpandedTaskGroupToTop", ...args);
+    return legacyMethod31("scrollExpandedTaskGroupToTop", ...args);
   }
   function captureTaskHistoryLayout(...args) {
-    return legacyMethod30("captureTaskHistoryLayout", ...args);
+    return legacyMethod31("captureTaskHistoryLayout", ...args);
   }
   function animateTaskHistoryLayout(...args) {
-    return legacyMethod30("animateTaskHistoryLayout", ...args);
+    return legacyMethod31("animateTaskHistoryLayout", ...args);
   }
-  var taskRatio = (...args) => legacyMethod30("taskRatio", ...args);
-  var taskOrientation = (...args) => legacyMethod30("taskOrientation", ...args);
-  var taskPromptFidelity = (...args) => legacyMethod30("taskPromptFidelity", ...args);
-  var taskResolution = (...args) => legacyMethod30("taskResolution", ...args);
-  var taskInputPreviewUrls = (...args) => legacyMethod30("taskInputPreviewUrls", ...args);
-  var taskThumbnailUrls = (...args) => legacyMethod30("taskThumbnailUrls", ...args);
-  var taskOutputUrls = (...args) => legacyMethod30("taskOutputUrls", ...args);
-  var taskImageBlockStates = (...args) => legacyMethod30("taskImageBlockStates", ...args);
-  var compressTaskImageBlockStates = (...args) => legacyMethod30("compressTaskImageBlockStates", ...args);
-  var taskImageStatusCounts = (...args) => legacyMethod30("taskImageStatusCounts", ...args);
-  var taskRetryStateText2 = (...args) => legacyMethod30("taskRetryStateText", ...args);
-  var taskCardRetryStateText = (...args) => legacyMethod30("taskCardRetryStateText", ...args);
-  var taskDurationText = (...args) => legacyMethod30("taskDurationText", ...args);
-  var taskRuntimeText = (...args) => legacyMethod30("taskRuntimeText", ...args);
-  var taskProgressStartValue2 = (...args) => legacyMethod30("taskProgressStartValue", ...args);
-  var elapsedTimerSpan = (...args) => legacyMethod30("elapsedTimerSpan", ...args);
-  var taskCompletionTimestampText = (...args) => legacyMethod30("taskCompletionTimestampText", ...args);
-  var taskCompletionTimestampTitle = (...args) => legacyMethod30("taskCompletionTimestampTitle", ...args);
-  var timestampMs2 = (...args) => legacyMethod30("timestampMs", ...args);
+  var taskRatio = (...args) => legacyMethod31("taskRatio", ...args);
+  var taskOrientation = (...args) => legacyMethod31("taskOrientation", ...args);
+  var taskPromptFidelity = (...args) => legacyMethod31("taskPromptFidelity", ...args);
+  var taskResolution = (...args) => legacyMethod31("taskResolution", ...args);
+  var taskInputPreviewUrls = (...args) => legacyMethod31("taskInputPreviewUrls", ...args);
+  var taskThumbnailUrls = (...args) => legacyMethod31("taskThumbnailUrls", ...args);
+  var taskOutputUrls = (...args) => legacyMethod31("taskOutputUrls", ...args);
+  var taskImageBlockStates = (...args) => legacyMethod31("taskImageBlockStates", ...args);
+  var compressTaskImageBlockStates = (...args) => legacyMethod31("compressTaskImageBlockStates", ...args);
+  var taskImageStatusCounts = (...args) => legacyMethod31("taskImageStatusCounts", ...args);
+  var taskRetryStateText2 = (...args) => legacyMethod31("taskRetryStateText", ...args);
+  var taskCardRetryStateText = (...args) => legacyMethod31("taskCardRetryStateText", ...args);
+  var taskDurationText = (...args) => legacyMethod31("taskDurationText", ...args);
+  var taskRuntimeText = (...args) => legacyMethod31("taskRuntimeText", ...args);
+  var taskProgressStartValue2 = (...args) => legacyMethod31("taskProgressStartValue", ...args);
+  var elapsedTimerSpan = (...args) => legacyMethod31("elapsedTimerSpan", ...args);
+  var taskCompletionTimestampText = (...args) => legacyMethod31("taskCompletionTimestampText", ...args);
+  var taskCompletionTimestampTitle = (...args) => legacyMethod31("taskCompletionTimestampTitle", ...args);
+  var timestampMs2 = (...args) => legacyMethod31("timestampMs", ...args);
   function renderTasks2(options = {}) {
     const scrollAnchor = options.preserveScroll ? captureTaskListScrollAnchor() : null;
     const query = taskSearchQuery();
@@ -36892,7 +37490,7 @@ ${galleryText}`;
     }
     scrollExpandedTaskGroupToTop("smooth");
     if (clearedControls) {
-      legacyMethod30("setStatus", translate("status.shownActiveTasks"), "ok");
+      legacyMethod31("setStatus", translate("status.shownActiveTasks"), "ok");
     }
   }
   function renderExpandedTaskGroupShellHtml(group, options = {}) {
@@ -36983,7 +37581,7 @@ ${galleryText}`;
   function activeTaskGroupHtml(group) {
     const groupKey = escapeHtml13(group.key);
     const sections = activeTaskSections(group.tasks || []);
-    const dispatchPending = Boolean(legacyMethod30("isQueueDispatchPending"));
+    const dispatchPending = Boolean(legacyMethod31("isQueueDispatchPending"));
     const collapsed = Boolean(state19.activeTaskGroupCollapsed);
     const body = [
       activeTaskSectionHtml("running", translate("taskGroup.running"), sections.running),
@@ -37589,7 +38187,7 @@ ${galleryText}`;
   var TASK_HISTORY_LAYOUT_DURATION_MS = 180;
   var TASK_GROUP_ORDER = ["active", "today", "yesterday", "last7", "older", "search"];
   var TASK_HISTORY_ALL_COLLAPSED_SENTINEL = "__all_collapsed__";
-  function legacyMethod31(name, ...args) {
+  function legacyMethod32(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -37597,7 +38195,7 @@ ${galleryText}`;
     return method(...args);
   }
   function escapeHtml14(...args) {
-    return legacyMethod31("escapeHtml", ...args);
+    return legacyMethod32("escapeHtml", ...args);
   }
   function element(node) {
     return node instanceof HTMLElement ? node : null;
@@ -37833,7 +38431,7 @@ ${galleryText}`;
   var bridge27 = getLegacyBridge();
   var state21 = bridge27.state;
   var els30 = bridge27.els;
-  function legacyMethod32(name, ...args) {
+  function legacyMethod33(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -37845,25 +38443,25 @@ ${galleryText}`;
     return error instanceof Error ? error.message || fallback : fallback;
   }
   function setStatus14(...args) {
-    return legacyMethod32("setStatus", ...args);
+    return legacyMethod33("setStatus", ...args);
   }
   function renderTasks3(...args) {
-    return legacyMethod32("renderTasks", ...args);
+    return legacyMethod33("renderTasks", ...args);
   }
   function closePromptPopover4(...args) {
-    return legacyMethod32("closePromptPopover", ...args);
+    return legacyMethod33("closePromptPopover", ...args);
   }
   function taskThumbHtml2(...args) {
-    return legacyMethod32("taskThumbHtml", ...args);
+    return legacyMethod33("taskThumbHtml", ...args);
   }
   function escapeHtml15(...args) {
-    return legacyMethod32("escapeHtml", ...args);
+    return legacyMethod33("escapeHtml", ...args);
   }
   function formatTaskStatus3(...args) {
-    return legacyMethod32("formatTaskStatus", ...args);
+    return legacyMethod33("formatTaskStatus", ...args);
   }
   function openTaskDeleteConfirm(...args) {
-    return legacyMethod32("openTaskDeleteConfirm", ...args);
+    return legacyMethod33("openTaskDeleteConfirm", ...args);
   }
   function taskArchived2(task) {
     return Boolean(task?.archived_at);
@@ -37972,7 +38570,7 @@ ${galleryText}`;
       const title = escapeHtml15(task.prompt || task.mode || "Untitled");
       const status = escapeHtml15(formatTaskStatus3(task));
       const size = escapeHtml15(task.output_size || task.params?.size || "");
-      const provider = escapeHtml15(legacyMethod32("taskCardProviderLabel", task) || "");
+      const provider = escapeHtml15(legacyMethod33("taskCardProviderLabel", task) || "");
       const meta = [status, size, provider].filter(Boolean).join(" \xB7 ");
       const taskId = escapeHtml15(task.task_id);
       return `
@@ -37991,7 +38589,7 @@ ${galleryText}`;
     }).join("");
     els30.archiveList.querySelectorAll("[data-archive-select-task-id]").forEach((card) => {
       card.addEventListener("click", () => {
-        legacyMethod32("selectTask", card.dataset.archiveSelectTaskId);
+        legacyMethod33("selectTask", card.dataset.archiveSelectTaskId);
         closeArchiveModal();
       });
     });
@@ -38035,7 +38633,7 @@ ${galleryText}`;
   var bridge28 = getLegacyBridge();
   var state22 = bridge28.state;
   var els31 = bridge28.els;
-  function legacyMethod33(name, ...args) {
+  function legacyMethod34(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -38047,37 +38645,37 @@ ${galleryText}`;
     return error instanceof Error ? error.message || fallback : fallback;
   }
   function setStatus15(...args) {
-    return legacyMethod33("setStatus", ...args);
+    return legacyMethod34("setStatus", ...args);
   }
   function isTaskArchived3(...args) {
-    return legacyMethod33("isTaskArchived", ...args);
+    return legacyMethod34("isTaskArchived", ...args);
   }
   function renderTasks4(...args) {
-    return legacyMethod33("renderTasks", ...args);
+    return legacyMethod34("renderTasks", ...args);
   }
   function setTaskArchiveState2(...args) {
-    return legacyMethod33("setTaskArchiveState", ...args);
+    return legacyMethod34("setTaskArchiveState", ...args);
   }
   function replaceTask2(...args) {
-    return legacyMethod33("replaceTask", ...args);
+    return legacyMethod34("replaceTask", ...args);
   }
   function firstVisibleTaskId2(...args) {
-    return legacyMethod33("firstVisibleTaskId", ...args);
+    return legacyMethod34("firstVisibleTaskId", ...args);
   }
   function renderArchiveButton2(...args) {
-    return legacyMethod33("renderArchiveButton", ...args);
+    return legacyMethod34("renderArchiveButton", ...args);
   }
   function renderArchiveModal2(...args) {
-    return legacyMethod33("renderArchiveModal", ...args);
+    return legacyMethod34("renderArchiveModal", ...args);
   }
   function renderPreview2(...args) {
-    return legacyMethod33("renderPreview", ...args);
+    return legacyMethod34("renderPreview", ...args);
   }
   function openConfirmPopover5(...args) {
-    return legacyMethod33("openConfirmPopover", ...args);
+    return legacyMethod34("openConfirmPopover", ...args);
   }
   function deleteTaskById(...args) {
-    return legacyMethod33("deleteTaskById", ...args);
+    return legacyMethod34("deleteTaskById", ...args);
   }
   function toggleBatchMode(force) {
     state22.batchMode = typeof force === "boolean" ? force : !state22.batchMode;
@@ -38382,7 +38980,7 @@ ${galleryText}`;
   var bridge29 = getLegacyBridge();
   var state23 = bridge29.state;
   var els32 = bridge29.els;
-  function legacyMethod34(name, ...args) {
+  function legacyMethod35(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -38404,52 +39002,52 @@ ${galleryText}`;
     return error instanceof TaskActionHttpError && error.status === 409;
   }
   function setStatus16(...args) {
-    return legacyMethod34("setStatus", ...args);
+    return legacyMethod35("setStatus", ...args);
   }
   function closePromptPopover5(...args) {
-    return legacyMethod34("closePromptPopover", ...args);
+    return legacyMethod35("closePromptPopover", ...args);
   }
   function setTaskArchiveState3(...args) {
-    return legacyMethod34("setTaskArchiveState", ...args);
+    return legacyMethod35("setTaskArchiveState", ...args);
   }
   function replaceTask3(...args) {
-    return legacyMethod34("replaceTask", ...args);
+    return legacyMethod35("replaceTask", ...args);
   }
   function removeBatchSelectedTaskId2(...args) {
-    return legacyMethod34("removeBatchSelectedTaskId", ...args);
+    return legacyMethod35("removeBatchSelectedTaskId", ...args);
   }
   function firstVisibleTaskId3(...args) {
-    return legacyMethod34("firstVisibleTaskId", ...args);
+    return legacyMethod35("firstVisibleTaskId", ...args);
   }
   function renderTasks5(...args) {
-    return legacyMethod34("renderTasks", ...args);
+    return legacyMethod35("renderTasks", ...args);
   }
   function updateTaskSelectionVisuals2(...args) {
-    return legacyMethod34("updateTaskSelectionVisuals", ...args);
+    return legacyMethod35("updateTaskSelectionVisuals", ...args);
   }
   function renderArchiveButton3(...args) {
-    return legacyMethod34("renderArchiveButton", ...args);
+    return legacyMethod35("renderArchiveButton", ...args);
   }
   function renderArchiveModal3(...args) {
-    return legacyMethod34("renderArchiveModal", ...args);
+    return legacyMethod35("renderArchiveModal", ...args);
   }
   function renderPreview3(...args) {
-    return legacyMethod34("renderPreview", ...args);
+    return legacyMethod35("renderPreview", ...args);
   }
   function openConfirmPopover6(...args) {
-    return legacyMethod34("openConfirmPopover", ...args);
+    return legacyMethod35("openConfirmPopover", ...args);
   }
   function canRetryFailedTask(...args) {
-    return legacyMethod34("canRetryFailedTask", ...args);
+    return legacyMethod35("canRetryFailedTask", ...args);
   }
   function canAcceptTaskSuccesses(...args) {
-    return legacyMethod34("canAcceptTaskSuccesses", ...args);
+    return legacyMethod35("canAcceptTaskSuccesses", ...args);
   }
   function currentApiProviderId2(...args) {
-    return legacyMethod34("currentApiProviderId", ...args);
+    return legacyMethod35("currentApiProviderId", ...args);
   }
   function updateTaskInState2(...args) {
-    return legacyMethod34("updateTaskInState", ...args);
+    return legacyMethod35("updateTaskInState", ...args);
   }
   function taskListStructureKey(task) {
     if (!task) return "";
@@ -38669,7 +39267,7 @@ ${galleryText}`;
   var bridge30 = getLegacyBridge();
   var state24 = bridge30.state;
   var els33 = bridge30.els;
-  function legacyMethod35(name, ...args) {
+  function legacyMethod36(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -38681,133 +39279,133 @@ ${galleryText}`;
     return error instanceof Error ? error.message || fallback : fallback;
   }
   function setStatus17(...args) {
-    return legacyMethod35("setStatus", ...args);
+    return legacyMethod36("setStatus", ...args);
   }
   function setMode5(...args) {
-    return legacyMethod35("setMode", ...args);
+    return legacyMethod36("setMode", ...args);
   }
   function setPromptWithGalleryRefs2(...args) {
-    return legacyMethod35("setPromptWithGalleryRefs", ...args);
+    return legacyMethod36("setPromptWithGalleryRefs", ...args);
   }
   function persistMainModel2(...args) {
-    return legacyMethod35("persistMainModel", ...args);
+    return legacyMethod36("persistMainModel", ...args);
   }
   function syncSizeControlsFromSize2(...args) {
-    return legacyMethod35("syncSizeControlsFromSize", ...args);
+    return legacyMethod36("syncSizeControlsFromSize", ...args);
   }
   function updatePromptCount6(...args) {
-    return legacyMethod35("updatePromptCount", ...args);
+    return legacyMethod36("updatePromptCount", ...args);
   }
   function updateQuantity2(...args) {
-    return legacyMethod35("updateQuantity", ...args);
+    return legacyMethod36("updateQuantity", ...args);
   }
   function syncRadioButtons2(...args) {
-    return legacyMethod35("syncRadioButtons", ...args);
+    return legacyMethod36("syncRadioButtons", ...args);
   }
   function updateCompression2(...args) {
-    return legacyMethod35("updateCompression", ...args);
+    return legacyMethod36("updateCompression", ...args);
   }
   function updateCustomSize2(...args) {
-    return legacyMethod35("updateCustomSize", ...args);
+    return legacyMethod36("updateCustomSize", ...args);
   }
   function updateRequestPreview11(...args) {
-    return legacyMethod35("updateRequestPreview", ...args);
+    return legacyMethod36("updateRequestPreview", ...args);
   }
   function currentTaskParams2(...args) {
-    return legacyMethod35("currentTaskParams", ...args);
+    return legacyMethod36("currentTaskParams", ...args);
   }
   function uploadInputs3(...args) {
-    return legacyMethod35("uploadInputs", ...args);
+    return legacyMethod36("uploadInputs", ...args);
   }
   function galleryInputs4(...args) {
-    return legacyMethod35("galleryInputs", ...args);
+    return legacyMethod36("galleryInputs", ...args);
   }
   function referenceAssetInputs3(...args) {
-    return legacyMethod35("referenceAssetInputs", ...args);
+    return legacyMethod36("referenceAssetInputs", ...args);
   }
   function currentAuthSource3(...args) {
-    return legacyMethod35("currentAuthSource", ...args);
+    return legacyMethod36("currentAuthSource", ...args);
   }
   function backendForAuthSource2(...args) {
-    return legacyMethod35("backendForAuthSource", ...args);
+    return legacyMethod36("backendForAuthSource", ...args);
   }
   function currentApiMode4(...args) {
-    return legacyMethod35("currentApiMode", ...args);
+    return legacyMethod36("currentApiMode", ...args);
   }
   function currentCodexMode4(...args) {
-    return legacyMethod35("currentCodexMode", ...args);
+    return legacyMethod36("currentCodexMode", ...args);
   }
   function getPromptText9(...args) {
-    return legacyMethod35("getPromptText", ...args);
+    return legacyMethod36("getPromptText", ...args);
   }
   function currentPromptForModel2(...args) {
-    return legacyMethod35("currentPromptForModel", ...args);
+    return legacyMethod36("currentPromptForModel", ...args);
   }
   function currentPromptFidelity4(...args) {
-    return legacyMethod35("currentPromptFidelity", ...args);
+    return legacyMethod36("currentPromptFidelity", ...args);
   }
   function currentApiProviderId3(...args) {
-    return legacyMethod35("currentApiProviderId", ...args);
+    return legacyMethod36("currentApiProviderId", ...args);
   }
   function currentApiProviderLabel3(...args) {
-    return legacyMethod35("currentApiProviderLabel", ...args);
+    return legacyMethod36("currentApiProviderLabel", ...args);
   }
   function currentApiImagesConcurrency2(...args) {
-    return legacyMethod35("currentApiImagesConcurrency", ...args);
+    return legacyMethod36("currentApiImagesConcurrency", ...args);
   }
   function currentMainModel2(...args) {
-    return legacyMethod35("currentMainModel", ...args);
+    return legacyMethod36("currentMainModel", ...args);
   }
   function sourcePreviewUrl3(...args) {
-    return legacyMethod35("sourcePreviewUrl", ...args);
+    return legacyMethod36("sourcePreviewUrl", ...args);
   }
   function syncPromptFromEditor6(...args) {
-    return legacyMethod35("syncPromptFromEditor", ...args);
+    return legacyMethod36("syncPromptFromEditor", ...args);
   }
   function syncGalleryInputsFromPrompt3(...args) {
-    return legacyMethod35("syncGalleryInputsFromPrompt", ...args);
+    return legacyMethod36("syncGalleryInputsFromPrompt", ...args);
   }
   function missingGalleryInputs2(...args) {
-    return legacyMethod35("missingGalleryInputs", ...args);
+    return legacyMethod36("missingGalleryInputs", ...args);
   }
   function missingReferenceAssetInputs2(...args) {
-    return legacyMethod35("missingReferenceAssetInputs", ...args);
+    return legacyMethod36("missingReferenceAssetInputs", ...args);
   }
   function customSizeValidationMessage2(...args) {
-    return legacyMethod35("customSizeValidationMessage", ...args);
+    return legacyMethod36("customSizeValidationMessage", ...args);
   }
   function updatePixelPreview2(...args) {
-    return legacyMethod35("updatePixelPreview", ...args);
+    return legacyMethod36("updatePixelPreview", ...args);
   }
   function addPendingTask2(...args) {
-    return legacyMethod35("addPendingTask", ...args);
+    return legacyMethod36("addPendingTask", ...args);
   }
   function replacePendingTask2(...args) {
-    return legacyMethod35("replacePendingTask", ...args);
+    return legacyMethod36("replacePendingTask", ...args);
   }
   function startRunFeedback2(...args) {
-    return legacyMethod35("startRunFeedback", ...args);
+    return legacyMethod36("startRunFeedback", ...args);
   }
   function stopRunFeedback2(...args) {
-    return legacyMethod35("stopRunFeedback", ...args);
+    return legacyMethod36("stopRunFeedback", ...args);
   }
   function markPendingTaskFailed2(...args) {
-    return legacyMethod35("markPendingTaskFailed", ...args);
+    return legacyMethod36("markPendingTaskFailed", ...args);
   }
   function refreshRecentAssets2(...args) {
-    return legacyMethod35("refreshRecentAssets", ...args);
+    return legacyMethod36("refreshRecentAssets", ...args);
   }
   function referenceFileUploads2(...args) {
-    return legacyMethod35("referenceFileUploads", ...args);
+    return legacyMethod36("referenceFileUploads", ...args);
   }
   function storedReferenceFileInputs2(...args) {
-    return legacyMethod35("storedReferenceFileInputs", ...args);
+    return legacyMethod36("storedReferenceFileInputs", ...args);
   }
   function missingReferenceFileInputs2(...args) {
-    return legacyMethod35("missingReferenceFileInputs", ...args);
+    return legacyMethod36("missingReferenceFileInputs", ...args);
   }
   function renderPreview4(...args) {
-    return legacyMethod35("renderPreview", ...args);
+    return legacyMethod36("renderPreview", ...args);
   }
   var REFERENCE_FILE_ERROR_KEYS = {
     reference_file_empty: "referenceFiles.errorEmpty",
@@ -38845,11 +39443,11 @@ ${galleryText}`;
       missing: Boolean(source.missing)
     };
   }
-  function applyTaskToForm(task) {
+  function applyTaskOutputParams(task) {
     const params = task.params || {};
-    setMode5(task.mode || "generate");
-    setPromptWithGalleryRefs2(task.prompt || "", task.gallery_refs || []);
-    const mainModel = params.main_model || task.request?.model;
+    const request = task.request || {};
+    const usesResponses = params.api_mode === "responses" || params.codex_mode === "responses" || request.api_mode === "responses" || request.codex_mode === "responses" || request.endpoint === "/responses";
+    const mainModel = params.main_model || request.main_model || (usesResponses ? request.model : "");
     if (mainModel && els33.mainModel) {
       els33.mainModel.value = mainModel;
       persistMainModel2();
@@ -38863,25 +39461,31 @@ ${galleryText}`;
       els33.webSearch.checked = Boolean(params.web_search);
       els33.webSearch.dispatchEvent(new Event("input"));
     }
-    if (params.model) els33.model.value = params.model;
+    if (params.model && els33.model) els33.model.value = params.model;
     if (params.size) syncSizeControlsFromSize2(params.size);
     if (params.n && els33.nInput) {
       els33.nInput.value = String(params.n);
     }
-    if (params.quality) els33.quality.value = params.quality;
-    if (params.output_format) els33.outputFormat.value = params.output_format;
-    if (params.moderation) els33.moderation.value = params.moderation;
-    if (params.output_compression !== null && params.output_compression !== void 0) {
+    if (params.quality && els33.quality) els33.quality.value = params.quality;
+    if (params.output_format && els33.outputFormat) els33.outputFormat.value = params.output_format;
+    if (params.moderation && els33.moderation) els33.moderation.value = params.moderation;
+    if (params.output_compression !== null && params.output_compression !== void 0 && els33.compression) {
       els33.compression.value = params.output_compression;
     }
     [els33.quality, els33.outputFormat, els33.moderation].forEach((element2) => {
-      element2.dispatchEvent(new Event("change"));
+      element2?.dispatchEvent(new Event("change"));
     });
-    updatePromptCount6();
     updateQuantity2();
     syncRadioButtons2(els33.nInput);
     updateCompression2();
     updateCustomSize2();
+    updateRequestPreview11();
+  }
+  function applyTaskToForm(task, options) {
+    setMode5(task.mode || "generate");
+    setPromptWithGalleryRefs2(task.prompt || "", task.gallery_refs || []);
+    if (!options?.preserveOutputSettings) applyTaskOutputParams(task);
+    updatePromptCount6();
     updateRequestPreview11();
   }
   function buildPreviewRequest2() {
@@ -39128,6 +39732,7 @@ ${galleryText}`;
   }
   function initTaskSubmitFeature() {
     Object.assign(getLegacyBridge().methods, {
+      applyTaskOutputParams,
       applyTaskToForm,
       buildPreviewRequest: buildPreviewRequest2,
       createPendingTask,
@@ -39140,28 +39745,28 @@ ${galleryText}`;
   var bridge31 = getLegacyBridge();
   var state25 = bridge31.state;
   var els34 = bridge31.els;
-  function legacyMethod36(name, ...args) {
+  function legacyMethod37(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
     }
     return method(...args);
   }
-  var renderTasks6 = () => legacyMethod36("renderTasks");
-  var syncTaskSearchHistoryResults = () => legacyMethod36("syncTaskSearchHistoryResults");
-  var setExpandedTaskGroupKey2 = (...args) => legacyMethod36("setExpandedTaskGroupKey", ...args);
-  var scrollExpandedTaskGroupToTop3 = (...args) => legacyMethod36("scrollExpandedTaskGroupToTop", ...args);
-  var captureTaskHistoryLayout3 = (...args) => legacyMethod36("captureTaskHistoryLayout", ...args);
-  var animateTaskHistoryLayout3 = (...args) => legacyMethod36("animateTaskHistoryLayout", ...args);
-  var archiveTask2 = (...args) => legacyMethod36("archiveTask", ...args);
-  var openTaskDeleteConfirm3 = (...args) => legacyMethod36("openTaskDeleteConfirm", ...args);
-  var toggleBatchMode2 = (...args) => legacyMethod36("toggleBatchMode", ...args);
-  var toggleBatchTaskSelection2 = (...args) => legacyMethod36("toggleBatchTaskSelection", ...args);
-  var handleBatchTaskShortcutSelection2 = (...args) => legacyMethod36("handleBatchTaskShortcutSelection", ...args);
-  var archiveSelectedTasks2 = (...args) => legacyMethod36("archiveSelectedTasks", ...args);
-  var openBatchDeleteConfirm2 = (...args) => legacyMethod36("openBatchDeleteConfirm", ...args);
-  var handleTaskListPointerDown2 = (...args) => legacyMethod36("handleTaskListPointerDown", ...args);
-  var closeArchiveModal2 = (...args) => legacyMethod36("closeArchiveModal", ...args);
+  var renderTasks6 = () => legacyMethod37("renderTasks");
+  var syncTaskSearchHistoryResults = () => legacyMethod37("syncTaskSearchHistoryResults");
+  var setExpandedTaskGroupKey2 = (...args) => legacyMethod37("setExpandedTaskGroupKey", ...args);
+  var scrollExpandedTaskGroupToTop3 = (...args) => legacyMethod37("scrollExpandedTaskGroupToTop", ...args);
+  var captureTaskHistoryLayout3 = (...args) => legacyMethod37("captureTaskHistoryLayout", ...args);
+  var animateTaskHistoryLayout3 = (...args) => legacyMethod37("animateTaskHistoryLayout", ...args);
+  var archiveTask2 = (...args) => legacyMethod37("archiveTask", ...args);
+  var openTaskDeleteConfirm3 = (...args) => legacyMethod37("openTaskDeleteConfirm", ...args);
+  var toggleBatchMode2 = (...args) => legacyMethod37("toggleBatchMode", ...args);
+  var toggleBatchTaskSelection2 = (...args) => legacyMethod37("toggleBatchTaskSelection", ...args);
+  var handleBatchTaskShortcutSelection2 = (...args) => legacyMethod37("handleBatchTaskShortcutSelection", ...args);
+  var archiveSelectedTasks2 = (...args) => legacyMethod37("archiveSelectedTasks", ...args);
+  var openBatchDeleteConfirm2 = (...args) => legacyMethod37("openBatchDeleteConfirm", ...args);
+  var handleTaskListPointerDown2 = (...args) => legacyMethod37("handleTaskListPointerDown", ...args);
+  var closeArchiveModal2 = (...args) => legacyMethod37("closeArchiveModal", ...args);
   var taskListControlsInitialized = false;
   var taskListControlEventsBound = false;
   function taskFilterControls() {
@@ -39290,7 +39895,7 @@ ${galleryText}`;
     if (!nextCard) return true;
     focusTaskNavigationCard(nextCard);
     if (!state25.batchMode) {
-      void legacyMethod36("selectTask", nextCard.dataset.taskId);
+      void legacyMethod37("selectTask", nextCard.dataset.taskId);
     }
     return true;
   }
@@ -39362,7 +39967,7 @@ ${galleryText}`;
       toggleBatchTaskSelection2(card.dataset.taskId);
       return;
     }
-    legacyMethod36("selectTask", card.dataset.taskId);
+    legacyMethod37("selectTask", card.dataset.taskId);
   }
   function handleTaskListKeydown(event) {
     if (isTaskListKeyboardInputTarget(event.target)) return;
@@ -39376,7 +39981,7 @@ ${galleryText}`;
     if (state25.batchMode) {
       toggleBatchTaskSelection2(card.dataset.taskId);
     } else {
-      legacyMethod36("selectTask", card.dataset.taskId);
+      legacyMethod37("selectTask", card.dataset.taskId);
     }
   }
   function initTaskListControlsFeature() {
@@ -40078,7 +40683,7 @@ ${galleryText}`;
   var taskContextMenuEventsBound = false;
   var taskContextMenuEl = null;
   var taskListMutationObserver = null;
-  function legacyMethod37(name, ...args) {
+  function legacyMethod38(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -40086,22 +40691,22 @@ ${galleryText}`;
     return method(...args);
   }
   function escapeHtml16(...args) {
-    return legacyMethod37("escapeHtml", ...args);
+    return legacyMethod38("escapeHtml", ...args);
   }
   function setStatus18(...args) {
-    return legacyMethod37("setStatus", ...args);
+    return legacyMethod38("setStatus", ...args);
   }
   function closePromptPopover6(...args) {
-    return legacyMethod37("closePromptPopover", ...args);
+    return legacyMethod38("closePromptPopover", ...args);
   }
   function selectTask(...args) {
-    return legacyMethod37("selectTask", ...args);
+    return legacyMethod38("selectTask", ...args);
   }
   function archiveTask3(...args) {
-    return legacyMethod37("archiveTask", ...args);
+    return legacyMethod38("archiveTask", ...args);
   }
   function openTaskDeleteConfirm4(...args) {
-    return legacyMethod37("openTaskDeleteConfirm", ...args);
+    return legacyMethod38("openTaskDeleteConfirm", ...args);
   }
   function bindTaskContextMenuEvents() {
     if (taskContextMenuEventsBound) return;
@@ -40824,7 +41429,7 @@ ${galleryText}`;
       "21:9": [3808, 1632]
     }
   };
-  function legacyMethod38(name, ...args) {
+  function legacyMethod39(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -40832,7 +41437,7 @@ ${galleryText}`;
     return method(...args);
   }
   function escapeHtml18(...args) {
-    return legacyMethod38("escapeHtml", ...args);
+    return legacyMethod39("escapeHtml", ...args);
   }
   function taskRatio2(task) {
     const dimensions = taskSizeDimensions(task);
@@ -40843,7 +41448,7 @@ ${galleryText}`;
         if (presetDimensions2[0] === width && presetDimensions2[1] === height) return ratio;
       }
     }
-    const divisor = greatestCommonDivisor(width, height);
+    const divisor = greatestCommonDivisor2(width, height);
     const normalized = `${Math.round(width / divisor)}:${Math.round(height / divisor)}`;
     if (normalized === "3:7") return "9:21";
     if (normalized === "7:3") return "21:9";
@@ -40892,7 +41497,7 @@ ${galleryText}`;
     if (!width || !height) return null;
     return [width, height];
   }
-  function greatestCommonDivisor(left, right) {
+  function greatestCommonDivisor2(left, right) {
     let a = Math.abs(left);
     let b = Math.abs(right);
     while (b) {
@@ -41425,7 +42030,7 @@ ${galleryText}`;
       taskPromptFidelity: taskPromptFidelity2,
       taskResolution: taskResolution2,
       taskSizeDimensions,
-      greatestCommonDivisor,
+      greatestCommonDivisor: greatestCommonDivisor2,
       taskInputUrls,
       taskInputThumbnailUrls,
       taskInputThumbnailRoute,
@@ -41482,7 +42087,7 @@ ${galleryText}`;
   var els37 = bridge34.els;
   var previewGridEventsBound = false;
   var pendingPreviewRenderToken = 0;
-  function legacyMethod39(name, ...args) {
+  function legacyMethod40(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -41490,66 +42095,66 @@ ${galleryText}`;
     return method(...args);
   }
   function escapeHtml19(...args) {
-    return legacyMethod39("escapeHtml", ...args);
+    return legacyMethod40("escapeHtml", ...args);
   }
   function isTaskArchived4(...args) {
-    return legacyMethod39("isTaskArchived", ...args);
+    return legacyMethod40("isTaskArchived", ...args);
   }
   function updatePreviewElapsedDisplay2(...args) {
-    return legacyMethod39("updatePreviewElapsedDisplay", ...args);
+    return legacyMethod40("updatePreviewElapsedDisplay", ...args);
   }
   function closePromptPopover7(...args) {
-    return legacyMethod39("closePromptPopover", ...args);
+    return legacyMethod40("closePromptPopover", ...args);
   }
   function currentSize2(...args) {
-    return legacyMethod39("currentSize", ...args);
+    return legacyMethod40("currentSize", ...args);
   }
   function syncActiveLightboxUrls2(...args) {
-    return legacyMethod39("syncActiveLightboxUrls", ...args);
+    return legacyMethod40("syncActiveLightboxUrls", ...args);
   }
   function collectReferenceOutput2(...args) {
-    return legacyMethod39("collectReferenceOutput", ...args);
+    return legacyMethod40("collectReferenceOutput", ...args);
   }
   function openPromptPopover(...args) {
-    return legacyMethod39("openPromptPopover", ...args);
+    return legacyMethod40("openPromptPopover", ...args);
   }
   function retryFailedTask2(...args) {
-    return legacyMethod39("retryFailedTask", ...args);
+    return legacyMethod40("retryFailedTask", ...args);
   }
   function acceptTaskSuccesses2(...args) {
-    return legacyMethod39("acceptTaskSuccesses", ...args);
+    return legacyMethod40("acceptTaskSuccesses", ...args);
   }
   function openConfirmPopover7(...args) {
-    return legacyMethod39("openConfirmPopover", ...args);
+    return legacyMethod40("openConfirmPopover", ...args);
   }
   function setStatus20(...args) {
-    return legacyMethod39("setStatus", ...args);
+    return legacyMethod40("setStatus", ...args);
   }
   function updateTaskInState3(...args) {
-    return legacyMethod39("updateTaskInState", ...args);
+    return legacyMethod40("updateTaskInState", ...args);
   }
   function renderTasks7(...args) {
-    return legacyMethod39("renderTasks", ...args);
+    return legacyMethod40("renderTasks", ...args);
   }
   function taskApiProviderId3(...args) {
-    return legacyMethod39("taskApiProviderId", ...args);
+    return legacyMethod40("taskApiProviderId", ...args);
   }
   function taskApiProviderLabel3(...args) {
-    return legacyMethod39("taskApiProviderLabel", ...args);
+    return legacyMethod40("taskApiProviderLabel", ...args);
   }
-  var taskOutputUrls3 = (...args) => legacyMethod39("taskOutputUrls", ...args);
-  var taskSelectedOutputIndexes2 = (...args) => legacyMethod39("taskSelectedOutputIndexes", ...args);
-  var taskOutputSelected2 = (...args) => legacyMethod39("taskOutputSelected", ...args);
-  var positiveInt2 = (...args) => legacyMethod39("positiveInt", ...args);
-  var taskFailureMessage2 = (...args) => legacyMethod39("taskFailureMessage", ...args);
-  var canRetryFailedTask3 = (...args) => legacyMethod39("canRetryFailedTask", ...args);
-  var canAcceptTaskSuccesses3 = (...args) => legacyMethod39("canAcceptTaskSuccesses", ...args);
-  var taskRetryStateText4 = (...args) => legacyMethod39("taskRetryStateText", ...args);
-  var elapsedTimerSpan3 = (...args) => legacyMethod39("elapsedTimerSpan", ...args);
-  var taskGeneratedCount2 = (...args) => legacyMethod39("taskGeneratedCount", ...args);
-  var taskTotalCount2 = (...args) => legacyMethod39("taskTotalCount", ...args);
-  var taskOutputIndex2 = (...args) => legacyMethod39("taskOutputIndex", ...args);
-  var taskProgressStartValue4 = (...args) => legacyMethod39("taskProgressStartValue", ...args);
+  var taskOutputUrls3 = (...args) => legacyMethod40("taskOutputUrls", ...args);
+  var taskSelectedOutputIndexes2 = (...args) => legacyMethod40("taskSelectedOutputIndexes", ...args);
+  var taskOutputSelected2 = (...args) => legacyMethod40("taskOutputSelected", ...args);
+  var positiveInt2 = (...args) => legacyMethod40("positiveInt", ...args);
+  var taskFailureMessage2 = (...args) => legacyMethod40("taskFailureMessage", ...args);
+  var canRetryFailedTask3 = (...args) => legacyMethod40("canRetryFailedTask", ...args);
+  var canAcceptTaskSuccesses3 = (...args) => legacyMethod40("canAcceptTaskSuccesses", ...args);
+  var taskRetryStateText4 = (...args) => legacyMethod40("taskRetryStateText", ...args);
+  var elapsedTimerSpan3 = (...args) => legacyMethod40("elapsedTimerSpan", ...args);
+  var taskGeneratedCount2 = (...args) => legacyMethod40("taskGeneratedCount", ...args);
+  var taskTotalCount2 = (...args) => legacyMethod40("taskTotalCount", ...args);
+  var taskOutputIndex2 = (...args) => legacyMethod40("taskOutputIndex", ...args);
+  var taskProgressStartValue4 = (...args) => legacyMethod40("taskProgressStartValue", ...args);
   function taskRequestPreviewPayload(task) {
     if (!task?.request) return null;
     const request = { ...task.request };
@@ -42355,24 +42960,24 @@ ${galleryText}`;
   var bridge35 = getLegacyBridge();
   var state29 = bridge35.state;
   var els38 = bridge35.els;
-  function legacyMethod40(name, ...args) {
+  function legacyMethod41(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
     }
     return method(...args);
   }
-  var updateTaskInState4 = (...args) => legacyMethod40("updateTaskInState", ...args);
-  var cleanupSessionSelections2 = (...args) => legacyMethod40("cleanupSessionSelections", ...args);
-  var renderTasks8 = (...args) => legacyMethod40("renderTasks", ...args);
-  var renderArchiveButton4 = (...args) => legacyMethod40("renderArchiveButton", ...args);
-  var renderArchiveModal4 = (...args) => legacyMethod40("renderArchiveModal", ...args);
-  var renderPreview6 = (...args) => legacyMethod40("renderPreview", ...args);
-  var migrateLegacyArchivedTasks2 = (...args) => legacyMethod40("migrateLegacyArchivedTasks", ...args);
-  var revokeTaskUploadPreviewUrls3 = (...args) => legacyMethod40("revokeTaskUploadPreviewUrls", ...args);
-  var taskHasViewableUpdate2 = (...args) => legacyMethod40("taskHasViewableUpdate", ...args);
-  var markTaskViewed2 = (...args) => legacyMethod40("markTaskViewed", ...args);
-  var ensureSelectedTaskDetail = (...args) => legacyMethod40("ensureSelectedTaskDetail", ...args);
+  var updateTaskInState4 = (...args) => legacyMethod41("updateTaskInState", ...args);
+  var cleanupSessionSelections2 = (...args) => legacyMethod41("cleanupSessionSelections", ...args);
+  var renderTasks8 = (...args) => legacyMethod41("renderTasks", ...args);
+  var renderArchiveButton4 = (...args) => legacyMethod41("renderArchiveButton", ...args);
+  var renderArchiveModal4 = (...args) => legacyMethod41("renderArchiveModal", ...args);
+  var renderPreview6 = (...args) => legacyMethod41("renderPreview", ...args);
+  var migrateLegacyArchivedTasks2 = (...args) => legacyMethod41("migrateLegacyArchivedTasks", ...args);
+  var revokeTaskUploadPreviewUrls3 = (...args) => legacyMethod41("revokeTaskUploadPreviewUrls", ...args);
+  var taskHasViewableUpdate2 = (...args) => legacyMethod41("taskHasViewableUpdate", ...args);
+  var markTaskViewed2 = (...args) => legacyMethod41("markTaskViewed", ...args);
+  var ensureSelectedTaskDetail = (...args) => legacyMethod41("ensureSelectedTaskDetail", ...args);
   var TASK_SEARCH_HISTORY_LIMIT = 100;
   var TASK_SEARCH_HISTORY_DEBOUNCE_MS = 180;
   var taskSearchHistoryTimerId = 0;
@@ -42381,7 +42986,7 @@ ${galleryText}`;
   }
   async function refreshTasks({ migrateLegacyArchives = false } = {}) {
     const requestSeq = ++state29.tasksRequestSeq;
-    const response = await fetch("/api/tasks/recent?limit=200");
+    const response = await fetch("/api/tasks/recent?limit=50");
     const data = await response.json();
     if (requestSeq !== state29.tasksRequestSeq) return;
     await applyTasksSnapshot(data.tasks || [], { migrateLegacyArchives, requestSeq });
@@ -42557,7 +43162,7 @@ ${galleryText}`;
   var taskSelectionInitialized = false;
   var HISTORY_TASK_REUSE_HANDOFF_KEY = "codex-image-history-task-reuse-handoff";
   var selectedTaskDetailRequestSeq = 0;
-  function legacyMethod41(name, ...args) {
+  function legacyMethod42(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -42565,49 +43170,55 @@ ${galleryText}`;
     return method(...args);
   }
   function setStatus21(message, type) {
-    legacyMethod41("setStatus", message, type);
+    legacyMethod42("setStatus", message, type);
   }
   function closePromptPopover8() {
-    legacyMethod41("closePromptPopover");
+    legacyMethod42("closePromptPopover");
   }
   function markTaskViewed3(taskId) {
-    return legacyMethod41("markTaskViewed", taskId);
+    return legacyMethod42("markTaskViewed", taskId);
   }
-  function applyTaskToForm2(task) {
-    legacyMethod41("applyTaskToForm", task);
+  function applyTaskToForm2(task, options = {}) {
+    legacyMethod42("applyTaskToForm", task, options);
   }
   function updateTaskSelectionVisuals3(taskId) {
-    legacyMethod41("updateTaskSelectionVisuals", taskId);
+    legacyMethod42("updateTaskSelectionVisuals", taskId);
   }
   function renderPreview7(task) {
-    legacyMethod41("renderPreview", task);
+    legacyMethod42("renderPreview", task);
   }
   function taskFailureMessage3(task) {
-    return legacyMethod41("taskFailureMessage", task);
+    return legacyMethod42("taskFailureMessage", task);
   }
   function taskRequestPreviewPayload2(task) {
-    return legacyMethod41("taskRequestPreviewPayload", task);
+    return legacyMethod42("taskRequestPreviewPayload", task);
   }
   function revokeUploadPreviewUrls2(sources) {
-    legacyMethod41("revokeUploadPreviewUrls", sources);
+    legacyMethod42("revokeUploadPreviewUrls", sources);
   }
   function renderImageStrip6() {
-    legacyMethod41("renderImageStrip");
+    legacyMethod42("renderImageStrip");
   }
   function updateRequestPreview12() {
-    legacyMethod41("updateRequestPreview");
+    legacyMethod42("updateRequestPreview");
   }
   function taskInputUrls2(task) {
-    return legacyMethod41("taskInputUrls", task);
+    return legacyMethod42("taskInputUrls", task);
   }
   function uploadSource3(file) {
-    return legacyMethod41("uploadSource", file);
+    return legacyMethod42("uploadSource", file);
   }
   function gallerySource4(item) {
-    return legacyMethod41("gallerySource", item);
+    return legacyMethod42("gallerySource", item);
   }
   function assetSource2(item) {
-    return legacyMethod41("assetSource", item);
+    return legacyMethod42("assetSource", item);
+  }
+  function applyTaskToFormWithOutputLock(task) {
+    const outputSettingsLocked = Boolean(legacyMethod42("isOutputSettingsLocked"));
+    applyTaskToForm2(task, { preserveOutputSettings: outputSettingsLocked });
+    if (outputSettingsLocked) legacyMethod42("showTaskOutputSettings", task);
+    else legacyMethod42("showLockedOutputSettings");
   }
   function selectedTaskInputRestoreCurrent(taskId, restoreSeq) {
     if (restoreSeq == null) return true;
@@ -42691,7 +43302,7 @@ ${galleryText}`;
     const referenceFiles = Array.isArray(task?.reference_files) ? task.reference_files : [];
     if (!selectedTaskInputRestoreCurrent(taskId, restoreSeq)) return false;
     state30.referenceFiles = [];
-    legacyMethod41("renderReferenceFiles");
+    legacyMethod42("renderReferenceFiles");
     if (!referenceFiles.length) {
       updateRequestPreview12();
       return true;
@@ -42705,7 +43316,7 @@ ${galleryText}`;
       family: item?.family,
       missing: Boolean(item?.missing)
     })).filter((item) => item.id && ["pdf", "spreadsheet", "document", "text"].includes(item.family));
-    legacyMethod41("renderReferenceFiles");
+    legacyMethod42("renderReferenceFiles");
     updateRequestPreview12();
     return true;
   }
@@ -42812,7 +43423,7 @@ ${galleryText}`;
     }
     const restoreSeq = ++state30.taskInputRestoreSeq;
     void markTaskViewed3(taskId);
-    applyTaskToForm2(task);
+    applyTaskToFormWithOutputLock(task);
     await restoreTaskReferenceFiles(task, { taskId, restoreSeq });
     if (!selectedTaskInputRestoreCurrent(taskId, restoreSeq)) return;
     renderSelectedTask(task, taskId);
@@ -42847,7 +43458,7 @@ ${galleryText}`;
       state30.selectedTaskId = taskId;
       replaceSelectedTaskDetail(taskId, task);
       const restoreSeq = ++state30.taskInputRestoreSeq;
-      applyTaskToForm2(task);
+      applyTaskToFormWithOutputLock(task);
       await restoreTaskReferenceFiles(task, { taskId, restoreSeq });
       if (!selectedTaskInputRestoreCurrent(taskId, restoreSeq)) return;
       renderSelectedTask(task, taskId);
@@ -42897,7 +43508,7 @@ ${galleryText}`;
     optimizedPrompt: "",
     copyTimerId: null
   };
-  function legacyMethod42(name, ...args) {
+  function legacyMethod43(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -42905,52 +43516,52 @@ ${galleryText}`;
     return method(...args);
   }
   function escapeHtml20(value) {
-    return legacyMethod42("escapeHtml", value);
+    return legacyMethod43("escapeHtml", value);
   }
   function closeGalleryEditPopover4() {
-    legacyMethod42("closeGalleryEditPopover");
+    legacyMethod43("closeGalleryEditPopover");
   }
   function handlePromptDocumentClick2(event) {
-    legacyMethod42("handlePromptDocumentClick", event);
+    legacyMethod43("handlePromptDocumentClick", event);
   }
   function handleGalleryDocumentClick2(event) {
-    legacyMethod42("handleGalleryDocumentClick", event);
+    legacyMethod43("handleGalleryDocumentClick", event);
   }
   function closeCompressionPopover2() {
-    legacyMethod42("closeCompressionPopover");
+    legacyMethod43("closeCompressionPopover");
   }
   function handleImageEditorHistoryShortcut2(event) {
-    return legacyMethod42("handleImageEditorHistoryShortcut", event);
+    return legacyMethod43("handleImageEditorHistoryShortcut", event);
   }
   function hideMentionSuggest4() {
-    legacyMethod42("hideMentionSuggest");
+    legacyMethod43("hideMentionSuggest");
   }
   function hideColorSuggest5() {
-    legacyMethod42("hideColorSuggest");
+    legacyMethod43("hideColorSuggest");
   }
   function hidePromptSnippetSuggest4() {
-    legacyMethod42("hidePromptSnippetSuggest");
+    legacyMethod43("hidePromptSnippetSuggest");
   }
   function hidePromptSnippetSelectionButton4() {
-    legacyMethod42("hidePromptSnippetSelectionButton");
+    legacyMethod43("hidePromptSnippetSelectionButton");
   }
   function closePromptSnippetPopover4() {
-    legacyMethod42("closePromptSnippetPopover");
+    legacyMethod43("closePromptSnippetPopover");
   }
   function closeArchiveModal3() {
-    legacyMethod42("closeArchiveModal");
+    legacyMethod43("closeArchiveModal");
   }
   function closeImageEditor2() {
-    legacyMethod42("closeImageEditor");
+    legacyMethod43("closeImageEditor");
   }
   function closeGallery3() {
-    legacyMethod42("closeGallery");
+    legacyMethod43("closeGallery");
   }
   function closeApiSettingsModal2() {
-    legacyMethod42("closeApiSettingsModal");
+    legacyMethod43("closeApiSettingsModal");
   }
   function closePromptTemplateDrawer2() {
-    legacyMethod42("closePromptTemplateDrawer");
+    legacyMethod43("closePromptTemplateDrawer");
   }
   function bindOverlayPopoverEvents() {
     if (overlayPopoverEventsBound) return;
@@ -43273,16 +43884,16 @@ ${galleryText}`;
   var SIDEBAR_MIN_WIDTH = 280;
   var SIDEBAR_MAX_WIDTH = 520;
   var SIDEBAR_DEFAULT_WIDTH = 347;
+  var COMPACT_SHELL_MAX_WIDTH = 1180;
   var bridge38 = getLegacyBridge();
   var state31 = bridge38.state;
   var els41 = bridge38.els;
   var shellUiInitialized = false;
   var shellUiEventsBound = false;
-  var previewPanelHeightFrameId = null;
   var sidebarResizeFrameId = null;
   var sidebarResizePendingWidth = null;
   var themeTransitionLockFrameId = null;
-  function legacyMethod43(name, ...args) {
+  function legacyMethod44(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy method " + name + " is not initialized");
@@ -43290,58 +43901,58 @@ ${galleryText}`;
     return method(...args);
   }
   function formatTaskStatus4(task) {
-    return legacyMethod43("formatTaskStatus", task);
+    return legacyMethod44("formatTaskStatus", task);
   }
   function closePromptPopover10() {
-    legacyMethod43("closePromptPopover");
+    legacyMethod44("closePromptPopover");
   }
   function closePromptSnippetPopover5() {
-    legacyMethod43("closePromptSnippetPopover");
+    legacyMethod44("closePromptSnippetPopover");
   }
   function closeArchiveModal4() {
-    legacyMethod43("closeArchiveModal");
+    legacyMethod44("closeArchiveModal");
   }
   function closeGallery4() {
-    legacyMethod43("closeGallery");
+    legacyMethod44("closeGallery");
   }
   function closeImageEditor3() {
-    legacyMethod43("closeImageEditor");
+    legacyMethod44("closeImageEditor");
   }
   function revokeUploadPreviewUrls3(sources) {
-    legacyMethod43("revokeUploadPreviewUrls", sources);
+    legacyMethod44("revokeUploadPreviewUrls", sources);
   }
   function finishBatchMarqueeSelection2() {
-    legacyMethod43("finishBatchMarqueeSelection");
+    legacyMethod44("finishBatchMarqueeSelection");
   }
   function setPromptText3(value) {
-    legacyMethod43("setPromptText", value);
+    legacyMethod44("setPromptText", value);
   }
   function setMode6(mode) {
-    legacyMethod43("setMode", mode);
+    legacyMethod44("setMode", mode);
   }
   function updateSizeFromPreset2() {
-    legacyMethod43("updateSizeFromPreset");
+    legacyMethod44("updateSizeFromPreset");
   }
   function updatePromptCount7() {
-    legacyMethod43("updatePromptCount");
+    legacyMethod44("updatePromptCount");
   }
   function updateQuantity3() {
-    legacyMethod43("updateQuantity");
+    legacyMethod44("updateQuantity");
   }
   function updateCompression3() {
-    legacyMethod43("updateCompression");
+    legacyMethod44("updateCompression");
   }
   function renderImageStrip7() {
-    legacyMethod43("renderImageStrip");
+    legacyMethod44("renderImageStrip");
   }
   function renderTasks9() {
-    legacyMethod43("renderTasks");
+    legacyMethod44("renderTasks");
   }
   function renderPreview8() {
-    legacyMethod43("renderPreview");
+    legacyMethod44("renderPreview");
   }
   function updateRequestPreview13() {
-    legacyMethod43("updateRequestPreview");
+    legacyMethod44("updateRequestPreview");
   }
   function handleShellLocaleChange() {
     if (!els41.statusText) return;
@@ -43438,7 +44049,7 @@ ${galleryText}`;
   }
   function sidebarMaxWidth() {
     const viewportWidth = window.innerWidth || SIDEBAR_MAX_WIDTH;
-    if (viewportWidth <= 1024) return viewportWidth;
+    if (viewportWidth <= COMPACT_SHELL_MAX_WIDTH) return viewportWidth;
     return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, viewportWidth - 760));
   }
   function clampSidebarWidth(value) {
@@ -43464,7 +44075,7 @@ ${galleryText}`;
     handle.setAttribute("aria-valuemax", String(SIDEBAR_MAX_WIDTH));
     handle.setAttribute("aria-valuenow", String(currentWidth));
   }
-  function applySidebarWidth(width, { persist = true, syncPreviewHeight = true } = {}) {
+  function applySidebarWidth(width, { persist = true } = {}) {
     const nextWidth = clampSidebarWidth(width);
     (els41.sidebar || document.documentElement).style.setProperty("--sidebar-width", `${nextWidth}px`);
     syncSidebarResizeHandleAria(nextWidth);
@@ -43473,9 +44084,6 @@ ${galleryText}`;
         localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(nextWidth));
       } catch {
       }
-    }
-    if (syncPreviewHeight) {
-      schedulePreviewPanelHeightSync();
     }
   }
   function resetSidebarWidth() {
@@ -43489,7 +44097,7 @@ ${galleryText}`;
       const nextWidth = sidebarResizePendingWidth;
       sidebarResizePendingWidth = null;
       if (nextWidth === null) return;
-      applySidebarWidth(nextWidth, { persist: false, syncPreviewHeight: false });
+      applySidebarWidth(nextWidth, { persist: false });
     });
   }
   function flushSidebarResizeWidth(width) {
@@ -43498,7 +44106,7 @@ ${galleryText}`;
       sidebarResizeFrameId = null;
     }
     sidebarResizePendingWidth = null;
-    applySidebarWidth(width, { persist: true, syncPreviewHeight: true });
+    applySidebarWidth(width, { persist: true });
   }
   function startSidebarResize(event) {
     if (!els41.sidebar || event.button !== 0) return;
@@ -43559,44 +44167,6 @@ ${galleryText}`;
       applySidebarWidth(SIDEBAR_MAX_WIDTH);
     }
   }
-  function setupPreviewPanelHeightSync() {
-    if (!els41.controlsCol || !els41.previewCol || !els41.previewPanel) return;
-    window.addEventListener("resize", schedulePreviewPanelHeightSync);
-    if (window.ResizeObserver) {
-      const observer = new ResizeObserver(schedulePreviewPanelHeightSync);
-      observer.observe(els41.controlsCol);
-      els41.controlsCol.querySelectorAll(":scope > .panel").forEach((panel) => observer.observe(panel));
-    }
-    schedulePreviewPanelHeightSync();
-  }
-  function schedulePreviewPanelHeightSync() {
-    if (state31.sidebarResize) {
-      return;
-    }
-    if (previewPanelHeightFrameId !== null) {
-      window.cancelAnimationFrame(previewPanelHeightFrameId);
-    }
-    previewPanelHeightFrameId = window.requestAnimationFrame(() => {
-      previewPanelHeightFrameId = null;
-      syncPreviewPanelHeight();
-    });
-  }
-  function syncPreviewPanelHeight() {
-    if (state31.sidebarResize) return;
-    if (!els41.controlsCol || !els41.previewCol || !els41.previewPanel) return;
-    if (window.matchMedia("(max-width: 1024px)").matches) {
-      els41.previewCol.style.removeProperty("--controls-col-height");
-      els41.previewPanel.style.removeProperty("--controls-col-height");
-      return;
-    }
-    const panels = [...els41.controlsCol.querySelectorAll(":scope > .panel")];
-    if (!panels.length) return;
-    const firstPanelRect = panels[0].getBoundingClientRect();
-    const lastPanelRect = panels[panels.length - 1].getBoundingClientRect();
-    const height = Math.max(260, Math.ceil(lastPanelRect.bottom - firstPanelRect.top));
-    els41.previewCol.style.setProperty("--controls-col-height", `${height}px`);
-    els41.previewPanel.style.setProperty("--controls-col-height", `${height}px`);
-  }
   function updateDocumentTitle2() {
     const summary = state31.queue.summary || {};
     const waitingCount = Number(summary.waiting_count ?? state31.queue.waiting.length ?? 0);
@@ -43621,6 +44191,7 @@ ${galleryText}`;
     els41.statusText.className = `status-text ${type || ""}`;
   }
   function resetForm() {
+    const outputSettingsLocked = Boolean(legacyMethod44("isOutputSettingsLocked"));
     closePromptPopover10();
     closePromptSnippetPopover5();
     closeArchiveModal4();
@@ -43630,29 +44201,31 @@ ${galleryText}`;
     state31.mode = "generate";
     revokeUploadPreviewUrls3(state31.images);
     state31.images = [];
-    legacyMethod43("clearReferenceFiles", { silent: true });
+    legacyMethod44("clearReferenceFiles", { silent: true });
     state31.batchMode = false;
     state31.batchSelectedTaskIds = [];
     state31.batchSelectionAnchorTaskId = null;
     finishBatchMarqueeSelection2();
     setPromptText3("");
-    if (els41.customSizeToggle) els41.customSizeToggle.checked = false;
-    if (els41.nInput) els41.nInput.value = "1";
-    if (els41.resolution) els41.resolution.value = "standard";
-    if (els41.ratio) els41.ratio.value = "1:1";
-    if (els41.orientation) els41.orientation.value = "square";
-    els41.size.value = "1024x1024";
-    els41.quality.value = "auto";
-    els41.outputFormat.value = "png";
-    els41.moderation.value = "auto";
-    els41.compression.value = "80";
-    if (els41.promptFidelity) els41.promptFidelity.value = "strict";
-    if (els41.webSearch) els41.webSearch.checked = false;
-    [els41.nInput, els41.resolution, els41.ratio, els41.orientation, els41.quality, els41.outputFormat, els41.moderation, els41.promptFidelity, els41.webSearch].forEach((sel) => {
-      if (sel) sel.dispatchEvent(new Event("change"));
-    });
+    if (!outputSettingsLocked) {
+      if (els41.customSizeToggle) els41.customSizeToggle.checked = false;
+      if (els41.nInput) els41.nInput.value = "1";
+      if (els41.resolution) els41.resolution.value = "standard";
+      if (els41.ratio) els41.ratio.value = "1:1";
+      if (els41.orientation) els41.orientation.value = "square";
+      els41.size.value = "1024x1024";
+      els41.quality.value = "auto";
+      els41.outputFormat.value = "png";
+      els41.moderation.value = "auto";
+      els41.compression.value = "80";
+      if (els41.promptFidelity) els41.promptFidelity.value = "strict";
+      if (els41.webSearch) els41.webSearch.checked = false;
+      [els41.nInput, els41.resolution, els41.ratio, els41.orientation, els41.quality, els41.outputFormat, els41.moderation, els41.promptFidelity, els41.webSearch].forEach((sel) => {
+        if (sel) sel.dispatchEvent(new Event("change"));
+      });
+      updateSizeFromPreset2();
+    }
     setMode6("generate");
-    updateSizeFromPreset2();
     updatePromptCount7();
     updateQuantity3();
     updateCompression3();
@@ -43660,6 +44233,7 @@ ${galleryText}`;
     renderTasks9();
     renderPreview8();
     updateRequestPreview13();
+    if (outputSettingsLocked) legacyMethod44("showLockedOutputSettings");
     setStatus22(translate("status.waiting"), "");
   }
   async function copyJson() {
@@ -43688,9 +44262,6 @@ ${galleryText}`;
       updateSidebarResize,
       finishSidebarResize,
       handleSidebarResizeKeydown,
-      setupPreviewPanelHeightSync,
-      schedulePreviewPanelHeightSync,
-      syncPreviewPanelHeight,
       updateDocumentTitle: updateDocumentTitle2,
       setStatus: setStatus22,
       resetForm,
@@ -43880,7 +44451,7 @@ ${galleryText}`;
     urls: [],
     index: 0
   };
-  function legacyMethod44(name, ...args) {
+  function legacyMethod45(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
       throw new Error("Legacy bridge method " + name + " is not available");
@@ -44046,8 +44617,8 @@ ${galleryText}`;
   }
   async function addToInput(url) {
     try {
-      const file = await legacyMethod44("imageFileFromUrl", url, "preview-" + Date.now());
-      legacyMethod44("addImageFiles", [file]);
+      const file = await legacyMethod45("imageFileFromUrl", url, "preview-" + Date.now());
+      legacyMethod45("addImageFiles", [file]);
     } catch (error) {
       console.error("Failed to add image to input", error);
     }
@@ -44089,6 +44660,7 @@ ${galleryText}`;
   initPromptFidelityHelpFeature();
   initPromptFindReplaceFeature();
   initFormControlsFeature();
+  initOutputSettingsLockFeature();
   initTaskListRenderFeature();
   initTaskHistoryAnchorsFeature();
   initTaskArchiveControlsFeature();

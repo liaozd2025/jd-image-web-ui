@@ -8,6 +8,9 @@ from .storage_utils import utc_now
 from .task_metadata import _gallery_item_response, _with_file_urls
 
 
+GENERATION_PAGE_TASK_LIMIT = 50
+
+
 def _prune_inactive_running_channels(ctx: WebUIContext) -> None:
     if ctx.queue_manager is None:
         return
@@ -89,11 +92,28 @@ def queue_snapshot(ctx: WebUIContext) -> dict[str, Any]:
     }
 
 
+def _generation_page_tasks(ctx: WebUIContext, queue: dict[str, Any]) -> list[dict[str, Any]]:
+    tasks = ctx.storage.list_recent_task_cards(limit=GENERATION_PAGE_TASK_LIMIT)
+    task_ids = {str(task.get("task_id") or "") for task in tasks}
+    for active_task in list(queue.get("waiting") or []) + list(queue.get("running") or []):
+        task_id = str(active_task.get("task_id") or "") if isinstance(active_task, dict) else ""
+        if not task_id or task_id in task_ids:
+            continue
+        try:
+            task = ctx.storage.task_sidebar_card(task_id)
+        except (FileNotFoundError, ValueError):
+            continue
+        tasks.append(task)
+        task_ids.add(task_id)
+    return tasks
+
+
 def event_snapshot(ctx: WebUIContext) -> dict[str, Any]:
+    queue = queue_snapshot(ctx)
     return {
         "type": "snapshot",
-        "tasks": ctx.storage.list_recent_task_cards(limit=200),
-        "queue": queue_snapshot(ctx),
+        "tasks": _generation_page_tasks(ctx, queue),
+        "queue": queue,
         "gallery": [_gallery_item_response(item) for item in ctx.gallery_storage.list_items()],
         "auth": ctx.route_helpers["auth_event_payload"](),
     }

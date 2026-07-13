@@ -15,6 +15,10 @@ function legacyMethod(name: string, ...args: any[]): any {
 
 const SUBMIT_TASK_TIMEOUT_MS = 45000;
 
+interface ApplyTaskToFormOptions {
+  preserveOutputSettings?: boolean;
+}
+
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message || fallback : fallback;
 }
@@ -108,11 +112,15 @@ function referenceFileMetadata(source: any) {
   };
 }
 
-function applyTaskToForm(task: any) {
+export function applyTaskOutputParams(task: any): void {
   const params = task.params || {};
-  setMode(task.mode || "generate");
-  setPromptWithGalleryRefs(task.prompt || "", task.gallery_refs || []);
-  const mainModel = params.main_model || task.request?.model;
+  const request = task.request || {};
+  const usesResponses = params.api_mode === "responses"
+    || params.codex_mode === "responses"
+    || request.api_mode === "responses"
+    || request.codex_mode === "responses"
+    || request.endpoint === "/responses";
+  const mainModel = params.main_model || request.main_model || (usesResponses ? request.model : "");
   if (mainModel && els.mainModel) {
     els.mainModel.value = mainModel;
     persistMainModel();
@@ -126,25 +134,32 @@ function applyTaskToForm(task: any) {
     els.webSearch.checked = Boolean(params.web_search);
     els.webSearch.dispatchEvent(new Event("input"));
   }
-  if (params.model) els.model.value = params.model;
+  if (params.model && els.model) els.model.value = params.model;
   if (params.size) syncSizeControlsFromSize(params.size);
   if (params.n && els.nInput) {
     els.nInput.value = String(params.n);
   }
-  if (params.quality) els.quality.value = params.quality;
-  if (params.output_format) els.outputFormat.value = params.output_format;
-  if (params.moderation) els.moderation.value = params.moderation;
-  if (params.output_compression !== null && params.output_compression !== undefined) {
+  if (params.quality && els.quality) els.quality.value = params.quality;
+  if (params.output_format && els.outputFormat) els.outputFormat.value = params.output_format;
+  if (params.moderation && els.moderation) els.moderation.value = params.moderation;
+  if (params.output_compression !== null && params.output_compression !== undefined && els.compression) {
     els.compression.value = params.output_compression;
   }
   [els.quality, els.outputFormat, els.moderation].forEach((element: any) => {
-    element.dispatchEvent(new Event("change"));
+    element?.dispatchEvent(new Event("change"));
   });
-  updatePromptCount();
   updateQuantity();
   syncRadioButtons(els.nInput);
   updateCompression();
   updateCustomSize();
+  updateRequestPreview();
+}
+
+function applyTaskToForm(task: any, options?: ApplyTaskToFormOptions) {
+  setMode(task.mode || "generate");
+  setPromptWithGalleryRefs(task.prompt || "", task.gallery_refs || []);
+  if (!options?.preserveOutputSettings) applyTaskOutputParams(task);
+  updatePromptCount();
   updateRequestPreview();
 }
 
@@ -406,6 +421,7 @@ async function runTask() {
 
 export function initTaskSubmitFeature() {
   Object.assign(getLegacyBridge().methods, {
+    applyTaskOutputParams,
     applyTaskToForm,
     buildPreviewRequest,
     createPendingTask,

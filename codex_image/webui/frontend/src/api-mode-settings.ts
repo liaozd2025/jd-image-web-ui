@@ -69,4 +69,6 @@ export function updateModeSpecificSettings(authSource: any = currentAuthSource()
   setModeSettingsVariant(isDirectApi);
   updateWebSearchAvailability(authSource);
   legacyMethod("syncReferenceFileAvailability");
+  const refreshOutputSettingsLock = getLegacyBridge().methods.refreshOutputSettingsLock;
+  if (typeof refreshOutputSettingsLock === "function") refreshOutputSettingsLock();
 }
