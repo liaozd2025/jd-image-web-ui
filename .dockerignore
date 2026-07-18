@@ -1,8 +1,17 @@
 .git
 .github
 .venv
+.env
+.env.*
+!.env.example
 node_modules
 output
+outputs
+input
+inputs
+data
+logs
+*.log
 tests
 __pycache__
 *.pyc
