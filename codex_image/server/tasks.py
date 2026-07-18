@@ -33,6 +33,10 @@ class GenerationTask:
     model_id: str
     prompt: str
     request_parameters: dict[str, object]
+    input_relative_path: str | None
+    input_media_type: str | None
+    input_sha256: str | None
+    input_bytes: int | None
     status: TaskStatus
     result_relative_path: str | None
     result_media_type: str | None
@@ -115,35 +119,51 @@ class GenerationTaskRepository:
                 except MasterKeyMismatch as error:
                     raise TaskConfigurationError("personal provider credential is unavailable") from error
 
-                cursor.execute(
-                    """
-                    INSERT INTO server_generation_tasks (
-                        task_id, user_id, provider_version_id, model_id, prompt,
-                        request_parameters, status
-                    ) VALUES (%s, %s, %s, %s, %s, %s::jsonb, 'queued')
-                    RETURNING *
-                    """,
-                    (
-                        task_id,
-                        user_id,
-                        provider_version_id,
-                        model_id,
-                        prompt,
-                        json.dumps(request_parameters, separators=(",", ":")),
-                    ),
-                )
-                row = cursor.fetchone()
-                record_audit_event(
-                    cursor,
-                    action="task.created",
-                    actor_user_id=user_id,
-                    subject_user_id=user_id,
-                    details={
-                        "task_id": task_id,
-                        "provider_version_id": provider_version_id,
-                        "model_id": model_id,
-                    },
-                )
+                input_relative_path = Path("tasks") / user_id / f"{task_id}.prompt.txt"
+                input_path = self.data_root / input_relative_path
+                input_path.parent.mkdir(parents=True, exist_ok=True)
+                input_bytes = prompt.encode("utf-8")
+                temporary_path = input_path.with_name(f".{input_path.name}.{uuid4().hex}.tmp")
+                temporary_path.write_bytes(input_bytes)
+                temporary_path.replace(input_path)
+                try:
+                    cursor.execute(
+                        """
+                        INSERT INTO server_generation_tasks (
+                            task_id, user_id, provider_version_id, model_id, prompt,
+                            request_parameters, status, input_relative_path,
+                            input_media_type, input_sha256, input_bytes
+                        ) VALUES (%s, %s, %s, %s, %s, %s::jsonb, 'queued', %s, %s, %s, %s)
+                        RETURNING *
+                        """,
+                        (
+                            task_id,
+                            user_id,
+                            provider_version_id,
+                            model_id,
+                            prompt,
+                            json.dumps(request_parameters, separators=(",", ":")),
+                            input_relative_path.as_posix(),
+                            "text/plain; charset=utf-8",
+                            hashlib.sha256(input_bytes).hexdigest(),
+                            len(input_bytes),
+                        ),
+                    )
+                    row = cursor.fetchone()
+                    record_audit_event(
+                        cursor,
+                        action="task.created",
+                        actor_user_id=user_id,
+                        subject_user_id=user_id,
+                        details={
+                            "task_id": task_id,
+                            "provider_version_id": provider_version_id,
+                            "model_id": model_id,
+                        },
+                    )
+                except Exception:
+                    input_path.unlink(missing_ok=True)
+                    raise
         return self._task_from_row(row)
 
     def list_tasks(self, user_id: str, *, limit: int = 50) -> list[GenerationTask]:
@@ -346,6 +366,10 @@ class GenerationTaskRepository:
             model_id=row["model_id"],
             prompt=row["prompt"],
             request_parameters=row["request_parameters"],
+            input_relative_path=row["input_relative_path"],
+            input_media_type=row["input_media_type"],
+            input_sha256=row["input_sha256"],
+            input_bytes=row["input_bytes"],
             status=cast(TaskStatus, row["status"]),
             result_relative_path=row["result_relative_path"],
             result_media_type=row["result_media_type"],

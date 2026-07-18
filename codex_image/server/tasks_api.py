@@ -93,6 +93,8 @@ def _task_payload(task: GenerationTask) -> dict[str, object]:
         "model_id": task.model_id,
         "prompt": task.prompt,
         "request_parameters": task.request_parameters,
+        "input_sha256": task.input_sha256,
+        "input_bytes": task.input_bytes,
         "status": task.status,
         "result_sha256": task.result_sha256,
         "result_bytes": task.result_bytes,

@@ -23,6 +23,7 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0006_provider_catalog",
     "0007_generation_tasks",
     "0008_reconcile_generation_tasks",
+    "0009_generation_task_inputs",
 ]
 
 

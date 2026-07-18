@@ -12,6 +12,7 @@ import time
 import unittest
 
 from fastapi.testclient import TestClient
+import psycopg
 
 from tests.server_test_database import TEST_MASTER_KEY, temporary_postgres_database
 from tests.test_server_auth import bootstrap_admin
@@ -154,6 +155,14 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         self.assertEqual(submitted.status_code, 201)
                         task_id = submitted.json()["task"]["task_id"]
                         self.assertEqual(submitted.json()["task"]["status"], "queued")
+                        self.assertGreater(submitted.json()["task"]["input_bytes"], 0)
+                        self.assertTrue(submitted.json()["task"]["input_sha256"])
+                        with psycopg.connect(database_url) as connection:
+                            input_relative_path = connection.execute(
+                                "SELECT input_relative_path FROM server_generation_tasks WHERE task_id = %s",
+                                (task_id,),
+                            ).fetchone()[0]
+                        self.assertEqual((data_root / input_relative_path).read_text(encoding="utf-8"), "a test image")
                         self.assertEqual(user.get(f"/api/tasks/{task_id}/result").status_code, 409)
 
                         worker_environment = os.environ.copy()
