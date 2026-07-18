@@ -416,5 +416,7 @@ class ProviderRepository:
 
 
 def _mask_api_key(api_key: str) -> str:
-    suffix = api_key[-4:] if len(api_key) >= 4 else api_key
+    if len(api_key) <= 4:
+        return "••••"
+    suffix = api_key[-4:]
     return f"••••{suffix}"
