@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import ExitStack
+import json
 import os
 import subprocess
 import sys
@@ -10,6 +11,7 @@ import unittest
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from httpx import Response
 import psycopg
 
 from tests.server_test_database import temporary_postgres_database
@@ -53,6 +55,22 @@ def change_password(
     return response.json()
 
 
+def wait_until_ready(client: TestClient, *, timeout_seconds: float = 5.0) -> Response:
+    deadline = time.monotonic() + timeout_seconds
+    response = client.get("/health/ready")
+    while response.status_code != 200 and time.monotonic() < deadline:
+        time.sleep(0.05)
+        response = client.get("/health/ready")
+    return response
+
+
+def audit_details(value: str) -> dict[str, object]:
+    parsed = json.loads(value)
+    if not isinstance(parsed, dict):
+        raise AssertionError("audit details must be a JSON object")
+    return parsed
+
+
 @unittest.skipUnless(TEST_DATABASE_URL, "set JD_IMAGE_TEST_DATABASE_URL to a real PostgreSQL database")
 class ServerUserLifecycleTests(unittest.TestCase):
     def test_admin_manages_users_and_user_controls_independent_browser_sessions(self) -> None:
@@ -84,6 +102,10 @@ class ServerUserLifecycleTests(unittest.TestCase):
                         admin = stack.enter_context(TestClient(create_server_app(settings)))
                         user_browser = stack.enter_context(TestClient(create_server_app(settings)))
                         other_browser = stack.enter_context(TestClient(create_server_app(settings)))
+
+                        ready = wait_until_ready(admin)
+                        self.assertEqual(ready.status_code, 200)
+                        self.assertEqual(ready.json()["components"]["worker"]["status"], "ready")
 
                         admin_login = login(
                             admin,
@@ -248,6 +270,8 @@ class ServerUserLifecycleTests(unittest.TestCase):
                         )
                         self.assertEqual(reactivated.status_code, 200)
                         self.assertTrue(reactivated.json()["user"]["is_active"])
+                        restored_old_session = user_browser.get("/api/auth/me")
+                        self.assertEqual(restored_old_session.status_code, 401)
                         restored_login = login(
                             user_browser,
                             "designer",
@@ -295,6 +319,25 @@ class ServerUserLifecycleTests(unittest.TestCase):
                 "session.revoked_others",
                 "session.revoked_all",
             }.issubset(actions)
+        )
+        session_audits = [
+            row for row in audit_rows if row[0].startswith("session.revoked")
+        ]
+        session_audit_details = [audit_details(row[3]) for row in session_audits]
+        self.assertTrue(session_audits)
+        self.assertTrue(
+            all(
+                "revoked_count" in details and "session_ids" in details
+                for details in session_audit_details
+            )
+        )
+        self.assertTrue(
+            {"user_targeted", "password_reset", "account_deactivated"}.issubset(
+                {
+                    details.get("reason")
+                    for details in session_audit_details
+                }
+            )
         )
         audit_text = "\n".join(row[3] for row in audit_rows)
         secret_leaked = any(

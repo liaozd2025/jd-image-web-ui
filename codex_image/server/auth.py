@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 from urllib.parse import urlsplit
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -163,7 +164,11 @@ def install_authentication(
 
     @app.post("/api/auth/logout", response_model=None)
     def logout(request: Request) -> JSONResponse:
-        identity.revoke_session(request.cookies.get(SESSION_COOKIE, ""))
+        session: AuthenticatedSession = request.state.auth_session
+        identity.revoke_session(
+            request.cookies.get(SESSION_COOKIE, ""),
+            user_id=session.user.user_id,
+        )
         response = JSONResponse(content={"ok": True})
         _clear_auth_cookies(response, settings=settings)
         return response
@@ -212,24 +217,22 @@ def install_authentication(
         return response
 
     @app.get("/api/admin/users", response_model=None)
-    def list_users(request: Request) -> JSONResponse:
-        forbidden = _require_admin(request)
-        if forbidden is not None:
-            return forbidden
+    def list_users(
+        admin_session: Annotated[AuthenticatedSession, Depends(_require_admin)],
+    ) -> JSONResponse:
         return JSONResponse(
             content={"users": [_managed_user_payload(user) for user in identity.list_users()]}
         )
 
     @app.post("/api/admin/users", response_model=None, status_code=201)
-    def create_user(request: Request, payload: CreateUserPayload) -> JSONResponse:
-        forbidden = _require_admin(request)
-        if forbidden is not None:
-            return forbidden
-        actor: AuthenticatedSession = request.state.auth_session
+    def create_user(
+        payload: CreateUserPayload,
+        admin_session: Annotated[AuthenticatedSession, Depends(_require_admin)],
+    ) -> JSONResponse:
         temporary_password = new_temporary_password()
         try:
             user = identity.create_user(
-                actor.user.user_id,
+                admin_session.user.user_id,
                 username=payload.username,
                 password_hash=hash_password(temporary_password),
             )
@@ -244,15 +247,14 @@ def install_authentication(
         )
 
     @app.post("/api/admin/users/{user_id}/reset-password", response_model=None)
-    def reset_user_password(request: Request, user_id: str) -> JSONResponse:
-        forbidden = _require_admin(request)
-        if forbidden is not None:
-            return forbidden
-        actor: AuthenticatedSession = request.state.auth_session
+    def reset_user_password(
+        user_id: str,
+        admin_session: Annotated[AuthenticatedSession, Depends(_require_admin)],
+    ) -> JSONResponse:
         temporary_password = new_temporary_password()
         try:
             user = identity.reset_user_password(
-                actor.user.user_id,
+                admin_session.user.user_id,
                 user_id=user_id,
                 password_hash=hash_password(temporary_password),
             )
@@ -269,17 +271,13 @@ def install_authentication(
 
     @app.patch("/api/admin/users/{user_id}/status", response_model=None)
     def set_user_status(
-        request: Request,
         user_id: str,
         payload: UserStatusPayload,
+        admin_session: Annotated[AuthenticatedSession, Depends(_require_admin)],
     ) -> JSONResponse:
-        forbidden = _require_admin(request)
-        if forbidden is not None:
-            return forbidden
-        actor: AuthenticatedSession = request.state.auth_session
         try:
             user = identity.set_user_active(
-                actor.user.user_id,
+                admin_session.user.user_id,
                 user_id=user_id,
                 is_active=payload.is_active,
             )
@@ -308,11 +306,11 @@ def _request_user_agent(request: Request) -> str:
     return request.headers.get("User-Agent", "Unknown browser")[:512] or "Unknown browser"
 
 
-def _require_admin(request: Request) -> JSONResponse | None:
+def _require_admin(request: Request) -> AuthenticatedSession:
     session: AuthenticatedSession = request.state.auth_session
     if session.user.role != "admin":
-        return JSONResponse(status_code=403, content={"detail": "administrator_required"})
-    return None
+        raise HTTPException(status_code=403, detail="administrator_required")
+    return session
 
 
 def _unauthenticated_response(path: str) -> Response:

@@ -26,6 +26,11 @@ from .security import (
 
 ADMIN_BOOTSTRAP_LOCK_ID = 4_607_322_027
 UserRole = Literal["admin", "user"]
+SessionAuditAction = Literal[
+    "session.revoked",
+    "session.revoked_others",
+    "session.revoked_all",
+]
 
 
 class BootstrapAlreadyInitialized(RuntimeError):
@@ -355,27 +360,18 @@ class IdentityRepository:
                     """,
                     (hash_password(new_password), user_id),
                 )
-                cursor.execute(
-                    """
-                    UPDATE server_sessions
-                    SET revoked_at = CURRENT_TIMESTAMP
-                    WHERE user_id = %s AND revoked_at IS NULL
-                    """,
-                    (user_id,),
+                self._revoke_sessions(
+                    cursor,
+                    user_id=user_id,
+                    actor_user_id=user_id,
+                    action="session.revoked_all",
+                    reason="password_changed",
                 )
-                revoked_count = cursor.rowcount
                 record_audit_event(
                     cursor,
                     action="user.password_changed",
                     actor_user_id=user_id,
                     subject_user_id=user_id,
-                )
-                record_audit_event(
-                    cursor,
-                    action="session.revoked_all",
-                    actor_user_id=user_id,
-                    subject_user_id=user_id,
-                    details={"revoked_count": revoked_count, "reason": "password_changed"},
                 )
         return UserAccount(
             user_id=user_id,
@@ -385,28 +381,20 @@ class IdentityRepository:
             is_active=True,
         )
 
-    def revoke_session(self, token: str) -> None:
+    def revoke_session(self, token: str, *, user_id: str) -> None:
         if not token:
             return
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
-                cursor.execute(
-                    """
-                    UPDATE server_sessions
-                    SET revoked_at = CURRENT_TIMESTAMP
-                    WHERE token_hash = %s AND revoked_at IS NULL
-                    RETURNING user_id, session_id
-                    """,
-                    (hash_token(token),),
+                self._revoke_sessions(
+                    cursor,
+                    user_id=user_id,
+                    actor_user_id=user_id,
+                    action="session.revoked",
+                    reason="user_logout",
+                    token_hash=hash_token(token),
+                    record_empty=False,
                 )
-                row = cursor.fetchone()
-                if row is not None:
-                    record_audit_event(
-                        cursor,
-                        action="session.revoked",
-                        actor_user_id=row["user_id"],
-                        subject_user_id=row["user_id"],
-                    )
 
     def list_sessions(self, user_id: str) -> list[BrowserSession]:
         with self.connections.connect() as connection:
@@ -443,71 +431,42 @@ class IdentityRepository:
         if hmac.compare_digest(current_session_id, target_session_id):
             return False
         with self.connections.connect() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    UPDATE server_sessions
-                    SET revoked_at = CURRENT_TIMESTAMP
-                    WHERE user_id = %s
-                      AND session_id = %s
-                      AND revoked_at IS NULL
-                      AND expires_at > CURRENT_TIMESTAMP
-                    """,
-                    (user_id, target_session_id),
-                )
-                if cursor.rowcount == 0:
-                    return False
-                record_audit_event(
+            with connection.cursor(row_factory=dict_row) as cursor:
+                revoked_sessions = self._revoke_sessions(
                     cursor,
-                    action="session.revoked",
+                    user_id=user_id,
                     actor_user_id=user_id,
-                    subject_user_id=user_id,
+                    action="session.revoked",
+                    reason="user_targeted",
+                    target_session_id=target_session_id,
+                    record_empty=False,
                 )
-                return True
+                return bool(revoked_sessions)
 
     def revoke_other_sessions(self, user_id: str, *, current_session_id: str) -> int:
         with self.connections.connect() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    UPDATE server_sessions
-                    SET revoked_at = CURRENT_TIMESTAMP
-                    WHERE user_id = %s
-                      AND session_id <> %s
-                      AND revoked_at IS NULL
-                    """,
-                    (user_id, current_session_id),
-                )
-                revoked_count = cursor.rowcount
-                record_audit_event(
+            with connection.cursor(row_factory=dict_row) as cursor:
+                revoked_sessions = self._revoke_sessions(
                     cursor,
-                    action="session.revoked_others",
+                    user_id=user_id,
                     actor_user_id=user_id,
-                    subject_user_id=user_id,
-                    details={"revoked_count": revoked_count},
+                    action="session.revoked_others",
+                    reason="user_requested",
+                    exclude_session_id=current_session_id,
                 )
-                return revoked_count
+                return len(revoked_sessions)
 
     def revoke_all_sessions(self, user_id: str) -> int:
         with self.connections.connect() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    UPDATE server_sessions
-                    SET revoked_at = CURRENT_TIMESTAMP
-                    WHERE user_id = %s AND revoked_at IS NULL
-                    """,
-                    (user_id,),
-                )
-                revoked_count = cursor.rowcount
-                record_audit_event(
+            with connection.cursor(row_factory=dict_row) as cursor:
+                revoked_sessions = self._revoke_sessions(
                     cursor,
-                    action="session.revoked_all",
+                    user_id=user_id,
                     actor_user_id=user_id,
-                    subject_user_id=user_id,
-                    details={"revoked_count": revoked_count, "reason": "user_requested"},
+                    action="session.revoked_all",
+                    reason="user_requested",
                 )
-                return revoked_count
+                return len(revoked_sessions)
 
     def list_users(self) -> list[ManagedUser]:
         with self.connections.connect() as connection:
@@ -592,13 +551,12 @@ class IdentityRepository:
                     """,
                     (password_hash, user_id),
                 )
-                cursor.execute(
-                    """
-                    UPDATE server_sessions
-                    SET revoked_at = CURRENT_TIMESTAMP
-                    WHERE user_id = %s AND revoked_at IS NULL
-                    """,
-                    (user_id,),
+                self._revoke_sessions(
+                    cursor,
+                    user_id=user_id,
+                    actor_user_id=actor_user_id,
+                    action="session.revoked_all",
+                    reason="password_reset",
                 )
                 record_audit_event(
                     cursor,
@@ -629,13 +587,12 @@ class IdentityRepository:
                     (is_active, user_id),
                 )
                 if not is_active:
-                    cursor.execute(
-                        """
-                        UPDATE server_sessions
-                        SET revoked_at = CURRENT_TIMESTAMP
-                        WHERE user_id = %s AND revoked_at IS NULL
-                        """,
-                        (user_id,),
+                    self._revoke_sessions(
+                        cursor,
+                        user_id=user_id,
+                        actor_user_id=actor_user_id,
+                        action="session.revoked_all",
+                        reason="account_deactivated",
                     )
                 record_audit_event(
                     cursor,
@@ -703,6 +660,57 @@ class IdentityRepository:
                         "reason": reason,
                     },
                 )
+
+    @staticmethod
+    def _revoke_sessions(
+        cursor: Any,
+        *,
+        user_id: str,
+        actor_user_id: str,
+        action: SessionAuditAction,
+        reason: str,
+        target_session_id: str | None = None,
+        exclude_session_id: str | None = None,
+        token_hash: str | None = None,
+        record_empty: bool = True,
+    ) -> list[str]:
+        selectors = [target_session_id, exclude_session_id, token_hash]
+        if sum(value is not None for value in selectors) > 1:
+            raise ValueError("only one session revocation selector may be used")
+
+        conditions = ["user_id = %s", "revoked_at IS NULL"]
+        parameters: list[object] = [user_id]
+        if target_session_id is not None:
+            conditions.append("session_id = %s")
+            parameters.append(target_session_id)
+        elif exclude_session_id is not None:
+            conditions.append("session_id <> %s")
+            parameters.append(exclude_session_id)
+        elif token_hash is not None:
+            conditions.append("token_hash = %s")
+            parameters.append(token_hash)
+
+        cursor.execute(
+            "UPDATE server_sessions "
+            "SET revoked_at = CURRENT_TIMESTAMP "
+            f"WHERE {' AND '.join(conditions)} "
+            "RETURNING session_id",
+            parameters,
+        )
+        session_ids = [row["session_id"] for row in cursor.fetchall()]
+        if session_ids or record_empty:
+            record_audit_event(
+                cursor,
+                action=action,
+                actor_user_id=actor_user_id,
+                subject_user_id=user_id,
+                details={
+                    "reason": reason,
+                    "revoked_count": len(session_ids),
+                    "session_ids": session_ids,
+                },
+            )
+        return session_ids
 
     @staticmethod
     def _attempted_username_hash(username: str) -> str:
