@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from collections.abc import Iterator
+import base64
 from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
 
 import psycopg
 from psycopg import sql
+
+
+TEST_MASTER_KEY = base64.urlsafe_b64encode(bytes(range(32))).decode("ascii").rstrip("=")
+OTHER_TEST_MASTER_KEY = base64.urlsafe_b64encode(bytes(reversed(range(32)))).decode("ascii").rstrip("=")
 
 
 @contextmanager

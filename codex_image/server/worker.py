@@ -7,6 +7,7 @@ from uuid import uuid4
 from .config import ServerSettings
 from .database import PostgresConnections, ServerRuntimeRepository
 from .migrations import MigrationRunner
+from .provider_secrets import ProviderSecretCipher
 from .volume import check_file_volume
 
 
@@ -19,6 +20,7 @@ class HeartbeatWorker:
         )
         self.migrations = MigrationRunner(connections)
         self.runtime = ServerRuntimeRepository(connections)
+        self.provider_cipher = ProviderSecretCipher.from_encoded_key(settings.master_key)
         self.instance_id = str(uuid4())
         self.stop_event = threading.Event()
         self.volume_id: str | None = None
@@ -32,6 +34,8 @@ class HeartbeatWorker:
             while not self.stop_event.is_set():
                 if not self.schema_ready:
                     self.schema_ready = self.migrations.try_apply()
+                    if self.schema_ready:
+                        self.provider_cipher.ensure_database_key(self.runtime.connections)
                 file_volume = check_file_volume(self.settings.data_root, component="worker")
                 self.volume_id = file_volume.get("volume_id")
                 if self.schema_ready and self.volume_id is not None:

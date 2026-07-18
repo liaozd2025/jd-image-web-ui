@@ -13,6 +13,9 @@ from .database import PostgresConnections, ServerRuntimeRepository
 from .health import HealthStatus, ReadyComponents
 from .identity import IdentityRepository
 from .migrations import MigrationRunner
+from .provider_secrets import ProviderSecretCipher
+from .providers import ProviderRepository
+from .providers_api import install_provider_routes
 from .volume import check_file_volume
 
 
@@ -24,6 +27,7 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
     migrations = MigrationRunner(connections)
     runtime = ServerRuntimeRepository(connections)
     identity = IdentityRepository(connections)
+    provider_cipher = ProviderSecretCipher.from_encoded_key(settings.master_key)
     migration_lock = threading.Lock()
     schema_ready = False
 
@@ -38,6 +42,7 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         ensure_schema()
+        provider_cipher.ensure_database_key(connections)
         yield
 
     app = FastAPI(title="jd-image-web-ui server", lifespan=lifespan)
@@ -69,4 +74,8 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
         )
 
     install_authentication(app, settings=settings, identity=identity)
+    install_provider_routes(
+        app,
+        providers=ProviderRepository(connections, provider_cipher),
+    )
     return app

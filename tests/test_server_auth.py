@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 import psycopg
 
 from tests.server_test_database import temporary_postgres_database
+from tests.server_test_database import TEST_MASTER_KEY
 
 
 TEST_DATABASE_URL = os.environ.get("JD_IMAGE_TEST_DATABASE_URL", "")
@@ -29,6 +30,7 @@ def bootstrap_admin(database_url: str, data_root: Path) -> tuple[dict[str, str],
         {
             "JD_IMAGE_DATABASE_URL": database_url,
             "JD_IMAGE_DATA_ROOT": str(data_root),
+            "JD_IMAGE_MASTER_KEY": TEST_MASTER_KEY,
             "JD_IMAGE_WORKER_HEARTBEAT_INTERVAL_SECONDS": "0.1",
             "JD_IMAGE_WORKER_HEARTBEAT_TTL_SECONDS": "0.4",
         }
@@ -67,6 +69,7 @@ class ServerAdminBootstrapTests(unittest.TestCase):
                     {
                         "JD_IMAGE_DATABASE_URL": database_url,
                         "JD_IMAGE_DATA_ROOT": str(Path(tmp) / "data"),
+                        "JD_IMAGE_MASTER_KEY": TEST_MASTER_KEY,
                     }
                 )
                 command = [
@@ -124,6 +127,7 @@ class ServerAuthenticationFlowTests(unittest.TestCase):
                 settings = ServerSettings(
                     database_url=database_url,
                     data_root=data_root,
+                    master_key=TEST_MASTER_KEY,
                     database_connect_timeout_seconds=2,
                     worker_heartbeat_interval_seconds=0.1,
                     worker_heartbeat_ttl_seconds=0.4,
@@ -277,6 +281,7 @@ class ServerAuthenticationFlowTests(unittest.TestCase):
                 settings = ServerSettings(
                     database_url=database_url,
                     data_root=data_root,
+                    master_key=TEST_MASTER_KEY,
                     session_cookie_secure=False,
                 )
                 with TestClient(create_server_app(settings)) as client:
@@ -308,6 +313,7 @@ class ServerAuthenticationFlowTests(unittest.TestCase):
                 settings = ServerSettings(
                     database_url=database_url,
                     data_root=data_root,
+                    master_key=TEST_MASTER_KEY,
                     session_ttl_seconds=1,
                     session_cookie_secure=False,
                 )

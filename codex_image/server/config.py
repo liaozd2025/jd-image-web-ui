@@ -10,6 +10,7 @@ from typing import Mapping
 class ServerSettings:
     database_url: str
     data_root: Path
+    master_key: str
     database_connect_timeout_seconds: int = 2
     worker_heartbeat_interval_seconds: float = 2.0
     worker_heartbeat_ttl_seconds: float = 10.0
@@ -23,11 +24,15 @@ class ServerSettings:
         values = os.environ if environ is None else environ
         database_url = values.get("JD_IMAGE_DATABASE_URL", "").strip()
         data_root = values.get("JD_IMAGE_DATA_ROOT", "").strip()
+        master_key = values.get("JD_IMAGE_MASTER_KEY", "").strip()
         if not data_root:
             raise ValueError("JD_IMAGE_DATA_ROOT is required")
+        if not master_key:
+            raise ValueError("JD_IMAGE_MASTER_KEY is required")
         return cls(
             database_url=database_url,
             data_root=Path(data_root),
+            master_key=master_key,
             database_connect_timeout_seconds=int(
                 values.get("JD_IMAGE_DATABASE_CONNECT_TIMEOUT_SECONDS", "2")
             ),
@@ -48,6 +53,8 @@ class ServerSettings:
     def __post_init__(self) -> None:
         if not self.database_url.strip():
             raise ValueError("database_url is required")
+        if not self.master_key.strip():
+            raise ValueError("master_key is required")
         if self.database_connect_timeout_seconds <= 0:
             raise ValueError("database_connect_timeout_seconds must be positive")
         if self.worker_heartbeat_interval_seconds <= 0:

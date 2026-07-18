@@ -89,6 +89,42 @@ body {
   width: 180px;
 }
 
+.provider-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  align-items: end;
+  gap: 8px;
+  max-width: 680px;
+}
+
+.provider-form label {
+  margin: 0;
+}
+
+.provider-form input,
+.provider-form select {
+  min-width: 0;
+}
+
+.provider-form button {
+  margin-top: 0;
+}
+
+.provider-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.provider-actions input {
+  width: min(260px, 34vw);
+}
+
+.empty-state {
+  padding: 14px 0;
+  color: #9aabc8;
+}
+
 .inline-form button,
 .button-row button,
 .workbench-header button,
@@ -185,6 +221,20 @@ button {
   }
 
   .inline-form input {
+    width: 100%;
+  }
+
+  .provider-form {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .provider-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .provider-actions input {
     width: 100%;
   }
 }

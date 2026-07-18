@@ -15,6 +15,7 @@ from httpx import Response
 import psycopg
 
 from tests.server_test_database import temporary_postgres_database
+from tests.server_test_database import TEST_MASTER_KEY
 from tests.test_server_auth import bootstrap_admin
 
 
@@ -87,6 +88,7 @@ class ServerUserLifecycleTests(unittest.TestCase):
                 settings = ServerSettings(
                     database_url=database_url,
                     data_root=data_root,
+                    master_key=TEST_MASTER_KEY,
                     worker_heartbeat_interval_seconds=0.1,
                     worker_heartbeat_ttl_seconds=0.4,
                     session_cookie_secure=False,
@@ -365,6 +367,7 @@ class ServerUserLifecycleTests(unittest.TestCase):
                 settings = ServerSettings(
                     database_url=database_url,
                     data_root=data_root,
+                    master_key=TEST_MASTER_KEY,
                     login_failure_limit=2,
                     login_lock_seconds=1,
                     session_cookie_secure=False,

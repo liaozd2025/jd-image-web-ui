@@ -51,6 +51,34 @@
         <div id="user-list" class="item-list" aria-live="polite"></div>
       </section>
 
+      <section id="provider-management" class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>个人供应商</h2>
+            <p>从管理员白名单中选择接口，凭据只在保存时提交，页面只显示脱敏结果。</p>
+          </div>
+        </div>
+        <div id="provider-list" class="item-list" aria-live="polite"></div>
+      </section>
+
+      <section id="provider-catalog-management" class="panel" hidden>
+        <div class="panel-heading">
+          <div>
+            <h2>供应商目录</h2>
+            <p>发布不可覆盖的版本快照，停用版本不会影响既有历史引用。</p>
+          </div>
+          <form id="create-provider-form" class="provider-form">
+            <div><label for="provider-key">标识</label><input id="provider-key" required maxlength="64" pattern="[a-z0-9][a-z0-9-]{1,63}" placeholder="openai-compatible"></div>
+            <div><label for="provider-display-name">名称</label><input id="provider-display-name" required maxlength="160" placeholder="OpenAI Compatible"></div>
+            <div><label for="provider-base-url">Base URL</label><input id="provider-base-url" required maxlength="2048" type="url" placeholder="https://api.example.com/v1"></div>
+            <div><label for="provider-api-mode">调用方式</label><select id="provider-api-mode"><option value="responses">Responses</option><option value="images">Images</option></select></div>
+            <div><label for="provider-model-id">首个模型</label><input id="provider-model-id" required maxlength="160" placeholder="gpt-image-1"></div>
+            <button type="submit">发布新版本</button>
+          </form>
+        </div>
+        <div id="provider-catalog-list" class="item-list" aria-live="polite"></div>
+      </section>
+
       <p id="workbench-error" class="error" aria-live="polite"></p>
     </main>
   </body>

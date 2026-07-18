@@ -10,6 +10,8 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from tests.server_test_database import TEST_MASTER_KEY
+
 
 TEST_DATABASE_URL = os.environ.get("JD_IMAGE_TEST_DATABASE_URL", "")
 EXPECTED_SCHEMA_VERSIONS = [
@@ -18,6 +20,7 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0003_admin_identity",
     "0004_browser_sessions",
     "0005_user_lifecycle",
+    "0006_provider_catalog",
 ]
 
 
@@ -29,6 +32,7 @@ class ServerHealthTests(unittest.TestCase):
         return ServerSettings(
             database_url=TEST_DATABASE_URL,
             data_root=data_root,
+            master_key=TEST_MASTER_KEY,
             database_connect_timeout_seconds=2,
             worker_heartbeat_interval_seconds=0.1,
             worker_heartbeat_ttl_seconds=0.4,
@@ -40,6 +44,7 @@ class ServerHealthTests(unittest.TestCase):
             {
                 "JD_IMAGE_DATABASE_URL": TEST_DATABASE_URL,
                 "JD_IMAGE_DATA_ROOT": str(data_root),
+                "JD_IMAGE_MASTER_KEY": TEST_MASTER_KEY,
                 "JD_IMAGE_DATABASE_CONNECT_TIMEOUT_SECONDS": "2",
                 "JD_IMAGE_WORKER_HEARTBEAT_INTERVAL_SECONDS": "0.1",
                 "JD_IMAGE_WORKER_HEARTBEAT_TTL_SECONDS": "0.4",

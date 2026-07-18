@@ -105,6 +105,7 @@ def install_authentication(
             request.url.path == "/login"
             or request.url.path.startswith("/api/auth/")
             or request.url.path.startswith("/api/admin/")
+            or request.url.path.startswith("/api/providers/")
         ):
             response.headers["Cache-Control"] = "no-store"
         return response
@@ -218,7 +219,7 @@ def install_authentication(
 
     @app.get("/api/admin/users", response_model=None)
     def list_users(
-        admin_session: Annotated[AuthenticatedSession, Depends(_require_admin)],
+        admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
     ) -> JSONResponse:
         return JSONResponse(
             content={"users": [_managed_user_payload(user) for user in identity.list_users()]}
@@ -227,7 +228,7 @@ def install_authentication(
     @app.post("/api/admin/users", response_model=None, status_code=201)
     def create_user(
         payload: CreateUserPayload,
-        admin_session: Annotated[AuthenticatedSession, Depends(_require_admin)],
+        admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
     ) -> JSONResponse:
         temporary_password = new_temporary_password()
         try:
@@ -249,7 +250,7 @@ def install_authentication(
     @app.post("/api/admin/users/{user_id}/reset-password", response_model=None)
     def reset_user_password(
         user_id: str,
-        admin_session: Annotated[AuthenticatedSession, Depends(_require_admin)],
+        admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
     ) -> JSONResponse:
         temporary_password = new_temporary_password()
         try:
@@ -273,7 +274,7 @@ def install_authentication(
     def set_user_status(
         user_id: str,
         payload: UserStatusPayload,
-        admin_session: Annotated[AuthenticatedSession, Depends(_require_admin)],
+        admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
     ) -> JSONResponse:
         try:
             user = identity.set_user_active(
@@ -306,7 +307,7 @@ def _request_user_agent(request: Request) -> str:
     return request.headers.get("User-Agent", "Unknown browser")[:512] or "Unknown browser"
 
 
-def _require_admin(request: Request) -> AuthenticatedSession:
+def require_admin(request: Request) -> AuthenticatedSession:
     session: AuthenticatedSession = request.state.auth_session
     if session.user.role != "admin":
         raise HTTPException(status_code=403, detail="administrator_required")

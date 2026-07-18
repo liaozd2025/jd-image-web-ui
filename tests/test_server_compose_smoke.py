@@ -30,6 +30,7 @@ class ServerComposeSmokeTests(unittest.TestCase):
             {
                 "JD_IMAGE_HTTP_PORT": str(cls.http_port),
                 "JD_IMAGE_POSTGRES_PASSWORD": "jd_image_smoke_test",
+                "JD_IMAGE_MASTER_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
                 "JD_IMAGE_WORKER_HEARTBEAT_INTERVAL_SECONDS": "0.2",
                 "JD_IMAGE_WORKER_HEARTBEAT_TTL_SECONDS": "0.8",
             }
