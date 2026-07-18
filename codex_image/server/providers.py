@@ -11,6 +11,7 @@ from psycopg.rows import dict_row
 from .audit import record_audit_event
 from .database import PostgresConnections
 from .provider_secrets import ProviderSecretCipher
+from .maintenance import assert_writes_allowed
 
 
 ProviderApiMode = Literal["responses", "images"]
@@ -68,6 +69,7 @@ class ProviderRepository:
         where_clause = "WHERE is_active = TRUE" if active_only else ""
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     f"""
                     SELECT
@@ -102,6 +104,7 @@ class ProviderRepository:
         provider_version_id = str(uuid4())
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
                     (provider_key,),
@@ -176,6 +179,7 @@ class ProviderRepository:
     ) -> ProviderVersion:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     """
                     UPDATE provider_catalog_versions
@@ -245,6 +249,7 @@ class ProviderRepository:
     ) -> PersonalProviderCredential:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 provider = self._lock_active_provider(cursor, provider_version_id)
                 encrypted_api_key = self.cipher.encrypt_personal_api_key(
                     user_id=user_id,
@@ -305,6 +310,7 @@ class ProviderRepository:
     ) -> PersonalProviderCredential:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     """
                     UPDATE personal_provider_credentials AS credentials

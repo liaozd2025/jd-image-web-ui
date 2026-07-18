@@ -20,4 +20,4 @@ status: accepted
 - Web 与 Worker 分进程运行，任务状态保存在 PostgreSQL。等待任务可在重启后续排，执行中任务标记为中断且不自动重试。
 - 标准交付为 Linux Docker Compose：HTTP 反向代理、Web、Worker 和 PostgreSQL。部署目标是公司内网，首期不启用 TLS，但应用容器端口不直接暴露。
 - 首次服务器部署使用全新数据目录，不自动迁移旧版图库、历史任务、供应商配置、API Key 或 OAuth 数据。
-- 原版桌面打包、托盘启动器、便携包、更新器、本机 OAuth 客户端和用户生图 CLI 可逐步删除；上游功能以后按需选择性同步。
+- 原版桌面打包、托盘启动器、便携包、更新器、本机 OAuth 客户端和用户生图 CLI 已从交付面移除；后续只维护服务器 Web、Worker、PostgreSQL 和运维 CLI。

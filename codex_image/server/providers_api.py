@@ -130,6 +130,8 @@ def install_provider_routes(app: FastAPI, *, providers: ProviderRepository) -> N
     @app.put("/api/providers/personal/{provider_version_id}", response_model=None)
     async def save_personal_credential(request: Request, provider_version_id: str) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
+        if session.user.role == "admin":
+            return JSONResponse(status_code=403, content={"detail": "administrators_use_department_credentials"})
         try:
             body = await request.json()
         except ValueError:
@@ -152,6 +154,8 @@ def install_provider_routes(app: FastAPI, *, providers: ProviderRepository) -> N
     @app.delete("/api/providers/personal/{provider_version_id}", response_model=None)
     def delete_personal_credential(request: Request, provider_version_id: str) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
+        if session.user.role == "admin":
+            return JSONResponse(status_code=403, content={"detail": "administrators_use_department_credentials"})
         try:
             credential = providers.delete_personal_credential(
                 session.user.user_id,

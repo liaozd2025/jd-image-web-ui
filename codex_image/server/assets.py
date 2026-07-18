@@ -11,6 +11,7 @@ from psycopg.rows import dict_row
 
 from .audit import record_audit_event
 from .database import PostgresConnections
+from .maintenance import assert_writes_allowed
 
 
 AssetKind = Literal["image", "reference", "template", "prompt"]
@@ -139,9 +140,9 @@ class AssetRepository:
                 (asset_id, user_id),
             )
             asset = cursor.fetchone()
-            if asset is None or asset["deleted_at"] is not None:
+            if asset is None or asset[2] is not None:
                 raise AssetNotFound("asset was not found")
-            kind = cast(AssetKind, asset["asset_kind"])
+            kind = cast(AssetKind, asset[0])
             _validate_content(kind, normalized_mime, content)
             cursor.execute(
                 "SELECT COALESCE(MAX(version_number), 0) FROM server_asset_versions WHERE asset_id = %s",
@@ -307,7 +308,9 @@ class AssetRepository:
                            COALESCE((
                                SELECT SUM(versions.byte_size)
                                FROM server_asset_versions AS versions
+                               JOIN server_assets AS assets ON assets.asset_id = versions.asset_id
                                WHERE versions.user_id = users.user_id
+                                 AND assets.storage_purged_at IS NULL
                            ), 0)
                            + COALESCE((
                                SELECT SUM(
@@ -317,7 +320,15 @@ class AssetRepository:
                                )
                                FROM server_generation_tasks AS tasks
                                WHERE tasks.user_id = users.user_id
+                                 AND tasks.storage_purged_at IS NULL
                            ), 0)
+                           + COALESCE((
+                               SELECT SUM(COALESCE(attempts.result_bytes, 0))
+                               FROM server_generation_task_attempts AS attempts
+                               JOIN server_generation_tasks AS tasks ON tasks.task_id = attempts.task_id
+                               WHERE tasks.user_id = users.user_id
+                                 AND tasks.storage_purged_at IS NULL
+                            ), 0)
                     FROM server_users AS users
                     WHERE users.user_id = %s
                     """,
@@ -334,6 +345,7 @@ class AssetRepository:
             raise AssetValidationError("additional storage must be non-negative")
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
+                assert_writes_allowed(cursor)
                 self.ensure_capacity_cursor(cursor, user_id, additional_bytes)
 
     @staticmethod
@@ -347,24 +359,32 @@ class AssetRepository:
         row = cursor.fetchone()
         if row is None:
             raise AssetNotFound("user was not found")
+        quota_bytes = row["storage_quota_bytes"] if isinstance(row, dict) else row[0]
         cursor.execute(
             """
-            SELECT COALESCE((
-                       SELECT SUM(byte_size) FROM server_asset_versions WHERE user_id = %s
-                   ), 0)
-                   + COALESCE((
-                       SELECT SUM(
-                           COALESCE(input_bytes, 0)
-                           + COALESCE(result_bytes, 0)
-                           + COALESCE(thumbnail_bytes, 0)
-                       )
-                       FROM server_generation_tasks WHERE user_id = %s
-                   ), 0)
+            SELECT (
+                COALESCE((
+                    SELECT SUM(versions.byte_size)
+                    FROM server_asset_versions AS versions
+                    JOIN server_assets AS assets ON assets.asset_id = versions.asset_id
+                    WHERE versions.user_id = %s AND assets.storage_purged_at IS NULL
+                ), 0)
+                + COALESCE((
+                    SELECT SUM(
+                        COALESCE(input_bytes, 0)
+                        + COALESCE(result_bytes, 0)
+                        + COALESCE(thumbnail_bytes, 0)
+                    )
+                    FROM server_generation_tasks
+                    WHERE user_id = %s AND storage_purged_at IS NULL
+                ), 0)
+            ) AS used_bytes
             """,
             (user_id, user_id),
         )
-        used = int(cursor.fetchone()[0])
-        if used + additional_bytes > max(0, int(row[0])):
+        used_row = cursor.fetchone()
+        used = int(used_row["used_bytes"] if isinstance(used_row, dict) else used_row[0])
+        if used + additional_bytes > max(0, int(quota_bytes)):
             raise AssetQuotaExceeded("personal storage quota exceeded")
 
     def set_quota(self, user_id: str, quota_bytes: int, *, actor_user_id: str | None = None) -> AssetQuota:
@@ -372,6 +392,7 @@ class AssetRepository:
             raise AssetValidationError("storage quota must be non-negative")
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     """
                     UPDATE server_users
@@ -462,6 +483,7 @@ class AssetRepository:
         with self.connections.connect() as connection:
             try:
                 with connection.cursor() as cursor:
+                    assert_writes_allowed(cursor)
                     self.ensure_capacity_cursor(cursor, user_id, byte_size)
                     absolute_path.parent.mkdir(parents=True, exist_ok=True)
                     temporary_path.write_bytes(content)
@@ -522,6 +544,7 @@ class AssetRepository:
     def _set_deleted(self, user_id: str, asset_id: str, *, deleted: bool) -> None:
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     """
                     UPDATE server_assets
@@ -532,9 +555,10 @@ class AssetRepository:
                         END,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE asset_id = %s AND user_id = %s
+                      AND (%s OR storage_purged_at IS NULL)
                     RETURNING asset_id
                     """,
-                    (deleted, deleted, asset_id, user_id),
+                    (deleted, deleted, asset_id, user_id, deleted),
                 )
                 if cursor.fetchone() is None:
                     raise AssetNotFound("asset was not found")

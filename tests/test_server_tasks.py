@@ -177,6 +177,31 @@ class ServerGenerationTaskTests(unittest.TestCase):
                             ).fetchone()[0]
                         self.assertEqual((data_root / input_relative_path).read_text(encoding="utf-8"), "a test image")
                         self.assertEqual(user.get(f"/api/tasks/{task_id}/result").status_code, 409)
+                        cancellable = user.post(
+                            "/api/tasks",
+                            json={
+                                "provider_version_id": provider_version_id,
+                                "model_id": "fake-image-1",
+                                "prompt": "cancel before worker",
+                            },
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(cancellable.status_code, 201, cancellable.text)
+                        cancellable_id = cancellable.json()["task"]["task_id"]
+                        cancelled = user.post(
+                            f"/api/tasks/{cancellable_id}/cancel",
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(cancelled.status_code, 200, cancelled.text)
+                        self.assertEqual(cancelled.json()["task"]["status"], "cancelled")
+                        self.assertEqual(cancelled.json()["task"]["cancel_requested"], False)
+                        self.assertEqual(user.get(f"/api/tasks/{cancellable_id}").json()["task"]["attempts"], [])
+                        cancelled_retry = user.post(
+                            f"/api/tasks/{cancellable_id}/resubmit",
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(cancelled_retry.status_code, 201, cancelled_retry.text)
+                        cancelled_retry_id = cancelled_retry.json()["task"]["task_id"]
 
                         worker_environment = os.environ.copy()
                         worker_environment.update(
@@ -196,6 +221,10 @@ class ServerGenerationTaskTests(unittest.TestCase):
                             text=True,
                         )
                         completed = self._wait_for_status(user, task_id, "completed")
+                        self._wait_for_status(user, cancelled_retry_id, "completed")
+                        attempts = user.get(f"/api/tasks/{task_id}").json()["task"]["attempts"]
+                        self.assertEqual(len(attempts), 1)
+                        self.assertEqual(attempts[0]["status"], "completed")
                         result = user.get(f"/api/tasks/{task_id}/result")
                         self.assertEqual(result.status_code, 200)
                         self.assertEqual(result.content, FAKE_PNG)
@@ -234,8 +263,8 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         self.assertEqual(uploaded.status_code, 201)
                         uploaded_task_id = uploaded.json()["task"]["task_id"]
                         self._wait_for_status(user, uploaded_task_id, "completed")
-                        self.assertIn(b"image-1.png", FakeProviderHandler.requests[1]["body"])
-                        self.assertIn(FAKE_PNG, FakeProviderHandler.requests[1]["body"])
+                        self.assertIn(b"image-1.png", FakeProviderHandler.requests[-1]["body"])
+                        self.assertIn(FAKE_PNG, FakeProviderHandler.requests[-1]["body"])
                         deleted_task = user.delete(
                             f"/api/tasks/{uploaded_task_id}",
                             headers={"X-CSRF-Token": user_csrf},

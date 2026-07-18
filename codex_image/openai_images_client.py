@@ -7,6 +7,7 @@ import uuid
 from io import BytesIO
 from os import PathLike
 from typing import Any
+from urllib.parse import urlsplit
 
 from .client_types import (
     DEFAULT_IMAGE_MODEL,
@@ -17,7 +18,7 @@ from .client_types import (
     image_model_supports_input_fidelity,
     normalize_openai_base_url,
 )
-from .http import Transport, UrllibTransport
+from .http import MAX_PROVIDER_RESPONSE_BYTES, Transport, UrllibTransport
 
 
 _DIMENSION_SIZE_RE = re.compile(r"^\s*(\d{1,5})\s*[xX×]\s*(\d{1,5})\s*$")
@@ -255,11 +256,18 @@ class OpenAIImagesImageClient:
             headers=headers,
             body=body,
         )
+        if len(response.body) > MAX_PROVIDER_RESPONSE_BYTES:
+            raise RuntimeError("OpenAI-compatible images response exceeds the server response limit")
         if response.status < 200 or response.status >= 300:
-            raise RuntimeError(
-                "OpenAI-compatible images request failed: "
-                f"HTTP {response.status}: {response.body.decode('utf-8', errors='replace')}"
-            )
+            try:
+                decoded = json.loads(response.body.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                decoded = None
+            if isinstance(decoded, dict) and isinstance(decoded.get("error"), dict):
+                detail = self._format_api_error(decoded["error"])
+            else:
+                detail = f"OpenAI-compatible images request failed: HTTP {response.status}"
+            raise RuntimeError(detail)
         return self.parse_response_json_items(response.body, request_payload=payload, url_fetcher=self._fetch_image_url)
 
     def _build_headers(self, *, content_type: str) -> dict[str, str]:
@@ -347,31 +355,39 @@ class OpenAIImagesImageClient:
         return ".png"
 
     def _fetch_image_url(self, url: str) -> bytes:
-        response = self.transport.request(
-            method="GET",
-            url=url,
-            headers=self._build_image_download_headers(),
-            body=b"",
-        )
-        if response.status in {401, 403}:
+        requested = urlsplit(url)
+        configured = urlsplit(self.base_url)
+        if (
+            requested.scheme not in {"http", "https"}
+            or requested.scheme != configured.scheme
+            or requested.hostname != configured.hostname
+            or requested.port != configured.port
+        ):
+            raise RuntimeError("OpenAI-compatible images returned a URL outside the configured provider")
+        try:
             response = self.transport.request(
                 method="GET",
                 url=url,
-                headers=self._build_image_download_headers(include_auth=True),
+                headers=self._build_image_download_headers(),
+                body=b"",
+                allow_redirects=False,
+            )
+        except TypeError:
+            response = self.transport.request(
+                method="GET",
+                url=url,
+                headers=self._build_image_download_headers(),
                 body=b"",
             )
         if response.status < 200 or response.status >= 300:
             raise RuntimeError(f"OpenAI-compatible images returned URL but download failed: HTTP {response.status}")
         return response.body
 
-    def _build_image_download_headers(self, *, include_auth: bool = False) -> dict[str, str]:
-        headers = {
+    def _build_image_download_headers(self) -> dict[str, str]:
+        return {
             "Accept": "image/*,*/*",
             "User-Agent": OPENAI_COMPATIBLE_USER_AGENT,
         }
-        if include_auth:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        return headers
 
     @staticmethod
     def parse_response_json(

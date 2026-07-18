@@ -44,10 +44,11 @@ class ServerSchedulerTests(unittest.TestCase):
 
                     initial = client.get("/api/admin/scheduler")
                     self.assertEqual(initial.status_code, 200, initial.text)
-                    self.assertEqual(
-                        initial.json()["scheduler"],
-                        {"global_concurrency": 1, "per_user_concurrency": 1},
-                    )
+                    initial_scheduler = initial.json()["scheduler"]
+                    self.assertEqual(initial_scheduler["global_concurrency"], 1)
+                    self.assertEqual(initial_scheduler["per_user_concurrency"], 1)
+                    self.assertEqual(initial_scheduler["queue"]["queued"], 0)
+                    self.assertEqual(initial_scheduler["queue"]["running"], 0)
 
                     updated = client.patch(
                         "/api/admin/scheduler",
@@ -55,10 +56,10 @@ class ServerSchedulerTests(unittest.TestCase):
                         headers={"X-CSRF-Token": csrf_token},
                     )
                     self.assertEqual(updated.status_code, 200, updated.text)
-                    self.assertEqual(
-                        updated.json()["scheduler"],
-                        {"global_concurrency": 4, "per_user_concurrency": 2},
-                    )
+                    updated_scheduler = updated.json()["scheduler"]
+                    self.assertEqual(updated_scheduler["global_concurrency"], 4)
+                    self.assertEqual(updated_scheduler["per_user_concurrency"], 2)
+                    self.assertIn("blocked", updated_scheduler["queue"])
 
 
 if __name__ == "__main__":

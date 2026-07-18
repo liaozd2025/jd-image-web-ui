@@ -21,6 +21,7 @@ from .assets import (
 )
 from .audit import record_audit_event
 from .database import PostgresConnections
+from .maintenance import assert_writes_allowed
 
 
 class SharedAssetForbidden(RuntimeError):
@@ -152,11 +153,11 @@ class SharedAssetRepository:
             asset = cursor.fetchone()
             if asset is None:
                 raise AssetNotFound("shared asset was not found")
-            if asset["publisher_user_id"] != actor_user_id and actor_role != "admin":
+            if asset[0] != actor_user_id and actor_role != "admin":
                 raise SharedAssetForbidden("only the publisher or administrator can update this asset")
-            if not asset["is_active"]:
+            if not asset[2]:
                 raise AssetValidationError("shared asset is inactive")
-            kind = cast(AssetKind, asset["asset_kind"])
+            kind = cast(AssetKind, asset[1])
             _validate_content(kind, normalized_mime, content)
             cursor.execute(
                 "SELECT COALESCE(MAX(version_number), 0) FROM server_shared_asset_versions WHERE asset_id = %s",
@@ -263,6 +264,7 @@ class SharedAssetRepository:
     def set_active(self, actor_user_id: str, actor_role: str, asset_id: str, *, is_active: bool) -> SharedAsset:
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     "SELECT publisher_user_id FROM server_shared_assets WHERE asset_id = %s FOR UPDATE",
                     (asset_id,),
@@ -288,6 +290,7 @@ class SharedAssetRepository:
     def quota(self) -> SharedStorageQuota:
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     """
                     SELECT settings.quota_bytes, COALESCE(SUM(versions.byte_size), 0)
@@ -308,6 +311,7 @@ class SharedAssetRepository:
             raise AssetValidationError("shared storage quota must be non-negative")
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     "UPDATE server_shared_storage_settings SET quota_bytes = %s, updated_at = CURRENT_TIMESTAMP WHERE singleton",
                     (quota_bytes,),
@@ -406,6 +410,7 @@ class SharedAssetRepository:
         with self.connections.connect() as connection:
             try:
                 with connection.cursor() as cursor:
+                    assert_writes_allowed(cursor)
                     cursor.execute("SELECT quota_bytes FROM server_shared_storage_settings WHERE singleton FOR UPDATE")
                     row = cursor.fetchone()
                     if row is None:

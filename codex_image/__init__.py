@@ -1,11 +1,5 @@
-from .auth import AuthNeedsLoginError, AuthState, load_auth_state, refresh_auth_state
-from .client import CodexImageClient, ImageResult
+"""Server-side image generation runtime."""
 
-__all__ = [
-    "AuthState",
-    "AuthNeedsLoginError",
-    "CodexImageClient",
-    "ImageResult",
-    "load_auth_state",
-    "refresh_auth_state",
-]
+from .client import ImageResult, OpenAIImagesImageClient, OpenAIResponsesImageClient
+
+__all__ = ["ImageResult", "OpenAIImagesImageClient", "OpenAIResponsesImageClient"]

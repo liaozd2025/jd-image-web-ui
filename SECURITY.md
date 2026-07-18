@@ -1,50 +1,7 @@
-# Security Policy
+# Security policy
 
-## Local-only assumptions
+本项目唯一交付方式是服务器部署后通过浏览器访问。用户 API Key 由服务器使用主密钥加密保存，普通用户和管理员接口均不返回明文；日志、审计详情、备份清单和错误摘要不得包含密钥、密码或会话令牌。
 
-iLab GPT Conjure is designed for local personal workflows. Do not expose the
-WebUI directly to the public internet unless you have reviewed and hardened the
-deployment yourself.
+请勿提交 `.env`、主密钥、API Key、数据库转储、备份文件、用户输入图或生成结果。
 
-## Secrets and local data
-
-Do not publish OAuth tokens, API keys, account files, `.env` files, input images,
-generated outputs, task metadata, SQLite databases, or debug logs.
-
-Sensitive local paths include:
-
-- `~/.codex/auth.json`
-- `output/`
-- `outputs/`
-- `input/`
-- `inputs/`
-
-## Advanced local auth warning
-
-The optional Codex / ChatGPT OAuth mode calls an internal ChatGPT backend
-endpoint. It is not an officially recommended OpenAI API integration path and
-may change or stop working without notice. Prefer OpenAI-compatible API mode for
-stable integrations.
-
-## Portable updater behavior
-
-Portable startup launchers only start the local WebUI server and open the local
-browser URL by default. They contact GitHub only when the user chooses the
-update check action from the tray/menu-bar menu.
-
-Standard app packages do not silently self-replace app files. Updater-enabled
-macOS standard apps can perform a user-confirmed one-click replacement after
-verifying the signed manifest and DMG SHA256; older macOS apps and Windows
-standard ZIP packages open the matching download for manual replacement.
-
-Portable update scripts can be started by the launcher after user confirmation,
-or run manually from the extracted package. They fetch the published signed
-`latest.json` update manifest and the matching portable zip, verify the Ed25519
-manifest signature and manifest SHA256, preserve local `data/`, only replace
-package-managed files inside the extracted portable folder, keep backups under
-`.backup/`, and restart the launcher when started in automatic mode.
-
-## Reporting issues
-
-Please report security issues privately to the maintainer instead of opening a
-public issue containing credentials, tokens, private prompts, or private images.
+报告疑似漏洞时，请附上部署方式、复现步骤和影响范围，不要在公开 issue 中粘贴凭据或个人数据。

@@ -1,0 +1,94 @@
+name: Server Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Docker image tag to publish
+        required: true
+        default: latest
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  release-gate:
+    name: Verify server-only release gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: jd_image_test
+          POSTGRES_USER: jd_image
+          POSTGRES_PASSWORD: jd_image_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U jd_image -d jd_image_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      JD_IMAGE_TEST_DATABASE_URL: postgresql://jd_image:jd_image_test@127.0.0.1:5432/jd_image_test
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install server dependencies and PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+          python3 -m pip install -r requirements-server.txt
+      - name: Run server test gate
+        run: >-
+          python3 -m unittest
+          tests.test_server_health
+          tests.test_server_auth
+          tests.test_server_providers
+          tests.test_server_tasks
+          tests.test_server_scheduler
+          tests.test_server_assets
+          tests.test_server_shared_assets
+          tests.test_server_department_providers
+          tests.test_server_admin_views
+          tests.test_server_maintenance
+          tests.test_server_user_lifecycle
+          -v
+      - name: Run static release gate
+        run: python3 scripts/release_gate.py --static-only
+      - name: Validate Compose service topology
+        env:
+          JD_IMAGE_MASTER_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        run: docker compose -f compose.server.yml config --services
+      - name: Check public export boundaries
+        run: |
+          test ! -e AGENTS.md
+          test ! -e DESIGN.md
+          test ! -d docs/superpowers
+
+  server-image:
+    name: Build server image
+    runs-on: ubuntu-latest
+    needs: [release-gate]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push server image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.server
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/jd-image-web-ui:${{ inputs.image_tag }}

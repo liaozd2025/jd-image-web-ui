@@ -5,15 +5,20 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY requirements-webui.txt ./
-RUN python -m pip install --no-cache-dir --upgrade pip \
-    && python -m pip install --no-cache-dir -r requirements-webui.txt
+COPY requirements-server.txt ./
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y postgresql-client \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m pip install --no-cache-dir --upgrade pip \
+    && python -m pip install --no-cache-dir -r requirements-server.txt
 
 COPY codex_image ./codex_image
+RUN rm -rf codex_image/webui codex_image/auth.py codex_image/cli.py codex_image/__main__.py
 RUN groupadd --gid 10001 app \
     && useradd --uid 10001 --gid app --no-create-home app \
     && mkdir -p /srv/jd-image-data \
-    && chown app:app /srv/jd-image-data
+    && mkdir -p /srv/jd-image-backups \
+    && chown -R app:app /srv/jd-image-data /srv/jd-image-backups
 
 USER app
 

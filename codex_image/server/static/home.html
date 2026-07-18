@@ -51,6 +51,18 @@
         <div id="user-list" class="item-list" aria-live="polite"></div>
       </section>
 
+      <section id="admin-readonly-view" class="panel" hidden>
+        <div class="panel-heading">
+          <div>
+            <h2>管理员只读查看</h2>
+            <p id="admin-view-target">请选择一个用户查看任务、资产和用量；查看行为会写入审计。</p>
+          </div>
+        </div>
+        <div id="admin-view-summary" class="item-list" aria-live="polite"></div>
+        <div id="admin-view-tasks" class="item-list" aria-live="polite"></div>
+        <div id="admin-view-assets" class="item-list" aria-live="polite"></div>
+      </section>
+
       <section id="provider-management" class="panel">
         <div class="panel-heading">
           <div>
@@ -156,6 +168,7 @@
             <option value="interrupted">已中断</option>
             <option value="completed">已完成</option>
             <option value="failed">失败</option>
+            <option value="cancelled">已取消</option>
           </select>
           <button id="download-task-archive" class="secondary-button compact" type="button">下载选中 ZIP</button>
           <button id="show-task-trash" class="secondary-button compact" type="button">任务回收站</button>

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 from psycopg.rows import dict_row
@@ -9,6 +10,7 @@ from .audit import record_audit_event
 from .database import PostgresConnections
 from .provider_secrets import MasterKeyMismatch, ProviderSecretCipher
 from .providers import ProviderVersionInactive, ProviderVersionNotFound
+from .maintenance import assert_writes_allowed
 
 
 class DepartmentCredentialNotFound(RuntimeError):
@@ -52,6 +54,7 @@ class DepartmentProviderRepository:
         condition = "AND credentials.is_active" if active_only else ""
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     f"""
                     SELECT credentials.provider_version_id, versions.provider_key,
@@ -71,6 +74,7 @@ class DepartmentProviderRepository:
     def save_credential(self, actor_user_id: str, *, provider_version_id: str, api_key: str) -> DepartmentProviderCredential:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     "SELECT provider_key, version_number, display_name, is_active FROM provider_catalog_versions WHERE provider_version_id = %s FOR UPDATE",
                     (provider_version_id,),
@@ -124,6 +128,7 @@ class DepartmentProviderRepository:
     def set_active(self, actor_user_id: str, *, provider_version_id: str, is_active: bool) -> DepartmentProviderCredential:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     """
                     UPDATE department_provider_credentials AS credentials
@@ -154,6 +159,7 @@ class DepartmentProviderRepository:
     def resolve_api_key(self, *, provider_version_id: str) -> str:
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     """
                     SELECT encrypted_api_key
@@ -178,6 +184,7 @@ class DepartmentProviderRepository:
     def quota(self, user_id: str) -> DepartmentQuota:
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     """
                     SELECT settings.period_start, settings.period_end, settings.quota_units,
@@ -208,10 +215,25 @@ class DepartmentProviderRepository:
     def reserve(self, user_id: str, units: int = 1) -> str:
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
-                cursor.execute("SELECT period_start, period_end, quota_units FROM department_quota_settings WHERE singleton FOR UPDATE")
+                assert_writes_allowed(cursor)
+                cursor.execute(
+                    "SELECT period_start, period_end, quota_units FROM department_quota_settings WHERE singleton FOR UPDATE"
+                )
                 settings = cursor.fetchone()
                 if settings is None:
                     raise DepartmentQuotaExceeded("department quota settings were not initialized")
+                if settings[1] <= date.today():
+                    cursor.execute(
+                        """
+                        UPDATE department_quota_settings
+                        SET period_start = CURRENT_DATE,
+                            period_end = CURRENT_DATE + 30,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE singleton
+                        RETURNING period_start, period_end, quota_units
+                        """
+                    )
+                    settings = cursor.fetchone()
                 cursor.execute(
                     "SELECT quota_units FROM department_user_quotas WHERE user_id = %s",
                     (user_id,),
@@ -229,13 +251,25 @@ class DepartmentProviderRepository:
                     (user_id, settings[0], units),
                 )
                 usage = cursor.fetchone()
+                cursor.execute(
+                    """
+                    SELECT COALESCE(SUM(reserved_units + consumed_units), 0)
+                    FROM department_usage
+                    WHERE period_start = %s
+                    """,
+                    (settings[0],),
+                )
+                global_used = int(cursor.fetchone()[0])
                 if int(usage[0]) + int(usage[1]) > min(int(settings[2]), user_quota):
                     raise DepartmentQuotaExceeded("department quota exceeded")
+                if global_used > int(settings[2]):
+                    raise DepartmentQuotaExceeded("department global quota exceeded")
                 return settings[0].isoformat()
 
     def settle(self, user_id: str, period_start: str, *, units: int = 1, consumed: bool) -> None:
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     """
                     UPDATE department_usage
@@ -249,6 +283,7 @@ class DepartmentProviderRepository:
     def set_global_quota(self, actor_user_id: str, quota_units: int) -> DepartmentQuota:
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     "UPDATE department_quota_settings SET quota_units = %s, updated_at = CURRENT_TIMESTAMP WHERE singleton",
                     (quota_units,),
@@ -259,6 +294,7 @@ class DepartmentProviderRepository:
     def set_user_quota(self, actor_user_id: str, user_id: str, quota_units: int) -> DepartmentQuota:
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     "INSERT INTO department_user_quotas (user_id, quota_units) VALUES (%s, %s) ON CONFLICT (user_id) DO UPDATE SET quota_units = EXCLUDED.quota_units, updated_at = CURRENT_TIMESTAMP",
                     (user_id, quota_units),

@@ -36,45 +36,15 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install WebUI dependencies
+      - name: Install server dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
           python -m pip install --upgrade pip
-          python -m pip install -r requirements-webui.txt
-
-      - name: Install frontend test dependencies
-        run: npm ci
+          python -m pip install -r requirements-server.txt
 
       - name: Run Python tests
         run: python -m unittest discover -s tests -v
-
-  webui-build:
-    name: WebUI typecheck and build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Check WebUI frontend
-        run: npm run check:webui
-
-      - name: Ensure generated frontend assets are committed
-        run: git diff --exit-code -- codex_image/webui/static
 
   server-runtime:
     name: Server runtime and Compose smoke
@@ -108,8 +78,10 @@ jobs:
 
       - name: Install server dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
           python -m pip install --upgrade pip
-          python -m pip install -r requirements-webui.txt
+          python -m pip install -r requirements-server.txt
 
       - name: Test server health, authentication, providers and user lifecycle with real PostgreSQL
         run: >-
@@ -118,6 +90,12 @@ jobs:
           tests.test_server_auth
           tests.test_server_providers
           tests.test_server_tasks
+          tests.test_server_scheduler
+          tests.test_server_assets
+          tests.test_server_shared_assets
+          tests.test_server_department_providers
+          tests.test_server_admin_views
+          tests.test_server_maintenance
           tests.test_server_user_lifecycle
           -v
 
@@ -126,9 +104,19 @@ jobs:
           JD_IMAGE_RUN_COMPOSE_SMOKE: "1"
         run: python -m unittest tests.test_server_compose_smoke -v
 
+  release-gate:
+    name: Server-only release gate
+    runs-on: ubuntu-latest
+    needs: [python-tests, server-runtime]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Run static release gate
+        run: python scripts/release_gate.py --static-only
+
   public-export-guard:
     name: Public export guard
-    if: github.repository == 'kadevin/ilab-gpt-conjure'
+    if: github.repository == 'liaozd2025/jd-image-web-ui'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

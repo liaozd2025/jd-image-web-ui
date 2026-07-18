@@ -10,8 +10,4 @@ Before opening a pull request:
 
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
-npm run check:webui
 ```
-
-Frontend TypeScript and CSS changes should include the generated static assets
-under `codex_image/webui/static/`.

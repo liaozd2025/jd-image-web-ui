@@ -294,6 +294,10 @@ def _quota_payload(quota: Any) -> dict[str, int]:
 
 
 def _version_payload(version: AssetVersion) -> dict[str, object]:
+    return _version_payload_with_prefix(version)
+
+
+def _version_payload_with_prefix(version: AssetVersion, *, url_prefix: str = "/api/assets") -> dict[str, object]:
     return {
         "asset_version_id": version.asset_version_id,
         "asset_id": version.asset_id,
@@ -303,7 +307,7 @@ def _version_payload(version: AssetVersion) -> dict[str, object]:
         "sha256": version.sha256,
         "byte_size": version.byte_size,
         "created_at": version.created_at,
-        "download_url": f"/api/assets/{version.asset_id}/versions/{version.asset_version_id}/download",
+        "download_url": f"{url_prefix}/{version.asset_id}/versions/{version.asset_version_id}/download",
     }
 
 
@@ -312,6 +316,7 @@ def _asset_payload(
     *,
     versions: list[AssetVersion] | None = None,
     include_versions: bool,
+    url_prefix: str = "/api/assets",
 ) -> dict[str, object]:
     payload: dict[str, object] = {
         "asset_id": asset.asset_id,
@@ -324,10 +329,18 @@ def _asset_payload(
         "updated_at": asset.updated_at,
         "current_version_id": asset.current_version_id,
         "download_url": (
-            f"/api/assets/{asset.asset_id}/download" if asset.current_version_id and asset.deleted_at is None else None
+            f"{url_prefix}/{asset.asset_id}/download"
+            if asset.current_version_id and (asset.deleted_at is None or url_prefix.startswith("/api/admin/"))
+            else None
         ),
-        "current_version": _version_payload(asset.current_version) if asset.current_version else None,
+        "current_version": (
+            _version_payload_with_prefix(asset.current_version, url_prefix=url_prefix)
+            if asset.current_version else None
+        ),
     }
     if include_versions:
-        payload["versions"] = [_version_payload(version) for version in (versions or [])]
+        payload["versions"] = [
+            _version_payload_with_prefix(version, url_prefix=url_prefix)
+            for version in (versions or [])
+        ]
     return payload

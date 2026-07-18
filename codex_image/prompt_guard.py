@@ -12,26 +12,19 @@ def extract_prompt_constraints(prompt: str) -> list[str]:
     text = _clean_text(prompt)
     if not text:
         return []
-
     constraints: list[str] = []
-    clauses = _prompt_clauses(text)
-
-    for clause in clauses:
+    for clause in _prompt_clauses(text):
         if _is_title_font_constraint(clause):
             constraints.append(f"标题字体/标题设计：{clause}")
-
         audience = _target_audience(clause)
         if audience:
             constraints.append(f"目标人群：{audience}")
-
         color = _color_constraint(clause)
         if color:
             constraints.append(f"色彩：{color}")
-
     limit = _limit_constraint(text)
     if limit:
         constraints.append(limit)
-
     return _dedupe(constraints)
 
 

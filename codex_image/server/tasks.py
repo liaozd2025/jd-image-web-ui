@@ -16,9 +16,10 @@ from .database import PostgresConnections
 from .department_providers import DepartmentCredentialNotFound, DepartmentProviderRepository, DepartmentQuotaExceeded
 from .provider_secrets import MasterKeyMismatch, ProviderSecretCipher
 from .shared_assets import SharedAssetRepository
+from .maintenance import assert_writes_allowed
 
 
-TaskStatus = Literal["queued", "running", "interrupted", "completed", "failed"]
+TaskStatus = Literal["queued", "running", "interrupted", "completed", "failed", "cancelled"]
 
 
 class TaskConfigurationError(RuntimeError):
@@ -59,6 +60,9 @@ class GenerationTask:
     updated_at: str
     deleted_at: str | None
     purge_after: str | None
+    cancel_requested: bool
+    cancel_requested_at: str | None
+    cancelled_at: str | None
     quota_units: int
     quota_period_start: str | None
 
@@ -66,6 +70,7 @@ class GenerationTask:
 @dataclass(frozen=True)
 class ClaimedGenerationTask:
     task: GenerationTask
+    attempt_id: str
     api_mode: Literal["responses", "images"] | None
     base_url: str | None
     api_key: str | None
@@ -125,6 +130,7 @@ class GenerationTaskRepository:
                 raise TaskConfigurationError(str(error)) from error
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 if provider_scope == "department":
                     cursor.execute(
                         """
@@ -196,10 +202,15 @@ class GenerationTaskRepository:
                     try:
                         self.assets.ensure_capacity_cursor(cursor, user_id, len(input_content))
                     except (AssetNotFound, AssetQuotaExceeded, AssetValidationError) as error:
+                        self._release_department_reservation(user_id, quota_period_start)
                         raise TaskConfigurationError(str(error)) from error
                 temporary_path = input_path.with_name(f".{input_path.name}.{uuid4().hex}.tmp")
-                temporary_path.write_bytes(input_content)
-                temporary_path.replace(input_path)
+                try:
+                    temporary_path.write_bytes(input_content)
+                    temporary_path.replace(input_path)
+                except Exception:
+                    self._release_department_reservation(user_id, quota_period_start)
+                    raise
                 try:
                     cursor.execute(
                         """
@@ -243,6 +254,7 @@ class GenerationTaskRepository:
                     )
                 except Exception:
                     input_path.unlink(missing_ok=True)
+                    self._release_department_reservation(user_id, quota_period_start)
                     raise
         return self._task_from_row(row)
 
@@ -294,32 +306,218 @@ class GenerationTaskRepository:
 
     def resubmit_task(self, user_id: str, task_id: str) -> GenerationTask:
         task = self.get_task(user_id, task_id)
-        if task.status not in {"failed", "interrupted"}:
+        if task.status not in {"failed", "interrupted", "cancelled"}:
             raise TaskConfigurationError("task is not retryable")
         try:
-            input_content = self.input_path(task).read_bytes()
+            self.input_path(task).stat()
         except (OSError, TaskNotFound) as error:
             raise TaskConfigurationError("task input is unavailable") from error
-        return self.create_task(
-            user_id,
-            provider_version_id=task.provider_version_id,
-            model_id=task.model_id,
-            prompt=task.prompt,
-            request_parameters=task.request_parameters,
-            input_bytes=input_content,
-            input_media_type=task.input_media_type,
-            asset_version_ids=[
-                str(snapshot["asset_version_id"])
-                for snapshot in task.asset_versions
-                if snapshot.get("asset_version_id")
-            ],
-            shared_asset_version_ids=[
-                str(snapshot["asset_version_id"])
-                for snapshot in task.shared_asset_versions
-                if snapshot.get("asset_version_id")
-            ],
-            provider_scope=task.provider_scope,
-        )
+        quota_period_start: str | None = None
+        if task.provider_scope == "department":
+            if self.departments is None:
+                raise TaskConfigurationError("department provider is unavailable")
+            try:
+                quota_period_start = self.departments.reserve(user_id, task.quota_units)
+            except DepartmentQuotaExceeded as error:
+                raise TaskConfigurationError(str(error)) from error
+        try:
+            with self.connections.connect() as connection:
+                with connection.cursor(row_factory=dict_row) as cursor:
+                    assert_writes_allowed(cursor)
+                    cursor.execute(
+                        """
+                        UPDATE server_generation_tasks
+                        SET status = 'queued', started_at = NULL, completed_at = NULL,
+                            cancel_requested = FALSE, cancel_requested_at = NULL, cancelled_at = NULL,
+                            error_message = NULL, result_relative_path = NULL,
+                            thumbnail_relative_path = NULL, thumbnail_bytes = NULL,
+                            result_media_type = NULL, result_sha256 = NULL, result_bytes = NULL,
+                            revised_prompt = NULL, storage_purged_at = NULL,
+                            quota_period_start = COALESCE(%s, quota_period_start),
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE task_id = %s AND user_id = %s
+                          AND status IN ('failed', 'interrupted', 'cancelled')
+                        RETURNING *
+                        """,
+                        (quota_period_start, task_id, user_id),
+                    )
+                    row = cursor.fetchone()
+                    if row is None:
+                        raise TaskConfigurationError("task is no longer retryable")
+                    record_audit_event(
+                        cursor,
+                        action="task.resubmitted",
+                        actor_user_id=user_id,
+                        subject_user_id=user_id,
+                        details={"task_id": task_id},
+                    )
+            return self._task_from_row(row)
+        except Exception:
+            if quota_period_start and self.departments is not None:
+                self.departments.settle(user_id, quota_period_start, units=task.quota_units, consumed=False)
+            raise
+
+    def list_attempts(self, user_id: str, task_id: str) -> list[dict[str, object]]:
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                cursor.execute(
+                    """
+                    SELECT attempts.*
+                    FROM server_generation_task_attempts AS attempts
+                    JOIN server_generation_tasks AS tasks ON tasks.task_id = attempts.task_id
+                    WHERE tasks.user_id = %s AND attempts.task_id = %s
+                    ORDER BY attempts.attempt_number ASC
+                    """,
+                    (user_id, task_id),
+                )
+                rows = cursor.fetchall()
+        return [
+            {
+                "attempt_id": row["attempt_id"],
+                "attempt_number": int(row["attempt_number"]),
+                "provider_version_id": row["provider_version_id"],
+                "provider_scope": row["provider_scope"],
+                "status": row["status"],
+                "started_at": row["started_at"].isoformat(),
+                "completed_at": row["completed_at"].isoformat() if row["completed_at"] else None,
+                "error_message": row["error_message"],
+                "result_relative_path": row["result_relative_path"],
+                "result_sha256": row["result_sha256"],
+                "result_bytes": row["result_bytes"],
+            }
+            for row in rows
+        ]
+
+    def attempt_result_path(self, user_id: str, task_id: str, attempt_id: str) -> Path:
+        task = self.get_task(user_id, task_id)
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                cursor.execute(
+                    """
+                    SELECT attempts.result_relative_path
+                    FROM server_generation_task_attempts AS attempts
+                    JOIN server_generation_tasks AS tasks ON tasks.task_id = attempts.task_id
+                    WHERE tasks.user_id = %s AND tasks.deleted_at IS NULL
+                      AND attempts.task_id = %s AND attempts.attempt_id = %s
+                    """,
+                    (user_id, task_id, attempt_id),
+                )
+                row = cursor.fetchone()
+        if row is None or not row["result_relative_path"]:
+            raise TaskNotFound("attempt result was not found")
+        return self._artifact_path(task, str(row["result_relative_path"]))
+
+    def cancel_task(self, user_id: str, task_id: str) -> GenerationTask:
+        release_quota: tuple[str, str, int] | None = None
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
+                cursor.execute(
+                    "SELECT * FROM server_generation_tasks WHERE user_id = %s AND task_id = %s FOR UPDATE",
+                    (user_id, task_id),
+                )
+                task_row = cursor.fetchone()
+                if task_row is None:
+                    raise TaskNotFound("task was not found")
+                status = task_row["status"]
+                if status not in {"queued", "running"}:
+                    raise TaskConfigurationError("task is not cancellable")
+                if status == "queued":
+                    cursor.execute(
+                        """
+                        UPDATE server_generation_tasks
+                        SET status = 'cancelled', cancelled_at = CURRENT_TIMESTAMP,
+                            completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP,
+                            error_message = 'task cancelled by user'
+                        WHERE task_id = %s
+                        RETURNING *
+                        """,
+                        (task_id,),
+                    )
+                    row = cursor.fetchone()
+                    if task_row["quota_period_start"]:
+                        release_quota = (
+                            user_id,
+                            task_row["quota_period_start"].isoformat(),
+                            int(task_row.get("quota_units") or 1),
+                        )
+                    action = "task.cancelled"
+                else:
+                    if task_row["cancel_requested"]:
+                        row = task_row
+                        action = None
+                    else:
+                        cursor.execute(
+                            """
+                            UPDATE server_generation_tasks
+                            SET cancel_requested = TRUE, cancel_requested_at = CURRENT_TIMESTAMP,
+                                updated_at = CURRENT_TIMESTAMP
+                            WHERE task_id = %s AND status = 'running' AND cancel_requested = FALSE
+                            RETURNING *
+                            """,
+                            (task_id,),
+                        )
+                        row = cursor.fetchone()
+                        action = "task.cancel_requested"
+                if row is None:
+                    raise TaskNotFound("task was not found")
+                if action:
+                    record_audit_event(
+                        cursor,
+                        action=action,
+                        actor_user_id=user_id,
+                        subject_user_id=user_id,
+                        details={"task_id": task_id},
+                    )
+        if release_quota and self.departments is not None:
+            self.departments.settle(
+                release_quota[0],
+                release_quota[1],
+                units=release_quota[2],
+                consumed=False,
+            )
+        return self._task_from_row(row)
+
+    def cancel_claimed_task(self, task: GenerationTask, *, attempt_id: str) -> GenerationTask:
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
+                cursor.execute(
+                    """
+                    UPDATE server_generation_tasks
+                    SET status = 'cancelled', cancel_requested = FALSE,
+                        cancelled_at = CURRENT_TIMESTAMP, completed_at = CURRENT_TIMESTAMP,
+                        updated_at = CURRENT_TIMESTAMP,
+                        error_message = 'task cancelled by user'
+                    WHERE task_id = %s AND status = 'running' AND cancel_requested = TRUE
+                      AND EXISTS (
+                          SELECT 1 FROM server_generation_task_attempts
+                          WHERE attempt_id = %s AND task_id = %s AND status = 'running'
+                      )
+                    RETURNING *
+                    """,
+                    (task.task_id, attempt_id, task.task_id),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    raise TaskNotFound("running task was not found")
+                cursor.execute(
+                    """
+                    UPDATE server_generation_task_attempts
+                    SET status = 'cancelled', completed_at = CURRENT_TIMESTAMP,
+                        updated_at = CURRENT_TIMESTAMP, error_message = 'task cancelled by user'
+                    WHERE attempt_id = %s AND task_id = %s AND status = 'running'
+                    """,
+                    (attempt_id, task.task_id),
+                )
+                record_audit_event(
+                    cursor,
+                    action="task.cancelled",
+                    actor_user_id=None,
+                    subject_user_id=task.user_id,
+                    details={"task_id": task.task_id},
+                )
+        return self._task_from_row(row)
 
     def soft_delete_task(self, user_id: str, task_id: str) -> GenerationTask:
         task = self.get_task(user_id, task_id)
@@ -327,6 +525,7 @@ class GenerationTaskRepository:
             raise TaskConfigurationError("task is still active")
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     """
                     UPDATE server_generation_tasks
@@ -353,11 +552,13 @@ class GenerationTaskRepository:
     def restore_task(self, user_id: str, task_id: str) -> GenerationTask:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     """
                     UPDATE server_generation_tasks
                     SET deleted_at = NULL, purge_after = NULL, updated_at = CURRENT_TIMESTAMP
                     WHERE task_id = %s AND user_id = %s AND deleted_at IS NOT NULL
+                      AND storage_purged_at IS NULL
                     RETURNING *
                     """,
                     (task_id, user_id),
@@ -384,9 +585,18 @@ class GenerationTaskRepository:
             consumed=consumed,
         )
 
+    def _release_department_reservation(self, user_id: str, period_start: str | None) -> None:
+        if period_start and self.departments is not None:
+            try:
+                self.departments.settle(user_id, period_start, units=1, consumed=False)
+            except Exception:
+                # Preserve the original submission error; reconciliation can repair a stale reservation.
+                pass
+
     def claim_next_task(self) -> ClaimedGenerationTask | None:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     "SELECT global_concurrency, per_user_concurrency FROM server_scheduler_settings WHERE singleton FOR UPDATE"
                 )
@@ -404,6 +614,9 @@ class GenerationTaskRepository:
                         department_credentials.encrypted_api_key AS department_encrypted_api_key,
                         tasks.provider_scope, tasks.quota_period_start
                     FROM server_generation_tasks AS tasks
+                    JOIN server_users AS users
+                      ON users.user_id = tasks.user_id
+                     AND users.is_active = TRUE
                     JOIN provider_catalog_versions AS versions
                       ON versions.provider_version_id = tasks.provider_version_id
                     LEFT JOIN personal_provider_credentials AS credentials
@@ -416,6 +629,11 @@ class GenerationTaskRepository:
                     LEFT JOIN server_scheduler_user_state AS scheduler_state
                       ON scheduler_state.user_id = tasks.user_id
                     WHERE tasks.status = 'queued' AND tasks.deleted_at IS NULL
+                      AND versions.is_active = TRUE
+                      AND (
+                          (tasks.provider_scope = 'personal' AND credentials.encrypted_api_key IS NOT NULL)
+                          OR (tasks.provider_scope = 'department' AND department_credentials.encrypted_api_key IS NOT NULL)
+                      )
                       AND (
                           SELECT COUNT(*) FROM server_generation_tasks AS running_tasks
                           WHERE running_tasks.status = 'running'
@@ -430,7 +648,7 @@ class GenerationTaskRepository:
                     FOR UPDATE OF tasks SKIP LOCKED
                     LIMIT 1
                     """,
-                    (limits[0], limits[1]),
+                    (limits["global_concurrency"], limits["per_user_concurrency"]),
                 )
                 row = cursor.fetchone()
                 if row is None:
@@ -446,6 +664,25 @@ class GenerationTaskRepository:
                     (row["task_id"],),
                 )
                 task = self._task_from_row(cursor.fetchone())
+                cursor.execute(
+                    """
+                    INSERT INTO server_generation_task_attempts (
+                        attempt_id, task_id, attempt_number, provider_version_id, provider_scope, status
+                    )
+                    SELECT %s, task_id,
+                           COALESCE((
+                               SELECT MAX(previous_attempts.attempt_number)
+                               FROM server_generation_task_attempts AS previous_attempts
+                               WHERE previous_attempts.task_id = server_generation_tasks.task_id
+                           ), 0) + 1,
+                           provider_version_id, provider_scope, 'running'
+                    FROM server_generation_tasks
+                    WHERE task_id = %s
+                    RETURNING attempt_id
+                    """,
+                    (str(uuid4()), task.task_id),
+                )
+                attempt_id = cursor.fetchone()["attempt_id"]
                 cursor.execute(
                     """
                     INSERT INTO server_scheduler_user_state (user_id, last_claimed_at)
@@ -486,6 +723,7 @@ class GenerationTaskRepository:
                         )
                 return ClaimedGenerationTask(
                     task=task,
+                    attempt_id=attempt_id,
                     api_mode=cast(Literal["responses", "images"] | None, row["api_mode"]),
                     base_url=row["base_url"],
                     api_key=api_key,
@@ -493,9 +731,14 @@ class GenerationTaskRepository:
                     quota_period_start=row["quota_period_start"].isoformat() if row["quota_period_start"] else None,
                 )
 
-    def reconcile_running_tasks(self) -> int:
+    def reconcile_running_tasks(self) -> list[GenerationTask]:
         with self.connections.connect() as connection:
-            with connection.cursor() as cursor:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
+                cursor.execute(
+                    "SELECT * FROM server_generation_tasks WHERE status = 'running' FOR UPDATE"
+                )
+                interrupted = [self._task_from_row(row) for row in cursor.fetchall()]
                 cursor.execute(
                     """
                     UPDATE server_generation_tasks
@@ -505,17 +748,53 @@ class GenerationTaskRepository:
                     WHERE status = 'running'
                     """
                 )
-                return cursor.rowcount
+                cursor.execute(
+                    """
+                    UPDATE server_generation_task_attempts
+                    SET status = 'interrupted', completed_at = CURRENT_TIMESTAMP,
+                        updated_at = CURRENT_TIMESTAMP,
+                        error_message = 'worker interrupted before completion'
+                    WHERE status = 'running'
+                    """
+                )
+                return interrupted
 
     def complete_task(
         self,
         task: GenerationTask,
         *,
+        attempt_id: str,
         image_bytes: bytes,
         output_format: str,
         revised_prompt: str,
     ) -> GenerationTask:
-        relative_path = Path("tasks") / task.user_id / f"{task.task_id}.{_safe_extension(output_format)}"
+        # Hold a shared lock on the maintenance row across both file and DB writes.
+        # Maintenance acquisition uses FOR UPDATE and therefore waits until the
+        # generated bytes and their database pointers are committed together.
+        with self.connections.connect() as guard_connection:
+            with guard_connection.cursor() as guard_cursor:
+                assert_writes_allowed(guard_cursor)
+                return self._complete_task_unlocked(
+                    task,
+                    attempt_id=attempt_id,
+                    image_bytes=image_bytes,
+                    output_format=output_format,
+                    revised_prompt=revised_prompt,
+                )
+
+    def _complete_task_unlocked(
+        self,
+        task: GenerationTask,
+        *,
+        attempt_id: str,
+        image_bytes: bytes,
+        output_format: str,
+        revised_prompt: str,
+    ) -> GenerationTask:
+        relative_path = (
+            Path("tasks") / task.user_id / task.task_id
+            / f"attempt-{attempt_id}.{_safe_extension(output_format)}"
+        )
         absolute_path = self.data_root / relative_path
         absolute_path.parent.mkdir(parents=True, exist_ok=True)
         thumbnail_relative_path = self._write_thumbnail(task, image_bytes)
@@ -532,6 +811,7 @@ class GenerationTaskRepository:
         try:
             with self.connections.connect() as connection:
                 with connection.cursor(row_factory=dict_row) as cursor:
+                    assert_writes_allowed(cursor)
                     if self.assets is not None:
                         self.assets.ensure_capacity_cursor(
                             cursor,
@@ -547,7 +827,11 @@ class GenerationTaskRepository:
                             result_media_type = %s, result_sha256 = %s,
                             result_bytes = %s, revised_prompt = %s,
                             completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-                        WHERE task_id = %s AND status = 'running'
+                        WHERE task_id = %s AND status = 'running' AND cancel_requested = FALSE
+                          AND EXISTS (
+                              SELECT 1 FROM server_generation_task_attempts
+                              WHERE attempt_id = %s AND task_id = %s AND status = 'running'
+                          )
                         RETURNING *
                         """,
                         (
@@ -559,11 +843,74 @@ class GenerationTaskRepository:
                             len(image_bytes),
                             revised_prompt,
                             task.task_id,
+                            attempt_id,
+                            task.task_id,
                         ),
                     )
                     row = cursor.fetchone()
                     if row is None:
-                        raise TaskNotFound("running task was not found")
+                        cursor.execute(
+                            """
+                            SELECT * FROM server_generation_tasks
+                            WHERE task_id = %s AND status = 'running' AND cancel_requested = TRUE
+                              AND EXISTS (
+                                  SELECT 1 FROM server_generation_task_attempts
+                                  WHERE attempt_id = %s AND task_id = %s AND status = 'running'
+                              )
+                            """,
+                            (task.task_id, attempt_id, task.task_id),
+                        )
+                        cancellation = cursor.fetchone()
+                        if cancellation is None:
+                            raise TaskNotFound("running task was not found")
+                        cursor.execute(
+                            """
+                            UPDATE server_generation_tasks
+                            SET status = 'cancelled', cancel_requested = FALSE,
+                                cancelled_at = CURRENT_TIMESTAMP, completed_at = CURRENT_TIMESTAMP,
+                                updated_at = CURRENT_TIMESTAMP,
+                                error_message = 'task cancelled by user'
+                            WHERE task_id = %s AND status = 'running' AND cancel_requested = TRUE
+                              AND EXISTS (
+                                  SELECT 1 FROM server_generation_task_attempts
+                                  WHERE attempt_id = %s AND task_id = %s AND status = 'running'
+                              )
+                            RETURNING *
+                            """,
+                            (task.task_id, attempt_id, task.task_id),
+                        )
+                        row = cursor.fetchone()
+                        cursor.execute(
+                            """
+                            UPDATE server_generation_task_attempts
+                            SET status = 'cancelled', completed_at = CURRENT_TIMESTAMP,
+                                updated_at = CURRENT_TIMESTAMP,
+                                error_message = 'task cancelled by user'
+                            WHERE attempt_id = %s AND task_id = %s AND status = 'running'
+                            """,
+                            (attempt_id, task.task_id),
+                        )
+                        record_audit_event(
+                            cursor,
+                            action="task.cancelled",
+                            actor_user_id=None,
+                            subject_user_id=task.user_id,
+                            details={"task_id": task.task_id},
+                        )
+                        absolute_path.unlink(missing_ok=True)
+                        if thumbnail_relative_path:
+                            (self.data_root / thumbnail_relative_path).unlink(missing_ok=True)
+                        return self._task_from_row(row)
+                    cursor.execute(
+                        """
+                        UPDATE server_generation_task_attempts
+                        SET status = 'completed', completed_at = CURRENT_TIMESTAMP,
+                            updated_at = CURRENT_TIMESTAMP, result_relative_path = %s,
+                            result_sha256 = %s, result_bytes = %s
+                        WHERE attempt_id = %s AND task_id = %s AND status = 'running'
+                        """,
+                        (relative_path.as_posix(), digest, len(image_bytes), attempt_id, task.task_id),
+                    )
                     record_audit_event(
                         cursor,
                         action="task.completed",
@@ -581,25 +928,92 @@ class GenerationTaskRepository:
             if thumbnail_relative_path:
                 (self.data_root / thumbnail_relative_path).unlink(missing_ok=True)
             raise
+        except Exception:
+            absolute_path.unlink(missing_ok=True)
+            if thumbnail_relative_path:
+                (self.data_root / thumbnail_relative_path).unlink(missing_ok=True)
+            raise
         return self._task_from_row(row)
 
-    def fail_task(self, task: GenerationTask, error_message: str) -> GenerationTask:
+    def fail_task(self, task: GenerationTask, *, attempt_id: str, error_message: str) -> GenerationTask:
         safe_message = " ".join(str(error_message).split())[:2000]
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     """
                     UPDATE server_generation_tasks
                     SET status = 'failed', error_message = %s,
                         completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-                    WHERE task_id = %s AND status = 'running'
+                    WHERE task_id = %s AND status = 'running' AND cancel_requested = FALSE
+                      AND EXISTS (
+                          SELECT 1 FROM server_generation_task_attempts
+                          WHERE attempt_id = %s AND task_id = %s AND status = 'running'
+                      )
                     RETURNING *
                     """,
-                    (safe_message or "provider request failed", task.task_id),
+                    (safe_message or "provider request failed", task.task_id, attempt_id, task.task_id),
                 )
                 row = cursor.fetchone()
                 if row is None:
-                    raise TaskNotFound("running task was not found")
+                    cursor.execute(
+                        """
+                        SELECT * FROM server_generation_tasks
+                        WHERE task_id = %s AND status = 'running' AND cancel_requested = TRUE
+                          AND EXISTS (
+                              SELECT 1 FROM server_generation_task_attempts
+                              WHERE attempt_id = %s AND task_id = %s AND status = 'running'
+                          )
+                        """,
+                        (task.task_id, attempt_id, task.task_id),
+                    )
+                    cancellation = cursor.fetchone()
+                    if cancellation is None:
+                        raise TaskNotFound("running task was not found")
+                    cursor.execute(
+                        """
+                        UPDATE server_generation_tasks
+                        SET status = 'cancelled', cancel_requested = FALSE,
+                            cancelled_at = CURRENT_TIMESTAMP, completed_at = CURRENT_TIMESTAMP,
+                            updated_at = CURRENT_TIMESTAMP,
+                            error_message = 'task cancelled by user'
+                        WHERE task_id = %s AND status = 'running' AND cancel_requested = TRUE
+                          AND EXISTS (
+                              SELECT 1 FROM server_generation_task_attempts
+                              WHERE attempt_id = %s AND task_id = %s AND status = 'running'
+                          )
+                        RETURNING *
+                        """,
+                        (task.task_id, attempt_id, task.task_id),
+                    )
+                    row = cursor.fetchone()
+                    cursor.execute(
+                        """
+                        UPDATE server_generation_task_attempts
+                        SET status = 'cancelled', completed_at = CURRENT_TIMESTAMP,
+                            updated_at = CURRENT_TIMESTAMP,
+                            error_message = 'task cancelled by user'
+                        WHERE attempt_id = %s AND task_id = %s AND status = 'running'
+                        """,
+                        (attempt_id, task.task_id),
+                    )
+                    record_audit_event(
+                        cursor,
+                        action="task.cancelled",
+                        actor_user_id=None,
+                        subject_user_id=task.user_id,
+                        details={"task_id": task.task_id},
+                    )
+                    return self._task_from_row(row)
+                cursor.execute(
+                    """
+                    UPDATE server_generation_task_attempts
+                    SET status = 'failed', completed_at = CURRENT_TIMESTAMP,
+                        updated_at = CURRENT_TIMESTAMP, error_message = %s
+                    WHERE attempt_id = %s AND task_id = %s AND status = 'running'
+                    """,
+                    (safe_message or "provider request failed", attempt_id, task.task_id),
+                )
                 record_audit_event(
                     cursor,
                     action="task.failed",
@@ -653,12 +1067,16 @@ class GenerationTaskRepository:
         root = self.data_root.resolve()
         tasks_root = (root / "tasks").resolve()
         user_root = (root / "tasks" / task.user_id).resolve()
+        attempt_root = (user_root / task.task_id).resolve()
         path = (root / relative_path).resolve()
         outside_tasks = tasks_root != path and tasks_root not in path.parents
         if (
             outside_tasks
-            or path.parent != user_root
-            or not path.name.startswith(f"{task.task_id}.")
+            or (path.parent != user_root and path.parent != attempt_root)
+            or not (
+                (path.parent == user_root and path.name.startswith(f"{task.task_id}."))
+                or (path.parent == attempt_root and path.name.startswith("attempt-"))
+            )
         ):
             raise TaskNotFound("task artifact path is invalid")
         return path
@@ -712,6 +1130,11 @@ class GenerationTaskRepository:
             updated_at=row["updated_at"].isoformat(),
             deleted_at=row.get("deleted_at").isoformat() if row.get("deleted_at") else None,
             purge_after=row.get("purge_after").isoformat() if row.get("purge_after") else None,
+            cancel_requested=bool(row.get("cancel_requested", False)),
+            cancel_requested_at=(
+                row.get("cancel_requested_at").isoformat() if row.get("cancel_requested_at") else None
+            ),
+            cancelled_at=row.get("cancelled_at").isoformat() if row.get("cancelled_at") else None,
             quota_units=int(row.get("quota_units") or 1),
             quota_period_start=row.get("quota_period_start").isoformat() if row.get("quota_period_start") else None,
         )

@@ -31,6 +31,11 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0014_shared_assets",
     "0015_department_providers_and_quota",
     "0016_scheduler_limits",
+    "0017_task_attempts_and_cancellation",
+    "0018_maintenance_lock",
+    "0019_storage_purge_markers",
+    "0020_migration_checksums",
+    "0021_worker_leases",
 ]
 
 

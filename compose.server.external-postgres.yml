@@ -1,0 +1,14 @@
+services:
+  postgres:
+    profiles:
+      - internal-only
+
+  web:
+    environment:
+      JD_IMAGE_DATABASE_URL: ${JD_IMAGE_DATABASE_URL:?JD_IMAGE_DATABASE_URL is required for external PostgreSQL}
+    depends_on: []
+
+  worker:
+    environment:
+      JD_IMAGE_DATABASE_URL: ${JD_IMAGE_DATABASE_URL:?JD_IMAGE_DATABASE_URL is required for external PostgreSQL}
+    depends_on: []

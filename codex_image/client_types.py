@@ -5,14 +5,11 @@ import binascii
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Any, Literal, Protocol
+from typing import Any, Literal
 from urllib.parse import urlsplit, urlunsplit
 
-from .auth import AuthState
 from .version import APP_VERSION
 
-DEFAULT_RESPONSES_URL = "https://chatgpt.com/backend-api/codex/responses"
-DEFAULT_CODEX_IMAGES_BASE_URL = "https://chatgpt.com/backend-api/codex"
 DEFAULT_OPENAI_API_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_MAIN_MODEL = "gpt-5.4-mini"
 DEFAULT_IMAGE_MODEL = "gpt-image-2"
@@ -256,14 +253,3 @@ def safe_responses_error_message(status: int, body: str) -> str:
     if len(result) > RESPONSES_ERROR_MESSAGE_LIMIT:
         result = f"{result[: RESPONSES_ERROR_MESSAGE_LIMIT - 3]}..."
     return result
-
-
-class AuthProvider(Protocol):
-    def next_auth_state(self) -> AuthState:
-        ...
-
-    def next_auth_state_after_unauthorized(self, current_state: AuthState) -> AuthState | None:
-        ...
-
-    def available_count(self) -> int:
-        ...

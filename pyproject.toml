@@ -1,10 +1,9 @@
 [project]
 name = "ilab-gpt-conjure"
 version = "0.1.0"
-description = "Local-first image generation workbench with WebUI and CLI."
+description = "Server-only image generation Web application with PostgreSQL and Worker."
 requires-python = ">=3.11"
 
 license = "AGPL-3.0-only"
 [project.scripts]
-codex-image = "codex_image.cli:main_entry"
 jd-image-ops = "codex_image.server.ops:main_entry"

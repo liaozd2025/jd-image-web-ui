@@ -101,6 +101,36 @@ class ServerRuntimeRepository:
                     """,
                     (volume_id, instance_id, ready),
                 )
+                cursor.execute(
+                    """
+                    INSERT INTO server_worker_leases (
+                        component, volume_id, instance_id, ready, heartbeat_at
+                    ) VALUES ('worker', %s, %s, %s, CURRENT_TIMESTAMP)
+                    ON CONFLICT (component, volume_id, instance_id) DO UPDATE SET
+                        ready = EXCLUDED.ready,
+                        heartbeat_at = EXCLUDED.heartbeat_at
+                    """,
+                    (volume_id, instance_id, ready),
+                )
+
+    def worker_is_alive(self, *, volume_id: str, ttl_seconds: float, instance_id: str | None = None) -> bool:
+        with self.connections.connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM server_worker_leases
+                        WHERE component = 'worker' AND volume_id = %s
+                          AND ready
+                          AND heartbeat_at >= CURRENT_TIMESTAMP - (%s * INTERVAL '1 second')
+                          AND (%s::text IS NULL OR instance_id <> %s)
+                    )
+                    """,
+                    (volume_id, ttl_seconds, instance_id, instance_id),
+                )
+                row = cursor.fetchone()
+        return bool(row and row[0])
 
     @staticmethod
     def _database_unavailable() -> DatabaseHealth:

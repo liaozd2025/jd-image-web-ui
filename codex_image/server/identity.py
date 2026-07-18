@@ -12,6 +12,7 @@ from psycopg.rows import dict_row
 
 from .audit import record_audit_event
 from .database import PostgresConnections
+from .maintenance import MaintenanceLockError, assert_writes_allowed
 from .security import (
     CredentialValidationError,
     consume_dummy_password_work,
@@ -138,6 +139,7 @@ class IdentityRepository:
         )
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute("SELECT pg_advisory_xact_lock(%s)", (ADMIN_BOOTSTRAP_LOCK_ID,))
                 cursor.execute("SELECT EXISTS (SELECT 1 FROM server_users)")
                 if cursor.fetchone()[0]:
@@ -184,6 +186,7 @@ class IdentityRepository:
 
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     """
                     SELECT
@@ -303,6 +306,7 @@ class IdentityRepository:
     ) -> SessionCredentials:
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
+                assert_writes_allowed(cursor)
                 return self._insert_session(
                     cursor,
                     user,
@@ -338,14 +342,19 @@ class IdentityRepository:
                 )
                 row = cursor.fetchone()
                 if row is not None:
-                    cursor.execute(
-                        """
-                        UPDATE server_sessions
-                        SET last_seen_at = CURRENT_TIMESTAMP
-                        WHERE token_hash = %s
-                        """,
-                        (token_hash,),
-                    )
+                    try:
+                        assert_writes_allowed(cursor)
+                    except MaintenanceLockError:
+                        pass
+                    else:
+                        cursor.execute(
+                            """
+                            UPDATE server_sessions
+                            SET last_seen_at = CURRENT_TIMESTAMP
+                            WHERE token_hash = %s
+                            """,
+                            (token_hash,),
+                        )
         if row is None:
             return None
         return AuthenticatedSession(
@@ -369,6 +378,7 @@ class IdentityRepository:
             )
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 cursor.execute(
                     """
                     SELECT username, role, password_hash, is_active
@@ -423,6 +433,7 @@ class IdentityRepository:
             return
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 self._revoke_sessions(
                     cursor,
                     user_id=user_id,
@@ -469,6 +480,7 @@ class IdentityRepository:
             return False
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 revoked_sessions = self._revoke_sessions(
                     cursor,
                     user_id=user_id,
@@ -483,6 +495,7 @@ class IdentityRepository:
     def revoke_other_sessions(self, user_id: str, *, current_session_id: str) -> int:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 revoked_sessions = self._revoke_sessions(
                     cursor,
                     user_id=user_id,
@@ -496,6 +509,7 @@ class IdentityRepository:
     def revoke_all_sessions(self, user_id: str) -> int:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 revoked_sessions = self._revoke_sessions(
                     cursor,
                     user_id=user_id,
@@ -539,6 +553,7 @@ class IdentityRepository:
         try:
             with self.connections.connect() as connection:
                 with connection.cursor(row_factory=dict_row) as cursor:
+                    assert_writes_allowed(cursor)
                     cursor.execute(
                         """
                         INSERT INTO server_users (
@@ -575,6 +590,7 @@ class IdentityRepository:
     ) -> UserAccount:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 row = self._lock_managed_user(cursor, actor_user_id, user_id)
                 cursor.execute(
                     """
@@ -615,6 +631,7 @@ class IdentityRepository:
     ) -> UserAccount:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
                 row = self._lock_managed_user(cursor, actor_user_id, user_id)
                 cursor.execute(
                     """
@@ -687,6 +704,7 @@ class IdentityRepository:
     def _record_login_failure(self, attempted_username: str, *, reason: str) -> None:
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
+                assert_writes_allowed(cursor)
                 record_audit_event(
                     cursor,
                     action="login.failed",

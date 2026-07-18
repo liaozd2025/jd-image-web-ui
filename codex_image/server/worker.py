@@ -18,6 +18,10 @@ from .tasks import ClaimedGenerationTask, GenerationTaskRepository
 from .volume import check_file_volume
 
 
+MAX_REFERENCE_BYTES = 32 * 1024 * 1024
+MAX_PROMPT_ASSET_BYTES = 8 * 1024 * 1024
+
+
 class HeartbeatWorker:
     def __init__(self, settings: ServerSettings) -> None:
         self.settings = settings
@@ -43,36 +47,42 @@ class HeartbeatWorker:
         self.stop_event = threading.Event()
         self.volume_id: str | None = None
         self.schema_ready = False
+        self.reconciled = False
+        self.heartbeat_thread: threading.Thread | None = None
 
     def stop(self) -> None:
         self.stop_event.set()
 
     def run_forever(self) -> None:
+        self.heartbeat_thread = threading.Thread(target=self._heartbeat_loop, name="worker-heartbeat", daemon=True)
+        self.heartbeat_thread.start()
         try:
             while not self.stop_event.is_set():
                 if not self.schema_ready:
                     self.schema_ready = self.migrations.try_apply()
                     if self.schema_ready:
                         self.provider_cipher.ensure_database_key(self.runtime.connections)
-                        self.tasks.reconcile_running_tasks()
+                file_volume = check_file_volume(self.settings.data_root, component="worker")
+                self.volume_id = file_volume.get("volume_id")
+                if self.schema_ready and self.volume_id is not None and not self.reconciled:
+                    if not self.runtime.worker_is_alive(
+                        volume_id=self.volume_id,
+                        ttl_seconds=self.settings.worker_heartbeat_ttl_seconds,
+                        instance_id=self.instance_id,
+                    ):
+                        for interrupted in self.tasks.reconcile_running_tasks():
+                            self.tasks.settle_quota(interrupted, consumed=False)
+                        self.reconciled = True
                 if self.schema_ready:
                     try:
                         self._process_one_task()
                     except Exception:
                         pass
-                file_volume = check_file_volume(self.settings.data_root, component="worker")
-                self.volume_id = file_volume.get("volume_id")
-                if self.schema_ready and self.volume_id is not None:
-                    try:
-                        self.runtime.record_worker_heartbeat(
-                            volume_id=self.volume_id,
-                            instance_id=self.instance_id,
-                            ready=True,
-                        )
-                    except Exception:
-                        pass
                 self.stop_event.wait(self.settings.worker_heartbeat_interval_seconds)
         finally:
+            self.stop_event.set()
+            if self.heartbeat_thread is not None:
+                self.heartbeat_thread.join(timeout=max(1.0, self.settings.worker_heartbeat_interval_seconds * 2))
             if self.volume_id is not None:
                 try:
                     self.runtime.record_worker_heartbeat(
@@ -83,16 +93,37 @@ class HeartbeatWorker:
                 except Exception:
                     pass
 
+    def _heartbeat_loop(self) -> None:
+        while not self.stop_event.is_set():
+            if self.schema_ready and self.volume_id is not None:
+                try:
+                    self.runtime.record_worker_heartbeat(
+                        volume_id=self.volume_id,
+                        instance_id=self.instance_id,
+                        ready=True,
+                    )
+                except Exception:
+                    pass
+            self.stop_event.wait(self.settings.worker_heartbeat_interval_seconds)
+
     def _process_one_task(self) -> None:
         claimed = self.tasks.claim_next_task()
         if claimed is None:
             return
+        if claimed.task.cancel_requested:
+            try:
+                cancelled = self.tasks.cancel_claimed_task(claimed.task, attempt_id=claimed.attempt_id)
+            except Exception:
+                return
+            self.tasks.settle_quota(cancelled, consumed=False)
+            return
         if claimed.configuration_error or claimed.api_key is None:
-            self.tasks.fail_task(
+            failed = self.tasks.fail_task(
                 claimed.task,
-                claimed.configuration_error or "active provider credential is unavailable",
+                attempt_id=claimed.attempt_id,
+                error_message=claimed.configuration_error or "active provider credential is unavailable",
             )
-            self.tasks.settle_quota(claimed.task, consumed=False)
+            self.tasks.settle_quota(failed, consumed=False)
             return
         try:
             client = self._provider_client(claimed)
@@ -104,18 +135,26 @@ class HeartbeatWorker:
                 encoded = base64.b64encode(input_data).decode("ascii")
                 reference_images = [f"data:{claimed.task.input_media_type};base64,{encoded}"]
             all_asset_snapshots = claimed.task.asset_versions + claimed.task.shared_asset_versions
+            reference_bytes = 0
             for snapshot in all_asset_snapshots:
                 asset_path = self.tasks.asset_reference_path(claimed.task, snapshot)
                 asset_kind = str(snapshot.get("asset_kind"))
                 if asset_kind in {"image", "reference"}:
                     asset_data = asset_path.read_bytes()
+                    reference_bytes += len(asset_data)
+                    if reference_bytes > MAX_REFERENCE_BYTES:
+                        raise RuntimeError("task reference assets exceed the server memory limit")
                     encoded = base64.b64encode(asset_data).decode("ascii")
                     reference_images.append(f"data:{snapshot.get('mime_type')};base64,{encoded}")
             prompt = claimed.task.prompt
+            prompt_asset_bytes = 0
             for snapshot in all_asset_snapshots:
                 if str(snapshot.get("asset_kind")) not in {"template", "prompt"}:
                     continue
                 asset_path = self.tasks.asset_reference_path(claimed.task, snapshot)
+                prompt_asset_bytes += asset_path.stat().st_size
+                if prompt_asset_bytes > MAX_PROMPT_ASSET_BYTES:
+                    raise RuntimeError("task prompt assets exceed the server memory limit")
                 prompt = f"{prompt}\n\n{asset_path.read_text(encoding='utf-8')}"
             result = client.generate_image(
                 prompt=prompt,
@@ -125,17 +164,21 @@ class HeartbeatWorker:
                 quality=str(parameters.get("quality") or "auto"),
                 output_format=str(parameters.get("output_format") or "png"),
             )
-            self.tasks.complete_task(
+            completed = self.tasks.complete_task(
                 claimed.task,
+                attempt_id=claimed.attempt_id,
                 image_bytes=result.image_bytes,
                 output_format=str(parameters.get("output_format") or result.output_format or "png"),
                 revised_prompt=result.revised_prompt,
             )
-            self.tasks.settle_quota(claimed.task, consumed=True)
+            self.tasks.settle_quota(completed, consumed=completed.status == "completed")
         except Exception as error:
             safe_error = str(error).replace(claimed.api_key, "<redacted credential>")
-            self.tasks.fail_task(claimed.task, safe_error)
-            self.tasks.settle_quota(claimed.task, consumed=False)
+            try:
+                failed = self.tasks.fail_task(claimed.task, attempt_id=claimed.attempt_id, error_message=safe_error)
+            except Exception:
+                return
+            self.tasks.settle_quota(failed, consumed=False)
 
     @staticmethod
     def _provider_client(claimed: ClaimedGenerationTask):

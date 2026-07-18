@@ -88,8 +88,61 @@ async function loadUsers() {
         }),
       );
       item.append(actions);
+      actions.append(actionButton("只读查看", "secondary-button compact", async () => {
+        await loadAdminReadOnlyView(user);
+      }));
     }
     list.append(item);
+  }
+}
+
+async function loadAdminReadOnlyView(user) {
+  const section = document.querySelector("#admin-readonly-view");
+  section.hidden = false;
+  document.querySelector("#admin-view-target").textContent = `当前查看：${user.username}（只读）`;
+  const [tasks, assets, usage, scheduler] = await Promise.all([
+    api(`/api/admin/users/${encodeURIComponent(user.user_id)}/tasks?limit=100`),
+    api(`/api/admin/users/${encodeURIComponent(user.user_id)}/assets?limit=100`),
+    api(`/api/admin/users/${encodeURIComponent(user.user_id)}/usage`),
+    api("/api/admin/scheduler"),
+  ]);
+  const summary = document.querySelector("#admin-view-summary");
+  summary.replaceChildren();
+  const summaryItem = document.createElement("article");
+  summaryItem.className = "list-item";
+  summaryItem.textContent = `存储：${usage.usage.storage.used_bytes} / ${usage.usage.storage.quota_bytes} bytes；队列：等待 ${scheduler.scheduler.queue.queued}，运行 ${scheduler.scheduler.queue.running}`;
+  summary.append(summaryItem);
+  const taskList = document.querySelector("#admin-view-tasks");
+  taskList.replaceChildren();
+  for (const task of tasks.tasks) {
+    const item = document.createElement("article");
+    item.className = "list-item";
+    const title = document.createElement("strong");
+    title.textContent = `${task.model_id} · ${task.status}`;
+    item.append(title);
+    if (task.result_url) {
+      const link = document.createElement("a");
+      link.href = task.result_url;
+      link.textContent = "查看结果";
+      link.className = "secondary-button compact task-link";
+      item.append(link);
+    }
+    taskList.append(item);
+  }
+  const assetList = document.querySelector("#admin-view-assets");
+  assetList.replaceChildren();
+  for (const asset of assets.assets) {
+    const item = document.createElement("article");
+    item.className = "list-item";
+    item.textContent = `${asset.name} · ${asset.asset_kind}`;
+    if (asset.download_url) {
+      const link = document.createElement("a");
+      link.href = asset.download_url;
+      link.textContent = "下载资产";
+      link.className = "secondary-button compact task-link";
+      item.append(link);
+    }
+    assetList.append(item);
   }
 }
 
@@ -349,7 +402,7 @@ async function loadTasks() {
     const title = document.createElement("strong");
     title.textContent = `${task.model_id} · ${task.status}`;
     const meta = document.createElement("small");
-    meta.textContent = `${new Date(task.created_at).toLocaleString()} · ${task.prompt}`;
+    meta.textContent = `${new Date(task.created_at).toLocaleString()} · 尝试 ${task.attempts?.length || 0} 次 · ${task.prompt}`;
     details.append(title, meta);
     item.append(details);
     if (task.status === "completed" && task.result_url) {
@@ -383,13 +436,18 @@ async function loadTasks() {
         await api(`/api/tasks/${encodeURIComponent(task.task_id)}/resubmit`, { method: "POST" });
         await loadTasks();
       }));
-    } else if (task.status === "interrupted") {
+    } else if (task.status === "interrupted" || task.status === "cancelled") {
       item.append(actionButton("重新提交", "secondary-button compact", async () => {
         await api(`/api/tasks/${encodeURIComponent(task.task_id)}/resubmit`, { method: "POST" });
         await loadTasks();
       }));
+    } else if (task.status === "queued" || task.status === "running") {
+      item.append(actionButton(task.cancel_requested ? "取消中…" : "取消任务", "danger-button compact", async () => {
+        await api(`/api/tasks/${encodeURIComponent(task.task_id)}/cancel`, { method: "POST" });
+        await loadTasks();
+      }));
     }
-    if (["completed", "failed", "interrupted"].includes(task.status)) {
+    if (["completed", "failed", "interrupted", "cancelled"].includes(task.status)) {
       item.append(actionButton("移入回收站", "danger-button compact", async () => {
         await api(`/api/tasks/${encodeURIComponent(task.task_id)}`, { method: "DELETE" });
         await loadTasks();

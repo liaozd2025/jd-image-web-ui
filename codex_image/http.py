@@ -9,8 +9,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
 from urllib import error, request
+from urllib.request import HTTPRedirectHandler, HTTPSHandler
 
 DEFAULT_REQUEST_TIMEOUT_SECONDS = 600.0
+MAX_PROVIDER_RESPONSE_BYTES = 50 * 1024 * 1024
 
 
 def _request_timeout_seconds(value: float | None = None) -> float:
@@ -75,21 +77,49 @@ class UrllibTransport:
         url: str,
         headers: dict[str, str],
         body: bytes,
+        allow_redirects: bool = True,
     ) -> HTTPResponse:
         req = request.Request(url=url, data=body, headers=headers, method=method)
         started_at = time.monotonic()
         try:
             context = _https_ssl_context() if url.lower().startswith("https://") else None
-            with request.urlopen(req, timeout=self.timeout, context=context) as response:
+            handlers = []
+            if context is not None:
+                handlers.append(HTTPSHandler(context=context))
+            if not allow_redirects:
+                handlers.append(_NoRedirectHandler())
+            opener = request.build_opener(*handlers)
+            with opener.open(req, timeout=self.timeout) as response:
+                content_length = response.headers.get("Content-Length")
+                if content_length:
+                    try:
+                        declared_length = int(content_length)
+                    except ValueError:
+                        declared_length = 0
+                    if declared_length > MAX_PROVIDER_RESPONSE_BYTES:
+                        raise RuntimeError("provider response exceeds the server response limit")
+                body_chunks: list[bytes] = []
+                total = 0
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > MAX_PROVIDER_RESPONSE_BYTES:
+                        raise RuntimeError("provider response exceeds the server response limit")
+                    body_chunks.append(chunk)
                 return HTTPResponse(
                     status=getattr(response, "status", response.getcode()),
-                    body=response.read(),
+                    body=b"".join(body_chunks),
                     headers=dict(response.headers.items()),
                 )
         except error.HTTPError as exc:
+            body = exc.read(MAX_PROVIDER_RESPONSE_BYTES + 1)
+            if len(body) > MAX_PROVIDER_RESPONSE_BYTES:
+                body = body[:MAX_PROVIDER_RESPONSE_BYTES]
             return HTTPResponse(
                 status=exc.code,
-                body=exc.read(),
+                body=body,
                 headers=dict(exc.headers.items()),
             )
         except socket.timeout as exc:
@@ -102,3 +132,8 @@ class UrllibTransport:
                     f"HTTP request timed out after {elapsed}s (timeout limit {self.timeout:g}s): {exc.reason}"
                 ) from exc
             raise
+
+
+class _NoRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None

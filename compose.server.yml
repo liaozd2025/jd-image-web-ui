@@ -1,10 +1,11 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${JD_IMAGE_POSTGRES_DB:-jd_image}
       POSTGRES_USER: ${JD_IMAGE_POSTGRES_USER:-jd_image}
-      POSTGRES_PASSWORD: ${JD_IMAGE_POSTGRES_PASSWORD:?JD_IMAGE_POSTGRES_PASSWORD is required}
+      POSTGRES_PASSWORD: ${JD_IMAGE_POSTGRES_PASSWORD:-}
     healthcheck:
       test:
         - CMD-SHELL
@@ -16,19 +17,17 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   web:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile.server
     environment: &server_environment
-      JD_IMAGE_DATABASE_URL: postgresql://${JD_IMAGE_POSTGRES_USER:-jd_image}:${JD_IMAGE_POSTGRES_PASSWORD:?JD_IMAGE_POSTGRES_PASSWORD is required}@postgres:5432/${JD_IMAGE_POSTGRES_DB:-jd_image}
+      JD_IMAGE_DATABASE_URL: ${JD_IMAGE_DATABASE_URL:-postgresql://${JD_IMAGE_POSTGRES_USER:-jd_image}:${JD_IMAGE_POSTGRES_PASSWORD:-}@postgres:5432/${JD_IMAGE_POSTGRES_DB:-jd_image}}
       JD_IMAGE_DATA_ROOT: /srv/jd-image-data
       JD_IMAGE_MASTER_KEY: ${JD_IMAGE_MASTER_KEY:?JD_IMAGE_MASTER_KEY is required}
       JD_IMAGE_DATABASE_CONNECT_TIMEOUT_SECONDS: ${JD_IMAGE_DATABASE_CONNECT_TIMEOUT_SECONDS:-2}
       JD_IMAGE_WORKER_HEARTBEAT_INTERVAL_SECONDS: ${JD_IMAGE_WORKER_HEARTBEAT_INTERVAL_SECONDS:-2}
       JD_IMAGE_WORKER_HEARTBEAT_TTL_SECONDS: ${JD_IMAGE_WORKER_HEARTBEAT_TTL_SECONDS:-10}
-    depends_on:
-      postgres:
-        condition: service_healthy
     healthcheck:
       test:
         - CMD
@@ -40,8 +39,10 @@ services:
       retries: 20
     volumes:
       - server_data:/srv/jd-image-data
+      - backup_data:/srv/jd-image-backups
 
   worker:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile.server
@@ -50,14 +51,12 @@ services:
       - -m
       - codex_image.server.worker
     environment: *server_environment
-    depends_on:
-      postgres:
-        condition: service_healthy
     volumes:
       - server_data:/srv/jd-image-data
 
   proxy:
     image: nginx:1.27-alpine
+    restart: unless-stopped
     depends_on:
       web:
         condition: service_healthy
@@ -69,3 +68,4 @@ services:
 volumes:
   postgres_data:
   server_data:
+  backup_data:

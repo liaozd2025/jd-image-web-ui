@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import base64
+from datetime import UTC, datetime
 from os import PathLike
+from pathlib import Path
 from typing import Any
 
 from .client_types import (
@@ -13,11 +16,14 @@ from .client_types import (
     ResponsesInputFile,
     ResponsesRequestError,
     _collect_responses_file_data_values,
+    _redact_responses_value,
     image_model_supports_input_fidelity,
     safe_responses_error_message,
 )
-from .codex_responses_client import CodexImageClient
-from .http import Transport, UrllibTransport
+from .http import MAX_PROVIDER_RESPONSE_BYTES, Transport, UrllibTransport
+
+WEB_SEARCH_INSTRUCTIONS = """Web search image workflow:
+First call web_search to research the user's topic. Do not call image_generation until web_search has returned. Then call image_generation exactly once to create the requested image. Do not answer with text only."""
 from .openai_images_client import OpenAIImagesImageClient
 
 class OpenAIResponsesImageClient:
@@ -197,9 +203,9 @@ class OpenAIResponsesImageClient:
         if web_search:
             payload["parallel_tool_calls"] = False
         if instructions:
-            payload["instructions"] = CodexImageClient._instructions_with_web_search(instructions, web_search=web_search)
+            payload["instructions"] = self._instructions_with_web_search(instructions, web_search=web_search)
         elif web_search:
-            payload["instructions"] = CodexImageClient._instructions_with_web_search("", web_search=True)
+            payload["instructions"] = self._instructions_with_web_search("", web_search=True)
         return payload
 
     def _request_and_parse(
@@ -223,6 +229,12 @@ class OpenAIResponsesImageClient:
                 body=body_text,
                 sensitive_values=_collect_responses_file_data_values(payload),
             )
+        if len(response.body) > MAX_PROVIDER_RESPONSE_BYTES:
+            raise ResponsesRequestError(
+                "Responses response exceeds the server response limit",
+                status=response.status,
+                body="",
+            )
         return self.parse_sse_response(
             response.body,
             debug_sse_path=debug_sse_path,
@@ -241,32 +253,93 @@ class OpenAIResponsesImageClient:
             "User-Agent": OPENAI_COMPATIBLE_USER_AGENT,
         }
 
-    parse_sse_response = CodexImageClient.parse_sse_response
+    @staticmethod
+    def _instructions_with_web_search(instructions: str | None, *, web_search: bool) -> str:
+        base = str(instructions or "")
+        return f"{base}\n\n{WEB_SEARCH_INSTRUCTIONS}".strip() if web_search else base
+
+    def parse_sse_response(
+        self,
+        body: bytes,
+        *,
+        debug_sse_path: str | PathLike[str] | None = None,
+        sensitive_values: set[str] | None = None,
+    ) -> ImageResult:
+        output_by_index: dict[int, dict[str, Any]] = {}
+        fallback: list[dict[str, Any]] = []
+        for raw_line in body.splitlines():
+            line = raw_line.strip()
+            if not line.startswith(b"data:"):
+                continue
+            payload = line[5:].strip()
+            if not payload or payload == b"[DONE]":
+                continue
+            event = json.loads(payload.decode("utf-8"))
+            if debug_sse_path is not None:
+                self._write_sse_debug_event(debug_sse_path, event, sensitive_values=sensitive_values)
+            event_type = event.get("type")
+            if event_type in {"error", "response.failed", "response.incomplete"}:
+                text = payload.decode("utf-8", errors="replace")
+                raise ResponsesRequestError(
+                    safe_responses_error_message(200, text),
+                    status=200,
+                    body=text,
+                    sensitive_values=sensitive_values,
+                )
+            if event_type == "response.output_item.done" and isinstance(event.get("item"), dict):
+                index = event.get("output_index")
+                if isinstance(index, int):
+                    output_by_index[index] = event["item"]
+                else:
+                    fallback.append(event["item"])
+                continue
+            if event_type != "response.completed":
+                continue
+            response = event.get("response") or {}
+            output = response.get("output") or self._reconstruct_output(output_by_index, fallback)
+            result = self._extract_image_call(output)
+            if result is None:
+                raise RuntimeError(self._format_missing_image_call_error(output))
+            return ImageResult(
+                image_bytes=base64.b64decode(result["result"]),
+                revised_prompt=str(result.get("revised_prompt", "")),
+                output_format=str(result.get("output_format", "")),
+                size=str(result.get("size", "")),
+                background=str(result.get("background", "")),
+                quality=str(result.get("quality", "")),
+                usage=response.get("usage") if isinstance(response.get("usage"), dict) else {},
+                tool_usage=response.get("tool_usage") if isinstance(response.get("tool_usage"), dict) else {},
+            )
+        raise RuntimeError("No response.completed event found in SSE stream")
 
     @staticmethod
     def _reconstruct_output(
         output_items_by_index: dict[int, dict[str, Any]],
         output_items_fallback: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
-        return CodexImageClient._reconstruct_output(output_items_by_index, output_items_fallback)
+        ordered = [output_items_by_index[index] for index in sorted(output_items_by_index)]
+        return ordered + output_items_fallback
 
     @staticmethod
     def _format_sse_error(event: dict[str, Any]) -> str:
-        return CodexImageClient._format_sse_error(event)
+        error = event.get("error")
+        return f"OpenAI-compatible responses error: {error}" if error else "OpenAI-compatible responses error"
 
     @staticmethod
     def _format_response_terminal_error(event: dict[str, Any]) -> str:
-        return CodexImageClient._format_response_terminal_error(event)
+        return f"OpenAI-compatible responses terminal error: {event.get('type', 'unknown')}"
 
     @staticmethod
     def _extract_image_call(output: Any) -> dict[str, Any] | None:
-        return CodexImageClient._extract_image_call(output)
+        if not isinstance(output, list):
+            return None
+        return next(
+            (item for item in output if isinstance(item, dict) and item.get("type") == "image_generation_call" and item.get("result")),
+            None,
+        )
 
     @staticmethod
     def _format_missing_image_call_error(output: Any) -> str:
-        message = CodexImageClient._extract_output_failure_message(output)
-        if message:
-            return f"OpenAI-compatible responses image generation failed: {message}"
         return "OpenAI-compatible responses completed without image_generation_call output"
 
     @staticmethod
@@ -276,8 +349,12 @@ class OpenAIResponsesImageClient:
         *,
         sensitive_values: set[str] | None = None,
     ) -> None:
-        CodexImageClient._write_sse_debug_event(
-            path,
+        debug_path = Path(path)
+        debug_path.parent.mkdir(parents=True, exist_ok=True)
+        safe_event = _redact_responses_value(
             event,
-            sensitive_values=sensitive_values,
+            sensitive_values=set(sensitive_values or ()),
         )
+        record = {"logged_at": datetime.now(UTC).isoformat(), "event": safe_event}
+        with debug_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")

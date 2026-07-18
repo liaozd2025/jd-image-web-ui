@@ -22,8 +22,9 @@ from .tasks import (
 
 
 MAX_TASK_INPUT_BYTES = 10 * 1024 * 1024
+MAX_TASK_ARCHIVE_BYTES = 100 * 1024 * 1024
 SUPPORTED_INPUT_MEDIA_TYPES = {"image/png", "image/jpeg", "image/webp"}
-TASK_STATUSES = {"queued", "running", "interrupted", "completed", "failed"}
+TASK_STATUSES = {"queued", "running", "interrupted", "completed", "failed", "cancelled"}
 
 
 class CreateTaskPayload(BaseModel):
@@ -50,6 +51,8 @@ def install_task_routes(
         if parsed is None:
             return JSONResponse(status_code=422, content={"detail": "invalid_task_request"})
         payload, input_bytes, input_media_type = parsed
+        if session.user.role == "admin" and payload.provider_scope == "personal":
+            return JSONResponse(status_code=403, content={"detail": "administrators_use_department_scope"})
         try:
             task = tasks.create_task(
                 session.user.user_id,
@@ -84,7 +87,7 @@ def install_task_routes(
         return JSONResponse(
             content={
                 "tasks": [
-                    _task_payload(task)
+                    _task_payload(task, attempts=tasks.list_attempts(session.user.user_id, task.task_id))
                     for task in tasks.list_tasks(
                         session.user.user_id,
                         status=raw_status if raw_status is None else _task_status(raw_status),
@@ -119,6 +122,7 @@ def install_task_routes(
         if not task_ids or len(task_ids) > 50:
             return JSONResponse(status_code=422, content={"detail": "invalid_task_ids"})
         selected: list[tuple[GenerationTask, object]] = []
+        archive_bytes = 0
         for task_id in task_ids:
             try:
                 task = tasks.get_task(session.user.user_id, task_id)
@@ -127,6 +131,9 @@ def install_task_routes(
                 return JSONResponse(status_code=404, content={"detail": str(error)})
             if task.status != "completed" or not path.is_file():
                 return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
+            archive_bytes += path.stat().st_size
+            if archive_bytes > MAX_TASK_ARCHIVE_BYTES:
+                return JSONResponse(status_code=413, content={"detail": "task_archive_too_large"})
             selected.append((task, path))
         archive = BytesIO()
         with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as output:
@@ -148,6 +155,19 @@ def install_task_routes(
             task = tasks.get_task(session.user.user_id, task_id)
         except TaskNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
+        return JSONResponse(
+            content={"task": _task_payload(task, attempts=tasks.list_attempts(session.user.user_id, task_id))}
+        )
+
+    @app.post("/api/tasks/{task_id}/cancel", response_model=None)
+    def cancel_task(request: Request, task_id: str) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        try:
+            task = tasks.cancel_task(session.user.user_id, task_id)
+        except TaskNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        except TaskConfigurationError as error:
+            return JSONResponse(status_code=409, content={"detail": str(error)})
         return JSONResponse(content={"task": _task_payload(task)})
 
     @app.delete("/api/tasks/{task_id}", response_model=None)
@@ -184,6 +204,17 @@ def install_task_routes(
     @app.get("/api/tasks/{task_id}/result")
     def get_task_result(request: Request, task_id: str):
         return _serve_task_file(request, task_id, kind="result", download=False)
+
+    @app.get("/api/tasks/{task_id}/attempts/{attempt_id}/result")
+    def get_attempt_result(request: Request, task_id: str, attempt_id: str):
+        session: AuthenticatedSession = request.state.auth_session
+        try:
+            path = tasks.attempt_result_path(session.user.user_id, task_id, attempt_id)
+        except TaskNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        if not path.is_file():
+            return JSONResponse(status_code=404, content={"detail": "attempt_result_file_missing"})
+        return FileResponse(path, media_type="image/*", headers={"Cache-Control": "no-store"})
 
     @app.get("/api/tasks/{task_id}/download")
     def download_task_result(request: Request, task_id: str):
@@ -234,7 +265,23 @@ def install_task_routes(
         )
 
 
-def _task_payload(task: GenerationTask) -> dict[str, object]:
+def _task_payload(
+    task: GenerationTask,
+    *,
+    attempts: list[dict[str, object]] | None = None,
+    url_prefix: str = "/api/tasks",
+) -> dict[str, object]:
+    task_url = f"{url_prefix}/{task.task_id}"
+    attempt_payload = []
+    for attempt in attempts or []:
+        item = dict(attempt)
+        attempt_id = item.get("attempt_id")
+        item["result_url"] = (
+            f"{task_url}/attempts/{attempt_id}/result"
+            if item.get("result_relative_path") and attempt_id
+            else None
+        )
+        attempt_payload.append(item)
     return {
         "task_id": task.task_id,
         "provider_version_id": task.provider_version_id,
@@ -251,17 +298,21 @@ def _task_payload(task: GenerationTask) -> dict[str, object]:
         "deleted": task.deleted_at is not None,
         "deleted_at": task.deleted_at,
         "purge_after": task.purge_after,
+        "cancel_requested": task.cancel_requested,
+        "cancel_requested_at": task.cancel_requested_at,
+        "cancelled_at": task.cancelled_at,
+        "attempts": attempt_payload,
         "quota_units": task.quota_units,
         "quota_period_start": task.quota_period_start,
         "status": task.status,
         "result_sha256": task.result_sha256,
         "result_bytes": task.result_bytes,
         "thumbnail_url": (
-            f"/api/tasks/{task.task_id}/thumbnail"
+            f"{task_url}/thumbnail"
             if task.status == "completed" and task.thumbnail_relative_path
             else None
         ),
-        "input_url": f"/api/tasks/{task.task_id}/input" if task.input_relative_path else None,
+        "input_url": f"{task_url}/input" if task.input_relative_path else None,
         "revised_prompt": task.revised_prompt,
         "error_message": task.error_message,
         "created_at": task.created_at,
@@ -269,7 +320,7 @@ def _task_payload(task: GenerationTask) -> dict[str, object]:
         "completed_at": task.completed_at,
         "updated_at": task.updated_at,
         "result_url": (
-            f"/api/tasks/{task.task_id}/result"
+            f"{task_url}/result"
             if task.status == "completed" and task.result_relative_path
             else None
         ),
