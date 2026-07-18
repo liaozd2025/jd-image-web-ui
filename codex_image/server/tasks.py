@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+from io import BytesIO
 import json
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -39,6 +40,7 @@ class GenerationTask:
     input_bytes: int | None
     status: TaskStatus
     result_relative_path: str | None
+    thumbnail_relative_path: str | None
     result_media_type: str | None
     result_sha256: str | None
     result_bytes: int | None
@@ -169,18 +171,26 @@ class GenerationTaskRepository:
                     raise
         return self._task_from_row(row)
 
-    def list_tasks(self, user_id: str, *, limit: int = 50) -> list[GenerationTask]:
+    def list_tasks(
+        self,
+        user_id: str,
+        *,
+        status: TaskStatus | None = None,
+        limit: int = 50,
+    ) -> list[GenerationTask]:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                status_clause = "AND status = %s" if status is not None else ""
+                params: tuple[object, ...] = (user_id, status, limit) if status is not None else (user_id, limit)
                 cursor.execute(
-                    """
+                    f"""
                     SELECT *
                     FROM server_generation_tasks
-                    WHERE user_id = %s
+                    WHERE user_id = %s {status_clause}
                     ORDER BY created_at DESC, task_id DESC
                     LIMIT %s
                     """,
-                    (user_id, limit),
+                    params,
                 )
                 return [self._task_from_row(row) for row in cursor.fetchall()]
 
@@ -288,6 +298,7 @@ class GenerationTaskRepository:
         temporary_path = absolute_path.with_name(f".{absolute_path.name}.{uuid4().hex}.tmp")
         temporary_path.write_bytes(image_bytes)
         temporary_path.replace(absolute_path)
+        thumbnail_relative_path = self._write_thumbnail(task, image_bytes)
         digest = hashlib.sha256(image_bytes).hexdigest()
         media_type = _media_type(output_format)
         with self.connections.connect() as connection:
@@ -296,6 +307,7 @@ class GenerationTaskRepository:
                     """
                     UPDATE server_generation_tasks
                     SET status = 'completed', result_relative_path = %s,
+                        thumbnail_relative_path = %s,
                         result_media_type = %s, result_sha256 = %s,
                         result_bytes = %s, revised_prompt = %s,
                         completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
@@ -304,6 +316,7 @@ class GenerationTaskRepository:
                     """,
                     (
                         relative_path.as_posix(),
+                        thumbnail_relative_path,
                         media_type,
                         digest,
                         len(image_bytes),
@@ -314,6 +327,8 @@ class GenerationTaskRepository:
                 row = cursor.fetchone()
                 if row is None:
                     absolute_path.unlink(missing_ok=True)
+                    if thumbnail_relative_path:
+                        (self.data_root / thumbnail_relative_path).unlink(missing_ok=True)
                     raise TaskNotFound("running task was not found")
                 record_audit_event(
                     cursor,
@@ -369,6 +384,33 @@ class GenerationTaskRepository:
             raise TaskNotFound("task input path is invalid")
         return path
 
+    def thumbnail_path(self, task: GenerationTask) -> Path:
+        if not task.thumbnail_relative_path:
+            raise TaskNotFound("task has no thumbnail")
+        root = self.data_root.resolve()
+        path = (root / task.thumbnail_relative_path).resolve()
+        if root != path and root not in path.parents:
+            raise TaskNotFound("task thumbnail path is invalid")
+        return path
+
+    def _write_thumbnail(self, task: GenerationTask, image_bytes: bytes) -> str | None:
+        relative_path = Path("tasks") / task.user_id / f"{task.task_id}.thumb.jpg"
+        absolute_path = self.data_root / relative_path
+        temporary_path = absolute_path.with_name(f".{absolute_path.name}.{uuid4().hex}.tmp")
+        try:
+            from PIL import Image
+
+            with Image.open(BytesIO(image_bytes)) as image:
+                image.thumbnail((512, 512))
+                thumbnail = image.convert("RGB")
+                absolute_path.parent.mkdir(parents=True, exist_ok=True)
+                thumbnail.save(temporary_path, format="JPEG", quality=85, optimize=True)
+            temporary_path.replace(absolute_path)
+            return relative_path.as_posix()
+        except Exception:
+            temporary_path.unlink(missing_ok=True)
+            return None
+
     @staticmethod
     def _task_from_row(row: dict[str, Any]) -> GenerationTask:
         return GenerationTask(
@@ -384,6 +426,7 @@ class GenerationTaskRepository:
             input_bytes=row["input_bytes"],
             status=cast(TaskStatus, row["status"]),
             result_relative_path=row["result_relative_path"],
+            thumbnail_relative_path=row["thumbnail_relative_path"],
             result_media_type=row["result_media_type"],
             result_sha256=row["result_sha256"],
             result_bytes=row["result_bytes"],

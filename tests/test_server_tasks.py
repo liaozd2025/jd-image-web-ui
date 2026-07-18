@@ -112,6 +112,12 @@ class ServerGenerationTaskTests(unittest.TestCase):
                             headers={"X-CSRF-Token": admin_csrf},
                         )
                         user_temporary_password = created_user.json()["temporary_password"]
+                        second_user = admin.post(
+                            "/api/admin/users",
+                            json={"username": "other-task-user"},
+                            headers={"X-CSRF-Token": admin_csrf},
+                        )
+                        second_user_temporary_password = second_user.json()["temporary_password"]
                         provider = admin.post(
                             "/api/admin/provider-catalog",
                             json={
@@ -192,6 +198,15 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         result = user.get(f"/api/tasks/{task_id}/result")
                         self.assertEqual(result.status_code, 200)
                         self.assertEqual(result.content, FAKE_PNG)
+                        thumbnail = user.get(f"/api/tasks/{task_id}/thumbnail")
+                        self.assertEqual(thumbnail.status_code, 200)
+                        self.assertTrue(thumbnail.headers["content-type"].startswith("image/jpeg"))
+                        download = user.get(f"/api/tasks/{task_id}/download")
+                        self.assertEqual(download.status_code, 200)
+                        self.assertIn("attachment", download.headers["content-disposition"])
+                        archive = user.get(f"/api/tasks/archive?ids={task_id}")
+                        self.assertEqual(archive.status_code, 200)
+                        self.assertIn(f"task-{task_id}.png".encode(), archive.content)
                         self.assertEqual(completed.json()["task"]["model_id"], "fake-image-1")
                         self.assertEqual(completed.json()["task"]["request_parameters"]["output_format"], "png")
                         self.assertEqual(FakeProviderHandler.requests[0]["authorization"], f"Bearer {TASK_API_KEY}")
@@ -224,6 +239,25 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         failed = self._wait_for_status(user, failed_task, "failed")
                         self.assertIn("fake provider failure", failed.json()["task"]["error_message"])
                         self.assertNotIn(TASK_API_KEY, failed.text)
+
+                        with TestClient(create_server_app(settings)) as other:
+                            other_login = login(
+                                other,
+                                "other-task-user",
+                                second_user_temporary_password,
+                                user_agent="Other Task Browser",
+                            )
+                            other_changed = change_password(
+                                other,
+                                current_password=second_user_temporary_password,
+                                new_password="other-task-user-password",
+                                csrf_token=other_login["csrf_token"],
+                            )
+                            self.assertEqual(other.get("/api/tasks").json()["tasks"], [])
+                            self.assertEqual(other.get(f"/api/tasks/{task_id}").status_code, 404)
+                            self.assertEqual(other.get(f"/api/tasks/{task_id}/result").status_code, 404)
+                            self.assertEqual(other.get(f"/api/tasks/{task_id}/input").status_code, 404)
+                            self.assertEqual(other.get(f"/api/tasks/archive?ids={task_id}").status_code, 404)
         finally:
             if worker is not None and worker.poll() is None:
                 worker.terminate()

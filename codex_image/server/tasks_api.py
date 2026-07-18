@@ -1,19 +1,28 @@
 from __future__ import annotations
 
-from typing import Literal
+from io import BytesIO
+from typing import Literal, cast
+import zipfile
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field, ValidationError
 from starlette.datastructures import UploadFile
 from starlette.formparsers import MultiPartException
 
 from .identity import AuthenticatedSession
-from .tasks import GenerationTask, GenerationTaskRepository, TaskConfigurationError, TaskNotFound
+from .tasks import (
+    GenerationTask,
+    GenerationTaskRepository,
+    TaskConfigurationError,
+    TaskNotFound,
+    TaskStatus,
+)
 
 
 MAX_TASK_INPUT_BYTES = 10 * 1024 * 1024
 SUPPORTED_INPUT_MEDIA_TYPES = {"image/png", "image/jpeg", "image/webp"}
+TASK_STATUSES = {"queued", "running", "interrupted", "completed", "failed"}
 
 
 class CreateTaskPayload(BaseModel):
@@ -58,13 +67,53 @@ def install_task_routes(
     @app.get("/api/tasks", response_model=None)
     def list_tasks(request: Request) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
+        raw_status = request.query_params.get("status")
+        if raw_status is not None and raw_status not in TASK_STATUSES:
+            return JSONResponse(status_code=422, content={"detail": "invalid_task_status"})
+        try:
+            limit = min(max(int(request.query_params.get("limit", "50")), 1), 100)
+        except ValueError:
+            return JSONResponse(status_code=422, content={"detail": "invalid_task_limit"})
         return JSONResponse(
             content={
                 "tasks": [
                     _task_payload(task)
-                    for task in tasks.list_tasks(session.user.user_id)
+                    for task in tasks.list_tasks(
+                        session.user.user_id,
+                        status=raw_status if raw_status is None else _task_status(raw_status),
+                        limit=limit,
+                    )
                 ]
             }
+        )
+
+    @app.get("/api/tasks/archive")
+    def archive_tasks(request: Request) -> Response:
+        session: AuthenticatedSession = request.state.auth_session
+        task_ids = [value for value in request.query_params.get("ids", "").split(",") if value]
+        if not task_ids or len(task_ids) > 50:
+            return JSONResponse(status_code=422, content={"detail": "invalid_task_ids"})
+        selected: list[tuple[GenerationTask, object]] = []
+        for task_id in task_ids:
+            try:
+                task = tasks.get_task(session.user.user_id, task_id)
+                path = tasks.result_path(task)
+            except TaskNotFound as error:
+                return JSONResponse(status_code=404, content={"detail": str(error)})
+            if task.status != "completed" or not path.is_file():
+                return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
+            selected.append((task, path))
+        archive = BytesIO()
+        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as output:
+            for task, path in selected:
+                output.write(path, arcname=f"task-{task.task_id}.{_output_extension(task)}")
+        return Response(
+            content=archive.getvalue(),
+            media_type="application/zip",
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": 'attachment; filename="jd-image-tasks.zip"',
+            },
         )
 
     @app.get("/api/tasks/{task_id}", response_model=None)
@@ -78,23 +127,54 @@ def install_task_routes(
 
     @app.get("/api/tasks/{task_id}/result")
     def get_task_result(request: Request, task_id: str):
+        return _serve_task_file(request, task_id, kind="result", download=False)
+
+    @app.get("/api/tasks/{task_id}/download")
+    def download_task_result(request: Request, task_id: str):
+        return _serve_task_file(request, task_id, kind="result", download=True)
+
+    @app.get("/api/tasks/{task_id}/thumbnail")
+    def get_task_thumbnail(request: Request, task_id: str):
+        return _serve_task_file(request, task_id, kind="thumbnail", download=False)
+
+    @app.get("/api/tasks/{task_id}/input")
+    def get_task_input(request: Request, task_id: str):
+        return _serve_task_file(request, task_id, kind="input", download=False)
+
+    def _serve_task_file(request: Request, task_id: str, *, kind: str, download: bool):
         session: AuthenticatedSession = request.state.auth_session
         try:
             task = tasks.get_task(session.user.user_id, task_id)
         except TaskNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
-        if task.status != "completed" or task.result_media_type is None:
-            return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
         try:
-            result_path = tasks.result_path(task)
+            if kind == "result":
+                if task.status != "completed" or task.result_media_type is None:
+                    return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
+                result_path = tasks.result_path(task)
+                media_type = task.result_media_type
+                filename = f"task-{task.task_id}.{_output_extension(task)}"
+            elif kind == "thumbnail":
+                if task.status != "completed":
+                    return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
+                result_path = tasks.thumbnail_path(task)
+                media_type = "image/jpeg"
+                filename = f"task-{task.task_id}.thumb.jpg"
+            else:
+                result_path = tasks.input_path(task)
+                media_type = task.input_media_type or "application/octet-stream"
+                filename = f"task-{task.task_id}.input"
         except TaskNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
         if not result_path.is_file():
-            return JSONResponse(status_code=404, content={"detail": "task_result_missing"})
+            return JSONResponse(status_code=404, content={"detail": "task_file_missing"})
+        headers = {"Cache-Control": "no-store"}
+        if download:
+            headers["Content-Disposition"] = f'attachment; filename="{filename}"'
         return FileResponse(
             result_path,
-            media_type=task.result_media_type,
-            headers={"Cache-Control": "no-store"},
+            media_type=media_type,
+            headers=headers,
         )
 
 
@@ -111,6 +191,12 @@ def _task_payload(task: GenerationTask) -> dict[str, object]:
         "status": task.status,
         "result_sha256": task.result_sha256,
         "result_bytes": task.result_bytes,
+        "thumbnail_url": (
+            f"/api/tasks/{task.task_id}/thumbnail"
+            if task.status == "completed" and task.thumbnail_relative_path
+            else None
+        ),
+        "input_url": f"/api/tasks/{task.task_id}/input" if task.input_relative_path else None,
         "revised_prompt": task.revised_prompt,
         "error_message": task.error_message,
         "created_at": task.created_at,
@@ -158,3 +244,12 @@ async def _parse_task_request(
     except (MultiPartException, ValueError, ValidationError, RuntimeError):
         return None
     return payload, input_bytes, input_media_type
+
+
+def _task_status(value: str) -> TaskStatus:
+    return cast(TaskStatus, value)
+
+
+def _output_extension(task: GenerationTask) -> str:
+    output_format = str(task.request_parameters.get("output_format") or "png")
+    return output_format if output_format in {"png", "jpeg", "webp"} else "png"
