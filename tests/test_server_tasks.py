@@ -21,6 +21,9 @@ from tests.test_server_user_lifecycle import ADMIN_PASSWORD, change_password, lo
 TEST_DATABASE_URL = os.environ.get("JD_IMAGE_TEST_DATABASE_URL", "")
 TASK_USER_PASSWORD = "task-user-password"
 TASK_API_KEY = "provider-test-task-key-1234"
+FAKE_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
 
 
 class FakeProviderHandler(BaseHTTPRequestHandler):
@@ -43,7 +46,7 @@ class FakeProviderHandler(BaseHTTPRequestHandler):
                 {
                     "data": [
                         {
-                            "b64_json": base64.b64encode(b"fake-image-result").decode("ascii"),
+                            "b64_json": base64.b64encode(FAKE_PNG).decode("ascii"),
                             "revised_prompt": "fake revised prompt",
                         }
                     ]
@@ -173,7 +176,7 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         completed = self._wait_for_status(user, task_id, "completed")
                         result = user.get(f"/api/tasks/{task_id}/result")
                         self.assertEqual(result.status_code, 200)
-                        self.assertEqual(result.content, b"fake-image-result")
+                        self.assertEqual(result.content, FAKE_PNG)
                         self.assertEqual(completed.json()["task"]["model_id"], "fake-image-1")
                         self.assertEqual(completed.json()["task"]["request_parameters"]["output_format"], "png")
                         self.assertEqual(FakeProviderHandler.requests[0]["authorization"], f"Bearer {TASK_API_KEY}")

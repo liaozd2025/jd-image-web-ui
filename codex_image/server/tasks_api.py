@@ -77,6 +77,8 @@ def install_task_routes(
             result_path = tasks.result_path(task)
         except TaskNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
+        if not result_path.is_file():
+            return JSONResponse(status_code=404, content={"detail": "task_result_missing"})
         return FileResponse(
             result_path,
             media_type=task.result_media_type,
