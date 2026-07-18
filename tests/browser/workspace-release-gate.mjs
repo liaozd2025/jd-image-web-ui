@@ -167,16 +167,37 @@ try {
 
   const sharedGallery = await api(pageA, "/api/gallery");
   check(sharedGallery.body.items.some((item) => item.scope === "shared" && item.read_only), "shared gallery item was not visible");
-  const personalUpload = await upload(pageA, "/api/gallery", { name: "User A private image", category: "product" }, [
-    { field: "image", name: "private-a.png", mimeType: "image/png", bytes: imageBytes },
-  ]);
-  check(personalUpload.status === 201, `personal gallery upload failed: ${JSON.stringify(personalUpload.body)}`);
-  const privateAssetId = personalUpload.body.item.id;
+  await pageA.locator("#imageInput").setInputFiles({ name: "private-a.png", mimeType: "image/png", buffer: imageBytes });
+  await pageA.locator(".add-upload-to-gallery").click();
+  await pageA.locator("#galleryNameInput").fill("User A private image");
+  await pageA.locator("#galleryCategoryInput").selectOption("product");
+  const galleryResponsePromise = pageA.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/gallery" && response.request().method() === "POST"
+  ));
+  await pageA.locator("#saveToGalleryButton").click();
+  const galleryResponse = await galleryResponsePromise;
+  const personalUpload = await galleryResponse.json();
+  check(galleryResponse.status() === 201, `personal gallery upload failed: ${JSON.stringify(personalUpload)}`);
+  const privateAssetId = personalUpload.item.id;
   check((await api(pageA, "/api/gallery")).body.items.some((item) => item.id === privateAssetId && item.scope === "personal"), "personal gallery item was not returned");
+  await pageA.locator("#galleryManageButton").click();
+  await pageA.locator("#galleryDrawer.open").waitFor({ state: "visible" });
+  check((await pageA.locator("#galleryGrid").textContent()).includes("Shared browser image"), "shared gallery was not rendered in the original drawer");
+  await pageA.locator('[data-gallery-drawer-category="product"]').click();
+  check((await pageA.locator("#galleryGrid").textContent()).includes("User A private image"), "personal gallery was not rendered in the original drawer");
+  await pageA.locator("#galleryDrawerClose").click();
+  await pageA.locator("#clearImagesButton").click();
   check((await api(pageA, "/api/prompt-snippets", { method: "POST", json: { tag: "privateA", title: "Private A", content: "private user A snippet" } })).status === 201, "personal snippet creation failed");
   check((await api(pageA, "/api/prompt-templates", { method: "POST", json: { title: "Private A template", content: "private user A template" } })).status === 201, "personal template creation failed");
   check((await api(pageA, "/api/prompt-snippets")).body.snippets.some((item) => item.scope === "shared"), "shared snippet missing");
   check((await api(pageA, "/api/prompt-templates")).body.templates.some((item) => item.scope === "shared"), "shared template missing");
+  await pageA.reload({ waitUntil: "domcontentloaded" });
+  await waitForWorkspace(pageA);
+  await pageA.locator("#promptTemplateButton").click();
+  await pageA.locator("#promptTemplateDrawer.open").waitFor({ state: "visible" });
+  check((await pageA.locator("#promptTemplateList").textContent()).includes("Shared browser template"), "shared template was not rendered in the original template drawer");
+  check((await pageA.locator("#promptTemplateList").textContent()).includes("Private A template"), "personal template was not rendered in the original template drawer");
+  await pageA.locator("#promptTemplateDrawerClose").click();
 
   await pageA.locator("#promptEditor").fill("browser successful generation");
   await runFromWorkspaceUi(pageA, "/api/generate");
@@ -200,31 +221,81 @@ try {
   await pageA.locator("#imageEditorModal").waitFor({ state: "visible" });
   check(await pageA.locator("#imageEditorKonvaMount").count() === 1, "original image editor was not mounted");
   await pageA.locator("#imageEditorCancel").click();
+  await pageA.locator('#quantityGroup [data-val="2"]').click();
   await pageA.locator("#promptEditor").fill("browser image edit with two references");
   await runFromWorkspaceUi(pageA, "/api/edit");
   const edited = await waitForTask(pageA, "browser image edit with two references", "completed");
   check(edited.mode === "edit", "image edit was submitted as generation");
+  check(edited.total_count === 2 && edited.output_urls.length === 2, "original quantity control did not produce two results");
+  await eventually(async () => await pageA.locator(`[data-task-id="${edited.task_id}"]`).count(), "two-output task was not rendered");
+  await pageA.locator(`[data-task-id="${edited.task_id}"]`).click();
+  await eventually(async () => await pageA.locator("#previewGrid img").count() >= 2, "two generated results were not rendered in the original preview");
 
   const failedSubmit = await submitTask(pageA, "force provider failure");
   check(failedSubmit.status === 201, "provider-failure task was not queued");
   const failed = await waitForTask(pageA, "force provider failure", "failed");
-  const retried = await api(pageA, `/api/tasks/${failed.task_id}/retry-failed`, { method: "POST" });
-  check(retried.status === 201 && retried.body.task.task_id !== failed.task_id, "retry overwrote original failed task");
+  await eventually(async () => await pageA.locator(`[data-task-id="${failed.task_id}"]`).count(), "failed task was not rendered for retry");
+  await pageA.locator(`[data-task-id="${failed.task_id}"]`).click();
+  const retryResponsePromise = pageA.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/tasks/${failed.task_id}/retry-failed`
+    && response.request().method() === "POST"
+  ));
+  await pageA.locator(`[data-preview-retry-failed-task-id="${failed.task_id}"]`).click();
+  const retryResponse = await retryResponsePromise;
+  const retried = await retryResponse.json();
+  check(retryResponse.status() === 201 && retried.task.task_id !== failed.task_id, "retry overwrote original failed task");
 
   const holdingSubmit = await submitTask(pageA, "hold provider for cancellation");
   check(holdingSubmit.status === 201, "holding task was not queued");
   await waitForTask(pageA, "hold provider for cancellation", "running");
   const cancelSubmit = await submitTask(pageA, "browser cancel queued task");
   check(cancelSubmit.status === 201, "cancellable task was not queued");
-  const cancelled = await api(pageA, `/api/queue/${cancelSubmit.body.task.task_id}`, { method: "DELETE" });
-  check(cancelled.status === 200 && cancelled.body.task.status === "cancelled", "queued task was not cancelled");
+  const cancelTaskId = cancelSubmit.body.task.task_id;
+  await eventually(async () => await pageA.locator(`[data-task-queue-delete-id="${cancelTaskId}"]`).count(), "queued task control was not rendered");
+  await pageA.locator(`[data-queue-task-id="${cancelTaskId}"]`).hover();
+  await pageA.locator(`[data-task-queue-delete-id="${cancelTaskId}"]`).click({ force: true });
+  await pageA.locator(".confirm-popover:not(.hidden)").waitFor({ state: "visible" });
+  await pageA.locator("[data-confirm-popover-confirm]").click();
+  const cancelled = await eventually(async () => {
+    const response = await api(pageA, `/api/tasks/${cancelTaskId}`);
+    return response.status === 200 && response.body.task.status === "cancelled" ? response.body.task : null;
+  }, "queued task was not cancelled through the original queue control");
+  check(cancelled.status === "cancelled", "queued task was not cancelled");
 
-  check((await api(pageA, `/api/tasks/${edited.task_id}/archive`, { method: "PATCH", json: { archived: true } })).status === 200, "archive failed");
-  check((await api(pageA, `/api/tasks/${edited.task_id}`, { method: "DELETE" })).status === 200, "delete failed");
-  check((await api(pageA, `/api/tasks/${edited.task_id}`)).status === 404, "deleted task remained visible");
+  await pageA.goto(`${baseUrl}/history`, { waitUntil: "domcontentloaded" });
+  await pageA.locator(".history-page").waitFor({ state: "visible" });
+  await eventually(async () => await pageA.locator(`[data-history-task-card-id="${edited.task_id}"]`).count(), "edited task was not shown in history UI");
+  await pageA.locator(`[data-history-task-card-id="${edited.task_id}"]`).click();
+  await pageA.locator(`[data-history-archive-task="${edited.task_id}"]`).waitFor({ state: "visible" });
+  const archiveResponsePromise = pageA.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/tasks/${edited.task_id}/archive`
+    && response.request().method() === "PATCH"
+  ));
+  await pageA.locator(`[data-history-archive-task="${edited.task_id}"]`).click();
+  check((await archiveResponsePromise).status() === 200, "history UI archive failed");
+  await pageA.locator(`[data-history-archive-task="${edited.task_id}"][data-history-archive-value="false"]`).waitFor({ state: "visible" });
+  const unarchiveResponsePromise = pageA.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/tasks/${edited.task_id}/archive`
+    && response.request().method() === "PATCH"
+  ));
+  await pageA.locator(`[data-history-archive-task="${edited.task_id}"]`).click();
+  check((await unarchiveResponsePromise).status() === 200, "history UI archive restore failed");
+  const zipLink = pageA.locator(`a[href^="/api/tasks/${edited.task_id}/outputs.zip"]`);
+  check(await zipLink.getAttribute("download") !== null, "history UI ZIP download action was not rendered");
+  while (await pageA.locator(`[data-history-output-selected-task-id="${edited.task_id}"][aria-pressed="true"]`).count()) {
+    await pageA.locator(`[data-history-output-selected-task-id="${edited.task_id}"][aria-pressed="true"]`).first().evaluate((element) => element.click());
+    await pageA.waitForTimeout(100);
+  }
+  await pageA.locator(`[data-history-delete-task="${edited.task_id}"]`).waitFor({ state: "visible" });
+  await pageA.locator(`[data-history-delete-task="${edited.task_id}"]`).click();
+  await pageA.locator(`[data-history-delete-task="${edited.task_id}"]`).click();
+  await eventually(async () => (await api(pageA, `/api/tasks/${edited.task_id}`)).status === 404, "history UI delete failed");
   check((await api(pageA, "/api/tasks/trash")).body.tasks.some((item) => item.task_id === edited.task_id), "deleted task did not enter personal trash");
   check((await api(pageA, `/api/tasks/${edited.task_id}/restore`, { method: "POST" })).status === 200, "task restore failed");
+  check((await api(pageA, `/api/tasks/${edited.task_id}/outputs/2/download`)).status === 200, "restored second output download failed");
   check((await api(pageA, `/api/tasks/${edited.task_id}/outputs.zip`)).status === 200, "restored task ZIP download failed");
+  await pageA.goto(`${baseUrl}/`, { waitUntil: "domcontentloaded" });
+  await waitForWorkspace(pageA);
 
   const contextB = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const pageB = await contextB.newPage();

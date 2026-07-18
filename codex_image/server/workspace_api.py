@@ -20,12 +20,25 @@ from .providers import (
     ProviderVersionInactive,
     ProviderVersionNotFound,
 )
-from .tasks import GenerationTask, GenerationTaskRepository, TaskConfigurationError, TaskNotFound
+from .tasks import (
+    GenerationTask,
+    GenerationTaskRepository,
+    TaskConfigurationError,
+    TaskNotFound,
+    task_output_records,
+)
 from .tasks_api import MAX_TASK_INPUT_BYTES, _task_payload
 from .shared_assets import SharedAssetRepository
 
 
 WORKSPACE_UPLOAD_LIMIT = 16
+REFERENCE_FILE_EXTENSIONS = {
+    "asm", "bat", "c", "cc", "conf", "cpp", "css", "csv", "cxx", "def", "dic", "doc", "docx",
+    "dot", "eml", "h", "hh", "htm", "html", "ics", "ifb", "iif", "in", "js", "json", "ksh",
+    "list", "log", "markdown", "md", "mht", "mhtml", "mime", "mjs", "nws", "odt", "pdf", "pl",
+    "pot", "ppa", "pps", "ppt", "pptx", "pwz", "py", "rst", "rtf", "s", "sql", "srt", "text",
+    "tsv", "txt", "vcf", "vtt", "wiz", "xla", "xlb", "xlc", "xlm", "xls", "xlsx", "xlt", "xlw", "xml",
+}
 
 
 def install_workspace_routes(
@@ -637,12 +650,16 @@ def install_workspace_routes(
         return JSONResponse(content={"task": _task_payload(task)})
 
     @app.patch("/api/tasks/{task_id}/outputs/{output_index}/selected", response_model=None)
-    def select_task_output(request: Request, task_id: str, output_index: int) -> JSONResponse:
+    async def select_task_output(request: Request, task_id: str, output_index: int) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
-        if output_index != 1:
-            return JSONResponse(status_code=404, content={"detail": "task_output_not_found"})
+        payload = await _json_object(request)
         try:
-            task = tasks.get_task(session.user.user_id, task_id)
+            task = tasks.set_output_selected(
+                session.user.user_id,
+                task_id,
+                output_index,
+                selected=bool(payload.get("selected")),
+            )
         except TaskNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
         return JSONResponse(content={"task": _task_payload(task)})
@@ -651,9 +668,11 @@ def install_workspace_routes(
     def delete_unselected_outputs(request: Request, task_id: str) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
         try:
-            task = tasks.get_task(session.user.user_id, task_id)
+            task = tasks.delete_unselected_outputs(session.user.user_id, task_id)
         except TaskNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
+        except TaskConfigurationError as error:
+            return JSONResponse(status_code=409, content={"detail": str(error)})
         return JSONResponse(content={"task": _task_payload(task)})
 
     @app.post("/api/generate", response_model=None, status_code=201)
@@ -698,7 +717,7 @@ def install_workspace_routes(
     @app.get("/api/queue", response_model=None)
     def queue(request: Request) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
-        items = tasks.list_tasks(session.user.user_id, limit=100)
+        items = tasks.list_queue_tasks(session.user.user_id)
         waiting = [_task_payload(task) for task in items if task.status == "queued"]
         running = [_task_payload(task) for task in items if task.status == "running"]
         for index, task in enumerate(waiting, start=1):
@@ -722,12 +741,13 @@ def install_workspace_routes(
 
         async def stream():
             while not await request.is_disconnected():
-                items = tasks.list_tasks(session.user.user_id, limit=100)
-                waiting = [_task_payload(task) for task in items if task.status == "queued"]
-                running = [_task_payload(task) for task in items if task.status == "running"]
+                queue_items = tasks.list_queue_tasks(session.user.user_id)
+                recent_items = tasks.list_tasks(session.user.user_id, limit=50)
+                waiting = [_task_payload(task) for task in queue_items if task.status == "queued"]
+                running = [_task_payload(task) for task in queue_items if task.status == "running"]
                 payload = {
                     "type": "snapshot",
-                    "tasks": [_task_payload(task) for task in items[:50]],
+                    "tasks": [_task_payload(task) for task in recent_items],
                     "queue": {
                         "waiting": waiting,
                         "running": running,
@@ -763,14 +783,24 @@ def install_workspace_routes(
     def promote_queue_task(request: Request, task_id: str) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
         try:
-            tasks.get_task(session.user.user_id, task_id)
+            tasks.promote_queue_task(session.user.user_id, task_id)
         except TaskNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
+        except TaskConfigurationError as error:
+            return JSONResponse(status_code=409, content={"detail": str(error)})
         return queue(request)
 
     @app.patch("/api/queue/reorder", response_model=None)
-    def reorder_queue(request: Request) -> JSONResponse:
-        request.state.auth_session
+    async def reorder_queue(request: Request) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        payload = await _json_object(request)
+        task_ids = payload.get("task_ids")
+        if not isinstance(task_ids, list) or not all(isinstance(item, str) for item in task_ids):
+            return JSONResponse(status_code=422, content={"detail": "queue order is invalid"})
+        try:
+            tasks.reorder_queue(session.user.user_id, task_ids)
+        except TaskConfigurationError as error:
+            return JSONResponse(status_code=409, content={"detail": str(error)})
         return queue(request)
 
     @app.get("/api/tasks/{task_id}/inputs/{input_index}/thumbnail", response_model=None)
@@ -789,29 +819,45 @@ def install_workspace_routes(
 
     @app.get("/api/tasks/{task_id}/outputs/{output_index}/thumbnail", response_model=None)
     def output_thumbnail(request: Request, task_id: str, output_index: int):
-        if output_index != 1:
-            return JSONResponse(status_code=404, content={"detail": "task_output_not_found"})
-        return _workspace_task_file(request, task_id, tasks=tasks, kind="thumbnail")
+        return _workspace_task_file(
+            request, task_id, tasks=tasks, kind="thumbnail", output_index=output_index
+        )
 
     @app.get("/api/tasks/{task_id}/outputs/{output_index}/download", response_model=None)
     def output_download(request: Request, task_id: str, output_index: int):
-        if output_index != 1:
-            return JSONResponse(status_code=404, content={"detail": "task_output_not_found"})
-        return _workspace_task_file(request, task_id, tasks=tasks, kind="download")
+        return _workspace_task_file(
+            request, task_id, tasks=tasks, kind="download", output_index=output_index
+        )
 
     @app.get("/api/tasks/{task_id}/outputs.zip", response_model=None)
     def output_archive(request: Request, task_id: str):
         session: AuthenticatedSession = request.state.auth_session
         try:
             task = tasks.get_task(session.user.user_id, task_id)
-            path = tasks.result_path(task)
         except TaskNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
-        if task.status != "completed" or not path.is_file():
+        if task.status != "completed":
             return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
+        paths: list[tuple[int, Any, dict[str, object]]] = []
+        output_records = task_output_records(task)
+        if request.query_params.get("selected") == "1":
+            output_records = [item for item in output_records if bool(item.get("selected", True))]
+        for item in output_records:
+            output_index = int(item.get("index") or 0)
+            try:
+                path = tasks.result_path(task, output_index)
+            except TaskNotFound as error:
+                return JSONResponse(status_code=404, content={"detail": str(error)})
+            if not path.is_file():
+                return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
+            paths.append((output_index, path, item))
         archive = BytesIO()
         with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as output:
-            output.write(path, arcname=f"task-{task.task_id}-image-1.{_task_extension(task)}")
+            for output_index, path, item in paths:
+                output.write(
+                    path,
+                    arcname=f"task-{task.task_id}-image-{output_index}.{_task_extension(task, item)}",
+                )
         return Response(
             content=archive.getvalue(),
             media_type="application/zip",
@@ -885,6 +931,28 @@ async def _workspace_task_from_form(
     output_format = str(form.get("output_format") or "png").lower()
     if output_format not in {"png", "jpeg", "webp"}:
         output_format = "png"
+    moderation = str(form.get("moderation") or "auto").lower()
+    if moderation not in {"auto", "low"}:
+        return JSONResponse(status_code=422, content={"detail": "审核参数无效"})
+    prompt_fidelity = str(form.get("prompt_fidelity") or "strict").lower()
+    if prompt_fidelity not in {"strict", "original", "off"}:
+        return JSONResponse(status_code=422, content={"detail": "提示词模式无效"})
+    try:
+        output_count = int(str(form.get("n") or "1"))
+    except ValueError:
+        output_count = 0
+    if output_count < 1 or output_count > 4:
+        return JSONResponse(status_code=422, content={"detail": "生成数量必须为 1 到 4"})
+    output_compression: int | None = None
+    if output_format != "png" and form.get("output_compression") not in {None, ""}:
+        try:
+            output_compression = int(str(form.get("output_compression")))
+        except ValueError:
+            output_compression = -1
+        if output_compression < 0 or output_compression > 100:
+            return JSONResponse(status_code=422, content={"detail": "输出压缩参数无效"})
+    web_search = str(form.get("web_search") or "").lower() in {"1", "true", "yes", "on"}
+    api_mode = str(provider.get("api_mode") or "images")
 
     uploads = [item for key, item in form.multi_items() if key in {"images", "reference_images"} and isinstance(item, UploadFile)]
     if len(uploads) > WORKSPACE_UPLOAD_LIMIT:
@@ -919,10 +987,51 @@ async def _workspace_task_from_form(
         if asset.current_version_id:
             asset_version_ids.append(asset.current_version_id)
 
+    reference_file_uploads = [
+        item for key, item in form.multi_items() if key == "reference_files" and isinstance(item, UploadFile)
+    ]
+    if reference_file_uploads and api_mode != "responses":
+        return JSONResponse(status_code=422, content={"detail": "参考文件只能用于 Responses 供应商"})
+    if len(reference_file_uploads) > WORKSPACE_UPLOAD_LIMIT:
+        return JSONResponse(status_code=413, content={"detail": "参考文件数量不能超过 16 个"})
+    for upload in reference_file_uploads:
+        filename = upload.filename or "reference-file"
+        extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        if extension not in REFERENCE_FILE_EXTENSIONS:
+            return JSONResponse(status_code=422, content={"detail": "参考文件类型不受支持"})
+        content = await upload.read(MAX_TASK_INPUT_BYTES + 1)
+        media_type = (upload.content_type or "application/octet-stream").split(";", 1)[0].lower()
+        if not content or len(content) > MAX_TASK_INPUT_BYTES or media_type.startswith("image/"):
+            return JSONResponse(status_code=422, content={"detail": "参考文件格式无效或文件过大"})
+        try:
+            asset = assets.create_asset(
+                session.user.user_id,
+                asset_kind="file",
+                name=filename,
+                original_filename=filename,
+                mime_type=media_type,
+                content=content,
+            )
+        except AssetQuotaExceeded as error:
+            return JSONResponse(status_code=413, content={"detail": str(error)})
+        except AssetValidationError as error:
+            return JSONResponse(status_code=422, content={"detail": str(error)})
+        if asset.current_version_id:
+            asset_version_ids.append(asset.current_version_id)
+
+    stored_reference_file_ids = [str(item) for item in form.getlist("reference_file_ids")]
+    if stored_reference_file_ids and api_mode != "responses":
+        return JSONResponse(status_code=422, content={"detail": "参考文件只能用于 Responses 供应商"})
     shared_asset_version_ids: list[str] = []
-    for raw_asset_id in [*form.getlist("gallery_image_ids"), *form.getlist("reference_asset_ids"), *form.getlist("reference_file_ids")]:
+    for raw_asset_id in [
+        *form.getlist("gallery_image_ids"),
+        *form.getlist("reference_asset_ids"),
+        *stored_reference_file_ids,
+    ]:
         raw_text = str(raw_asset_id)
         if raw_text.startswith("shared:"):
+            if raw_text in stored_reference_file_ids:
+                return JSONResponse(status_code=422, content={"detail": "共享参考文件暂不可用"})
             try:
                 shared_asset = shared_assets.get_asset(raw_text.split(":", 1)[1])
             except AssetNotFound as error:
@@ -934,6 +1043,8 @@ async def _workspace_task_from_form(
             asset = assets.get_asset(session.user.user_id, raw_text)
         except AssetNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
+        if raw_text in stored_reference_file_ids and asset.asset_kind != "file":
+            return JSONResponse(status_code=422, content={"detail": "参考文件类型无效"})
         if asset.current_version_id and asset.current_version_id not in asset_version_ids:
             asset_version_ids.append(asset.current_version_id)
 
@@ -947,8 +1058,17 @@ async def _workspace_task_from_form(
                 "size": size,
                 "quality": quality,
                 "output_format": output_format,
+                "output_compression": output_compression,
+                "moderation": moderation,
+                "n": output_count,
+                "prompt_fidelity": prompt_fidelity,
+                "web_search": web_search,
+                "main_model": str(form.get("main_model") or model_id),
+                "resolution": str(form.get("resolution") or ""),
+                "ratio": str(form.get("ratio") or ""),
+                "orientation": str(form.get("orientation") or ""),
                 "mode": mode,
-                "api_mode": str(provider.get("api_mode") or "images"),
+                "api_mode": api_mode,
             },
             input_bytes=input_bytes,
             input_media_type=input_media_type,
@@ -966,6 +1086,11 @@ async def _workspace_task_from_form(
         "size": size,
         "quality": quality,
         "output_format": output_format,
+        "output_compression": output_compression,
+        "moderation": moderation,
+        "n": output_count,
+        "prompt_fidelity": prompt_fidelity,
+        "web_search": web_search,
         "mode": mode,
     }
 
@@ -1276,6 +1401,7 @@ def _history_task_summary(task: GenerationTask) -> dict[str, Any]:
     width, height = _size_parts(size)
     ratio = _ratio(width, height)
     orientation = "square" if width and width == height else "landscape" if width > height else "portrait" if height else ""
+    output_count = len(task_output_records(task)) or max(1, min(4, int(task.request_parameters.get("n") or 1)))
     return {
         "task_id": task.task_id,
         "created_at": task.created_at,
@@ -1285,16 +1411,16 @@ def _history_task_summary(task: GenerationTask) -> dict[str, Any]:
         "mode": str(task.request_parameters.get("mode") or ("edit" if task.input_relative_path else "generate")),
         "size": size,
         "quality": str(task.request_parameters.get("quality") or "auto"),
-        "prompt_mode": "original",
+        "prompt_mode": str(task.request_parameters.get("prompt_fidelity") or "original"),
         "ratio": ratio,
         "orientation": orientation,
         "backend": "openai_responses" if task.request_parameters.get("api_mode") == "responses" else "openai_images",
         "provider": f"{task.provider_scope}-{task.provider_version_id}",
         "archived": bool(task.archived_at),
         "archived_at": task.archived_at,
-        "generated_count": 1 if task.status == "completed" else 0,
-        "failed_count": 1 if task.status == "failed" else 0,
-        "total_count": 1,
+        "generated_count": output_count if task.status == "completed" else 0,
+        "failed_count": output_count if task.status == "failed" else 0,
+        "total_count": output_count,
         "thumbnail_url": f"/api/tasks/{task.task_id}/thumbnail" if task.thumbnail_relative_path else "",
         "prompt_preview": task.prompt[:240],
     }
@@ -1493,20 +1619,40 @@ def _workspace_settings(user_id: str, assets: AssetRepository) -> dict[str, str]
     return settings
 
 
-def _workspace_task_file(request: Request, task_id: str, *, tasks: GenerationTaskRepository, kind: str):
+def _workspace_task_file(
+    request: Request,
+    task_id: str,
+    *,
+    tasks: GenerationTaskRepository,
+    kind: str,
+    output_index: int,
+):
     session: AuthenticatedSession = request.state.auth_session
     try:
         task = tasks.get_task(session.user.user_id, task_id)
-        path = tasks.thumbnail_path(task) if kind == "thumbnail" else tasks.result_path(task)
+        path = (
+            tasks.thumbnail_path(task, output_index)
+            if kind == "thumbnail"
+            else tasks.result_path(task, output_index)
+        )
     except TaskNotFound as error:
         return JSONResponse(status_code=404, content={"detail": str(error)})
     if task.status != "completed" or not path.is_file():
         return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
     headers = {"Cache-Control": "no-store"}
+    records = task_output_records(task)
+    record = records[output_index - 1] if 0 < output_index <= len(records) else {}
     if kind == "download":
-        headers["Content-Disposition"] = f'attachment; filename="task-{task_id}-image-1.{_task_extension(task)}"'
-    return FileResponse(path, media_type="image/jpeg" if kind == "thumbnail" else task.result_media_type, headers=headers)
+        headers["Content-Disposition"] = (
+            f'attachment; filename="task-{task_id}-image-{output_index}.{_task_extension(task, record)}"'
+        )
+    return FileResponse(
+        path,
+        media_type="image/jpeg" if kind == "thumbnail" else str(record.get("media_type") or task.result_media_type),
+        headers=headers,
+    )
 
 
-def _task_extension(task: GenerationTask) -> str:
-    return {"image/jpeg": "jpg", "image/webp": "webp"}.get(task.result_media_type or "", "png")
+def _task_extension(task: GenerationTask, output: dict[str, object] | None = None) -> str:
+    media_type = str((output or {}).get("media_type") or task.result_media_type or "")
+    return {"image/jpeg": "jpg", "image/webp": "webp"}.get(media_type, "png")

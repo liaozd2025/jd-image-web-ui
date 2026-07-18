@@ -18,6 +18,7 @@ from .tasks import (
     TaskConfigurationError,
     TaskNotFound,
     TaskStatus,
+    task_output_records,
 )
 
 
@@ -121,24 +122,35 @@ def install_task_routes(
         task_ids = [value for value in request.query_params.get("ids", "").split(",") if value]
         if not task_ids or len(task_ids) > 50:
             return JSONResponse(status_code=422, content={"detail": "invalid_task_ids"})
-        selected: list[tuple[GenerationTask, object]] = []
+        selected: list[tuple[GenerationTask, int, object, dict[str, object]]] = []
         archive_bytes = 0
         for task_id in task_ids:
             try:
                 task = tasks.get_task(session.user.user_id, task_id)
-                path = tasks.result_path(task)
             except TaskNotFound as error:
                 return JSONResponse(status_code=404, content={"detail": str(error)})
-            if task.status != "completed" or not path.is_file():
+            if task.status != "completed":
                 return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
-            archive_bytes += path.stat().st_size
-            if archive_bytes > MAX_TASK_ARCHIVE_BYTES:
-                return JSONResponse(status_code=413, content={"detail": "task_archive_too_large"})
-            selected.append((task, path))
+            for item in task_output_records(task):
+                output_index = int(item.get("index") or 0)
+                try:
+                    path = tasks.result_path(task, output_index)
+                except TaskNotFound as error:
+                    return JSONResponse(status_code=404, content={"detail": str(error)})
+                if not path.is_file():
+                    return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
+                archive_bytes += path.stat().st_size
+                if archive_bytes > MAX_TASK_ARCHIVE_BYTES:
+                    return JSONResponse(status_code=413, content={"detail": "task_archive_too_large"})
+                selected.append((task, output_index, path, item))
         archive = BytesIO()
         with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as output:
-            for task, path in selected:
-                output.write(path, arcname=f"task-{task.task_id}.{_output_extension(task)}")
+            for task, output_index, path, item in selected:
+                suffix = "" if len(task_output_records(task)) == 1 else f"-image-{output_index}"
+                output.write(
+                    path,
+                    arcname=f"task-{task.task_id}{suffix}.{_output_extension(task, item)}",
+                )
         return Response(
             content=archive.getvalue(),
             media_type="application/zip",
@@ -278,6 +290,56 @@ def _task_payload(
         if task.request_parameters.get("api_mode") == "responses"
         else "openai_images"
     )
+    stored_outputs = task_output_records(task)
+    requested_count = max(1, min(4, int(task.request_parameters.get("n") or 1)))
+    output_count = len(stored_outputs) if stored_outputs else requested_count
+    output_status = (
+        "completed"
+        if task.status == "completed"
+        else "failed"
+        if task.status in {"failed", "interrupted", "cancelled"}
+        else "running"
+        if task.status == "running"
+        else "queued"
+    )
+    outputs = []
+    for output_index in range(1, output_count + 1):
+        record = stored_outputs[output_index - 1] if output_index <= len(stored_outputs) else {}
+        completed_url = (
+            f"{task_url}/outputs/{output_index}/download"
+            if task.status == "completed" and record.get("relative_path")
+            else None
+        )
+        thumbnail_url = (
+            f"{task_url}/outputs/{output_index}/thumbnail"
+            if task.status == "completed" and record.get("thumbnail_relative_path")
+            else None
+        )
+        outputs.append(
+            {
+                "index": output_index,
+                "status": output_status,
+                "url": completed_url,
+                "thumbnail_url": thumbnail_url,
+                "size": str(task.request_parameters.get("size") or ""),
+                "format": str(record.get("output_format") or task.request_parameters.get("output_format") or "png"),
+                "quality": str(task.request_parameters.get("quality") or "auto"),
+                "revised_prompt": record.get("revised_prompt") or task.revised_prompt,
+                "error": task.error_message,
+            }
+        )
+    reference_files = [
+        {
+            "id": str(item.get("asset_id") or ""),
+            "reference_file_id": str(item.get("asset_id") or ""),
+            "filename": str(item.get("original_filename") or item.get("name") or "reference-file"),
+            "mime_type": str(item.get("mime_type") or "application/octet-stream"),
+            "size_bytes": int(item.get("byte_size") or 0),
+            "family": _reference_file_family(str(item.get("original_filename") or "")),
+        }
+        for item in task.asset_versions
+        if item.get("asset_kind") == "file"
+    ]
     attempt_payload = []
     for attempt in attempts or []:
         item = dict(attempt)
@@ -300,6 +362,7 @@ def _task_payload(
         "input_media_type": task.input_media_type,
         "asset_versions": task.asset_versions,
         "shared_asset_versions": task.shared_asset_versions,
+        "reference_files": reference_files,
         "thumbnail_bytes": task.thumbnail_bytes,
         "deleted": task.deleted_at is not None,
         "deleted_at": task.deleted_at,
@@ -346,33 +409,13 @@ def _task_payload(
         "queued_at": task.created_at,
         "output_size": str(task.request_parameters.get("size") or ""),
         "output_url": f"{task_url}/result" if task.status == "completed" and task.result_relative_path else None,
-        "output_urls": [f"{task_url}/result"] if task.status == "completed" and task.result_relative_path else [],
-        "thumbnail_urls": [f"{task_url}/thumbnail"] if task.status == "completed" and task.thumbnail_relative_path else [],
+        "output_urls": [item["url"] for item in outputs if item["url"]],
+        "thumbnail_urls": [item["thumbnail_url"] for item in outputs if item["thumbnail_url"]],
         "input_urls": [f"{task_url}/input"] if task.input_relative_path and (task.input_media_type or "").startswith("image/") else [],
-        "outputs": [
-            {
-                "index": 1,
-                "status": (
-                    "completed"
-                    if task.status == "completed"
-                    else "failed"
-                    if task.status in {"failed", "interrupted", "cancelled"}
-                    else "running"
-                    if task.status == "running"
-                    else "queued"
-                ),
-                "url": f"{task_url}/result" if task.status == "completed" and task.result_relative_path else None,
-                "thumbnail_url": f"{task_url}/thumbnail" if task.status == "completed" and task.thumbnail_relative_path else None,
-                "size": str(task.request_parameters.get("size") or ""),
-                "format": str(task.request_parameters.get("output_format") or "png"),
-                "quality": str(task.request_parameters.get("quality") or "auto"),
-                "revised_prompt": task.revised_prompt,
-                "error": task.error_message,
-            }
-        ],
-        "generated_count": 1 if task.status == "completed" else 0,
-        "failed_count": 1 if task.status == "failed" else 0,
-        "total_count": 1,
+        "outputs": outputs,
+        "generated_count": len(stored_outputs) if task.status == "completed" else 0,
+        "failed_count": requested_count if task.status == "failed" else 0,
+        "total_count": output_count,
         "last_error": task.error_message,
         "error": task.error_message,
         "backend": workspace_backend,
@@ -381,7 +424,12 @@ def _task_payload(
         "archived_at": task.archived_at,
         "viewed_at": task.viewed_at,
         "retry_of_task_id": task.retry_of_task_id,
-        "selected_output_indexes": [1] if task.status == "completed" else [],
+        "selected_output_indexes": [
+            index
+            for index, item in enumerate(stored_outputs, start=1)
+            if bool(item.get("selected", True))
+        ] if task.status == "completed" else [],
+        "queue_position": task.queue_position,
     }
 
 
@@ -440,6 +488,17 @@ def _task_status(value: str) -> TaskStatus:
     return cast(TaskStatus, value)
 
 
-def _output_extension(task: GenerationTask) -> str:
-    output_format = str(task.request_parameters.get("output_format") or "png")
+def _output_extension(task: GenerationTask, output: dict[str, object] | None = None) -> str:
+    output_format = str((output or {}).get("output_format") or task.request_parameters.get("output_format") or "png")
     return output_format if output_format in {"png", "jpeg", "webp"} else "png"
+
+
+def _reference_file_family(filename: str) -> str:
+    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if extension == "pdf":
+        return "pdf"
+    if extension in {"csv", "tsv", "xls", "xlsx", "xla", "xlb", "xlc", "xlm", "xlt", "xlw", "iif"}:
+        return "spreadsheet"
+    if extension in {"doc", "docx", "dot", "odt", "rtf", "ppt", "pptx", "pps", "pot", "ppa", "pwz", "wiz"}:
+        return "document"
+    return "text"

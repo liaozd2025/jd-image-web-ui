@@ -253,6 +253,20 @@ def reconcile_storage(connections: PostgresConnections, *, data_root: Path) -> d
                     expected[str(relative_path)] = table
             cursor.execute(
                 """
+                SELECT output_files
+                FROM server_generation_tasks
+                WHERE storage_purged_at IS NULL
+                """
+            )
+            for (output_files,) in cursor.fetchall():
+                for item in output_files or []:
+                    if not isinstance(item, dict):
+                        continue
+                    for key in ("relative_path", "thumbnail_relative_path"):
+                        if item.get(key):
+                            expected[str(item[key])] = "server_generation_tasks"
+            cursor.execute(
+                """
                 SELECT COUNT(*) FROM server_assets
                 WHERE deleted_at IS NOT NULL AND purge_after <= CURRENT_TIMESTAMP
                   AND storage_purged_at IS NULL
@@ -308,14 +322,26 @@ def purge_expired_trash(connections: PostgresConnections, *, data_root: Path) ->
                 asset_paths.setdefault(row["asset_id"], []).append(relative)
             cursor.execute(
                 """
-                SELECT task_id, input_relative_path, result_relative_path, thumbnail_relative_path
+                SELECT task_id, input_relative_path, result_relative_path, thumbnail_relative_path, output_files
                 FROM server_generation_tasks
                 WHERE deleted_at IS NOT NULL AND purge_after <= CURRENT_TIMESTAMP
                   AND storage_purged_at IS NULL
                 """
             )
             for row in cursor.fetchall():
-                task_values = [value for key, value in row.items() if key != "task_id" and value]
+                task_values = [
+                    value
+                    for key, value in row.items()
+                    if key not in {"task_id", "output_files"} and value
+                ]
+                for item in row.get("output_files") or []:
+                    if not isinstance(item, dict):
+                        continue
+                    task_values.extend(
+                        str(item[key])
+                        for key in ("relative_path", "thumbnail_relative_path")
+                        if item.get(key)
+                    )
                 task_paths[row["task_id"]] = task_values
                 paths.extend(task_values)
             cursor.execute(

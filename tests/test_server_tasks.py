@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import threading
@@ -36,11 +37,14 @@ class FakeProviderHandler(BaseHTTPRequestHandler):
         if self.headers.get("Content-Type", "").startswith("multipart/"):
             body: object = raw_body
             should_fail = False
+            count_match = re.search(br'name="n"\r\n\r\n(\d+)', raw_body)
+            output_count = int(count_match.group(1)) if count_match else 1
         else:
             body = json.loads(raw_body)
             should_fail = isinstance(body, dict) and body.get("prompt") == "force provider failure"
+            output_count = int(body.get("n", 1)) if isinstance(body, dict) else 1
             if isinstance(body, dict) and body.get("prompt") == "hold provider for cancellation":
-                time.sleep(2.0)
+                time.sleep(5.0)
         type(self).requests.append(
             {
                 "authorization": self.headers.get("Authorization"),
@@ -56,8 +60,9 @@ class FakeProviderHandler(BaseHTTPRequestHandler):
                     "data": [
                         {
                             "b64_json": base64.b64encode(FAKE_PNG).decode("ascii"),
-                            "revised_prompt": "fake revised prompt",
+                            "revised_prompt": f"fake revised prompt {index + 1}",
                         }
+                        for index in range(output_count)
                     ]
                 }
             ).encode("utf-8")
@@ -137,6 +142,22 @@ class ServerGenerationTaskTests(unittest.TestCase):
                             headers={"X-CSRF-Token": admin_csrf},
                         )
                         provider_version_id = provider.json()["provider"]["provider_version_id"]
+                        responses_provider = admin.post(
+                            "/api/admin/provider-catalog",
+                            json={
+                                "provider_key": "fake-responses-provider",
+                                "display_name": "Fake Responses Provider",
+                                "base_url": f"http://127.0.0.1:{fake_server.server_port}/v1",
+                                "api_mode": "responses",
+                                "models": [{
+                                    "model_id": "fake-image-1",
+                                    "capabilities": ["image_generation"],
+                                }],
+                                "parameter_constraints": {},
+                            },
+                            headers={"X-CSRF-Token": admin_csrf},
+                        )
+                        responses_provider_version_id = responses_provider.json()["provider"]["provider_version_id"]
 
                     with TestClient(create_server_app(settings)) as user:
                         user_login = login(
@@ -158,6 +179,12 @@ class ServerGenerationTaskTests(unittest.TestCase):
                             headers={"X-CSRF-Token": user_csrf},
                         )
                         self.assertEqual(credential.status_code, 200)
+                        responses_credential = user.put(
+                            f"/api/providers/personal/{responses_provider_version_id}",
+                            json={"api_key": TASK_API_KEY},
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(responses_credential.status_code, 200)
                         workspace_health = user.get("/api/health")
                         self.assertEqual(workspace_health.status_code, 200, workspace_health.text)
                         self.assertTrue(workspace_health.json()["auth_available"])
@@ -168,6 +195,29 @@ class ServerGenerationTaskTests(unittest.TestCase):
                             workspace_provider_id,
                             [item["id"] for item in workspace_settings.json()["settings"]["providers"]],
                         )
+                        reference_file_task = user.post(
+                            "/api/generate",
+                            data={
+                                "api_provider_id": f"personal-{responses_provider_version_id}",
+                                "model": "fake-image-1",
+                                "main_model": "fake-main-1",
+                                "prompt": "use reference document",
+                                "api_mode": "responses",
+                            },
+                            files={"reference_files": ("brief.txt", b"server reference text", "text/plain")},
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(reference_file_task.status_code, 201, reference_file_task.text)
+                        reference_file_task_id = reference_file_task.json()["task"]["task_id"]
+                        self.assertEqual(reference_file_task.json()["task"]["reference_files"][0]["filename"], "brief.txt")
+                        self.assertEqual(reference_file_task.json()["task"]["request_parameters"]["main_model"], "fake-main-1")
+                        self.assertEqual(
+                            user.delete(
+                                f"/api/queue/{reference_file_task_id}",
+                                headers={"X-CSRF-Token": user_csrf},
+                            ).status_code,
+                            200,
+                        )
                         submitted = user.post(
                             "/api/generate",
                             data={
@@ -177,12 +227,17 @@ class ServerGenerationTaskTests(unittest.TestCase):
                                 "size": "1024x1024",
                                 "quality": "auto",
                                 "output_format": "png",
+                                "moderation": "low",
+                                "n": "2",
+                                "prompt_fidelity": "original",
+                                "web_search": "true",
                             },
                             headers={"X-CSRF-Token": user_csrf},
                         )
                         self.assertEqual(submitted.status_code, 201)
                         task_id = submitted.json()["task"]["task_id"]
                         self.assertEqual(submitted.json()["task"]["status"], "queued")
+                        self.assertEqual(submitted.json()["task"]["total_count"], 2)
                         self.assertGreater(submitted.json()["task"]["input_bytes"], 0)
                         self.assertTrue(submitted.json()["task"]["input_sha256"])
                         recent = user.get("/api/tasks/recent?limit=50")
@@ -192,6 +247,43 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         queue = user.get("/api/queue")
                         self.assertEqual(queue.status_code, 200, queue.text)
                         self.assertEqual(queue.json()["waiting"][0]["task_id"], task_id)
+                        queued_for_order = []
+                        for prompt in ("queue order one", "queue order two"):
+                            queued_for_order.append(
+                                user.post(
+                                    "/api/tasks",
+                                    json={
+                                        "provider_version_id": provider_version_id,
+                                        "model_id": "fake-image-1",
+                                        "prompt": prompt,
+                                    },
+                                    headers={"X-CSRF-Token": user_csrf},
+                                ).json()["task"]["task_id"]
+                            )
+                        promoted = user.post(
+                            f"/api/queue/{queued_for_order[1]}/promote",
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(promoted.status_code, 200, promoted.text)
+                        self.assertEqual(promoted.json()["waiting"][0]["task_id"], queued_for_order[1])
+                        reordered = user.patch(
+                            "/api/queue/reorder",
+                            json={"task_ids": [task_id, *queued_for_order]},
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(reordered.status_code, 200, reordered.text)
+                        self.assertEqual(
+                            [item["task_id"] for item in reordered.json()["waiting"]],
+                            [task_id, *queued_for_order],
+                        )
+                        for queued_task_id in queued_for_order:
+                            self.assertEqual(
+                                user.delete(
+                                    f"/api/queue/{queued_task_id}",
+                                    headers={"X-CSRF-Token": user_csrf},
+                                ).status_code,
+                                200,
+                            )
                         with psycopg.connect(database_url) as connection:
                             input_relative_path = connection.execute(
                                 "SELECT input_relative_path FROM server_generation_tasks WHERE task_id = %s",
@@ -259,6 +351,26 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         workspace_download = user.get(f"/api/tasks/{task_id}/outputs/1/download")
                         self.assertEqual(workspace_download.status_code, 200)
                         self.assertEqual(workspace_download.content, FAKE_PNG)
+                        second_workspace_download = user.get(f"/api/tasks/{task_id}/outputs/2/download")
+                        self.assertEqual(second_workspace_download.status_code, 200)
+                        self.assertEqual(second_workspace_download.content, FAKE_PNG)
+                        self.assertEqual(completed.json()["task"]["total_count"], 2)
+                        self.assertEqual(completed.json()["task"]["generated_count"], 2)
+                        self.assertEqual(len(completed.json()["task"]["outputs"]), 2)
+                        deselected = user.patch(
+                            f"/api/tasks/{task_id}/outputs/2/selected",
+                            json={"selected": False},
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(deselected.status_code, 200, deselected.text)
+                        self.assertEqual(deselected.json()["task"]["selected_output_indexes"], [1])
+                        reselected = user.patch(
+                            f"/api/tasks/{task_id}/outputs/2/selected",
+                            json={"selected": True},
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(reselected.status_code, 200, reselected.text)
+                        self.assertEqual(reselected.json()["task"]["selected_output_indexes"], [1, 2])
                         workspace_zip = user.get(f"/api/tasks/{task_id}/outputs.zip")
                         self.assertEqual(workspace_zip.status_code, 200)
                         history_summary = user.get("/api/task-history/summary")
@@ -289,7 +401,8 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         self.assertTrue(viewed.json()["task"]["viewed_at"])
                         archive = user.get(f"/api/tasks/archive?ids={task_id}")
                         self.assertEqual(archive.status_code, 200)
-                        self.assertIn(f"task-{task_id}.png".encode(), archive.content)
+                        self.assertIn(f"task-{task_id}-image-1.png".encode(), archive.content)
+                        self.assertIn(f"task-{task_id}-image-2.png".encode(), archive.content)
                         stolen_path = data_root / "tasks" / second_user_id / f"{task_id}.png"
                         stolen_path.parent.mkdir(parents=True, exist_ok=True)
                         stolen_path.write_bytes(FAKE_PNG)
@@ -301,6 +414,11 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         self.assertEqual(user.get(f"/api/tasks/{task_id}/result").status_code, 404)
                         self.assertEqual(completed.json()["task"]["model_id"], "fake-image-1")
                         self.assertEqual(completed.json()["task"]["request_parameters"]["output_format"], "png")
+                        self.assertEqual(completed.json()["task"]["request_parameters"]["n"], 2)
+                        self.assertEqual(completed.json()["task"]["request_parameters"]["moderation"], "low")
+                        self.assertEqual(completed.json()["task"]["request_parameters"]["prompt_fidelity"], "original")
+                        self.assertTrue(completed.json()["task"]["request_parameters"]["web_search"])
+                        self.assertEqual(FakeProviderHandler.requests[0]["body"]["n"], 2)
                         self.assertEqual(FakeProviderHandler.requests[0]["authorization"], f"Bearer {TASK_API_KEY}")
 
                         uploaded = user.post(

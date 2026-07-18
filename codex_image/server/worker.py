@@ -6,6 +6,7 @@ import threading
 from uuid import uuid4
 
 from codex_image.client import OpenAIImagesImageClient, OpenAIResponsesImageClient
+from codex_image.client_types import ResponsesInputFile
 
 from .assets import AssetRepository
 from .config import ServerSettings
@@ -129,6 +130,7 @@ class HeartbeatWorker:
             client = self._provider_client(claimed)
             parameters = claimed.task.request_parameters
             reference_images: list[str] = []
+            reference_files: list[ResponsesInputFile] = []
             if claimed.task.input_media_type and claimed.task.input_media_type.startswith("image/"):
                 input_path = self.tasks.input_path(claimed.task)
                 input_data = input_path.read_bytes()
@@ -146,6 +148,19 @@ class HeartbeatWorker:
                         raise RuntimeError("task reference assets exceed the server memory limit")
                     encoded = base64.b64encode(asset_data).decode("ascii")
                     reference_images.append(f"data:{snapshot.get('mime_type')};base64,{encoded}")
+                elif asset_kind == "file":
+                    file_data = asset_path.read_bytes()
+                    reference_bytes += len(file_data)
+                    if reference_bytes > MAX_REFERENCE_BYTES:
+                        raise RuntimeError("task reference assets exceed the server memory limit")
+                    encoded = base64.b64encode(file_data).decode("ascii")
+                    reference_files.append(
+                        ResponsesInputFile(
+                            filename=str(snapshot.get("original_filename") or "reference-file"),
+                            mime_type=str(snapshot.get("mime_type") or "application/octet-stream"),
+                            file_data=f"data:{snapshot.get('mime_type')};base64,{encoded}",
+                        )
+                    )
             prompt = claimed.task.prompt
             prompt_asset_bytes = 0
             for snapshot in all_asset_snapshots:
@@ -156,20 +171,40 @@ class HeartbeatWorker:
                 if prompt_asset_bytes > MAX_PROMPT_ASSET_BYTES:
                     raise RuntimeError("task prompt assets exceed the server memory limit")
                 prompt = f"{prompt}\n\n{asset_path.read_text(encoding='utf-8')}"
-            result = client.generate_image(
-                prompt=prompt,
-                model=claimed.task.model_id,
-                reference_images=reference_images or None,
-                size=str(parameters.get("size") or "1024x1024"),
-                quality=str(parameters.get("quality") or "auto"),
-                output_format=str(parameters.get("output_format") or "png"),
-            )
-            completed = self.tasks.complete_task(
+            output_count = max(1, min(4, int(parameters.get("n") or 1)))
+            common_parameters = {
+                "prompt": prompt,
+                "main_model": str(parameters.get("main_model") or claimed.task.model_id),
+                "model": claimed.task.model_id,
+                "reference_images": reference_images or None,
+                "size": str(parameters.get("size") or "1024x1024"),
+                "quality": str(parameters.get("quality") or "auto"),
+                "output_format": str(parameters.get("output_format") or "png"),
+                "moderation": str(parameters.get("moderation") or "auto"),
+                "output_compression": parameters.get("output_compression"),
+            }
+            if claimed.api_mode == "images":
+                results = client.generate_images(**common_parameters, n=output_count)
+            else:
+                results = [
+                    client.generate_image(
+                        **common_parameters,
+                        reference_files=reference_files or None,
+                        web_search=bool(parameters.get("web_search")),
+                    )
+                    for _ in range(output_count)
+                ]
+            completed = self.tasks.complete_task_outputs(
                 claimed.task,
                 attempt_id=claimed.attempt_id,
-                image_bytes=result.image_bytes,
-                output_format=str(parameters.get("output_format") or result.output_format or "png"),
-                revised_prompt=result.revised_prompt,
+                outputs=[
+                    (
+                        result.image_bytes,
+                        str(parameters.get("output_format") or result.output_format or "png"),
+                        result.revised_prompt,
+                    )
+                    for result in results
+                ],
             )
             self.tasks.settle_quota(completed, consumed=completed.status == "completed")
         except Exception as error:

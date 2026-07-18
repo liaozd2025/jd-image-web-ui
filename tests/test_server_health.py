@@ -37,6 +37,7 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0020_migration_checksums",
     "0021_worker_leases",
     "0022_workspace_task_state",
+    "0023_workspace_outputs_queue_and_files",
 ]
 
 

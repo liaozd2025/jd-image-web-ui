@@ -14,8 +14,8 @@ from .database import PostgresConnections
 from .maintenance import assert_writes_allowed
 
 
-AssetKind = Literal["image", "reference", "template", "prompt"]
-ASSET_KINDS = {"image", "reference", "template", "prompt"}
+AssetKind = Literal["image", "reference", "template", "prompt", "file"]
+ASSET_KINDS = {"image", "reference", "template", "prompt", "file"}
 MAX_ASSET_BYTES = 20 * 1024 * 1024
 SUPPORTED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
 _SAFE_FILENAME = re.compile(r"[^A-Za-z0-9._-]+")
@@ -649,3 +649,5 @@ def _validate_content(kind: AssetKind, mime_type: str, content: bytes) -> None:
         raise AssetValidationError("image asset media type is unsupported")
     if kind in {"template", "prompt"} and not mime_type.startswith("text/"):
         raise AssetValidationError("text asset media type is unsupported")
+    if kind == "file" and mime_type.startswith("image/"):
+        raise AssetValidationError("reference file media type is unsupported")
