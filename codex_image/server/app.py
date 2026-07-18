@@ -7,9 +7,11 @@ from typing import AsyncIterator
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+from .auth import install_authentication
 from .config import ServerSettings
 from .database import PostgresConnections, ServerRuntimeRepository
 from .health import HealthStatus, ReadyComponents
+from .identity import IdentityRepository
 from .migrations import MigrationRunner
 from .volume import check_file_volume
 
@@ -21,6 +23,7 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
     )
     migrations = MigrationRunner(connections)
     runtime = ServerRuntimeRepository(connections)
+    identity = IdentityRepository(connections)
     migration_lock = threading.Lock()
     schema_ready = False
 
@@ -65,4 +68,5 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
             },
         )
 
+    install_authentication(app, settings=settings, identity=identity)
     return app

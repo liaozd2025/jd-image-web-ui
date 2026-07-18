@@ -1,0 +1,214 @@
+from __future__ import annotations
+
+from pathlib import Path
+from urllib.parse import urlsplit
+
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+
+from .config import ServerSettings
+from .identity import AuthenticatedSession, IdentityRepository, SessionCredentials, UserAccount
+from .security import CredentialValidationError
+
+
+SESSION_COOKIE = "jd_image_session"
+CSRF_COOKIE = "jd_image_csrf"
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+PUBLIC_PATHS = {"/health/live", "/health/ready", "/login", "/api/auth/login"}
+PASSWORD_CHANGE_PATHS = {"/api/auth/me", "/api/auth/password", "/api/auth/logout"}
+
+
+class LoginPayload(BaseModel):
+    username: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=1, max_length=1024)
+
+
+class PasswordChangePayload(BaseModel):
+    current_password: str = Field(min_length=1, max_length=1024)
+    new_password: str = Field(min_length=1, max_length=1024)
+
+
+def install_authentication(
+    app: FastAPI,
+    *,
+    settings: ServerSettings,
+    identity: IdentityRepository,
+) -> None:
+    static_root = Path(__file__).with_name("static")
+    app.mount("/auth-static", StaticFiles(directory=static_root), name="auth-static")
+
+    @app.middleware("http")
+    async def authenticate_request(request: Request, call_next):
+        path = request.url.path
+        if path in PUBLIC_PATHS or path.startswith("/auth-static/"):
+            return await call_next(request)
+
+        token = request.cookies.get(SESSION_COOKIE, "")
+        session = identity.resolve_session(token)
+        if session is None:
+            return _unauthenticated_response(path)
+        request.state.auth_session = session
+
+        if session.user.must_change_password and path not in PASSWORD_CHANGE_PATHS:
+            if path.startswith("/api/") or path.startswith("/files/"):
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "password_change_required"},
+                )
+            return RedirectResponse("/login?change=1", status_code=303)
+
+        if request.method not in SAFE_METHODS:
+            if not identity.csrf_is_valid(
+                session,
+                cookie_token=request.cookies.get(CSRF_COOKIE, ""),
+                header_token=request.headers.get("X-CSRF-Token", ""),
+            ):
+                return JSONResponse(status_code=403, content={"detail": "csrf_validation_failed"})
+        return await call_next(request)
+
+    @app.middleware("http")
+    async def add_browser_security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+            "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+        )
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        if request.url.path == "/login" or request.url.path.startswith("/api/auth/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.get("/login", response_model=None)
+    def login_page(request: Request) -> Response:
+        session = identity.resolve_session(request.cookies.get(SESSION_COOKIE, ""))
+        if session is not None:
+            if session.user.must_change_password:
+                if request.query_params.get("change") != "1":
+                    return RedirectResponse("/login?change=1", status_code=303)
+            else:
+                return RedirectResponse("/", status_code=303)
+        return FileResponse(static_root / "login.html", headers={"Cache-Control": "no-store"})
+
+    @app.post("/api/auth/login", response_model=None)
+    def login(request: Request, payload: LoginPayload) -> JSONResponse:
+        if not _request_has_same_origin(request):
+            return JSONResponse(status_code=403, content={"detail": "cross_site_request_rejected"})
+        login_result = identity.login(
+            payload.username,
+            payload.password,
+            ttl_seconds=settings.session_ttl_seconds,
+        )
+        if login_result is None:
+            return JSONResponse(status_code=401, content={"detail": "invalid_credentials"})
+        user, credentials = login_result
+        return _authenticated_response(user, credentials, settings=settings)
+
+    @app.get("/api/auth/me", response_model=None)
+    def current_user(request: Request) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        return JSONResponse(content={"user": _user_payload(session.user)})
+
+    @app.post("/api/auth/password", response_model=None)
+    def change_password(request: Request, payload: PasswordChangePayload) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        try:
+            user = identity.change_password(
+                session.user.user_id,
+                current_password=payload.current_password,
+                new_password=payload.new_password,
+            )
+        except CredentialValidationError as error:
+            return JSONResponse(status_code=400, content={"detail": str(error)})
+        if user is None:
+            return JSONResponse(status_code=400, content={"detail": "password_change_failed"})
+        credentials = identity.create_session(user, ttl_seconds=settings.session_ttl_seconds)
+        return _authenticated_response(user, credentials, settings=settings)
+
+    @app.post("/api/auth/logout", response_model=None)
+    def logout(request: Request) -> JSONResponse:
+        identity.revoke_session(request.cookies.get(SESSION_COOKIE, ""))
+        response = JSONResponse(content={"ok": True})
+        _clear_auth_cookies(response, settings=settings)
+        return response
+
+    @app.get("/", response_model=None)
+    def home() -> FileResponse:
+        return FileResponse(static_root / "home.html", headers={"Cache-Control": "no-store"})
+
+
+def _request_has_same_origin(request: Request) -> bool:
+    if request.headers.get("Sec-Fetch-Site", "").lower() == "cross-site":
+        return False
+    origin = request.headers.get("Origin")
+    if not origin:
+        return True
+    parsed = urlsplit(origin)
+    return parsed.scheme == request.url.scheme and parsed.netloc == request.headers.get("host", "")
+
+
+def _unauthenticated_response(path: str) -> Response:
+    if path.startswith("/api/") or path.startswith("/files/"):
+        return JSONResponse(status_code=401, content={"detail": "authentication_required"})
+    return RedirectResponse("/login", status_code=303)
+
+
+def _authenticated_response(
+    user: UserAccount,
+    credentials: SessionCredentials,
+    *,
+    settings: ServerSettings,
+) -> JSONResponse:
+    response = JSONResponse(
+        content={
+            "user": _user_payload(user),
+            "csrf_token": credentials.csrf_token,
+        }
+    )
+    response.set_cookie(
+        SESSION_COOKIE,
+        credentials.token,
+        max_age=settings.session_ttl_seconds,
+        httponly=True,
+        secure=settings.session_cookie_secure,
+        samesite="strict",
+        path="/",
+    )
+    response.set_cookie(
+        CSRF_COOKIE,
+        credentials.csrf_token,
+        max_age=settings.session_ttl_seconds,
+        httponly=False,
+        secure=settings.session_cookie_secure,
+        samesite="strict",
+        path="/",
+    )
+    return response
+
+
+def _clear_auth_cookies(response: Response, *, settings: ServerSettings) -> None:
+    response.delete_cookie(
+        SESSION_COOKIE,
+        path="/",
+        secure=settings.session_cookie_secure,
+        httponly=True,
+        samesite="strict",
+    )
+    response.delete_cookie(
+        CSRF_COOKIE,
+        path="/",
+        secure=settings.session_cookie_secure,
+        httponly=False,
+        samesite="strict",
+    )
+
+
+def _user_payload(user: UserAccount) -> dict[str, object]:
+    return {
+        "username": user.username,
+        "role": user.role,
+        "must_change_password": user.must_change_password,
+    }

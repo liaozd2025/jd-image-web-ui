@@ -111,8 +111,8 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-webui.txt
 
-      - name: Test server health with real PostgreSQL and separate Worker
-        run: python -m unittest tests.test_server_health -v
+      - name: Test server health and authentication with real PostgreSQL and separate Worker
+        run: python -m unittest tests.test_server_health tests.test_server_auth -v
 
       - name: Test proxy, service degradation and persistence through Compose
         env:

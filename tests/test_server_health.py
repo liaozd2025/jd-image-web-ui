@@ -12,6 +12,12 @@ from fastapi.testclient import TestClient
 
 
 TEST_DATABASE_URL = os.environ.get("JD_IMAGE_TEST_DATABASE_URL", "")
+EXPECTED_SCHEMA_VERSIONS = [
+    "0001_server_runtime",
+    "0002_server_runtime_identity",
+    "0003_admin_identity",
+    "0004_browser_sessions",
+]
 
 
 @unittest.skipUnless(TEST_DATABASE_URL, "set JD_IMAGE_TEST_DATABASE_URL to a real PostgreSQL database")
@@ -56,7 +62,7 @@ class ServerHealthTests(unittest.TestCase):
         self.assertEqual(ready.json()["components"]["database"]["status"], "ready")
         self.assertEqual(
             ready.json()["components"]["database"]["schema_versions"],
-            ["0001_server_runtime", "0002_server_runtime_identity"],
+            EXPECTED_SCHEMA_VERSIONS,
         )
         self.assertEqual(ready.json()["components"]["file_volume"]["status"], "ready")
         self.assertEqual(ready.json()["components"]["worker"]["status"], "unavailable")
@@ -107,7 +113,7 @@ class ServerHealthTests(unittest.TestCase):
 
         self.assertEqual(
             first["database"]["schema_versions"],
-            ["0001_server_runtime", "0002_server_runtime_identity"],
+            EXPECTED_SCHEMA_VERSIONS,
         )
         self.assertEqual(first["database"]["schema_migrations"], second["database"]["schema_migrations"])
         self.assertEqual(first["database"]["database_id"], second["database"]["database_id"])

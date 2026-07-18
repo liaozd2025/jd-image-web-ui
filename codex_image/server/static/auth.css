@@ -1,0 +1,69 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #0c111d;
+  color: #e8edf7;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at top, #18243b, #0c111d 55%);
+}
+
+.auth-card {
+  width: min(360px, calc(100vw - 48px));
+  padding: 32px;
+  border: 1px solid #283651;
+  border-radius: 18px;
+  background: #121a2a;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 35%);
+}
+
+h1,
+.subtitle {
+  text-align: center;
+}
+
+.subtitle {
+  color: #9aabc8;
+}
+
+label {
+  display: block;
+  margin: 18px 0 7px;
+  color: #bdc9dc;
+  font-size: 14px;
+}
+
+input,
+button {
+  box-sizing: border-box;
+  width: 100%;
+  border-radius: 10px;
+  font: inherit;
+}
+
+input {
+  padding: 11px 12px;
+  border: 1px solid #344564;
+  background: #0b1322;
+  color: inherit;
+}
+
+button {
+  margin-top: 22px;
+  padding: 12px;
+  border: 0;
+  background: #5b7cfa;
+  color: white;
+  cursor: pointer;
+}
+
+.error {
+  min-height: 20px;
+  color: #ff9292;
+  font-size: 13px;
+}

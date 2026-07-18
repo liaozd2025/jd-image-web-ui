@@ -13,6 +13,8 @@ class ServerSettings:
     database_connect_timeout_seconds: int = 2
     worker_heartbeat_interval_seconds: float = 2.0
     worker_heartbeat_ttl_seconds: float = 10.0
+    session_ttl_seconds: int = 12 * 60 * 60
+    session_cookie_secure: bool = False
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> "ServerSettings":
@@ -33,6 +35,10 @@ class ServerSettings:
             worker_heartbeat_ttl_seconds=float(
                 values.get("JD_IMAGE_WORKER_HEARTBEAT_TTL_SECONDS", "10")
             ),
+            session_ttl_seconds=int(values.get("JD_IMAGE_SESSION_TTL_SECONDS", str(12 * 60 * 60))),
+            session_cookie_secure=_environment_bool(
+                values.get("JD_IMAGE_SESSION_COOKIE_SECURE", "false")
+            ),
         )
 
     def __post_init__(self) -> None:
@@ -44,3 +50,14 @@ class ServerSettings:
             raise ValueError("worker_heartbeat_interval_seconds must be positive")
         if self.worker_heartbeat_ttl_seconds <= 0:
             raise ValueError("worker_heartbeat_ttl_seconds must be positive")
+        if self.session_ttl_seconds <= 0:
+            raise ValueError("session_ttl_seconds must be positive")
+
+
+def _environment_bool(value: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"invalid boolean value: {value}")

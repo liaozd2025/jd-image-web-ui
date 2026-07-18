@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>登录 · JD Image Web UI</title>
+    <link rel="stylesheet" href="/auth-static/auth.css">
+    <script src="/auth-static/login.js" defer></script>
+  </head>
+  <body>
+    <main class="auth-card">
+      <h1>JD Image Web UI</h1>
+      <p class="subtitle">部门图片工作台</p>
+      <form id="login-form">
+        <label for="username">用户名</label>
+        <input id="username" name="username" autocomplete="username" required maxlength="64">
+        <label for="password">密码</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024">
+        <button type="submit">登录</button>
+        <p id="login-error" class="error" aria-live="polite"></p>
+      </form>
+      <form id="password-form" hidden>
+        <p>首次登录必须修改临时密码。</p>
+        <label for="current-password">临时密码</label>
+        <input id="current-password" type="password" autocomplete="current-password" required maxlength="1024">
+        <label for="new-password">新密码（至少 12 个字符）</label>
+        <input id="new-password" type="password" autocomplete="new-password" required minlength="12" maxlength="1024">
+        <button type="submit">修改密码并进入</button>
+        <p id="password-error" class="error" aria-live="polite"></p>
+      </form>
+    </main>
+  </body>
+</html>
