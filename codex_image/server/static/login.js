@@ -1,3 +1,5 @@
+import { cookieValue } from "/auth-static/common.js";
+
 const loginForm = document.querySelector("#login-form");
 const passwordForm = document.querySelector("#password-form");
 let csrfToken = "";
@@ -39,16 +41,13 @@ loginForm.addEventListener("submit", async (event) => {
 passwordForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!csrfToken) {
-    csrfToken = document.cookie
-      .split("; ")
-      .find((entry) => entry.startsWith("jd_image_csrf="))
-      ?.split("=")[1] || "";
+    csrfToken = cookieValue("jd_image_csrf");
   }
   const response = await fetch("/api/auth/password", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-CSRF-Token": decodeURIComponent(csrfToken),
+      "X-CSRF-Token": csrfToken,
     },
     body: JSON.stringify({
       current_password: document.querySelector("#current-password").value,

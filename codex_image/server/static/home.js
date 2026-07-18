@@ -1,7 +1,4 @@
-function cookieValue(name) {
-  const item = document.cookie.split("; ").find((entry) => entry.startsWith(`${name}=`));
-  return item ? decodeURIComponent(item.split("=")[1]) : "";
-}
+import { cookieValue } from "/auth-static/common.js";
 
 fetch("/api/auth/me")
   .then((response) => response.json())

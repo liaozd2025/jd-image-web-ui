@@ -10,6 +10,7 @@ import unittest
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+import psycopg
 
 from tests.server_test_database import temporary_postgres_database
 
@@ -168,6 +169,7 @@ class ServerAuthenticationFlowTests(unittest.TestCase):
                             },
                             headers={"X-CSRF-Token": csrf_token},
                         )
+                        changed_session_token = client.cookies.get("jd_image_session")
                         home = client.get("/")
                         completed_login_page = client.get("/login", follow_redirects=False)
                         current_user = client.get("/api/auth/me")
@@ -178,6 +180,31 @@ class ServerAuthenticationFlowTests(unittest.TestCase):
                             headers={"X-CSRF-Token": changed.json()["csrf_token"]},
                         )
                         after_logout = client.get("/api/auth/me")
+                        with TestClient(create_server_app(settings)) as replay_client:
+                            replay_client.cookies.set(
+                                "jd_image_session",
+                                changed_session_token,
+                            )
+                            replayed_logged_out_session = replay_client.get("/api/auth/me")
+
+                    with psycopg.connect(database_url) as connection:
+                        user_state = connection.execute(
+                            """
+                            SELECT
+                                COUNT(*),
+                                BOOL_AND(must_change_password = FALSE),
+                                BOOL_AND(temporary_login_consumed_at IS NULL)
+                            FROM server_users
+                            """
+                        ).fetchone()
+                        session_state = connection.execute(
+                            """
+                            SELECT
+                                COUNT(*),
+                                COUNT(*) FILTER (WHERE revoked_at IS NULL)
+                            FROM server_sessions
+                            """
+                        ).fetchone()
                 finally:
                     worker.terminate()
                     worker.wait(timeout=5)
@@ -217,6 +244,40 @@ class ServerAuthenticationFlowTests(unittest.TestCase):
         self.assertEqual(logout_without_csrf.status_code, 403)
         self.assertEqual(logout.status_code, 200)
         self.assertEqual(after_logout.status_code, 401)
+        self.assertEqual(replayed_logged_out_session.status_code, 401)
+        self.assertEqual(user_state, (1, True, True))
+        self.assertEqual(session_state, (2, 0))
+
+    def test_temporary_password_cannot_be_kept_as_the_permanent_password(self) -> None:
+        from codex_image.server.app import create_server_app
+        from codex_image.server.config import ServerSettings
+
+        with temporary_postgres_database(TEST_DATABASE_URL) as database_url:
+            with tempfile.TemporaryDirectory() as tmp:
+                data_root = Path(tmp) / "data"
+                _, temporary_password = bootstrap_admin(database_url, data_root)
+                settings = ServerSettings(
+                    database_url=database_url,
+                    data_root=data_root,
+                    session_cookie_secure=False,
+                )
+                with TestClient(create_server_app(settings)) as client:
+                    login = client.post(
+                        "/api/auth/login",
+                        json={"username": "admin", "password": temporary_password},
+                    )
+                    unchanged = client.post(
+                        "/api/auth/password",
+                        json={
+                            "current_password": temporary_password,
+                            "new_password": temporary_password,
+                        },
+                        headers={"X-CSRF-Token": login.json()["csrf_token"]},
+                    )
+                    current_user = client.get("/api/auth/me")
+
+        self.assertEqual(unchanged.status_code, 400)
+        self.assertTrue(current_user.json()["user"]["must_change_password"])
 
     def test_session_expires(self) -> None:
         from codex_image.server.app import create_server_app

@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hmac
+from typing import Literal, cast
 from uuid import uuid4
+
+from psycopg.rows import dict_row
 
 from .database import PostgresConnections
 from .security import (
+    CredentialValidationError,
     consume_dummy_password_work,
     hash_password,
     hash_token,
@@ -17,6 +21,7 @@ from .security import (
 
 
 ADMIN_BOOTSTRAP_LOCK_ID = 4_607_322_027
+UserRole = Literal["admin", "user"]
 
 
 class BootstrapAlreadyInitialized(RuntimeError):
@@ -27,7 +32,7 @@ class BootstrapAlreadyInitialized(RuntimeError):
 class UserAccount:
     user_id: str
     username: str
-    role: str
+    role: UserRole
     must_change_password: bool
     is_active: bool
 
@@ -35,7 +40,6 @@ class UserAccount:
 @dataclass(frozen=True)
 class AuthenticatedSession:
     user: UserAccount
-    token_hash: str
     csrf_token_hash: str
 
 
@@ -94,7 +98,7 @@ class IdentityRepository:
             return None
 
         with self.connections.connect() as connection:
-            with connection.cursor() as cursor:
+            with connection.cursor(row_factory=dict_row) as cursor:
                 cursor.execute(
                     """
                     SELECT
@@ -115,11 +119,11 @@ class IdentityRepository:
                 if row is None:
                     consume_dummy_password_work(password)
                     return None
-                if not verify_password(password, row[3]) or not row[6]:
+                if not verify_password(password, row["password_hash"]) or not row["is_active"]:
                     return None
-                if row[4] and row[5] is not None:
+                if row["must_change_password"] and row["temporary_login_consumed_at"] is not None:
                     return None
-                if row[4]:
+                if row["must_change_password"]:
                     cursor.execute(
                         """
                         UPDATE server_users
@@ -127,28 +131,25 @@ class IdentityRepository:
                             updated_at = CURRENT_TIMESTAMP
                         WHERE user_id = %s
                         """,
-                        (row[0],),
+                        (row["user_id"],),
                     )
                 user = UserAccount(
-                    user_id=row[0],
-                    username=row[1],
-                    role=row[2],
-                    must_change_password=row[4],
-                    is_active=row[6],
+                    user_id=row["user_id"],
+                    username=row["username"],
+                    role=cast(UserRole, row["role"]),
+                    must_change_password=row["must_change_password"],
+                    is_active=row["is_active"],
                 )
                 credentials = self._insert_session(cursor, user, ttl_seconds=ttl_seconds)
                 return user, credentials
 
     def create_session(self, user: UserAccount, *, ttl_seconds: int) -> SessionCredentials:
-        token = new_session_token()
-        csrf_token = new_session_token()
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
                 return self._insert_session(
                     cursor,
                     user,
                     ttl_seconds=ttl_seconds,
-                    credentials=SessionCredentials(token=token, csrf_token=csrf_token),
                 )
 
     def resolve_session(self, token: str) -> AuthenticatedSession | None:
@@ -156,7 +157,7 @@ class IdentityRepository:
             return None
         token_hash = hash_token(token)
         with self.connections.connect() as connection:
-            with connection.cursor() as cursor:
+            with connection.cursor(row_factory=dict_row) as cursor:
                 cursor.execute(
                     """
                     SELECT
@@ -180,14 +181,13 @@ class IdentityRepository:
             return None
         return AuthenticatedSession(
             user=UserAccount(
-                user_id=row[0],
-                username=row[1],
-                role=row[2],
-                must_change_password=row[3],
-                is_active=row[4],
+                user_id=row["user_id"],
+                username=row["username"],
+                role=cast(UserRole, row["role"]),
+                must_change_password=row["must_change_password"],
+                is_active=row["is_active"],
             ),
-            token_hash=token_hash,
-            csrf_token_hash=row[5],
+            csrf_token_hash=row["csrf_token_hash"],
         )
 
     def change_password(
@@ -198,8 +198,12 @@ class IdentityRepository:
         new_password: str,
     ) -> UserAccount | None:
         validate_new_password(new_password)
+        if hmac.compare_digest(current_password, new_password):
+            raise CredentialValidationError(
+                "new password must be different from the current password"
+            )
         with self.connections.connect() as connection:
-            with connection.cursor() as cursor:
+            with connection.cursor(row_factory=dict_row) as cursor:
                 cursor.execute(
                     """
                     SELECT username, role, password_hash, is_active
@@ -210,7 +214,11 @@ class IdentityRepository:
                     (user_id,),
                 )
                 row = cursor.fetchone()
-                if row is None or not row[3] or not verify_password(current_password, row[2]):
+                if (
+                    row is None
+                    or not row["is_active"]
+                    or not verify_password(current_password, row["password_hash"])
+                ):
                     return None
                 cursor.execute(
                     """
@@ -233,8 +241,8 @@ class IdentityRepository:
                 )
         return UserAccount(
             user_id=user_id,
-            username=row[0],
-            role=row[1],
+            username=row["username"],
+            role=cast(UserRole, row["role"]),
             must_change_password=False,
             is_active=True,
         )
