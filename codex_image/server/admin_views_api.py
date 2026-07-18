@@ -12,7 +12,7 @@ from .auth import require_admin
 from .database import PostgresConnections
 from .identity import AuthenticatedSession
 from .department_providers import DepartmentProviderRepository, DepartmentQuotaExceeded
-from .tasks import GenerationTaskRepository, TaskNotFound
+from .tasks import GenerationTaskRepository, TaskNotFound, task_output_records
 from .tasks_api import _task_payload
 from .assets_api import _asset_payload
 from .maintenance import assert_writes_allowed
@@ -112,6 +112,51 @@ def install_admin_view_routes(
             details={"task_id": task_id, "attempt_id": attempt_id},
         )
         return FileResponse(path, media_type="image/*", headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/admin/users/{user_id}/tasks/{task_id}/outputs/{output_index}/{artifact}")
+    def admin_task_output(
+        user_id: str,
+        task_id: str,
+        output_index: int,
+        artifact: str,
+        admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
+    ):
+        if artifact not in {"download", "thumbnail"}:
+            return JSONResponse(status_code=404, content={"detail": "artifact_not_found"})
+        try:
+            task = tasks.get_task(user_id, task_id, include_deleted=True)
+            if task.status != "completed":
+                return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
+            outputs = task_output_records(task)
+            if output_index < 1 or output_index > len(outputs):
+                raise TaskNotFound("task output was not found")
+            output = outputs[output_index - 1]
+            if artifact == "thumbnail":
+                path = tasks.thumbnail_path(task, output_index)
+                media_type = "image/jpeg"
+                filename = f"task-{task.task_id}-image-{output_index}.thumb.jpg"
+                disposition = False
+            else:
+                path = tasks.result_path(task, output_index)
+                media_type = str(output.get("media_type") or "application/octet-stream")
+                extension = str(output.get("output_format") or "png")
+                filename = f"task-{task.task_id}-image-{output_index}.{extension}"
+                disposition = True
+        except TaskNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        if not path.is_file():
+            return JSONResponse(status_code=404, content={"detail": "task_file_missing"})
+        _record_view(
+            connections,
+            admin_session.user.user_id,
+            user_id,
+            action="admin.view_user_task_artifact",
+            details={"task_id": task_id, "artifact": artifact, "output_index": output_index},
+        )
+        headers = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
+        if disposition:
+            headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return FileResponse(path, media_type=media_type, headers=headers)
 
     @app.get("/api/admin/users/{user_id}/tasks/{task_id}/{artifact}")
     def admin_task_artifact(
@@ -214,7 +259,13 @@ def install_admin_view_routes(
             action="admin.view_user_asset_artifact",
             details={"asset_id": asset_id},
         )
-        return FileResponse(path, media_type=asset.current_version.mime_type, headers={"Cache-Control": "no-store"})
+        return FileResponse(
+            path,
+            media_type="application/octet-stream",
+            filename=asset.current_version.original_filename,
+            content_disposition_type="attachment",
+            headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+        )
 
     @app.get("/api/admin/users/{user_id}/assets/{asset_id}/versions/{asset_version_id}/download")
     def admin_asset_version_download(
@@ -239,7 +290,13 @@ def install_admin_view_routes(
             action="admin.view_user_asset_artifact",
             details={"asset_id": asset_id, "asset_version_id": asset_version_id},
         )
-        return FileResponse(path, media_type=version.mime_type, headers={"Cache-Control": "no-store"})
+        return FileResponse(
+            path,
+            media_type="application/octet-stream",
+            filename=version.original_filename,
+            content_disposition_type="attachment",
+            headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+        )
 
     @app.get("/api/admin/users/{user_id}/usage", response_model=None)
     def admin_usage(

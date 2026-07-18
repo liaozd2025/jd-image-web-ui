@@ -20,6 +20,36 @@ MAX_ASSET_BYTES = 20 * 1024 * 1024
 SUPPORTED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
 _SAFE_FILENAME = re.compile(r"[^A-Za-z0-9._-]+")
 
+_PERSONAL_STORAGE_USAGE_SQL = """
+    SELECT (
+        COALESCE((
+            SELECT SUM(versions.byte_size)
+            FROM server_asset_versions AS versions
+            JOIN server_assets AS assets ON assets.asset_id = versions.asset_id
+            WHERE versions.user_id = %s AND assets.storage_purged_at IS NULL
+        ), 0)
+        + COALESCE((
+            SELECT SUM(
+                COALESCE(tasks.input_bytes, 0)
+                + CASE
+                    WHEN jsonb_typeof(tasks.output_files) = 'array'
+                         AND jsonb_array_length(tasks.output_files) > 0
+                    THEN COALESCE((
+                        SELECT SUM(
+                            COALESCE(NULLIF(item ->> 'byte_size', '')::BIGINT, 0)
+                            + COALESCE(NULLIF(item ->> 'thumbnail_bytes', '')::BIGINT, 0)
+                        )
+                        FROM jsonb_array_elements(tasks.output_files) AS output(item)
+                    ), 0)
+                    ELSE COALESCE(tasks.result_bytes, 0) + COALESCE(tasks.thumbnail_bytes, 0)
+                  END
+            )
+            FROM server_generation_tasks AS tasks
+            WHERE tasks.user_id = %s AND tasks.storage_purged_at IS NULL
+        ), 0)
+    ) AS used_bytes
+"""
+
 
 class AssetNotFound(RuntimeError):
     pass
@@ -303,41 +333,14 @@ class AssetRepository:
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
-                    """
-                    SELECT users.storage_quota_bytes,
-                           COALESCE((
-                               SELECT SUM(versions.byte_size)
-                               FROM server_asset_versions AS versions
-                               JOIN server_assets AS assets ON assets.asset_id = versions.asset_id
-                               WHERE versions.user_id = users.user_id
-                                 AND assets.storage_purged_at IS NULL
-                           ), 0)
-                           + COALESCE((
-                               SELECT SUM(
-                                   COALESCE(tasks.input_bytes, 0)
-                                   + COALESCE(tasks.result_bytes, 0)
-                                   + COALESCE(tasks.thumbnail_bytes, 0)
-                               )
-                               FROM server_generation_tasks AS tasks
-                               WHERE tasks.user_id = users.user_id
-                                 AND tasks.storage_purged_at IS NULL
-                           ), 0)
-                           + COALESCE((
-                               SELECT SUM(COALESCE(attempts.result_bytes, 0))
-                               FROM server_generation_task_attempts AS attempts
-                               JOIN server_generation_tasks AS tasks ON tasks.task_id = attempts.task_id
-                               WHERE tasks.user_id = users.user_id
-                                 AND tasks.storage_purged_at IS NULL
-                            ), 0)
-                    FROM server_users AS users
-                    WHERE users.user_id = %s
-                    """,
+                    "SELECT storage_quota_bytes FROM server_users WHERE user_id = %s",
                     (user_id,),
                 )
-                row = cursor.fetchone()
-        if row is None:
-            raise AssetNotFound("user was not found")
-        quota, used = max(0, int(row[0])), max(0, int(row[1]))
+                quota_row = cursor.fetchone()
+                if quota_row is None:
+                    raise AssetNotFound("user was not found")
+                used = _personal_storage_usage(cursor, user_id)
+        quota, used = max(0, int(quota_row[0])), max(0, used)
         return AssetQuota(quota_bytes=quota, used_bytes=used, available_bytes=max(0, quota - used))
 
     def ensure_capacity(self, user_id: str, additional_bytes: int) -> None:
@@ -360,30 +363,7 @@ class AssetRepository:
         if row is None:
             raise AssetNotFound("user was not found")
         quota_bytes = row["storage_quota_bytes"] if isinstance(row, dict) else row[0]
-        cursor.execute(
-            """
-            SELECT (
-                COALESCE((
-                    SELECT SUM(versions.byte_size)
-                    FROM server_asset_versions AS versions
-                    JOIN server_assets AS assets ON assets.asset_id = versions.asset_id
-                    WHERE versions.user_id = %s AND assets.storage_purged_at IS NULL
-                ), 0)
-                + COALESCE((
-                    SELECT SUM(
-                        COALESCE(input_bytes, 0)
-                        + COALESCE(result_bytes, 0)
-                        + COALESCE(thumbnail_bytes, 0)
-                    )
-                    FROM server_generation_tasks
-                    WHERE user_id = %s AND storage_purged_at IS NULL
-                ), 0)
-            ) AS used_bytes
-            """,
-            (user_id, user_id),
-        )
-        used_row = cursor.fetchone()
-        used = int(used_row["used_bytes"] if isinstance(used_row, dict) else used_row[0])
+        used = _personal_storage_usage(cursor, user_id)
         if used + additional_bytes > max(0, int(quota_bytes)):
             raise AssetQuotaExceeded("personal storage quota exceeded")
 
@@ -613,6 +593,15 @@ class AssetRepository:
             updated_at=row["updated_at"].isoformat(),
             current_version=version,
         )
+
+
+def _personal_storage_usage(cursor: Any, user_id: str) -> int:
+    cursor.execute(_PERSONAL_STORAGE_USAGE_SQL, (user_id, user_id))
+    row = cursor.fetchone()
+    if row is None:
+        return 0
+    value = row["used_bytes"] if isinstance(row, dict) else row[0]
+    return max(0, int(value or 0))
 
 
 def _validate_kind(value: str) -> AssetKind:

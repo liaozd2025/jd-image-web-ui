@@ -397,7 +397,7 @@ def _task_payload(
         "params": {
             **task.request_parameters,
             "model": task.model_id,
-            "main_model": task.model_id,
+            "main_model": str(task.request_parameters.get("main_model") or task.model_id),
             "api_provider_id": workspace_provider_id,
         },
         "request": {

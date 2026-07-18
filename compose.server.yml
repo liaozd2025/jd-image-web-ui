@@ -18,6 +18,9 @@ services:
 
   web:
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     build:
       context: .
       dockerfile: Dockerfile.server
@@ -43,6 +46,9 @@ services:
 
   worker:
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     build:
       context: .
       dockerfile: Dockerfile.server
