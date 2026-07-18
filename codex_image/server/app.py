@@ -42,7 +42,8 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         ensure_schema()
-        provider_cipher.ensure_database_key(connections)
+        if schema_ready:
+            provider_cipher.ensure_database_key(connections)
         yield
 
     app = FastAPI(title="jd-image-web-ui server", lifespan=lifespan)
