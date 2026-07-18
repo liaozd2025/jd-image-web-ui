@@ -133,7 +133,7 @@ async def _parse_task_request(
     input_media_type: str | None = None
     try:
         if content_type.startswith("multipart/form-data"):
-            async with request.form() as form:
+            async with request.form(max_part_size=MAX_TASK_INPUT_BYTES) as form:
                 values = {
                     key: form.get(key)
                     for key in ("provider_version_id", "model_id", "prompt", "size", "quality", "output_format")
