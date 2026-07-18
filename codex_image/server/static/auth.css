@@ -22,6 +22,109 @@ body {
   box-shadow: 0 24px 80px rgb(0 0 0 / 35%);
 }
 
+.workbench {
+  width: min(960px, calc(100vw - 48px));
+  margin: 48px auto;
+}
+
+.workbench-header,
+.panel-heading,
+.list-item,
+.button-row,
+.inline-form {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.workbench-header,
+.panel-heading,
+.list-item {
+  justify-content: space-between;
+}
+
+.workbench-header h1,
+.workbench-header .subtitle,
+.panel h2,
+.panel p {
+  margin: 0;
+  text-align: left;
+}
+
+.panel {
+  margin-top: 20px;
+  padding: 24px;
+  border: 1px solid #283651;
+  border-radius: 16px;
+  background: #121a2a;
+}
+
+.panel-heading {
+  align-items: flex-end;
+}
+
+.panel-heading p,
+.list-item small,
+.credential-box p {
+  display: block;
+  margin-top: 6px;
+  color: #9aabc8;
+}
+
+.item-list {
+  margin-top: 18px;
+  border-top: 1px solid #283651;
+}
+
+.list-item {
+  padding: 14px 0;
+  border-bottom: 1px solid #283651;
+}
+
+.inline-form label {
+  margin: 0;
+}
+
+.inline-form input {
+  width: 180px;
+}
+
+.inline-form button,
+.button-row button,
+.workbench-header button,
+.list-item button {
+  width: auto;
+  margin-top: 0;
+}
+
+.secondary-button {
+  background: #273652;
+}
+
+.danger-button {
+  background: #8b3140;
+}
+
+.compact {
+  padding: 8px 11px;
+  font-size: 13px;
+}
+
+.credential-box {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid #637bd5;
+  border-radius: 10px;
+  background: #17213a;
+}
+
+.credential-box code {
+  display: block;
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+  color: #f3d889;
+}
+
 h1,
 .subtitle {
   text-align: center;
@@ -66,4 +169,22 @@ button {
   min-height: 20px;
   color: #ff9292;
   font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .workbench-header,
+  .panel-heading,
+  .list-item,
+  .inline-form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .button-row {
+    flex-wrap: wrap;
+  }
+
+  .inline-form input {
+    width: 100%;
+  }
 }

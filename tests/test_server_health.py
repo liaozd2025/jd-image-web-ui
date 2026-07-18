@@ -17,6 +17,7 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0002_server_runtime_identity",
     "0003_admin_identity",
     "0004_browser_sessions",
+    "0005_user_lifecycle",
 ]
 
 

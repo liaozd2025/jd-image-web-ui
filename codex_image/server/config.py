@@ -15,6 +15,8 @@ class ServerSettings:
     worker_heartbeat_ttl_seconds: float = 10.0
     session_ttl_seconds: int = 12 * 60 * 60
     session_cookie_secure: bool = False
+    login_failure_limit: int = 5
+    login_lock_seconds: int = 5 * 60
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> "ServerSettings":
@@ -39,6 +41,8 @@ class ServerSettings:
             session_cookie_secure=_environment_bool(
                 values.get("JD_IMAGE_SESSION_COOKIE_SECURE", "false")
             ),
+            login_failure_limit=int(values.get("JD_IMAGE_LOGIN_FAILURE_LIMIT", "5")),
+            login_lock_seconds=int(values.get("JD_IMAGE_LOGIN_LOCK_SECONDS", str(5 * 60))),
         )
 
     def __post_init__(self) -> None:
@@ -52,6 +56,10 @@ class ServerSettings:
             raise ValueError("worker_heartbeat_ttl_seconds must be positive")
         if self.session_ttl_seconds <= 0:
             raise ValueError("session_ttl_seconds must be positive")
+        if self.login_failure_limit <= 0:
+            raise ValueError("login_failure_limit must be positive")
+        if self.login_lock_seconds <= 0:
+            raise ValueError("login_lock_seconds must be positive")
 
 
 def _environment_bool(value: str) -> bool:

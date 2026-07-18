@@ -8,10 +8,50 @@
     <script src="/auth-static/home.js" type="module"></script>
   </head>
   <body>
-    <main id="server-home" class="auth-card">
-      <h1>JD Image Web UI</h1>
-      <p id="current-user" class="subtitle">正在读取登录信息…</p>
-      <button id="logout-button" type="button">退出登录</button>
+    <main id="server-home" class="workbench">
+      <header class="workbench-header">
+        <div>
+          <h1>JD Image Web UI</h1>
+          <p id="current-user" class="subtitle">正在读取登录信息…</p>
+        </div>
+        <button id="logout-button" class="secondary-button" type="button">退出登录</button>
+      </header>
+
+      <section id="session-management" class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>登录设备</h2>
+            <p>查看当前有效会话，并随时退出其他设备。</p>
+          </div>
+          <div class="button-row">
+            <button id="logout-others-button" class="secondary-button" type="button">退出其他设备</button>
+            <button id="logout-all-button" class="danger-button" type="button">退出全部设备</button>
+          </div>
+        </div>
+        <div id="session-list" class="item-list" aria-live="polite"></div>
+      </section>
+
+      <section id="user-management" class="panel" hidden>
+        <div class="panel-heading">
+          <div>
+            <h2>部门用户</h2>
+            <p>创建账号、重置临时密码，或停用和恢复账号。</p>
+          </div>
+          <form id="create-user-form" class="inline-form">
+            <label for="new-username">用户名</label>
+            <input id="new-username" autocomplete="off" required maxlength="64">
+            <button type="submit">创建用户</button>
+          </form>
+        </div>
+        <div id="temporary-credential" class="credential-box" hidden>
+          <strong id="credential-title"></strong>
+          <code id="credential-value"></code>
+          <p>请立即安全交给用户；该临时密码只显示这一次。</p>
+        </div>
+        <div id="user-list" class="item-list" aria-live="polite"></div>
+      </section>
+
+      <p id="workbench-error" class="error" aria-live="polite"></p>
     </main>
   </body>
 </html>

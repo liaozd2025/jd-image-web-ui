@@ -9,8 +9,22 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .config import ServerSettings
-from .identity import AuthenticatedSession, IdentityRepository, SessionCredentials, UserAccount
-from .security import CredentialValidationError
+from .identity import (
+    AuthenticatedSession,
+    BrowserSession,
+    IdentityRepository,
+    ManagedUser,
+    ManagedUserNotFound,
+    ManagedUserOperationRejected,
+    SessionCredentials,
+    UserAccount,
+    UserAlreadyExists,
+)
+from .security import (
+    CredentialValidationError,
+    hash_password,
+    new_temporary_password,
+)
 
 
 SESSION_COOKIE = "jd_image_session"
@@ -28,6 +42,14 @@ class LoginPayload(BaseModel):
 class PasswordChangePayload(BaseModel):
     current_password: str = Field(min_length=1, max_length=1024)
     new_password: str = Field(min_length=1, max_length=1024)
+
+
+class CreateUserPayload(BaseModel):
+    username: str = Field(min_length=1, max_length=64)
+
+
+class UserStatusPayload(BaseModel):
+    is_active: bool
 
 
 def install_authentication(
@@ -78,7 +100,11 @@ def install_authentication(
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"
-        if request.url.path == "/login" or request.url.path.startswith("/api/auth/"):
+        if (
+            request.url.path == "/login"
+            or request.url.path.startswith("/api/auth/")
+            or request.url.path.startswith("/api/admin/")
+        ):
             response.headers["Cache-Control"] = "no-store"
         return response
 
@@ -101,6 +127,9 @@ def install_authentication(
             payload.username,
             payload.password,
             ttl_seconds=settings.session_ttl_seconds,
+            failure_limit=settings.login_failure_limit,
+            lock_seconds=settings.login_lock_seconds,
+            user_agent=_request_user_agent(request),
         )
         if login_result is None:
             return JSONResponse(status_code=401, content={"detail": "invalid_credentials"})
@@ -125,7 +154,11 @@ def install_authentication(
             return JSONResponse(status_code=400, content={"detail": str(error)})
         if user is None:
             return JSONResponse(status_code=400, content={"detail": "password_change_failed"})
-        credentials = identity.create_session(user, ttl_seconds=settings.session_ttl_seconds)
+        credentials = identity.create_session(
+            user,
+            ttl_seconds=settings.session_ttl_seconds,
+            user_agent=session.user_agent,
+        )
         return _authenticated_response(user, credentials, settings=settings)
 
     @app.post("/api/auth/logout", response_model=None)
@@ -134,6 +167,127 @@ def install_authentication(
         response = JSONResponse(content={"ok": True})
         _clear_auth_cookies(response, settings=settings)
         return response
+
+    @app.get("/api/auth/sessions", response_model=None)
+    def sessions(request: Request) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        return JSONResponse(
+            content={
+                "sessions": [
+                    _session_payload(item, current_session_id=session.session_id)
+                    for item in identity.list_sessions(session.user.user_id)
+                ]
+            }
+        )
+
+    @app.delete("/api/auth/sessions/{session_id}", response_model=None)
+    def revoke_other_session(request: Request, session_id: str) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        if session_id == session.session_id:
+            return JSONResponse(status_code=400, content={"detail": "use_logout_for_current_session"})
+        revoked = identity.revoke_user_session(
+            session.user.user_id,
+            current_session_id=session.session_id,
+            target_session_id=session_id,
+        )
+        if not revoked:
+            return JSONResponse(status_code=404, content={"detail": "session_not_found"})
+        return JSONResponse(content={"ok": True})
+
+    @app.post("/api/auth/sessions/logout-others", response_model=None)
+    def logout_other_sessions(request: Request) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        revoked_count = identity.revoke_other_sessions(
+            session.user.user_id,
+            current_session_id=session.session_id,
+        )
+        return JSONResponse(content={"ok": True, "revoked_count": revoked_count})
+
+    @app.post("/api/auth/sessions/logout-all", response_model=None)
+    def logout_all_sessions(request: Request) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        revoked_count = identity.revoke_all_sessions(session.user.user_id)
+        response = JSONResponse(content={"ok": True, "revoked_count": revoked_count})
+        _clear_auth_cookies(response, settings=settings)
+        return response
+
+    @app.get("/api/admin/users", response_model=None)
+    def list_users(request: Request) -> JSONResponse:
+        forbidden = _require_admin(request)
+        if forbidden is not None:
+            return forbidden
+        return JSONResponse(
+            content={"users": [_managed_user_payload(user) for user in identity.list_users()]}
+        )
+
+    @app.post("/api/admin/users", response_model=None, status_code=201)
+    def create_user(request: Request, payload: CreateUserPayload) -> JSONResponse:
+        forbidden = _require_admin(request)
+        if forbidden is not None:
+            return forbidden
+        actor: AuthenticatedSession = request.state.auth_session
+        temporary_password = new_temporary_password()
+        try:
+            user = identity.create_user(
+                actor.user.user_id,
+                username=payload.username,
+                password_hash=hash_password(temporary_password),
+            )
+        except (CredentialValidationError, UserAlreadyExists) as error:
+            return JSONResponse(status_code=409, content={"detail": str(error)})
+        return JSONResponse(
+            status_code=201,
+            content={
+                "user": _managed_user_payload(user),
+                "temporary_password": temporary_password,
+            },
+        )
+
+    @app.post("/api/admin/users/{user_id}/reset-password", response_model=None)
+    def reset_user_password(request: Request, user_id: str) -> JSONResponse:
+        forbidden = _require_admin(request)
+        if forbidden is not None:
+            return forbidden
+        actor: AuthenticatedSession = request.state.auth_session
+        temporary_password = new_temporary_password()
+        try:
+            user = identity.reset_user_password(
+                actor.user.user_id,
+                user_id=user_id,
+                password_hash=hash_password(temporary_password),
+            )
+        except ManagedUserNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        except ManagedUserOperationRejected as error:
+            return JSONResponse(status_code=400, content={"detail": str(error)})
+        return JSONResponse(
+            content={
+                "user": _user_payload(user),
+                "temporary_password": temporary_password,
+            }
+        )
+
+    @app.patch("/api/admin/users/{user_id}/status", response_model=None)
+    def set_user_status(
+        request: Request,
+        user_id: str,
+        payload: UserStatusPayload,
+    ) -> JSONResponse:
+        forbidden = _require_admin(request)
+        if forbidden is not None:
+            return forbidden
+        actor: AuthenticatedSession = request.state.auth_session
+        try:
+            user = identity.set_user_active(
+                actor.user.user_id,
+                user_id=user_id,
+                is_active=payload.is_active,
+            )
+        except ManagedUserNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        except ManagedUserOperationRejected as error:
+            return JSONResponse(status_code=400, content={"detail": str(error)})
+        return JSONResponse(content={"user": _user_payload(user)})
 
     @app.get("/", response_model=None)
     def home() -> FileResponse:
@@ -148,6 +302,17 @@ def _request_has_same_origin(request: Request) -> bool:
         return True
     parsed = urlsplit(origin)
     return parsed.scheme == request.url.scheme and parsed.netloc == request.headers.get("host", "")
+
+
+def _request_user_agent(request: Request) -> str:
+    return request.headers.get("User-Agent", "Unknown browser")[:512] or "Unknown browser"
+
+
+def _require_admin(request: Request) -> JSONResponse | None:
+    session: AuthenticatedSession = request.state.auth_session
+    if session.user.role != "admin":
+        return JSONResponse(status_code=403, content={"detail": "administrator_required"})
+    return None
 
 
 def _unauthenticated_response(path: str) -> Response:
@@ -208,7 +373,31 @@ def _clear_auth_cookies(response: Response, *, settings: ServerSettings) -> None
 
 def _user_payload(user: UserAccount) -> dict[str, object]:
     return {
+        "user_id": user.user_id,
         "username": user.username,
         "role": user.role,
         "must_change_password": user.must_change_password,
+        "is_active": user.is_active,
+    }
+
+
+def _managed_user_payload(user: ManagedUser) -> dict[str, object]:
+    return {
+        **_user_payload(user.user),
+        "created_at": user.created_at.isoformat(),
+    }
+
+
+def _session_payload(
+    session: BrowserSession,
+    *,
+    current_session_id: str,
+) -> dict[str, object]:
+    return {
+        "session_id": session.session_id,
+        "user_agent": session.user_agent,
+        "created_at": session.created_at.isoformat(),
+        "last_seen_at": session.last_seen_at.isoformat(),
+        "expires_at": session.expires_at.isoformat(),
+        "current": session.session_id == current_session_id,
     }
