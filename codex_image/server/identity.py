@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hmac
-from typing import Literal, cast
+from typing import Any, Literal, cast
 from uuid import uuid4
 
 from psycopg.rows import dict_row
@@ -133,13 +133,7 @@ class IdentityRepository:
                         """,
                         (row["user_id"],),
                     )
-                user = UserAccount(
-                    user_id=row["user_id"],
-                    username=row["username"],
-                    role=cast(UserRole, row["role"]),
-                    must_change_password=row["must_change_password"],
-                    is_active=row["is_active"],
-                )
+                user = self._user_from_row(row)
                 credentials = self._insert_session(cursor, user, ttl_seconds=ttl_seconds)
                 return user, credentials
 
@@ -180,13 +174,7 @@ class IdentityRepository:
         if row is None:
             return None
         return AuthenticatedSession(
-            user=UserAccount(
-                user_id=row["user_id"],
-                username=row["username"],
-                role=cast(UserRole, row["role"]),
-                must_change_password=row["must_change_password"],
-                is_active=row["is_active"],
-            ),
+            user=self._user_from_row(row),
             csrf_token_hash=row["csrf_token_hash"],
         )
 
@@ -267,9 +255,8 @@ class IdentityRepository:
         user: UserAccount,
         *,
         ttl_seconds: int,
-        credentials: SessionCredentials | None = None,
     ) -> SessionCredentials:
-        session = credentials or SessionCredentials(
+        session = SessionCredentials(
             token=new_session_token(),
             csrf_token=new_session_token(),
         )
@@ -290,6 +277,16 @@ class IdentityRepository:
             (hash_token(session.token), user.user_id, hash_token(session.csrf_token), ttl_seconds),
         )
         return session
+
+    @staticmethod
+    def _user_from_row(row: dict[str, Any]) -> UserAccount:
+        return UserAccount(
+            user_id=row["user_id"],
+            username=row["username"],
+            role=cast(UserRole, row["role"]),
+            must_change_password=row["must_change_password"],
+            is_active=row["is_active"],
+        )
 
     @staticmethod
     def csrf_is_valid(

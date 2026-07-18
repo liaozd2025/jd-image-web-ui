@@ -16,6 +16,11 @@ from tests.server_test_database import temporary_postgres_database
 
 
 TEST_DATABASE_URL = os.environ.get("JD_IMAGE_TEST_DATABASE_URL", "")
+TEMPORARY_PASSWORD_LINE = re.compile(r"^Temporary password: \S+$", re.MULTILINE)
+
+
+def sanitized_process_output(output: str) -> str:
+    return TEMPORARY_PASSWORD_LINE.sub("Temporary password: [REDACTED]", output)
 
 
 def bootstrap_admin(database_url: str, data_root: Path) -> tuple[dict[str, str], str]:
@@ -44,7 +49,11 @@ def bootstrap_admin(database_url: str, data_root: Path) -> tuple[dict[str, str],
     )
     password_match = re.search(r"^Temporary password: (\S+)$", created.stdout, re.MULTILINE)
     if created.returncode != 0 or password_match is None:
-        raise AssertionError(f"bootstrap failed: {created.stdout}\n{created.stderr}")
+        raise AssertionError(
+            "bootstrap failed: "
+            f"{sanitized_process_output(created.stdout)}\n"
+            f"{sanitized_process_output(created.stderr)}"
+        )
     return environment, password_match.group(1)
 
 
@@ -84,13 +93,22 @@ class ServerAdminBootstrapTests(unittest.TestCase):
                 )
 
         password_match = re.search(r"^Temporary password: (\S+)$", created.stdout, re.MULTILINE)
-        self.assertEqual(created.returncode, 0, created.stderr)
-        self.assertIn("Initial administrator created", created.stdout)
+        self.assertEqual(created.returncode, 0, sanitized_process_output(created.stderr))
+        self.assertIn(
+            "Initial administrator created",
+            sanitized_process_output(created.stdout),
+        )
         self.assertIsNotNone(password_match)
         self.assertGreaterEqual(len(password_match.group(1)), 20)
         self.assertEqual(repeated.returncode, 1)
         self.assertIn("already initialized", repeated.stderr)
-        self.assertNotIn("Temporary password:", repeated.stdout + repeated.stderr)
+        repeated_exposed_password = bool(
+            TEMPORARY_PASSWORD_LINE.search(repeated.stdout + repeated.stderr)
+        )
+        self.assertFalse(
+            repeated_exposed_password,
+            "repeated bootstrap exposed a temporary password",
+        )
 
 
 @unittest.skipUnless(TEST_DATABASE_URL, "set JD_IMAGE_TEST_DATABASE_URL to a real PostgreSQL database")
