@@ -21,6 +21,7 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0004_browser_sessions",
     "0005_user_lifecycle",
     "0006_provider_catalog",
+    "0007_generation_tasks",
 ]
 
 

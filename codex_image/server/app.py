@@ -16,6 +16,8 @@ from .migrations import MigrationRunner
 from .provider_secrets import ProviderSecretCipher
 from .providers import ProviderRepository
 from .providers_api import install_provider_routes
+from .tasks import GenerationTaskRepository
+from .tasks_api import install_task_routes
 from .volume import check_file_volume
 
 
@@ -28,6 +30,7 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
     runtime = ServerRuntimeRepository(connections)
     identity = IdentityRepository(connections)
     provider_cipher = ProviderSecretCipher.from_encoded_key(settings.master_key)
+    task_repository = GenerationTaskRepository(connections, provider_cipher, settings.data_root)
     migration_lock = threading.Lock()
     schema_ready = False
 
@@ -78,4 +81,5 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
         app,
         providers=ProviderRepository(connections, provider_cipher),
     )
+    install_task_routes(app, tasks=task_repository)
     return app

@@ -79,6 +79,25 @@
         <div id="provider-catalog-list" class="item-list" aria-live="polite"></div>
       </section>
 
+      <section id="task-management" class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>生图任务</h2>
+            <p>任务提交后由独立 Worker 执行，页面会自动刷新状态。</p>
+          </div>
+          <form id="create-task-form" class="task-form">
+            <label for="task-provider">供应商版本</label>
+            <select id="task-provider" required></select>
+            <label for="task-model">模型</label>
+            <select id="task-model" required></select>
+            <label for="task-prompt">提示词</label>
+            <textarea id="task-prompt" required maxlength="16000" rows="3" placeholder="描述要生成的图片"></textarea>
+            <button type="submit">提交任务</button>
+          </form>
+        </div>
+        <div id="task-list" class="item-list" aria-live="polite"></div>
+      </section>
+
       <p id="workbench-error" class="error" aria-live="polite"></p>
     </main>
   </body>

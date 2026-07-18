@@ -189,12 +189,72 @@ async function loadProviderCatalog() {
   }
 }
 
+async function loadTaskProviders() {
+  const result = await api("/api/providers/catalog");
+  const providerSelect = document.querySelector("#task-provider");
+  providerSelect.replaceChildren();
+  for (const provider of result.providers) {
+    const option = document.createElement("option");
+    option.value = provider.provider_version_id;
+    option.textContent = providerTitle(provider);
+    option.dataset.models = JSON.stringify(provider.models || []);
+    providerSelect.append(option);
+  }
+  updateTaskModels();
+}
+
+function updateTaskModels() {
+  const providerSelect = document.querySelector("#task-provider");
+  const modelSelect = document.querySelector("#task-model");
+  modelSelect.replaceChildren();
+  const selected = providerSelect.selectedOptions[0];
+  const models = selected ? JSON.parse(selected.dataset.models || "[]") : [];
+  for (const model of models.filter((item) => (item.capabilities || []).includes("image_generation"))) {
+    const option = document.createElement("option");
+    option.value = model.model_id;
+    option.textContent = model.model_id;
+    modelSelect.append(option);
+  }
+}
+
+async function loadTasks() {
+  const result = await api("/api/tasks");
+  const list = document.querySelector("#task-list");
+  list.replaceChildren();
+  for (const task of result.tasks) {
+    const item = document.createElement("article");
+    item.className = "list-item task-item";
+    const details = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = `${task.model_id} · ${task.status}`;
+    const meta = document.createElement("small");
+    meta.textContent = `${new Date(task.created_at).toLocaleString()} · ${task.prompt}`;
+    details.append(title, meta);
+    item.append(details);
+    if (task.status === "completed" && task.result_url) {
+      const image = document.createElement("img");
+      image.className = "task-result";
+      image.src = task.result_url;
+      image.alt = task.revised_prompt || task.prompt;
+      item.append(image);
+    } else if (task.status === "failed") {
+      const error = document.createElement("small");
+      error.className = "error";
+      error.textContent = task.error_message || "供应商执行失败";
+      item.append(error);
+    }
+    list.append(item);
+  }
+}
+
 async function boot() {
   try {
     const result = await api("/api/auth/me");
     document.querySelector("#current-user").textContent = `${result.user.username} · ${result.user.role}`;
     await loadSessions();
     await loadPersonalProviders();
+    await loadTaskProviders();
+    await loadTasks();
     if (result.user.role === "admin") {
       document.querySelector("#user-management").hidden = false;
       document.querySelector("#provider-catalog-management").hidden = false;
@@ -218,6 +278,27 @@ document.querySelector("#create-user-form").addEventListener("submit", async (ev
     showTemporaryCredential(`${created.user.username} 的临时密码`, created.temporary_password);
     event.target.reset();
     await loadUsers();
+  } catch (error) {
+    errorElement.textContent = error.message;
+  }
+});
+
+document.querySelector("#task-provider").addEventListener("change", updateTaskModels);
+
+document.querySelector("#create-task-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await api("/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider_version_id: document.querySelector("#task-provider").value,
+        model_id: document.querySelector("#task-model").value,
+        prompt: document.querySelector("#task-prompt").value,
+      }),
+    });
+    document.querySelector("#task-prompt").value = "";
+    await loadTasks();
   } catch (error) {
     errorElement.textContent = error.message;
   }
@@ -277,3 +358,6 @@ document.querySelector("#logout-button").addEventListener("click", async () => {
 });
 
 void boot();
+window.setInterval(() => {
+  if (!document.hidden) void loadTasks().catch((error) => { errorElement.textContent = error.message; });
+}, 1500);

@@ -125,6 +125,40 @@ body {
   color: #9aabc8;
 }
 
+.task-form {
+  display: grid;
+  gap: 8px;
+  width: min(520px, 100%);
+}
+
+.task-form label {
+  margin: 0;
+}
+
+.task-form textarea,
+.task-form select,
+select {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid #344564;
+  border-radius: 10px;
+  padding: 11px 12px;
+  background: #0b1322;
+  color: inherit;
+  font: inherit;
+}
+
+.task-form button {
+  margin-top: 0;
+}
+
+.task-result {
+  width: min(180px, 30vw);
+  max-height: 180px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
 .inline-form button,
 .button-row button,
 .workbench-header button,
@@ -236,5 +270,14 @@ button {
 
   .provider-actions input {
     width: 100%;
+  }
+
+  .task-form {
+    width: 100%;
+  }
+
+  .task-result {
+    width: 100%;
+    max-height: 240px;
   }
 }

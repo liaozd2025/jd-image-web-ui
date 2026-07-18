@@ -117,6 +117,7 @@ jobs:
           tests.test_server_health
           tests.test_server_auth
           tests.test_server_providers
+          tests.test_server_tasks
           tests.test_server_user_lifecycle
           -v
 
