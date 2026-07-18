@@ -32,14 +32,20 @@ class FakeProviderHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
         length = int(self.headers.get("Content-Length", "0"))
-        body = json.loads(self.rfile.read(length))
+        raw_body = self.rfile.read(length)
+        if self.headers.get("Content-Type", "").startswith("multipart/"):
+            body: object = raw_body
+            should_fail = False
+        else:
+            body = json.loads(raw_body)
+            should_fail = isinstance(body, dict) and body.get("prompt") == "force provider failure"
         type(self).requests.append(
             {
                 "authorization": self.headers.get("Authorization"),
                 "body": body,
             }
         )
-        if body.get("prompt") == "force provider failure":
+        if should_fail:
             response = json.dumps({"error": {"message": "fake provider failure"}}).encode("utf-8")
             self.send_response(502)
         else:
@@ -189,6 +195,22 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         self.assertEqual(completed.json()["task"]["model_id"], "fake-image-1")
                         self.assertEqual(completed.json()["task"]["request_parameters"]["output_format"], "png")
                         self.assertEqual(FakeProviderHandler.requests[0]["authorization"], f"Bearer {TASK_API_KEY}")
+
+                        uploaded = user.post(
+                            "/api/tasks",
+                            data={
+                                "provider_version_id": provider_version_id,
+                                "model_id": "fake-image-1",
+                                "prompt": "an image edit",
+                            },
+                            files={"input_file": ("input.png", FAKE_PNG, "image/png")},
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(uploaded.status_code, 201)
+                        uploaded_task_id = uploaded.json()["task"]["task_id"]
+                        self._wait_for_status(user, uploaded_task_id, "completed")
+                        self.assertIn(b"image-1.png", FakeProviderHandler.requests[1]["body"])
+                        self.assertIn(FAKE_PNG, FakeProviderHandler.requests[1]["body"])
 
                         failed_task = user.post(
                             "/api/tasks",

@@ -288,16 +288,26 @@ document.querySelector("#task-provider").addEventListener("change", updateTaskMo
 document.querySelector("#create-task-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
+    const inputFile = document.querySelector("#task-input-file").files[0];
+    const requestBody = inputFile ? (() => {
+      const form = new FormData();
+      form.append("provider_version_id", document.querySelector("#task-provider").value);
+      form.append("model_id", document.querySelector("#task-model").value);
+      form.append("prompt", document.querySelector("#task-prompt").value);
+      form.append("input_file", inputFile);
+      return form;
+    })() : JSON.stringify({
+      provider_version_id: document.querySelector("#task-provider").value,
+      model_id: document.querySelector("#task-model").value,
+      prompt: document.querySelector("#task-prompt").value,
+    });
     await api("/api/tasks", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        provider_version_id: document.querySelector("#task-provider").value,
-        model_id: document.querySelector("#task-model").value,
-        prompt: document.querySelector("#task-prompt").value,
-      }),
+      headers: inputFile ? {} : { "Content-Type": "application/json" },
+      body: requestBody,
     });
     document.querySelector("#task-prompt").value = "";
+    document.querySelector("#task-input-file").value = "";
     await loadTasks();
   } catch (error) {
     errorElement.textContent = error.message;

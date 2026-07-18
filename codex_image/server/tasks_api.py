@@ -4,10 +4,15 @@ from typing import Literal
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
+from starlette.datastructures import UploadFile
 
 from .identity import AuthenticatedSession
 from .tasks import GenerationTask, GenerationTaskRepository, TaskConfigurationError, TaskNotFound
+
+
+MAX_TASK_INPUT_BYTES = 10 * 1024 * 1024
+SUPPORTED_INPUT_MEDIA_TYPES = {"image/png", "image/jpeg", "image/webp"}
 
 
 class CreateTaskPayload(BaseModel):
@@ -25,8 +30,12 @@ def install_task_routes(
     tasks: GenerationTaskRepository,
 ) -> None:
     @app.post("/api/tasks", response_model=None, status_code=201)
-    def create_task(request: Request, payload: CreateTaskPayload) -> JSONResponse:
+    async def create_task(request: Request) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
+        parsed = await _parse_task_request(request)
+        if parsed is None:
+            return JSONResponse(status_code=422, content={"detail": "invalid_task_request"})
+        payload, input_bytes, input_media_type = parsed
         try:
             task = tasks.create_task(
                 session.user.user_id,
@@ -38,6 +47,8 @@ def install_task_routes(
                     "quality": payload.quality,
                     "output_format": payload.output_format,
                 },
+                input_bytes=input_bytes,
+                input_media_type=input_media_type,
             )
         except TaskConfigurationError as error:
             return JSONResponse(status_code=409, content={"detail": str(error)})
@@ -95,6 +106,7 @@ def _task_payload(task: GenerationTask) -> dict[str, object]:
         "request_parameters": task.request_parameters,
         "input_sha256": task.input_sha256,
         "input_bytes": task.input_bytes,
+        "input_media_type": task.input_media_type,
         "status": task.status,
         "result_sha256": task.result_sha256,
         "result_bytes": task.result_bytes,
@@ -110,3 +122,38 @@ def _task_payload(task: GenerationTask) -> dict[str, object]:
             else None
         ),
     }
+
+
+async def _parse_task_request(
+    request: Request,
+) -> tuple[CreateTaskPayload, bytes | None, str | None] | None:
+    content_type = request.headers.get("content-type", "").lower()
+    input_bytes: bytes | None = None
+    input_media_type: str | None = None
+    try:
+        if content_type.startswith("multipart/form-data"):
+            async with request.form() as form:
+                values = {
+                    key: form.get(key)
+                    for key in ("provider_version_id", "model_id", "prompt", "size", "quality", "output_format")
+                    if form.get(key) is not None
+                }
+                upload = form.get("input_file")
+                if upload is not None:
+                    if not isinstance(upload, UploadFile):
+                        return None
+                    input_media_type = (upload.content_type or "").split(";", 1)[0].lower()
+                    if input_media_type not in SUPPORTED_INPUT_MEDIA_TYPES:
+                        return None
+                    input_bytes = await upload.read(MAX_TASK_INPUT_BYTES + 1)
+                    if not input_bytes or len(input_bytes) > MAX_TASK_INPUT_BYTES:
+                        return None
+        else:
+            body = await request.json()
+            if not isinstance(body, dict):
+                return None
+            values = body
+        payload = CreateTaskPayload.model_validate(values)
+    except (ValueError, ValidationError, RuntimeError):
+        return None
+    return payload, input_bytes, input_media_type

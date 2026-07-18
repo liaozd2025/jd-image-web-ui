@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import signal
+import base64
 import threading
 from uuid import uuid4
 
@@ -86,9 +87,16 @@ class HeartbeatWorker:
         try:
             client = self._provider_client(claimed)
             parameters = claimed.task.request_parameters
+            reference_images: list[str] = []
+            if claimed.task.input_media_type and claimed.task.input_media_type.startswith("image/"):
+                input_path = self.tasks.input_path(claimed.task)
+                input_data = input_path.read_bytes()
+                encoded = base64.b64encode(input_data).decode("ascii")
+                reference_images = [f"data:{claimed.task.input_media_type};base64,{encoded}"]
             result = client.generate_image(
                 prompt=claimed.task.prompt,
                 model=claimed.task.model_id,
+                reference_images=reference_images or None,
                 size=str(parameters.get("size") or "1024x1024"),
                 quality=str(parameters.get("quality") or "auto"),
                 output_format=str(parameters.get("output_format") or "png"),

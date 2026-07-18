@@ -78,6 +78,8 @@ class GenerationTaskRepository:
         model_id: str,
         prompt: str,
         request_parameters: dict[str, object],
+        input_bytes: bytes | None = None,
+        input_media_type: str | None = None,
     ) -> GenerationTask:
         task_id = str(uuid4())
         with self.connections.connect() as connection:
@@ -119,12 +121,13 @@ class GenerationTaskRepository:
                 except MasterKeyMismatch as error:
                     raise TaskConfigurationError("personal provider credential is unavailable") from error
 
-                input_relative_path = Path("tasks") / user_id / f"{task_id}.prompt.txt"
+                input_relative_path = Path("tasks") / user_id / f"{task_id}.input"
                 input_path = self.data_root / input_relative_path
                 input_path.parent.mkdir(parents=True, exist_ok=True)
-                input_bytes = prompt.encode("utf-8")
+                input_content = input_bytes if input_bytes is not None else prompt.encode("utf-8")
+                input_type = input_media_type or "text/plain; charset=utf-8"
                 temporary_path = input_path.with_name(f".{input_path.name}.{uuid4().hex}.tmp")
-                temporary_path.write_bytes(input_bytes)
+                temporary_path.write_bytes(input_content)
                 temporary_path.replace(input_path)
                 try:
                     cursor.execute(
@@ -144,9 +147,9 @@ class GenerationTaskRepository:
                             prompt,
                             json.dumps(request_parameters, separators=(",", ":")),
                             input_relative_path.as_posix(),
-                            "text/plain; charset=utf-8",
-                            hashlib.sha256(input_bytes).hexdigest(),
-                            len(input_bytes),
+                            input_type,
+                            hashlib.sha256(input_content).hexdigest(),
+                            len(input_content),
                         ),
                     )
                     row = cursor.fetchone()
@@ -355,6 +358,15 @@ class GenerationTaskRepository:
         path = (root / task.result_relative_path).resolve()
         if root != path and root not in path.parents:
             raise TaskNotFound("task result path is invalid")
+        return path
+
+    def input_path(self, task: GenerationTask) -> Path:
+        if not task.input_relative_path:
+            raise TaskNotFound("task has no input")
+        root = self.data_root.resolve()
+        path = (root / task.input_relative_path).resolve()
+        if root != path and root not in path.parents:
+            raise TaskNotFound("task input path is invalid")
         return path
 
     @staticmethod
