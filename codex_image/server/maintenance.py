@@ -230,6 +230,8 @@ def restore_backup(
 
 def reconcile_storage(connections: PostgresConnections, *, data_root: Path) -> dict[str, object]:
     expected: dict[str, str] = {}
+    expired_outputs = 0
+    now = datetime.now(timezone.utc)
     with connections.connect() as connection:
         with connection.cursor() as cursor:
             for table, column in (
@@ -260,8 +262,11 @@ def reconcile_storage(connections: PostgresConnections, *, data_root: Path) -> d
             )
             for (output_files,) in cursor.fetchall():
                 for item in output_files or []:
-                    if not isinstance(item, dict):
+                    if not isinstance(item, dict) or item.get("storage_purged_at"):
                         continue
+                    purge_after = _record_datetime(item.get("purge_after"))
+                    if item.get("deleted") and purge_after is not None and purge_after <= now:
+                        expired_outputs += 1
                     for key in ("relative_path", "thumbnail_relative_path"):
                         if item.get(key):
                             expected[str(item[key])] = "server_generation_tasks"
@@ -294,16 +299,18 @@ def reconcile_storage(connections: PostgresConnections, *, data_root: Path) -> d
     return {
         "missing": [{"path": path, "table": expected[path]} for path in missing],
         "orphaned": orphaned,
-        "expired": {"assets": expired_assets, "tasks": expired_tasks},
+        "expired": {"assets": expired_assets, "tasks": expired_tasks, "outputs": expired_outputs},
     }
 
 
-def purge_expired_trash(connections: PostgresConnections, *, data_root: Path) -> dict[str, int]:
+def purge_expired_trash(connections: PostgresConnections, *, data_root: Path) -> dict[str, object]:
     report = reconcile_storage(connections, data_root=data_root)
     removed_files = 0
     paths: list[str] = []
     asset_paths: dict[str, list[str]] = {}
     task_paths: dict[str, list[str]] = {}
+    output_records: dict[str, list[dict[str, object]]] = {}
+    now = datetime.now(timezone.utc)
     with connections.connect() as connection:
         with connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
@@ -359,6 +366,33 @@ def purge_expired_trash(connections: PostgresConnections, *, data_root: Path) ->
                 if row["result_relative_path"]:
                     task_paths.setdefault(row["task_id"], []).append(row["result_relative_path"])
                     paths.append(row["result_relative_path"])
+            cursor.execute(
+                """
+                SELECT task_id, output_files
+                FROM server_generation_tasks
+                WHERE deleted_at IS NULL AND storage_purged_at IS NULL
+                """
+            )
+            for row in cursor.fetchall():
+                records = [dict(item) for item in row.get("output_files") or [] if isinstance(item, dict)]
+                has_expired = False
+                for item in records:
+                    purge_after = _record_datetime(item.get("purge_after"))
+                    if (
+                        not item.get("deleted")
+                        or item.get("storage_purged_at")
+                        or purge_after is None
+                        or purge_after > now
+                    ):
+                        continue
+                    has_expired = True
+                    paths.extend(
+                        str(item[key])
+                        for key in ("relative_path", "thumbnail_relative_path")
+                        if item.get(key)
+                    )
+                if has_expired:
+                    output_records[row["task_id"]] = records
     root = data_root.resolve()
     for relative in paths:
         path = (data_root / str(relative)).resolve()
@@ -402,14 +436,69 @@ def purge_expired_trash(connections: PostgresConnections, *, data_root: Path) ->
                 , (purgeable_tasks,)
             )
             purged_tasks = cursor.rowcount
+            purged_outputs = 0
+            purged_at = datetime.now(timezone.utc).isoformat()
+            for task_id, records in output_records.items():
+                changed = False
+                for item in records:
+                    purge_after = _record_datetime(item.get("purge_after"))
+                    if (
+                        not item.get("deleted")
+                        or item.get("storage_purged_at")
+                        or purge_after is None
+                        or purge_after > now
+                    ):
+                        continue
+                    item_paths = [
+                        str(item[key])
+                        for key in ("relative_path", "thumbnail_relative_path")
+                        if item.get(key)
+                    ]
+                    if any((data_root / relative).exists() for relative in item_paths):
+                        continue
+                    item["storage_purged_at"] = purged_at
+                    changed = True
+                    purged_outputs += 1
+                if changed:
+                    cursor.execute(
+                        """
+                        UPDATE server_generation_tasks
+                        SET output_files = %s::jsonb, updated_at = CURRENT_TIMESTAMP
+                        WHERE task_id = %s AND deleted_at IS NULL AND storage_purged_at IS NULL
+                        """,
+                        (json.dumps(records, separators=(",", ":")), task_id),
+                    )
             record_audit_event(
                 cursor,
                 action="maintenance.trash_purged",
                 actor_user_id=None,
                 subject_user_id=None,
-                details={"removed_files": removed_files, "assets": purged_assets, "tasks": purged_tasks},
+                details={
+                    "removed_files": removed_files,
+                    "assets": purged_assets,
+                    "tasks": purged_tasks,
+                    "outputs": purged_outputs,
+                },
             )
-    return {"removed_files": removed_files, "assets": purged_assets, "tasks": purged_tasks, "before": report}
+    return {
+        "removed_files": removed_files,
+        "assets": purged_assets,
+        "tasks": purged_tasks,
+        "outputs": purged_outputs,
+        "before": report,
+    }
+
+
+def _record_datetime(value: object) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _safe_child_path(root: Path, raw_path: object) -> Path:

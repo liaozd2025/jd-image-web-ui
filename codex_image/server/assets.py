@@ -40,6 +40,7 @@ _PERSONAL_STORAGE_USAGE_SQL = """
                             + COALESCE(NULLIF(item ->> 'thumbnail_bytes', '')::BIGINT, 0)
                         )
                         FROM jsonb_array_elements(tasks.output_files) AS output(item)
+                        WHERE COALESCE(item ->> 'storage_purged_at', '') = ''
                     ), 0)
                     ELSE COALESCE(tasks.result_bytes, 0) + COALESCE(tasks.thumbnail_bytes, 0)
                   END

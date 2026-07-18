@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 import hashlib
 from io import BytesIO
 import json
@@ -474,7 +475,12 @@ class GenerationTaskRepository:
     ) -> GenerationTask:
         task = self.get_task(user_id, task_id)
         outputs = task_output_records(task)
-        if task.status != "completed" or output_index < 1 or output_index > len(outputs):
+        if (
+            task.status != "completed"
+            or output_index < 1
+            or output_index > len(outputs)
+            or bool(outputs[output_index - 1].get("deleted"))
+        ):
             raise TaskNotFound("task output was not found")
         outputs[output_index - 1]["selected"] = bool(selected)
         with self.connections.connect() as connection:
@@ -497,13 +503,24 @@ class GenerationTaskRepository:
     def delete_unselected_outputs(self, user_id: str, task_id: str) -> GenerationTask:
         task = self.get_task(user_id, task_id)
         outputs = task_output_records(task)
-        selected = [dict(item) for item in outputs if bool(item.get("selected", True))]
-        removed = [dict(item) for item in outputs if not bool(item.get("selected", True))]
+        active = [dict(item) for item in outputs if not bool(item.get("deleted"))]
+        existing_deleted = [dict(item) for item in outputs if bool(item.get("deleted"))]
+        selected = [item for item in active if bool(item.get("selected", True))]
+        removed = [item for item in active if not bool(item.get("selected", True))]
         if task.status != "completed" or not selected or not removed:
             raise TaskConfigurationError("select at least one result and leave at least one unselected result")
+        deleted_at = datetime.now(timezone.utc)
         for index, item in enumerate(selected, start=1):
             item["index"] = index
             item["selected"] = True
+        deleted_outputs = removed + existing_deleted
+        for index, item in enumerate(deleted_outputs, start=len(selected) + 1):
+            item["index"] = index
+            item["selected"] = False
+            item["deleted"] = True
+            item.setdefault("deleted_at", deleted_at.isoformat())
+            item.setdefault("purge_after", (deleted_at + timedelta(days=30)).isoformat())
+        stored_outputs = selected + deleted_outputs
         first = selected[0]
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
@@ -524,7 +541,7 @@ class GenerationTaskRepository:
                     RETURNING *
                     """,
                     (
-                        json.dumps(selected, separators=(",", ":")),
+                        json.dumps(stored_outputs, separators=(",", ":")),
                         first.get("relative_path"),
                         first.get("thumbnail_relative_path"),
                         first.get("thumbnail_bytes"),
@@ -561,15 +578,62 @@ class GenerationTaskRepository:
                     subject_user_id=user_id,
                     details={"task_id": task_id, "deleted_output_count": len(removed)},
                 )
-        for item in removed:
-            for key in ("relative_path", "thumbnail_relative_path"):
-                relative_path = str(item.get(key) or "")
-                if not relative_path:
-                    continue
-                try:
-                    self._artifact_path(task, relative_path).unlink(missing_ok=True)
-                except TaskNotFound:
-                    continue
+        return self._task_from_row(row)
+
+    def restore_output(self, user_id: str, task_id: str, output_index: int) -> GenerationTask:
+        task = self.get_task(user_id, task_id)
+        outputs = task_output_records(task)
+        if task.status != "completed" or output_index < 1 or output_index > len(outputs):
+            raise TaskNotFound("task output was not found")
+        output = outputs[output_index - 1]
+        if not bool(output.get("deleted")) or output.get("storage_purged_at"):
+            raise TaskNotFound("deleted task output was not found")
+        for key in ("deleted", "deleted_at", "purge_after"):
+            output.pop(key, None)
+        output["selected"] = True
+        active = [item for item in outputs if not bool(item.get("deleted"))]
+        first = active[0]
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
+                cursor.execute(
+                    """
+                    UPDATE server_generation_tasks
+                    SET output_files = %s::jsonb,
+                        result_relative_path = %s,
+                        thumbnail_relative_path = %s,
+                        thumbnail_bytes = %s,
+                        result_media_type = %s,
+                        result_sha256 = %s,
+                        result_bytes = %s,
+                        revised_prompt = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE task_id = %s AND user_id = %s AND deleted_at IS NULL
+                    RETURNING *
+                    """,
+                    (
+                        json.dumps(outputs, separators=(",", ":")),
+                        first.get("relative_path"),
+                        first.get("thumbnail_relative_path"),
+                        first.get("thumbnail_bytes"),
+                        first.get("media_type"),
+                        first.get("sha256"),
+                        first.get("byte_size"),
+                        first.get("revised_prompt"),
+                        task_id,
+                        user_id,
+                    ),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    raise TaskNotFound("task was not found")
+                record_audit_event(
+                    cursor,
+                    action="task.output_restored",
+                    actor_user_id=user_id,
+                    subject_user_id=user_id,
+                    details={"task_id": task_id, "output_index": output_index},
+                )
         return self._task_from_row(row)
 
     def list_attempts(self, user_id: str, task_id: str) -> list[dict[str, object]]:
@@ -1285,7 +1349,11 @@ class GenerationTaskRepository:
 
     def result_path(self, task: GenerationTask, output_index: int = 1) -> Path:
         output = task_output_records(task)
-        if output_index < 1 or output_index > len(output):
+        if (
+            output_index < 1
+            or output_index > len(output)
+            or bool(output[output_index - 1].get("deleted"))
+        ):
             raise TaskNotFound("task output was not found")
         relative_path = str(output[output_index - 1]["relative_path"])
         if output_index == 1 and task.result_relative_path and relative_path != task.result_relative_path:
@@ -1323,7 +1391,11 @@ class GenerationTaskRepository:
 
     def thumbnail_path(self, task: GenerationTask, output_index: int = 1) -> Path:
         output = task_output_records(task)
-        if output_index < 1 or output_index > len(output):
+        if (
+            output_index < 1
+            or output_index > len(output)
+            or bool(output[output_index - 1].get("deleted"))
+        ):
             raise TaskNotFound("task thumbnail was not found")
         relative_path = str(output[output_index - 1].get("thumbnail_relative_path") or "")
         if not relative_path:

@@ -154,7 +154,17 @@ def install_authentication(
     @app.get("/api/auth/me", response_model=None)
     def current_user(request: Request) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
-        return JSONResponse(content={"user": _user_payload(session.user)})
+        return JSONResponse(
+            content={
+                "user": _user_payload(session.user),
+                "session": {
+                    "session_id": session.session_id,
+                    "user_agent": session.user_agent,
+                    "current": True,
+                },
+                "csrf_token": request.cookies.get(CSRF_COOKIE, ""),
+            }
+        )
 
     @app.post("/api/auth/password", response_model=None)
     def change_password(request: Request, payload: PasswordChangePayload) -> JSONResponse:

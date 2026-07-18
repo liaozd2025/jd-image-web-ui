@@ -5,28 +5,30 @@ interface CurrentUser {
 
 interface CurrentUserResponse {
   user: CurrentUser;
+  session: {
+    session_id: string;
+    user_agent: string;
+    current: boolean;
+  };
+  csrf_token: string;
 }
 
 let serverAccountInitialized = false;
-
-function cookieValue(name: string): string {
-  const prefix = `${name}=`;
-  const part = document.cookie
-    .split(";")
-    .map((value) => value.trim())
-    .find((value) => value.startsWith(prefix));
-  return part ? decodeURIComponent(part.slice(prefix.length)) : "";
-}
+let csrfToken = "";
 
 async function loadServerAccount(): Promise<void> {
   const response = await fetch("/api/auth/me");
   if (!response.ok) return;
-  const { user } = await response.json() as CurrentUserResponse;
+  const context = await response.json() as CurrentUserResponse;
+  const { user } = context;
   const name = document.querySelector<HTMLElement>("#serverAccountName");
   const adminLink = document.querySelector<HTMLElement>("#serverAdminLink");
+  const logoutButton = document.querySelector<HTMLButtonElement>("#serverLogoutButton");
+  csrfToken = context.csrf_token;
   if (name) name.textContent = user.username;
   const isAdmin = user.role === "admin";
   adminLink?.classList.toggle("hidden", !isAdmin);
+  if (logoutButton) logoutButton.disabled = !csrfToken;
 }
 
 async function logout(): Promise<void> {
@@ -35,7 +37,7 @@ async function logout(): Promise<void> {
   try {
     const response = await fetch("/api/auth/logout", {
       method: "POST",
-      headers: { "X-CSRF-Token": cookieValue("jd_image_csrf") },
+      headers: { "X-CSRF-Token": csrfToken },
     });
     if (response.ok) window.location.assign("/login");
   } finally {

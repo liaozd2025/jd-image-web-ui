@@ -675,6 +675,15 @@ def install_workspace_routes(
             return JSONResponse(status_code=409, content={"detail": str(error)})
         return JSONResponse(content={"task": _task_payload(task)})
 
+    @app.post("/api/tasks/{task_id}/outputs/{output_index}/restore", response_model=None)
+    def restore_task_output(request: Request, task_id: str, output_index: int) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        try:
+            task = tasks.restore_output(session.user.user_id, task_id, output_index)
+        except TaskNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        return JSONResponse(content={"task": _task_payload(task)})
+
     @app.post("/api/generate", response_model=None, status_code=201)
     async def generate(request: Request) -> JSONResponse:
         return await _create_workspace_task(
@@ -840,6 +849,7 @@ def install_workspace_routes(
             return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
         paths: list[tuple[int, Any, dict[str, object]]] = []
         output_records = task_output_records(task)
+        output_records = [item for item in output_records if not bool(item.get("deleted"))]
         if request.query_params.get("selected") == "1":
             output_records = [item for item in output_records if bool(item.get("selected", True))]
         for item in output_records:
@@ -1401,7 +1411,7 @@ def _history_task_summary(task: GenerationTask) -> dict[str, Any]:
     width, height = _size_parts(size)
     ratio = _ratio(width, height)
     orientation = "square" if width and width == height else "landscape" if width > height else "portrait" if height else ""
-    output_count = len(task_output_records(task)) or max(1, min(4, int(task.request_parameters.get("n") or 1)))
+    output_count = len([item for item in task_output_records(task) if not bool(item.get("deleted"))]) or max(1, min(4, int(task.request_parameters.get("n") or 1)))
     return {
         "task_id": task.task_id,
         "created_at": task.created_at,

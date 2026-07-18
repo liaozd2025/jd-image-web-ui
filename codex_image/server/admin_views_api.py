@@ -131,6 +131,8 @@ def install_admin_view_routes(
             if output_index < 1 or output_index > len(outputs):
                 raise TaskNotFound("task output was not found")
             output = outputs[output_index - 1]
+            if bool(output.get("deleted")):
+                raise TaskNotFound("task output was not found")
             if artifact == "thumbnail":
                 path = tasks.thumbnail_path(task, output_index)
                 media_type = "image/jpeg"

@@ -132,6 +132,8 @@ def install_task_routes(
             if task.status != "completed":
                 return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
             for item in task_output_records(task):
+                if bool(item.get("deleted")):
+                    continue
                 output_index = int(item.get("index") or 0)
                 try:
                     path = tasks.result_path(task, output_index)
@@ -146,7 +148,8 @@ def install_task_routes(
         archive = BytesIO()
         with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as output:
             for task, output_index, path, item in selected:
-                suffix = "" if len(task_output_records(task)) == 1 else f"-image-{output_index}"
+                active_output_count = len([item for item in task_output_records(task) if not bool(item.get("deleted"))])
+                suffix = "" if active_output_count == 1 else f"-image-{output_index}"
                 output.write(
                     path,
                     arcname=f"task-{task.task_id}{suffix}.{_output_extension(task, item)}",
@@ -291,6 +294,7 @@ def _task_payload(
         else "openai_images"
     )
     stored_outputs = task_output_records(task)
+    active_outputs = [item for item in stored_outputs if not bool(item.get("deleted"))]
     requested_count = max(1, min(4, int(task.request_parameters.get("n") or 1)))
     output_count = len(stored_outputs) if stored_outputs else requested_count
     output_status = (
@@ -307,12 +311,12 @@ def _task_payload(
         record = stored_outputs[output_index - 1] if output_index <= len(stored_outputs) else {}
         completed_url = (
             f"{task_url}/outputs/{output_index}/download"
-            if task.status == "completed" and record.get("relative_path")
+            if task.status == "completed" and record.get("relative_path") and not record.get("deleted")
             else None
         )
         thumbnail_url = (
             f"{task_url}/outputs/{output_index}/thumbnail"
-            if task.status == "completed" and record.get("thumbnail_relative_path")
+            if task.status == "completed" and record.get("thumbnail_relative_path") and not record.get("deleted")
             else None
         )
         outputs.append(
@@ -326,6 +330,9 @@ def _task_payload(
                 "quality": str(task.request_parameters.get("quality") or "auto"),
                 "revised_prompt": record.get("revised_prompt") or task.revised_prompt,
                 "error": task.error_message,
+                "deleted": bool(record.get("deleted")),
+                "deleted_at": record.get("deleted_at"),
+                "purge_after": record.get("purge_after"),
             }
         )
     reference_files = [
@@ -413,7 +420,7 @@ def _task_payload(
         "thumbnail_urls": [item["thumbnail_url"] for item in outputs if item["thumbnail_url"]],
         "input_urls": [f"{task_url}/input"] if task.input_relative_path and (task.input_media_type or "").startswith("image/") else [],
         "outputs": outputs,
-        "generated_count": len(stored_outputs) if task.status == "completed" else 0,
+        "generated_count": len(active_outputs) if task.status == "completed" else 0,
         "failed_count": requested_count if task.status == "failed" else 0,
         "total_count": output_count,
         "last_error": task.error_message,
@@ -425,10 +432,15 @@ def _task_payload(
         "viewed_at": task.viewed_at,
         "retry_of_task_id": task.retry_of_task_id,
         "selected_output_indexes": [
-            index
+            int(item.get("index") or index)
             for index, item in enumerate(stored_outputs, start=1)
-            if bool(item.get("selected", True))
+            if bool(item.get("selected", True)) and not bool(item.get("deleted"))
         ] if task.status == "completed" else [],
+        "deleted_output_indexes": [
+            int(item.get("index") or index)
+            for index, item in enumerate(stored_outputs, start=1)
+            if bool(item.get("deleted"))
+        ],
         "queue_position": task.queue_position,
     }
 

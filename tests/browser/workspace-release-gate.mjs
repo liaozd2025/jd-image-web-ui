@@ -172,6 +172,14 @@ try {
   check(await pageA.locator("[data-auth-source]").count() === 0, "server workspace still exposed the Codex/local auth switcher");
   check(await pageA.locator("#systemSettingsCodexTab").isHidden(), "server workspace still exposed Codex settings");
   check((await api(pageA, "/admin")).status === 403, "normal user accessed administrator UI");
+  const providerCatalogA = await api(pageA, "/api/providers/catalog");
+  const personalProviderVersionId = providerCatalogA.body.providers.find((item) => item.provider_key === "browser-fake-provider")?.provider_version_id;
+  check(personalProviderVersionId, "personal provider catalog entry was missing");
+  const personalCredentialA = await api(pageA, `/api/providers/personal/${personalProviderVersionId}`, {
+    method: "PUT",
+    json: { api_key: "browser-user-a-private-provider-key" },
+  });
+  check(personalCredentialA.status === 200, "user A personal provider configuration failed");
 
   const sharedGallery = await api(pageA, "/api/gallery");
   const sharedGalleryItem = sharedGallery.body.items.find((item) => item.scope === "shared" && item.read_only);
@@ -188,6 +196,7 @@ try {
   const personalUpload = await galleryResponse.json();
   check(galleryResponse.status() === 201, `personal gallery upload failed: ${JSON.stringify(personalUpload)}`);
   const privateAssetId = personalUpload.item.id;
+  const privateAssetImageUrl = personalUpload.item.image_url;
   check((await api(pageA, "/api/gallery")).body.items.some((item) => item.id === privateAssetId && item.scope === "personal"), "personal gallery item was not returned");
   await pageA.locator("#galleryManageButton").click();
   await pageA.locator("#galleryDrawer.open").waitFor({ state: "visible" });
@@ -348,6 +357,9 @@ try {
   const galleryB = await api(pageB, "/api/gallery");
   check(galleryB.body.items.some((item) => item.scope === "shared"), "shared gallery was not visible to second user");
   check(!galleryB.body.items.some((item) => item.id === privateAssetId), "second user saw first user's private gallery item");
+  check((await api(pageB, privateAssetImageUrl)).status === 404, "second user accessed first user's private gallery file address");
+  const personalCredentialsB = await api(pageB, "/api/providers/personal");
+  check(!personalCredentialsB.body.credentials.some((item) => item.provider_version_id === personalProviderVersionId), "second user saw first user's personal provider configuration");
   check(!(await api(pageB, "/api/prompt-snippets")).body.snippets.some((item) => item.tag === "privateA"), "second user saw first user's prompt snippet");
   check(!(await api(pageB, "/api/prompt-templates")).body.templates.some((item) => item.title === "Private A template"), "second user saw first user's prompt template");
   check(!(await api(pageB, "/api/tasks/recent?limit=50")).body.tasks.some((item) => item.task_id === generated.task_id), "second user saw first user's task");

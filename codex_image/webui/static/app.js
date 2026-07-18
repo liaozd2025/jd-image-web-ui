@@ -819,7 +819,7 @@
     "recentAssets.use": "Use {name}",
     "recentAssets.delete": "Delete {name}",
     "recentAssets.deleteTitle": "Delete recent upload?",
-    "recentAssets.deleteMessage": "This will remove the image from Recent uploads. If it is currently selected as an image input, it will be removed from the current input. Historical tasks that reference this recent upload will lose that input preview. The public gallery is not affected.",
+    "recentAssets.deleteMessage": "This will remove the image from Recent uploads. If it is currently selected as an image input, it will be removed from the current input. Historical tasks that reference this recent upload will lose that input preview. The shared gallery is not affected.",
     "recentAssets.loadFailed": "Failed to load recent uploads",
     "recentAssets.deleteFailed": "Failed to delete recent upload",
     "recentAssets.deleted": "Recent upload deleted",
@@ -44707,20 +44707,20 @@ ${galleryText}`;
 
   // codex_image/webui/frontend/src/server-account.ts
   var serverAccountInitialized = false;
-  function cookieValue(name) {
-    const prefix = `${name}=`;
-    const part = document.cookie.split(";").map((value) => value.trim()).find((value) => value.startsWith(prefix));
-    return part ? decodeURIComponent(part.slice(prefix.length)) : "";
-  }
+  var csrfToken = "";
   async function loadServerAccount() {
     const response = await fetch("/api/auth/me");
     if (!response.ok) return;
-    const { user } = await response.json();
+    const context = await response.json();
+    const { user } = context;
     const name = document.querySelector("#serverAccountName");
     const adminLink = document.querySelector("#serverAdminLink");
+    const logoutButton = document.querySelector("#serverLogoutButton");
+    csrfToken = context.csrf_token;
     if (name) name.textContent = user.username;
     const isAdmin = user.role === "admin";
     adminLink?.classList.toggle("hidden", !isAdmin);
+    if (logoutButton) logoutButton.disabled = !csrfToken;
   }
   async function logout() {
     const button = document.querySelector("#serverLogoutButton");
@@ -44728,7 +44728,7 @@ ${galleryText}`;
     try {
       const response = await fetch("/api/auth/logout", {
         method: "POST",
-        headers: { "X-CSRF-Token": cookieValue("jd_image_csrf") }
+        headers: { "X-CSRF-Token": csrfToken }
       });
       if (response.ok) window.location.assign("/login");
     } finally {

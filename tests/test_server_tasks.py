@@ -108,6 +108,8 @@ class ServerGenerationTaskTests(unittest.TestCase):
     def test_http_submission_is_queued_then_worker_writes_protected_result(self) -> None:
         from codex_image.server.app import create_server_app
         from codex_image.server.config import ServerSettings
+        from codex_image.server.database import PostgresConnections
+        from codex_image.server.maintenance import purge_expired_trash
 
         FakeProviderHandler.requests = []
         fake_server = ThreadingHTTPServer(("127.0.0.1", 0), FakeProviderHandler)
@@ -412,6 +414,29 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         self.assertEqual(reselected.json()["task"]["selected_output_indexes"], [1, 2])
                         workspace_zip = user.get(f"/api/tasks/{task_id}/outputs.zip")
                         self.assertEqual(workspace_zip.status_code, 200)
+                        deselected_for_delete = user.patch(
+                            f"/api/tasks/{task_id}/outputs/2/selected",
+                            json={"selected": False},
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(deselected_for_delete.status_code, 200)
+                        soft_deleted_output = user.post(
+                            f"/api/tasks/{task_id}/outputs/delete-unselected",
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(soft_deleted_output.status_code, 200, soft_deleted_output.text)
+                        self.assertEqual(soft_deleted_output.json()["task"]["deleted_output_indexes"], [2])
+                        self.assertEqual(len(soft_deleted_output.json()["task"]["outputs"]), 2)
+                        self.assertTrue(soft_deleted_output.json()["task"]["outputs"][1]["deleted"])
+                        self.assertIsNotNone(soft_deleted_output.json()["task"]["outputs"][1]["purge_after"])
+                        self.assertEqual(user.get(f"/api/tasks/{task_id}/outputs/2/download").status_code, 404)
+                        restored_output = user.post(
+                            f"/api/tasks/{task_id}/outputs/2/restore",
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(restored_output.status_code, 200, restored_output.text)
+                        self.assertEqual(restored_output.json()["task"]["deleted_output_indexes"], [])
+                        self.assertEqual(user.get(f"/api/tasks/{task_id}/outputs/2/download").status_code, 200)
                         history_summary = user.get("/api/task-history/summary")
                         self.assertEqual(history_summary.status_code, 200, history_summary.text)
                         self.assertGreaterEqual(history_summary.json()["total"], 1)
@@ -594,6 +619,42 @@ class ServerGenerationTaskTests(unittest.TestCase):
                                 ).status_code,
                                 404,
                             )
+
+                        user.patch(
+                            f"/api/tasks/{task_id}/outputs/2/selected",
+                            json={"selected": False},
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        expired_output = user.post(
+                            f"/api/tasks/{task_id}/outputs/delete-unselected",
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(expired_output.status_code, 200, expired_output.text)
+                        with psycopg.connect(database_url) as connection:
+                            output_files = connection.execute(
+                                "SELECT output_files FROM server_generation_tasks WHERE task_id = %s",
+                                (task_id,),
+                            ).fetchone()[0]
+                            for output in output_files:
+                                if output.get("deleted"):
+                                    output["purge_after"] = "2000-01-01T00:00:00+00:00"
+                            connection.execute(
+                                "UPDATE server_generation_tasks SET output_files = %s::jsonb WHERE task_id = %s",
+                                (json.dumps(output_files), task_id),
+                            )
+                        purged = purge_expired_trash(
+                            PostgresConnections(database_url, connect_timeout_seconds=2),
+                            data_root=data_root,
+                        )
+                        self.assertEqual(purged["outputs"], 1)
+                        self.assertEqual(user.get(f"/api/tasks/{task_id}/outputs/2/download").status_code, 404)
+                        self.assertEqual(
+                            user.post(
+                                f"/api/tasks/{task_id}/outputs/2/restore",
+                                headers={"X-CSRF-Token": user_csrf},
+                            ).status_code,
+                            404,
+                        )
         finally:
             if worker is not None and worker.poll() is None:
                 worker.terminate()

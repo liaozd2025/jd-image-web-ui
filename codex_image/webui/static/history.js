@@ -343,7 +343,7 @@
     "recentAssets.use": "Use {name}",
     "recentAssets.delete": "Delete {name}",
     "recentAssets.deleteTitle": "Delete recent upload?",
-    "recentAssets.deleteMessage": "This will remove the image from Recent uploads. If it is currently selected as an image input, it will be removed from the current input. Historical tasks that reference this recent upload will lose that input preview. The public gallery is not affected.",
+    "recentAssets.deleteMessage": "This will remove the image from Recent uploads. If it is currently selected as an image input, it will be removed from the current input. Historical tasks that reference this recent upload will lose that input preview. The shared gallery is not affected.",
     "recentAssets.loadFailed": "Failed to load recent uploads",
     "recentAssets.deleteFailed": "Failed to delete recent upload",
     "recentAssets.deleted": "Recent upload deleted",
