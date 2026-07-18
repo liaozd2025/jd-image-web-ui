@@ -36,6 +36,7 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0019_storage_purge_markers",
     "0020_migration_checksums",
     "0021_worker_leases",
+    "0022_workspace_task_state",
 ]
 
 

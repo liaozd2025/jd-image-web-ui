@@ -39,6 +39,8 @@ class FakeProviderHandler(BaseHTTPRequestHandler):
         else:
             body = json.loads(raw_body)
             should_fail = isinstance(body, dict) and body.get("prompt") == "force provider failure"
+            if isinstance(body, dict) and body.get("prompt") == "hold provider for cancellation":
+                time.sleep(2.0)
         type(self).requests.append(
             {
                 "authorization": self.headers.get("Authorization"),
@@ -156,12 +158,25 @@ class ServerGenerationTaskTests(unittest.TestCase):
                             headers={"X-CSRF-Token": user_csrf},
                         )
                         self.assertEqual(credential.status_code, 200)
+                        workspace_health = user.get("/api/health")
+                        self.assertEqual(workspace_health.status_code, 200, workspace_health.text)
+                        self.assertTrue(workspace_health.json()["auth_available"])
+                        workspace_settings = user.get("/api/api-settings")
+                        self.assertEqual(workspace_settings.status_code, 200, workspace_settings.text)
+                        workspace_provider_id = f"personal-{provider_version_id}"
+                        self.assertIn(
+                            workspace_provider_id,
+                            [item["id"] for item in workspace_settings.json()["settings"]["providers"]],
+                        )
                         submitted = user.post(
-                            "/api/tasks",
-                            json={
-                                "provider_version_id": provider_version_id,
-                                "model_id": "fake-image-1",
+                            "/api/generate",
+                            data={
+                                "api_provider_id": workspace_provider_id,
+                                "model": "fake-image-1",
                                 "prompt": "a test image",
+                                "size": "1024x1024",
+                                "quality": "auto",
+                                "output_format": "png",
                             },
                             headers={"X-CSRF-Token": user_csrf},
                         )
@@ -170,6 +185,13 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         self.assertEqual(submitted.json()["task"]["status"], "queued")
                         self.assertGreater(submitted.json()["task"]["input_bytes"], 0)
                         self.assertTrue(submitted.json()["task"]["input_sha256"])
+                        recent = user.get("/api/tasks/recent?limit=50")
+                        self.assertEqual(recent.status_code, 200, recent.text)
+                        self.assertEqual(recent.json()["tasks"][0]["task_id"], task_id)
+                        self.assertEqual(recent.json()["tasks"][0]["output_urls"], [])
+                        queue = user.get("/api/queue")
+                        self.assertEqual(queue.status_code, 200, queue.text)
+                        self.assertEqual(queue.json()["waiting"][0]["task_id"], task_id)
                         with psycopg.connect(database_url) as connection:
                             input_relative_path = connection.execute(
                                 "SELECT input_relative_path FROM server_generation_tasks WHERE task_id = %s",
@@ -234,6 +256,37 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         download = user.get(f"/api/tasks/{task_id}/download")
                         self.assertEqual(download.status_code, 200)
                         self.assertIn("attachment", download.headers["content-disposition"])
+                        workspace_download = user.get(f"/api/tasks/{task_id}/outputs/1/download")
+                        self.assertEqual(workspace_download.status_code, 200)
+                        self.assertEqual(workspace_download.content, FAKE_PNG)
+                        workspace_zip = user.get(f"/api/tasks/{task_id}/outputs.zip")
+                        self.assertEqual(workspace_zip.status_code, 200)
+                        history_summary = user.get("/api/task-history/summary")
+                        self.assertEqual(history_summary.status_code, 200, history_summary.text)
+                        self.assertGreaterEqual(history_summary.json()["total"], 1)
+                        history_page = user.get("/api/task-history/tasks?limit=50&sort=newest")
+                        self.assertEqual(history_page.status_code, 200, history_page.text)
+                        self.assertIn(task_id, [item["task_id"] for item in history_page.json()["tasks"]])
+                        archived = user.patch(
+                            f"/api/tasks/{task_id}/archive",
+                            json={"archived": True},
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(archived.status_code, 200, archived.text)
+                        self.assertTrue(archived.json()["task"]["archived_at"])
+                        self.assertGreaterEqual(user.get("/api/task-history/summary").json()["archived_total"], 1)
+                        restored_archive = user.patch(
+                            f"/api/tasks/{task_id}/archive",
+                            json={"archived": False},
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(restored_archive.status_code, 200, restored_archive.text)
+                        viewed = user.patch(
+                            f"/api/tasks/{task_id}/viewed",
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(viewed.status_code, 200, viewed.text)
+                        self.assertTrue(viewed.json()["task"]["viewed_at"])
                         archive = user.get(f"/api/tasks/archive?ids={task_id}")
                         self.assertEqual(archive.status_code, 200)
                         self.assertIn(f"task-{task_id}.png".encode(), archive.content)
@@ -251,13 +304,16 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         self.assertEqual(FakeProviderHandler.requests[0]["authorization"], f"Bearer {TASK_API_KEY}")
 
                         uploaded = user.post(
-                            "/api/tasks",
+                            "/api/edit",
                             data={
-                                "provider_version_id": provider_version_id,
-                                "model_id": "fake-image-1",
+                                "api_provider_id": workspace_provider_id,
+                                "model": "fake-image-1",
                                 "prompt": "an image edit",
+                                "size": "1024x1024",
+                                "quality": "auto",
+                                "output_format": "png",
                             },
-                            files={"input_file": ("input.png", FAKE_PNG, "image/png")},
+                            files={"images": ("input.png", FAKE_PNG, "image/png")},
                             headers={"X-CSRF-Token": user_csrf},
                         )
                         self.assertEqual(uploaded.status_code, 201)
@@ -300,6 +356,8 @@ class ServerGenerationTaskTests(unittest.TestCase):
                             headers={"X-CSRF-Token": user_csrf},
                         )
                         self.assertEqual(resubmitted.status_code, 201)
+                        self.assertNotEqual(resubmitted.json()["task"]["task_id"], failed_task)
+                        self.assertEqual(user.get(f"/api/tasks/{failed_task}").json()["task"]["status"], "failed")
 
                         with TestClient(create_server_app(settings)) as other:
                             other_login = login(

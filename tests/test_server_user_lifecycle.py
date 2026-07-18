@@ -156,6 +156,11 @@ class ServerUserLifecycleTests(unittest.TestCase):
                             csrf_token=user_login["csrf_token"],
                         )
                         user_csrf = user_changed["csrf_token"]
+                        user_home = user_browser.get("/")
+                        forbidden_admin_home = user_browser.get("/admin")
+                        self.assertEqual(user_home.status_code, 200)
+                        self.assertIn('class="layout-container"', user_home.text)
+                        self.assertEqual(forbidden_admin_home.status_code, 403)
 
                         login(
                             other_browser,
@@ -294,7 +299,7 @@ class ServerUserLifecycleTests(unittest.TestCase):
                         )
                         self.assertIn(delete_user.status_code, {404, 405})
                         self.assertEqual(impersonate.status_code, 404)
-                        protected_workbench = admin.get("/")
+                        protected_workbench = admin.get("/admin")
                         self.assertIn('id="user-management"', protected_workbench.text)
 
                     with psycopg.connect(database_url) as connection:

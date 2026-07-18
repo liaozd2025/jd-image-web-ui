@@ -65,6 +65,9 @@ class GenerationTask:
     cancelled_at: str | None
     quota_units: int
     quota_period_start: str | None
+    archived_at: str | None
+    viewed_at: str | None
+    retry_of_task_id: str | None
 
 
 @dataclass(frozen=True)
@@ -309,53 +312,87 @@ class GenerationTaskRepository:
         if task.status not in {"failed", "interrupted", "cancelled"}:
             raise TaskConfigurationError("task is not retryable")
         try:
-            self.input_path(task).stat()
+            input_path = self.input_path(task)
+            input_path.stat()
         except (OSError, TaskNotFound) as error:
             raise TaskConfigurationError("task input is unavailable") from error
-        quota_period_start: str | None = None
-        if task.provider_scope == "department":
-            if self.departments is None:
-                raise TaskConfigurationError("department provider is unavailable")
-            try:
-                quota_period_start = self.departments.reserve(user_id, task.quota_units)
-            except DepartmentQuotaExceeded as error:
-                raise TaskConfigurationError(str(error)) from error
-        try:
-            with self.connections.connect() as connection:
-                with connection.cursor(row_factory=dict_row) as cursor:
-                    assert_writes_allowed(cursor)
-                    cursor.execute(
-                        """
-                        UPDATE server_generation_tasks
-                        SET status = 'queued', started_at = NULL, completed_at = NULL,
-                            cancel_requested = FALSE, cancel_requested_at = NULL, cancelled_at = NULL,
-                            error_message = NULL, result_relative_path = NULL,
-                            thumbnail_relative_path = NULL, thumbnail_bytes = NULL,
-                            result_media_type = NULL, result_sha256 = NULL, result_bytes = NULL,
-                            revised_prompt = NULL, storage_purged_at = NULL,
-                            quota_period_start = COALESCE(%s, quota_period_start),
-                            updated_at = CURRENT_TIMESTAMP
-                        WHERE task_id = %s AND user_id = %s
-                          AND status IN ('failed', 'interrupted', 'cancelled')
-                        RETURNING *
-                        """,
-                        (quota_period_start, task_id, user_id),
-                    )
-                    row = cursor.fetchone()
-                    if row is None:
-                        raise TaskConfigurationError("task is no longer retryable")
-                    record_audit_event(
-                        cursor,
-                        action="task.resubmitted",
-                        actor_user_id=user_id,
-                        subject_user_id=user_id,
-                        details={"task_id": task_id},
-                    )
-            return self._task_from_row(row)
-        except Exception:
-            if quota_period_start and self.departments is not None:
-                self.departments.settle(user_id, quota_period_start, units=task.quota_units, consumed=False)
-            raise
+        input_bytes = input_path.read_bytes() if (task.input_media_type or "").startswith("image/") else None
+        asset_version_ids = [str(item.get("asset_version_id")) for item in task.asset_versions if item.get("asset_version_id")]
+        shared_asset_version_ids = [
+            str(item.get("asset_version_id")) for item in task.shared_asset_versions if item.get("asset_version_id")
+        ]
+        created = self.create_task(
+            user_id,
+            provider_version_id=task.provider_version_id,
+            model_id=task.model_id,
+            prompt=task.prompt,
+            request_parameters={**task.request_parameters, "retry_of_task_id": task.task_id},
+            input_bytes=input_bytes,
+            input_media_type=task.input_media_type if input_bytes is not None else None,
+            asset_version_ids=asset_version_ids,
+            shared_asset_version_ids=shared_asset_version_ids,
+            provider_scope=task.provider_scope,
+        )
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
+                cursor.execute(
+                    "UPDATE server_generation_tasks SET retry_of_task_id = %s WHERE task_id = %s RETURNING *",
+                    (task.task_id, created.task_id),
+                )
+                row = cursor.fetchone()
+                record_audit_event(
+                    cursor,
+                    action="task.resubmitted",
+                    actor_user_id=user_id,
+                    subject_user_id=user_id,
+                    details={"task_id": task.task_id, "new_task_id": created.task_id},
+                )
+        return self._task_from_row(row)
+
+    def set_archived(self, user_id: str, task_id: str, *, archived: bool) -> GenerationTask:
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
+                cursor.execute(
+                    """
+                    UPDATE server_generation_tasks
+                    SET archived_at = CASE WHEN %s THEN CURRENT_TIMESTAMP ELSE NULL END,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE task_id = %s AND user_id = %s AND deleted_at IS NULL
+                    RETURNING *
+                    """,
+                    (archived, task_id, user_id),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    raise TaskNotFound("task was not found")
+                record_audit_event(
+                    cursor,
+                    action="task.archived" if archived else "task.unarchived",
+                    actor_user_id=user_id,
+                    subject_user_id=user_id,
+                    details={"task_id": task_id},
+                )
+        return self._task_from_row(row)
+
+    def mark_viewed(self, user_id: str, task_id: str) -> GenerationTask:
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
+                cursor.execute(
+                    """
+                    UPDATE server_generation_tasks
+                    SET viewed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                    WHERE task_id = %s AND user_id = %s AND deleted_at IS NULL
+                    RETURNING *
+                    """,
+                    (task_id, user_id),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    raise TaskNotFound("task was not found")
+        return self._task_from_row(row)
 
     def list_attempts(self, user_id: str, task_id: str) -> list[dict[str, object]]:
         with self.connections.connect() as connection:
@@ -1137,6 +1174,9 @@ class GenerationTaskRepository:
             cancelled_at=row.get("cancelled_at").isoformat() if row.get("cancelled_at") else None,
             quota_units=int(row.get("quota_units") or 1),
             quota_period_start=row.get("quota_period_start").isoformat() if row.get("quota_period_start") else None,
+            archived_at=row.get("archived_at").isoformat() if row.get("archived_at") else None,
+            viewed_at=row.get("viewed_at").isoformat() if row.get("viewed_at") else None,
+            retry_of_task_id=row.get("retry_of_task_id"),
         )
 
 

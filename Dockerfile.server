@@ -13,7 +13,7 @@ RUN apt-get update \
     && python -m pip install --no-cache-dir -r requirements-server.txt
 
 COPY codex_image ./codex_image
-RUN rm -rf codex_image/webui codex_image/auth.py codex_image/cli.py codex_image/__main__.py
+RUN rm -rf codex_image/auth.py codex_image/cli.py codex_image/__main__.py
 RUN groupadd --gid 10001 app \
     && useradd --uid 10001 --gid app --no-create-home app \
     && mkdir -p /srv/jd-image-data \

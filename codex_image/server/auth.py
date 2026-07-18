@@ -35,6 +35,13 @@ PUBLIC_PATHS = {"/health/live", "/health/ready", "/login", "/api/auth/login"}
 PASSWORD_CHANGE_PATHS = {"/api/auth/me", "/api/auth/password", "/api/auth/logout"}
 
 
+class NoCacheStaticFiles(StaticFiles):
+    async def get_response(self, path: str, scope: dict) -> Response:
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+
 class LoginPayload(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=1024)
@@ -60,7 +67,13 @@ def install_authentication(
     identity: IdentityRepository,
 ) -> None:
     static_root = Path(__file__).with_name("static")
+    workspace_static_root = Path(__file__).parents[1] / "webui" / "static"
     app.mount("/auth-static", StaticFiles(directory=static_root), name="auth-static")
+    app.mount(
+        "/static",
+        NoCacheStaticFiles(directory=workspace_static_root, check_dir=False),
+        name="workspace-static",
+    )
 
     @app.middleware("http")
     async def authenticate_request(request: Request, call_next):
@@ -95,7 +108,7 @@ def install_authentication(
     async def add_browser_security_headers(request: Request, call_next):
         response = await call_next(request)
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
             "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
         )
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -290,6 +303,38 @@ def install_authentication(
 
     @app.get("/", response_model=None)
     def home() -> FileResponse:
+        return FileResponse(
+            workspace_static_root / "index.html",
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.get("/history", response_model=None)
+    def history() -> FileResponse:
+        return FileResponse(
+            workspace_static_root / "history.html",
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.api_route("/manifest.webmanifest", methods=["GET", "HEAD"], response_model=None)
+    def web_app_manifest() -> FileResponse:
+        return FileResponse(
+            workspace_static_root / "manifest.webmanifest",
+            media_type="application/manifest+json",
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.api_route("/service-worker.js", methods=["GET", "HEAD"], response_model=None)
+    def service_worker() -> FileResponse:
+        return FileResponse(
+            workspace_static_root / "service-worker.js",
+            media_type="application/javascript",
+            headers={"Cache-Control": "no-store", "Service-Worker-Allowed": "/"},
+        )
+
+    @app.get("/admin", response_model=None)
+    def admin_home(
+        admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
+    ) -> FileResponse:
         return FileResponse(static_root / "home.html", headers={"Cache-Control": "no-store"})
 
 

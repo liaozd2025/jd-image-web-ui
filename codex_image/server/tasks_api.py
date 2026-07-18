@@ -272,6 +272,12 @@ def _task_payload(
     url_prefix: str = "/api/tasks",
 ) -> dict[str, object]:
     task_url = f"{url_prefix}/{task.task_id}"
+    workspace_provider_id = f"{task.provider_scope}-{task.provider_version_id}"
+    workspace_backend = (
+        "openai_responses"
+        if task.request_parameters.get("api_mode") == "responses"
+        else "openai_images"
+    )
     attempt_payload = []
     for attempt in attempts or []:
         item = dict(attempt)
@@ -324,6 +330,58 @@ def _task_payload(
             if task.status == "completed" and task.result_relative_path
             else None
         ),
+        "mode": str(task.request_parameters.get("mode") or ("edit" if task.input_relative_path else "generate")),
+        "params": {
+            **task.request_parameters,
+            "model": task.model_id,
+            "main_model": task.model_id,
+            "api_provider_id": workspace_provider_id,
+        },
+        "request": {
+            **task.request_parameters,
+            "model": task.model_id,
+            "provider_version_id": task.provider_version_id,
+            "provider_scope": task.provider_scope,
+        },
+        "queued_at": task.created_at,
+        "output_size": str(task.request_parameters.get("size") or ""),
+        "output_url": f"{task_url}/result" if task.status == "completed" and task.result_relative_path else None,
+        "output_urls": [f"{task_url}/result"] if task.status == "completed" and task.result_relative_path else [],
+        "thumbnail_urls": [f"{task_url}/thumbnail"] if task.status == "completed" and task.thumbnail_relative_path else [],
+        "input_urls": [f"{task_url}/input"] if task.input_relative_path and (task.input_media_type or "").startswith("image/") else [],
+        "outputs": [
+            {
+                "index": 1,
+                "status": (
+                    "completed"
+                    if task.status == "completed"
+                    else "failed"
+                    if task.status in {"failed", "interrupted", "cancelled"}
+                    else "running"
+                    if task.status == "running"
+                    else "queued"
+                ),
+                "url": f"{task_url}/result" if task.status == "completed" and task.result_relative_path else None,
+                "thumbnail_url": f"{task_url}/thumbnail" if task.status == "completed" and task.thumbnail_relative_path else None,
+                "size": str(task.request_parameters.get("size") or ""),
+                "format": str(task.request_parameters.get("output_format") or "png"),
+                "quality": str(task.request_parameters.get("quality") or "auto"),
+                "revised_prompt": task.revised_prompt,
+                "error": task.error_message,
+            }
+        ],
+        "generated_count": 1 if task.status == "completed" else 0,
+        "failed_count": 1 if task.status == "failed" else 0,
+        "total_count": 1,
+        "last_error": task.error_message,
+        "error": task.error_message,
+        "backend": workspace_backend,
+        "requested_backend": workspace_backend,
+        "api_provider_id": workspace_provider_id,
+        "archived_at": task.archived_at,
+        "viewed_at": task.viewed_at,
+        "retry_of_task_id": task.retry_of_task_id,
+        "selected_output_indexes": [1] if task.status == "completed" else [],
     }
 
 

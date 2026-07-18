@@ -86,6 +86,12 @@ class ServerSharedAssetTests(unittest.TestCase):
                         viewer.get(f"/api/shared-assets/{asset_id}/versions/{version_id}/download").content,
                         b"shared-v1",
                     )
+                    workspace_gallery = viewer.get("/api/gallery")
+                    self.assertEqual(workspace_gallery.status_code, 200, workspace_gallery.text)
+                    shared_gallery_item = workspace_gallery.json()["items"][0]
+                    self.assertEqual(shared_gallery_item["id"], f"shared:{asset_id}")
+                    self.assertEqual(shared_gallery_item["scope"], "shared")
+                    self.assertTrue(shared_gallery_item["read_only"])
                     forbidden = viewer.patch(
                         f"/api/shared-assets/{asset_id}/status",
                         json={"is_active": False},

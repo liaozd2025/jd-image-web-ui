@@ -28,6 +28,7 @@ from .scheduler_api import install_scheduler_routes
 from .tasks import GenerationTaskRepository
 from .tasks_api import install_task_routes
 from .volume import check_file_volume
+from .workspace_api import install_workspace_routes
 
 
 def create_server_app(settings: ServerSettings) -> FastAPI:
@@ -67,7 +68,7 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
         provider_cipher.ensure_database_key(connections)
         yield
 
-    app = FastAPI(title="jd-image-web-ui server", lifespan=lifespan)
+    app = FastAPI(title="iLab GPT CONJURE", lifespan=lifespan)
 
     @app.exception_handler(MaintenanceLockError)
     async def maintenance_lock_error_handler(_, __):
@@ -112,10 +113,8 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
         )
 
     install_authentication(app, settings=settings, identity=identity)
-    install_provider_routes(
-        app,
-        providers=ProviderRepository(connections, provider_cipher),
-    )
+    provider_repository = ProviderRepository(connections, provider_cipher)
+    install_provider_routes(app, providers=provider_repository)
     install_asset_routes(app, assets=asset_repository)
     install_admin_view_routes(
         app,
@@ -127,5 +126,13 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
     install_shared_asset_routes(app, shared_assets=shared_asset_repository)
     install_department_provider_routes(app, departments=department_provider_repository)
     install_scheduler_routes(app, connections=connections)
+    install_workspace_routes(
+        app,
+        providers=provider_repository,
+        departments=department_provider_repository,
+        assets=asset_repository,
+        shared_assets=shared_asset_repository,
+        tasks=task_repository,
+    )
     install_task_routes(app, tasks=task_repository)
     return app

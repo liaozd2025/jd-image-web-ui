@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0003
 ---
 
 # 服务器部署成为唯一产品形态
