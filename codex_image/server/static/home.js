@@ -1,6 +1,8 @@
 import { cookieValue } from "/auth-static/common.js";
 
 const errorElement = document.querySelector("#workbench-error");
+let currentUserId = "";
+let currentUserRole = "user";
 
 async function api(path, options = {}) {
   const headers = { ...(options.headers || {}) };
@@ -249,6 +251,56 @@ async function loadAssets() {
   }
 }
 
+async function loadSharedAssets() {
+  const [quotaResult, listResult] = await Promise.all([
+    api("/api/shared-assets/quota"),
+    api("/api/shared-assets?limit=100"),
+  ]);
+  const quota = quotaResult.quota;
+  document.querySelector("#shared-asset-quota").textContent = `已用 ${quota.used_bytes} / ${quota.quota_bytes} bytes，剩余 ${quota.available_bytes} bytes`;
+  const list = document.querySelector("#shared-asset-list");
+  list.replaceChildren();
+  const taskAssets = document.querySelector("#task-shared-assets");
+  taskAssets.replaceChildren();
+  for (const asset of listResult.assets) {
+    const item = document.createElement("article");
+    item.className = "list-item asset-item";
+    const details = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = `${asset.name} · ${asset.asset_kind}`;
+    const meta = document.createElement("small");
+    meta.textContent = `发布者 ${asset.publisher_user_id} · v${asset.current_version?.version_number || "-"}`;
+    details.append(title, meta);
+    const actions = document.createElement("div");
+    actions.className = "button-row";
+    if (asset.download_url) {
+      const link = document.createElement("a");
+      link.href = asset.download_url;
+      link.textContent = "下载";
+      link.className = "secondary-button compact task-link";
+      actions.append(link);
+    }
+    if (asset.publisher_user_id === currentUserId || currentUserRole === "admin") {
+      actions.append(actionButton("停用", "danger-button compact", async () => {
+        await api(`/api/shared-assets/${encodeURIComponent(asset.asset_id)}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_active: false }),
+        });
+        await loadSharedAssets();
+      }));
+    }
+    item.append(details, actions);
+    list.append(item);
+    if (asset.current_version) {
+      const option = document.createElement("option");
+      option.value = asset.current_version.asset_version_id;
+      option.textContent = `${asset.name} · v${asset.current_version.version_number}`;
+      taskAssets.append(option);
+    }
+  }
+}
+
 async function loadTaskProviders() {
   const result = await api("/api/providers/catalog");
   const providerSelect = document.querySelector("#task-provider");
@@ -359,10 +411,13 @@ async function loadTaskTrash() {
 async function boot() {
   try {
     const result = await api("/api/auth/me");
+    currentUserId = result.user.user_id;
+    currentUserRole = result.user.role;
     document.querySelector("#current-user").textContent = `${result.user.username} · ${result.user.role}`;
     await loadSessions();
     await loadPersonalProviders();
     await loadAssets();
+    await loadSharedAssets();
     await loadTaskProviders();
     await loadTasks();
     if (result.user.role === "admin") {
@@ -433,17 +488,34 @@ document.querySelector("#create-asset-form").addEventListener("submit", async (e
   }
 });
 
+document.querySelector("#create-shared-asset-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    const form = new FormData();
+    form.append("asset_kind", document.querySelector("#shared-asset-kind").value);
+    form.append("name", document.querySelector("#shared-asset-name").value);
+    form.append("file", document.querySelector("#shared-asset-file").files[0]);
+    await api("/api/shared-assets", { method: "POST", body: form });
+    event.target.reset();
+    await loadSharedAssets();
+  } catch (error) {
+    errorElement.textContent = error.message;
+  }
+});
+
 document.querySelector("#create-task-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
     const inputFile = document.querySelector("#task-input-file").files[0];
     const assetVersionIds = [...document.querySelector("#task-assets").selectedOptions].map((option) => option.value);
+    const sharedAssetVersionIds = [...document.querySelector("#task-shared-assets").selectedOptions].map((option) => option.value);
     const requestBody = inputFile ? (() => {
       const form = new FormData();
       form.append("provider_version_id", document.querySelector("#task-provider").value);
       form.append("model_id", document.querySelector("#task-model").value);
       form.append("prompt", document.querySelector("#task-prompt").value);
       form.append("asset_version_ids", JSON.stringify(assetVersionIds));
+      form.append("shared_asset_version_ids", JSON.stringify(sharedAssetVersionIds));
       form.append("input_file", inputFile);
       return form;
     })() : JSON.stringify({
@@ -451,6 +523,7 @@ document.querySelector("#create-task-form").addEventListener("submit", async (ev
       model_id: document.querySelector("#task-model").value,
       prompt: document.querySelector("#task-prompt").value,
       asset_version_ids: assetVersionIds,
+      shared_asset_version_ids: sharedAssetVersionIds,
     });
     await api("/api/tasks", {
       method: "POST",

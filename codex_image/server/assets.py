@@ -417,6 +417,7 @@ class AssetRepository:
             raise AssetNotFound("one or more asset versions were not found")
         return [
             {
+                "scope": "personal",
                 "asset_version_id": rows[version_id]["asset_version_id"],
                 "asset_id": rows[version_id]["asset_id"],
                 "version_number": rows[version_id]["version_number"],

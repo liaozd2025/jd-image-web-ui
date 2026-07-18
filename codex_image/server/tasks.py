@@ -14,6 +14,7 @@ from .audit import record_audit_event
 from .assets import AssetNotFound, AssetQuotaExceeded, AssetRepository, AssetValidationError
 from .database import PostgresConnections
 from .provider_secrets import MasterKeyMismatch, ProviderSecretCipher
+from .shared_assets import SharedAssetRepository
 
 
 TaskStatus = Literal["queued", "running", "interrupted", "completed", "failed"]
@@ -40,6 +41,7 @@ class GenerationTask:
     input_sha256: str | None
     input_bytes: int | None
     asset_versions: list[dict[str, object]]
+    shared_asset_versions: list[dict[str, object]]
     thumbnail_bytes: int | None
     status: TaskStatus
     result_relative_path: str | None
@@ -73,11 +75,13 @@ class GenerationTaskRepository:
         cipher: ProviderSecretCipher,
         data_root: Path,
         assets: AssetRepository | None = None,
+        shared_assets: SharedAssetRepository | None = None,
     ) -> None:
         self.connections = connections
         self.cipher = cipher
         self.data_root = data_root
         self.assets = assets
+        self.shared_assets = shared_assets
 
     def create_task(
         self,
@@ -90,6 +94,7 @@ class GenerationTaskRepository:
         input_bytes: bytes | None = None,
         input_media_type: str | None = None,
         asset_version_ids: list[str] | None = None,
+        shared_asset_version_ids: list[str] | None = None,
     ) -> GenerationTask:
         task_id = str(uuid4())
         asset_snapshots: list[dict[str, object]] = []
@@ -98,6 +103,14 @@ class GenerationTaskRepository:
                 raise TaskConfigurationError("asset repository is unavailable")
             try:
                 asset_snapshots = self.assets.resolve_versions(user_id, asset_version_ids)
+            except (AssetNotFound, AssetValidationError) as error:
+                raise TaskConfigurationError(str(error)) from error
+        shared_asset_snapshots: list[dict[str, object]] = []
+        if shared_asset_version_ids:
+            if self.shared_assets is None:
+                raise TaskConfigurationError("shared asset repository is unavailable")
+            try:
+                shared_asset_snapshots = self.shared_assets.resolve_versions(shared_asset_version_ids)
             except (AssetNotFound, AssetValidationError) as error:
                 raise TaskConfigurationError(str(error)) from error
         with self.connections.connect() as connection:
@@ -158,8 +171,8 @@ class GenerationTaskRepository:
                         INSERT INTO server_generation_tasks (
                             task_id, user_id, provider_version_id, model_id, prompt,
                             request_parameters, status, input_relative_path,
-                            input_media_type, input_sha256, input_bytes, asset_versions
-                        ) VALUES (%s, %s, %s, %s, %s, %s::jsonb, 'queued', %s, %s, %s, %s, %s::jsonb)
+                            input_media_type, input_sha256, input_bytes, asset_versions, shared_asset_versions
+                        ) VALUES (%s, %s, %s, %s, %s, %s::jsonb, 'queued', %s, %s, %s, %s, %s::jsonb, %s::jsonb)
                         RETURNING *
                         """,
                         (
@@ -174,6 +187,7 @@ class GenerationTaskRepository:
                             hashlib.sha256(input_content).hexdigest(),
                             len(input_content),
                             json.dumps(asset_snapshots, separators=(",", ":")),
+                            json.dumps(shared_asset_snapshots, separators=(",", ":")),
                         ),
                     )
                     row = cursor.fetchone()
@@ -258,6 +272,11 @@ class GenerationTaskRepository:
             asset_version_ids=[
                 str(snapshot["asset_version_id"])
                 for snapshot in task.asset_versions
+                if snapshot.get("asset_version_id")
+            ],
+            shared_asset_version_ids=[
+                str(snapshot["asset_version_id"])
+                for snapshot in task.shared_asset_versions
                 if snapshot.get("asset_version_id")
             ],
         )
@@ -507,11 +526,19 @@ class GenerationTaskRepository:
         asset_id = str(snapshot.get("asset_id") or "")
         version_id = str(snapshot.get("asset_version_id") or "")
         relative_path = str(snapshot.get("stored_relative_path") or "")
+        scope = str(snapshot.get("scope") or "personal")
         root = self.data_root.resolve()
-        asset_root = (root / "assets" / task.user_id / asset_id).resolve()
+        if scope == "shared":
+            storage_root = (root / "shared-assets").resolve()
+            asset_root = (storage_root / asset_id).resolve()
+        else:
+            storage_root = (root / "assets").resolve()
+            asset_root = (storage_root / task.user_id / asset_id).resolve()
         path = (root / relative_path).resolve()
+        outside_storage = storage_root != path and storage_root not in path.parents
         if (
-            not asset_id
+            outside_storage
+            or not asset_id
             or not version_id
             or path.parent != asset_root
             or not path.name.startswith(f"{version_id}.")
@@ -570,6 +597,7 @@ class GenerationTaskRepository:
             input_sha256=row["input_sha256"],
             input_bytes=row["input_bytes"],
             asset_versions=row.get("asset_versions") or [],
+            shared_asset_versions=row.get("shared_asset_versions") or [],
             thumbnail_bytes=row.get("thumbnail_bytes"),
             status=cast(TaskStatus, row["status"]),
             result_relative_path=row["result_relative_path"],

@@ -34,6 +34,7 @@ class CreateTaskPayload(BaseModel):
     quality: Literal["auto", "low", "medium", "high"] = "auto"
     output_format: Literal["png", "jpeg", "webp"] = "png"
     asset_version_ids: list[str] = Field(default_factory=list, max_length=16)
+    shared_asset_version_ids: list[str] = Field(default_factory=list, max_length=16)
 
 
 def install_task_routes(
@@ -62,6 +63,7 @@ def install_task_routes(
                 input_bytes=input_bytes,
                 input_media_type=input_media_type,
                 asset_version_ids=payload.asset_version_ids,
+                shared_asset_version_ids=payload.shared_asset_version_ids,
             )
         except TaskConfigurationError as error:
             return JSONResponse(status_code=409, content={"detail": str(error)})
@@ -241,6 +243,7 @@ def _task_payload(task: GenerationTask) -> dict[str, object]:
         "input_bytes": task.input_bytes,
         "input_media_type": task.input_media_type,
         "asset_versions": task.asset_versions,
+        "shared_asset_versions": task.shared_asset_versions,
         "thumbnail_bytes": task.thumbnail_bytes,
         "deleted": task.deleted_at is not None,
         "deleted_at": task.deleted_at,
@@ -289,6 +292,13 @@ async def _parse_task_request(
                     except ValueError:
                         decoded_versions = [value.strip() for value in raw_asset_versions.split(",") if value.strip()]
                     values["asset_version_ids"] = decoded_versions
+                raw_shared_versions = form.get("shared_asset_version_ids")
+                if isinstance(raw_shared_versions, str):
+                    try:
+                        decoded_shared_versions = json.loads(raw_shared_versions)
+                    except ValueError:
+                        decoded_shared_versions = [value.strip() for value in raw_shared_versions.split(",") if value.strip()]
+                    values["shared_asset_version_ids"] = decoded_shared_versions
                 upload = form.get("input_file")
                 if upload is not None:
                     if not isinstance(upload, UploadFile):
