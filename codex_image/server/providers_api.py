@@ -58,12 +58,6 @@ class ProviderStatusPayload(BaseModel):
     is_active: bool
 
 
-class PersonalCredentialPayload(BaseModel):
-    # Length is checked in the route so Pydantic's validation response never
-    # echoes a submitted secret back to the browser.
-    api_key: str
-
-
 def install_provider_routes(app: FastAPI, *, providers: ProviderRepository) -> None:
     @app.get("/api/admin/provider-catalog", response_model=None)
     def admin_catalog(
@@ -134,19 +128,20 @@ def install_provider_routes(app: FastAPI, *, providers: ProviderRepository) -> N
         )
 
     @app.put("/api/providers/personal/{provider_version_id}", response_model=None)
-    def save_personal_credential(
-        request: Request,
-        provider_version_id: str,
-        payload: PersonalCredentialPayload,
-    ) -> JSONResponse:
+    async def save_personal_credential(request: Request, provider_version_id: str) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
-        if not payload.api_key or len(payload.api_key) > 4096:
+        try:
+            body = await request.json()
+        except ValueError:
+            return JSONResponse(status_code=422, content={"detail": "api_key_invalid"})
+        api_key = body.get("api_key") if isinstance(body, dict) else None
+        if not isinstance(api_key, str) or not api_key or len(api_key) > 4096:
             return JSONResponse(status_code=422, content={"detail": "api_key_invalid"})
         try:
             credential = providers.save_personal_credential(
                 session.user.user_id,
                 provider_version_id=provider_version_id,
-                api_key=payload.api_key,
+                api_key=api_key,
             )
         except ProviderVersionNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})

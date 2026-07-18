@@ -165,6 +165,15 @@ class ServerProviderConfigurationTests(unittest.TestCase):
                         self.assertEqual(rejected_oversized.status_code, 422)
                         self.assertNotIn(oversized_key, rejected_oversized.text)
 
+                        nested_secret = "nested-provider-secret-1234"
+                        rejected_nested = user.put(
+                            f"/api/providers/personal/{second_version_id}",
+                            json={"api_key": {"secret": nested_secret}},
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(rejected_nested.status_code, 422)
+                        self.assertNotIn(nested_secret, rejected_nested.text)
+
                         saved = user.put(
                             f"/api/providers/personal/{second_version_id}",
                             json={"api_key": FIRST_API_KEY},
