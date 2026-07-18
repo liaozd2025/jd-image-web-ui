@@ -13,6 +13,7 @@ from psycopg.rows import dict_row
 from .audit import record_audit_event
 from .assets import AssetNotFound, AssetQuotaExceeded, AssetRepository, AssetValidationError
 from .database import PostgresConnections
+from .department_providers import DepartmentCredentialNotFound, DepartmentProviderRepository, DepartmentQuotaExceeded
 from .provider_secrets import MasterKeyMismatch, ProviderSecretCipher
 from .shared_assets import SharedAssetRepository
 
@@ -33,6 +34,7 @@ class GenerationTask:
     task_id: str
     user_id: str
     provider_version_id: str
+    provider_scope: Literal["personal", "department"]
     model_id: str
     prompt: str
     request_parameters: dict[str, object]
@@ -57,6 +59,8 @@ class GenerationTask:
     updated_at: str
     deleted_at: str | None
     purge_after: str | None
+    quota_units: int
+    quota_period_start: str | None
 
 
 @dataclass(frozen=True)
@@ -66,6 +70,7 @@ class ClaimedGenerationTask:
     base_url: str | None
     api_key: str | None
     configuration_error: str | None = None
+    quota_period_start: str | None = None
 
 
 class GenerationTaskRepository:
@@ -76,12 +81,14 @@ class GenerationTaskRepository:
         data_root: Path,
         assets: AssetRepository | None = None,
         shared_assets: SharedAssetRepository | None = None,
+        departments: DepartmentProviderRepository | None = None,
     ) -> None:
         self.connections = connections
         self.cipher = cipher
         self.data_root = data_root
         self.assets = assets
         self.shared_assets = shared_assets
+        self.departments = departments
 
     def create_task(
         self,
@@ -95,8 +102,11 @@ class GenerationTaskRepository:
         input_media_type: str | None = None,
         asset_version_ids: list[str] | None = None,
         shared_asset_version_ids: list[str] | None = None,
+        provider_scope: Literal["personal", "department"] = "personal",
     ) -> GenerationTask:
         task_id = str(uuid4())
+        if provider_scope not in {"personal", "department"}:
+            raise TaskConfigurationError("provider scope is invalid")
         asset_snapshots: list[dict[str, object]] = []
         if asset_version_ids:
             if self.assets is None:
@@ -115,24 +125,35 @@ class GenerationTaskRepository:
                 raise TaskConfigurationError(str(error)) from error
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
-                cursor.execute(
-                    """
-                    SELECT
-                        versions.provider_key,
-                        versions.version_number,
-                        versions.is_active,
-                        versions.models,
-                        credentials.encrypted_api_key
-                    FROM provider_catalog_versions AS versions
-                    LEFT JOIN personal_provider_credentials AS credentials
-                      ON credentials.provider_version_id = versions.provider_version_id
-                     AND credentials.user_id = %s
-                     AND credentials.is_active = TRUE
-                    WHERE versions.provider_version_id = %s
-                    FOR UPDATE OF versions
-                    """,
-                    (user_id, provider_version_id),
-                )
+                if provider_scope == "department":
+                    cursor.execute(
+                        """
+                        SELECT versions.provider_key, versions.version_number, versions.is_active,
+                               versions.models, credentials.encrypted_api_key
+                        FROM provider_catalog_versions AS versions
+                        LEFT JOIN department_provider_credentials AS credentials
+                          ON credentials.provider_version_id = versions.provider_version_id
+                         AND credentials.is_active = TRUE
+                        WHERE versions.provider_version_id = %s
+                        FOR UPDATE OF versions
+                        """,
+                        (provider_version_id,),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        SELECT versions.provider_key, versions.version_number, versions.is_active,
+                               versions.models, credentials.encrypted_api_key
+                        FROM provider_catalog_versions AS versions
+                        LEFT JOIN personal_provider_credentials AS credentials
+                          ON credentials.provider_version_id = versions.provider_version_id
+                         AND credentials.user_id = %s
+                         AND credentials.is_active = TRUE
+                        WHERE versions.provider_version_id = %s
+                        FOR UPDATE OF versions
+                        """,
+                        (user_id, provider_version_id),
+                    )
                 provider = cursor.fetchone()
                 if provider is None:
                     raise TaskConfigurationError("provider version was not found")
@@ -144,13 +165,26 @@ class GenerationTaskRepository:
                 if not encrypted_api_key:
                     raise TaskConfigurationError("active personal provider credential is required")
                 try:
-                    self.cipher.decrypt_personal_api_key(
-                        user_id=user_id,
-                        provider_version_id=provider_version_id,
-                        encrypted_value=encrypted_api_key,
-                    )
+                    if provider_scope == "department":
+                        # Department credentials are intentionally decrypted only in Worker.
+                        pass
+                    else:
+                        self.cipher.decrypt_personal_api_key(
+                            user_id=user_id,
+                            provider_version_id=provider_version_id,
+                            encrypted_value=encrypted_api_key,
+                        )
                 except MasterKeyMismatch as error:
-                    raise TaskConfigurationError("personal provider credential is unavailable") from error
+                    raise TaskConfigurationError("provider credential is unavailable") from error
+
+                quota_period_start: str | None = None
+                if provider_scope == "department":
+                    if self.departments is None:
+                        raise TaskConfigurationError("department provider is unavailable")
+                    try:
+                        quota_period_start = self.departments.reserve(user_id, 1)
+                    except DepartmentQuotaExceeded as error:
+                        raise TaskConfigurationError(str(error)) from error
 
                 input_relative_path = Path("tasks") / user_id / f"{task_id}.input"
                 input_path = self.data_root / input_relative_path
@@ -171,8 +205,9 @@ class GenerationTaskRepository:
                         INSERT INTO server_generation_tasks (
                             task_id, user_id, provider_version_id, model_id, prompt,
                             request_parameters, status, input_relative_path,
-                            input_media_type, input_sha256, input_bytes, asset_versions, shared_asset_versions
-                        ) VALUES (%s, %s, %s, %s, %s, %s::jsonb, 'queued', %s, %s, %s, %s, %s::jsonb, %s::jsonb)
+                            input_media_type, input_sha256, input_bytes, asset_versions, shared_asset_versions,
+                            provider_scope, quota_units, quota_period_start
+                        ) VALUES (%s, %s, %s, %s, %s, %s::jsonb, 'queued', %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s)
                         RETURNING *
                         """,
                         (
@@ -188,6 +223,9 @@ class GenerationTaskRepository:
                             len(input_content),
                             json.dumps(asset_snapshots, separators=(",", ":")),
                             json.dumps(shared_asset_snapshots, separators=(",", ":")),
+                            provider_scope,
+                            1,
+                            quota_period_start,
                         ),
                     )
                     row = cursor.fetchone()
@@ -279,6 +317,7 @@ class GenerationTaskRepository:
                 for snapshot in task.shared_asset_versions
                 if snapshot.get("asset_version_id")
             ],
+            provider_scope=task.provider_scope,
         )
 
     def soft_delete_task(self, user_id: str, task_id: str) -> GenerationTask:
@@ -334,6 +373,16 @@ class GenerationTaskRepository:
                 )
         return self._task_from_row(row)
 
+    def settle_quota(self, task: GenerationTask, *, consumed: bool) -> None:
+        if task.provider_scope != "department" or not task.quota_period_start or self.departments is None:
+            return
+        self.departments.settle(
+            task.user_id,
+            task.quota_period_start,
+            units=task.quota_units,
+            consumed=consumed,
+        )
+
     def claim_next_task(self) -> ClaimedGenerationTask | None:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
@@ -344,7 +393,9 @@ class GenerationTaskRepository:
                         versions.api_mode,
                         versions.base_url,
                         versions.is_active AS provider_is_active,
-                        credentials.encrypted_api_key
+                        credentials.encrypted_api_key AS personal_encrypted_api_key,
+                        department_credentials.encrypted_api_key AS department_encrypted_api_key,
+                        tasks.provider_scope, tasks.quota_period_start
                     FROM server_generation_tasks AS tasks
                     JOIN provider_catalog_versions AS versions
                       ON versions.provider_version_id = tasks.provider_version_id
@@ -352,6 +403,9 @@ class GenerationTaskRepository:
                       ON credentials.provider_version_id = tasks.provider_version_id
                      AND credentials.user_id = tasks.user_id
                      AND credentials.is_active = TRUE
+                    LEFT JOIN department_provider_credentials AS department_credentials
+                      ON department_credentials.provider_version_id = tasks.provider_version_id
+                     AND department_credentials.is_active = TRUE
                     WHERE tasks.status = 'queued' AND tasks.deleted_at IS NULL
                     ORDER BY tasks.created_at, tasks.task_id
                     FOR UPDATE OF tasks SKIP LOCKED
@@ -374,17 +428,28 @@ class GenerationTaskRepository:
                 task = self._task_from_row(cursor.fetchone())
                 api_key: str | None = None
                 configuration_error: str | None = None
+                encrypted_api_key = (
+                    row["department_encrypted_api_key"]
+                    if row["provider_scope"] == "department"
+                    else row["personal_encrypted_api_key"]
+                )
                 if not row["provider_is_active"]:
                     configuration_error = "provider version is inactive"
-                elif not row["encrypted_api_key"]:
-                    configuration_error = "active personal provider credential is unavailable"
+                elif not encrypted_api_key:
+                    configuration_error = "active provider credential is unavailable"
                 else:
                     try:
-                        api_key = self.cipher.decrypt_personal_api_key(
-                            user_id=task.user_id,
-                            provider_version_id=task.provider_version_id,
-                            encrypted_value=row["encrypted_api_key"],
-                        )
+                        if row["provider_scope"] == "department":
+                            api_key = self.cipher.decrypt_department_api_key(
+                                provider_version_id=task.provider_version_id,
+                                encrypted_value=encrypted_api_key,
+                            )
+                        else:
+                            api_key = self.cipher.decrypt_personal_api_key(
+                                user_id=task.user_id,
+                                provider_version_id=task.provider_version_id,
+                                encrypted_value=encrypted_api_key,
+                            )
                     except MasterKeyMismatch:
                         configuration_error = "personal provider credential is unavailable"
                 return ClaimedGenerationTask(
@@ -393,6 +458,7 @@ class GenerationTaskRepository:
                     base_url=row["base_url"],
                     api_key=api_key,
                     configuration_error=configuration_error,
+                    quota_period_start=row["quota_period_start"].isoformat() if row["quota_period_start"] else None,
                 )
 
     def reconcile_running_tasks(self) -> int:
@@ -589,6 +655,7 @@ class GenerationTaskRepository:
             task_id=row["task_id"],
             user_id=row["user_id"],
             provider_version_id=row["provider_version_id"],
+            provider_scope=cast(Literal["personal", "department"], row.get("provider_scope") or "personal"),
             model_id=row["model_id"],
             prompt=row["prompt"],
             request_parameters=row["request_parameters"],
@@ -613,6 +680,8 @@ class GenerationTaskRepository:
             updated_at=row["updated_at"].isoformat(),
             deleted_at=row.get("deleted_at").isoformat() if row.get("deleted_at") else None,
             purge_after=row.get("purge_after").isoformat() if row.get("purge_after") else None,
+            quota_units=int(row.get("quota_units") or 1),
+            quota_period_start=row.get("quota_period_start").isoformat() if row.get("quota_period_start") else None,
         )
 
 

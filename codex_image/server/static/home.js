@@ -302,7 +302,15 @@ async function loadSharedAssets() {
 }
 
 async function loadTaskProviders() {
-  const result = await api("/api/providers/catalog");
+  const scope = document.querySelector("#task-provider-scope").value;
+  let result;
+  if (scope === "department") {
+    const [catalog, configured] = await Promise.all([api("/api/providers/catalog"), api("/api/providers/department")]);
+    const configuredIds = new Set(configured.providers.map((provider) => provider.provider_version_id));
+    result = { providers: catalog.providers.filter((provider) => configuredIds.has(provider.provider_version_id)) };
+  } else {
+    result = await api("/api/providers/catalog");
+  }
   const providerSelect = document.querySelector("#task-provider");
   providerSelect.replaceChildren();
   for (const provider of result.providers) {
@@ -449,6 +457,7 @@ document.querySelector("#create-user-form").addEventListener("submit", async (ev
 });
 
 document.querySelector("#task-provider").addEventListener("change", updateTaskModels);
+document.querySelector("#task-provider-scope").addEventListener("change", () => void loadTaskProviders());
 document.querySelector("#task-status-filter").addEventListener("change", () => void loadTasks());
 document.querySelector("#download-task-archive").addEventListener("click", () => {
   const ids = [...document.querySelectorAll("#task-list input[type=checkbox]:checked")]
@@ -516,6 +525,7 @@ document.querySelector("#create-task-form").addEventListener("submit", async (ev
       form.append("prompt", document.querySelector("#task-prompt").value);
       form.append("asset_version_ids", JSON.stringify(assetVersionIds));
       form.append("shared_asset_version_ids", JSON.stringify(sharedAssetVersionIds));
+      form.append("provider_scope", document.querySelector("#task-provider-scope").value);
       form.append("input_file", inputFile);
       return form;
     })() : JSON.stringify({
@@ -524,6 +534,7 @@ document.querySelector("#create-task-form").addEventListener("submit", async (ev
       prompt: document.querySelector("#task-prompt").value,
       asset_version_ids: assetVersionIds,
       shared_asset_version_ids: sharedAssetVersionIds,
+      provider_scope: document.querySelector("#task-provider-scope").value,
     });
     await api("/api/tasks", {
       method: "POST",

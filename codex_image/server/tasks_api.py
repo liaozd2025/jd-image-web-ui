@@ -35,6 +35,7 @@ class CreateTaskPayload(BaseModel):
     output_format: Literal["png", "jpeg", "webp"] = "png"
     asset_version_ids: list[str] = Field(default_factory=list, max_length=16)
     shared_asset_version_ids: list[str] = Field(default_factory=list, max_length=16)
+    provider_scope: Literal["personal", "department"] = "personal"
 
 
 def install_task_routes(
@@ -64,6 +65,7 @@ def install_task_routes(
                 input_media_type=input_media_type,
                 asset_version_ids=payload.asset_version_ids,
                 shared_asset_version_ids=payload.shared_asset_version_ids,
+                provider_scope=payload.provider_scope,
             )
         except TaskConfigurationError as error:
             return JSONResponse(status_code=409, content={"detail": str(error)})
@@ -236,6 +238,7 @@ def _task_payload(task: GenerationTask) -> dict[str, object]:
     return {
         "task_id": task.task_id,
         "provider_version_id": task.provider_version_id,
+        "provider_scope": task.provider_scope,
         "model_id": task.model_id,
         "prompt": task.prompt,
         "request_parameters": task.request_parameters,
@@ -248,6 +251,8 @@ def _task_payload(task: GenerationTask) -> dict[str, object]:
         "deleted": task.deleted_at is not None,
         "deleted_at": task.deleted_at,
         "purge_after": task.purge_after,
+        "quota_units": task.quota_units,
+        "quota_period_start": task.quota_period_start,
         "status": task.status,
         "result_sha256": task.result_sha256,
         "result_bytes": task.result_bytes,
@@ -299,6 +304,8 @@ async def _parse_task_request(
                     except ValueError:
                         decoded_shared_versions = [value.strip() for value in raw_shared_versions.split(",") if value.strip()]
                     values["shared_asset_version_ids"] = decoded_shared_versions
+                if isinstance(form.get("provider_scope"), str):
+                    values["provider_scope"] = form.get("provider_scope")
                 upload = form.get("input_file")
                 if upload is not None:
                     if not isinstance(upload, UploadFile):

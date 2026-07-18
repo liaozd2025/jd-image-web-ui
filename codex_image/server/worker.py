@@ -10,6 +10,7 @@ from codex_image.client import OpenAIImagesImageClient, OpenAIResponsesImageClie
 from .assets import AssetRepository
 from .config import ServerSettings
 from .database import PostgresConnections, ServerRuntimeRepository
+from .department_providers import DepartmentProviderRepository
 from .migrations import MigrationRunner
 from .provider_secrets import ProviderSecretCipher
 from .shared_assets import SharedAssetRepository
@@ -29,12 +30,14 @@ class HeartbeatWorker:
         self.provider_cipher = ProviderSecretCipher.from_encoded_key(settings.master_key)
         self.assets = AssetRepository(connections, settings.data_root)
         self.shared_assets = SharedAssetRepository(connections, settings.data_root)
+        self.departments = DepartmentProviderRepository(connections, self.provider_cipher)
         self.tasks = GenerationTaskRepository(
             connections,
             self.provider_cipher,
             settings.data_root,
             assets=self.assets,
             shared_assets=self.shared_assets,
+            departments=self.departments,
         )
         self.instance_id = str(uuid4())
         self.stop_event = threading.Event()
@@ -87,8 +90,9 @@ class HeartbeatWorker:
         if claimed.configuration_error or claimed.api_key is None:
             self.tasks.fail_task(
                 claimed.task,
-                claimed.configuration_error or "personal provider credential is unavailable",
+                claimed.configuration_error or "active provider credential is unavailable",
             )
+            self.tasks.settle_quota(claimed.task, consumed=False)
             return
         try:
             client = self._provider_client(claimed)
@@ -127,9 +131,11 @@ class HeartbeatWorker:
                 output_format=str(parameters.get("output_format") or result.output_format or "png"),
                 revised_prompt=result.revised_prompt,
             )
+            self.tasks.settle_quota(claimed.task, consumed=True)
         except Exception as error:
             safe_error = str(error).replace(claimed.api_key, "<redacted credential>")
             self.tasks.fail_task(claimed.task, safe_error)
+            self.tasks.settle_quota(claimed.task, consumed=False)
 
     @staticmethod
     def _provider_client(claimed: ClaimedGenerationTask):

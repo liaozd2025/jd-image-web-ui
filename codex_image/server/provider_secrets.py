@@ -85,6 +85,19 @@ class ProviderSecretCipher:
         )
         return plaintext.decode("utf-8")
 
+    def encrypt_department_api_key(self, *, provider_version_id: str, api_key: str) -> str:
+        return self._encrypt(
+            api_key.encode("utf-8"),
+            _department_key_aad(provider_version_id),
+        )
+
+    def decrypt_department_api_key(self, *, provider_version_id: str, encrypted_value: str) -> str:
+        plaintext = self._decrypt(
+            encrypted_value,
+            _department_key_aad(provider_version_id),
+        )
+        return plaintext.decode("utf-8")
+
     def _encrypt(self, plaintext: bytes, associated_data: bytes) -> str:
         nonce = secrets.token_bytes(12)
         ciphertext = self._cipher.encrypt(nonce, plaintext, associated_data)
@@ -106,6 +119,10 @@ class ProviderSecretCipher:
 
 def _personal_key_aad(user_id: str, provider_version_id: str) -> bytes:
     return f"personal-provider-key:v1:{user_id}:{provider_version_id}".encode("utf-8")
+
+
+def _department_key_aad(provider_version_id: str) -> bytes:
+    return f"department-provider-key:v1:{provider_version_id}".encode("utf-8")
 
 
 def _encode_base64(value: bytes) -> str:

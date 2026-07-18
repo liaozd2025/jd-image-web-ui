@@ -12,6 +12,8 @@ from .assets import AssetRepository
 from .assets_api import install_asset_routes
 from .config import ServerSettings
 from .database import PostgresConnections, ServerRuntimeRepository
+from .department_providers import DepartmentProviderRepository
+from .department_providers_api import install_department_provider_routes
 from .health import HealthStatus, ReadyComponents
 from .identity import IdentityRepository
 from .migrations import MigrationRunner
@@ -36,12 +38,14 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
     provider_cipher = ProviderSecretCipher.from_encoded_key(settings.master_key)
     asset_repository = AssetRepository(connections, settings.data_root)
     shared_asset_repository = SharedAssetRepository(connections, settings.data_root)
+    department_provider_repository = DepartmentProviderRepository(connections, provider_cipher)
     task_repository = GenerationTaskRepository(
         connections,
         provider_cipher,
         settings.data_root,
         assets=asset_repository,
         shared_assets=shared_asset_repository,
+        departments=department_provider_repository,
     )
     migration_lock = threading.Lock()
     schema_ready = False
@@ -95,5 +99,6 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
     )
     install_asset_routes(app, assets=asset_repository)
     install_shared_asset_routes(app, shared_assets=shared_asset_repository)
+    install_department_provider_routes(app, departments=department_provider_repository)
     install_task_routes(app, tasks=task_repository)
     return app
