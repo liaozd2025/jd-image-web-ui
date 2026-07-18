@@ -22,8 +22,8 @@ from tests.test_server_user_lifecycle import ADMIN_PASSWORD, change_password, lo
 
 TEST_DATABASE_URL = os.environ.get("JD_IMAGE_TEST_DATABASE_URL", "")
 USER_PASSWORD = "provider-user-password"
-FIRST_API_KEY = "sk-test-personal-secret-1234"
-REPLACEMENT_API_KEY = "sk-test-replacement-secret-5678"
+FIRST_API_KEY = "provider-test-personal-secret-1234"
+REPLACEMENT_API_KEY = "provider-test-replacement-secret-5678"
 
 
 def provider_payload(*, display_name: str, models: list[str]) -> dict[str, object]:
