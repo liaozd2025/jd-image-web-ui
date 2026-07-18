@@ -1,0 +1,2 @@
+ALTER TABLE server_assets
+    ADD COLUMN IF NOT EXISTS purge_after TIMESTAMPTZ;

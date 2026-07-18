@@ -7,7 +7,6 @@ import tempfile
 import unittest
 
 from fastapi.testclient import TestClient
-import psycopg
 
 from tests.server_test_database import TEST_MASTER_KEY, temporary_postgres_database
 from tests.test_server_auth import bootstrap_admin
@@ -53,6 +52,7 @@ class ServerPersonalAssetTests(unittest.TestCase):
                         json={"username": "asset-user"},
                         headers={"X-CSRF-Token": admin_csrf},
                     )
+                    user_id = created.json()["user"]["user_id"]
                     user_temporary_password = created.json()["temporary_password"]
                     other_created = admin.post(
                         "/api/admin/users",
@@ -98,11 +98,12 @@ class ServerPersonalAssetTests(unittest.TestCase):
 
                     quota = user.get("/api/assets/quota").json()["quota"]
                     self.assertEqual(quota["used_bytes"], len(b"asset-v1") + len(b"asset-v2"))
-                    with psycopg.connect(database_url) as connection:
-                        connection.execute(
-                            "UPDATE server_users SET storage_quota_bytes = %s WHERE username = %s",
-                            (quota["used_bytes"], "asset-user"),
-                        )
+                    quota_update = admin.patch(
+                        f"/api/admin/users/{user_id}/storage-quota",
+                        json={"quota_bytes": quota["used_bytes"]},
+                        headers={"X-CSRF-Token": admin_csrf},
+                    )
+                    self.assertEqual(quota_update.status_code, 200, quota_update.text)
                     over_quota = user.post(
                         f"/api/assets/{asset_id}/versions",
                         files={"file": ("too-large.png", b"asset-v3", "image/png")},

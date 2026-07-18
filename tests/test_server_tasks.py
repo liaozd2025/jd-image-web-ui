@@ -236,6 +236,23 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         self._wait_for_status(user, uploaded_task_id, "completed")
                         self.assertIn(b"image-1.png", FakeProviderHandler.requests[1]["body"])
                         self.assertIn(FAKE_PNG, FakeProviderHandler.requests[1]["body"])
+                        deleted_task = user.delete(
+                            f"/api/tasks/{uploaded_task_id}",
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(deleted_task.status_code, 200)
+                        self.assertEqual(
+                            user.get("/api/tasks/trash").json()["tasks"][0]["task_id"],
+                            uploaded_task_id,
+                        )
+                        self.assertEqual(user.get(f"/api/tasks/{uploaded_task_id}").status_code, 404)
+                        self.assertEqual(user.get(f"/api/tasks/{uploaded_task_id}/result").status_code, 404)
+                        restored_task = user.post(
+                            f"/api/tasks/{uploaded_task_id}/restore",
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(restored_task.status_code, 200)
+                        self.assertEqual(user.get(f"/api/tasks/{uploaded_task_id}/result").status_code, 200)
 
                         failed_task = user.post(
                             "/api/tasks",

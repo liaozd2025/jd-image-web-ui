@@ -26,6 +26,8 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0009_generation_task_inputs",
     "0010_generation_task_thumbnails",
     "0011_personal_assets",
+    "0012_asset_retention",
+    "0013_task_trash_and_storage_usage",
 ]
 
 

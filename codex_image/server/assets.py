@@ -54,6 +54,7 @@ class Asset:
     name: str
     current_version_id: str | None
     deleted_at: str | None
+    purge_after: str | None
     created_at: str
     updated_at: str
     current_version: AssetVersion | None
@@ -193,11 +194,14 @@ class AssetRepository:
         *,
         kind: AssetKind | None = None,
         include_deleted: bool = False,
+        only_deleted: bool = False,
         limit: int = 50,
     ) -> list[Asset]:
         clauses = ["assets.user_id = %s"]
         params: list[object] = [user_id]
-        if not include_deleted:
+        if only_deleted:
+            clauses.append("assets.deleted_at IS NOT NULL")
+        elif not include_deleted:
             clauses.append("assets.deleted_at IS NULL")
         if kind is not None:
             clauses.append("assets.asset_kind = %s")
@@ -300,11 +304,22 @@ class AssetRepository:
                 cursor.execute(
                     """
                     SELECT users.storage_quota_bytes,
-                           COALESCE(SUM(versions.byte_size), 0)
+                           COALESCE((
+                               SELECT SUM(versions.byte_size)
+                               FROM server_asset_versions AS versions
+                               WHERE versions.user_id = users.user_id
+                           ), 0)
+                           + COALESCE((
+                               SELECT SUM(
+                                   COALESCE(tasks.input_bytes, 0)
+                                   + COALESCE(tasks.result_bytes, 0)
+                                   + COALESCE(tasks.thumbnail_bytes, 0)
+                               )
+                               FROM server_generation_tasks AS tasks
+                               WHERE tasks.user_id = users.user_id
+                           ), 0)
                     FROM server_users AS users
-                    LEFT JOIN server_asset_versions AS versions ON versions.user_id = users.user_id
                     WHERE users.user_id = %s
-                    GROUP BY users.storage_quota_bytes
                     """,
                     (user_id,),
                 )
@@ -313,6 +328,69 @@ class AssetRepository:
             raise AssetNotFound("user was not found")
         quota, used = max(0, int(row[0])), max(0, int(row[1]))
         return AssetQuota(quota_bytes=quota, used_bytes=used, available_bytes=max(0, quota - used))
+
+    def ensure_capacity(self, user_id: str, additional_bytes: int) -> None:
+        if additional_bytes < 0:
+            raise AssetValidationError("additional storage must be non-negative")
+        with self.connections.connect() as connection:
+            with connection.cursor() as cursor:
+                self.ensure_capacity_cursor(cursor, user_id, additional_bytes)
+
+    @staticmethod
+    def ensure_capacity_cursor(cursor: Any, user_id: str, additional_bytes: int) -> None:
+        if additional_bytes < 0:
+            raise AssetValidationError("additional storage must be non-negative")
+        cursor.execute(
+            "SELECT storage_quota_bytes FROM server_users WHERE user_id = %s FOR UPDATE",
+            (user_id,),
+        )
+        row = cursor.fetchone()
+        if row is None:
+            raise AssetNotFound("user was not found")
+        cursor.execute(
+            """
+            SELECT COALESCE((
+                       SELECT SUM(byte_size) FROM server_asset_versions WHERE user_id = %s
+                   ), 0)
+                   + COALESCE((
+                       SELECT SUM(
+                           COALESCE(input_bytes, 0)
+                           + COALESCE(result_bytes, 0)
+                           + COALESCE(thumbnail_bytes, 0)
+                       )
+                       FROM server_generation_tasks WHERE user_id = %s
+                   ), 0)
+            """,
+            (user_id, user_id),
+        )
+        used = int(cursor.fetchone()[0])
+        if used + additional_bytes > max(0, int(row[0])):
+            raise AssetQuotaExceeded("personal storage quota exceeded")
+
+    def set_quota(self, user_id: str, quota_bytes: int, *, actor_user_id: str | None = None) -> AssetQuota:
+        if quota_bytes < 0:
+            raise AssetValidationError("storage quota must be non-negative")
+        with self.connections.connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE server_users
+                    SET storage_quota_bytes = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = %s
+                    RETURNING user_id
+                    """,
+                    (quota_bytes, user_id),
+                )
+                if cursor.fetchone() is None:
+                    raise AssetNotFound("user was not found")
+                record_audit_event(
+                    cursor,
+                    action="user.storage_quota_updated",
+                    actor_user_id=actor_user_id,
+                    subject_user_id=user_id,
+                    details={"quota_bytes": quota_bytes},
+                )
+        return self.quota(user_id)
 
     def resolve_versions(self, user_id: str, asset_version_ids: list[str]) -> list[dict[str, object]]:
         if not asset_version_ids:
@@ -355,9 +433,15 @@ class AssetRepository:
 
     def asset_path(self, version: AssetVersion) -> Path:
         root = self.data_root.resolve()
+        assets_root = (root / "assets").resolve()
         asset_root = (root / "assets" / version.user_id / version.asset_id).resolve()
         path = (root / version.stored_relative_path).resolve()
-        if path.parent != asset_root or not path.name.startswith(f"{version.asset_version_id}."):
+        outside_assets = assets_root != path and assets_root not in path.parents
+        if (
+            outside_assets
+            or path.parent != asset_root
+            or not path.name.startswith(f"{version.asset_version_id}.")
+        ):
             raise AssetNotFound("asset path is invalid")
         return path
 
@@ -377,21 +461,7 @@ class AssetRepository:
         with self.connections.connect() as connection:
             try:
                 with connection.cursor() as cursor:
-                    cursor.execute(
-                        "SELECT storage_quota_bytes FROM server_users WHERE user_id = %s FOR UPDATE",
-                        (user_id,),
-                    )
-                    row = cursor.fetchone()
-                    if row is None:
-                        raise AssetNotFound("user was not found")
-                    cursor.execute(
-                        "SELECT COALESCE(SUM(byte_size), 0) FROM server_asset_versions WHERE user_id = %s",
-                        (user_id,),
-                    )
-                    used = int(cursor.fetchone()[0])
-                    quota = max(0, int(row[0]))
-                    if used + byte_size > quota:
-                        raise AssetQuotaExceeded("personal storage quota exceeded")
+                    self.ensure_capacity_cursor(cursor, user_id, byte_size)
                     absolute_path.parent.mkdir(parents=True, exist_ok=True)
                     temporary_path.write_bytes(content)
                     insert(cursor)
@@ -455,11 +525,15 @@ class AssetRepository:
                     """
                     UPDATE server_assets
                     SET deleted_at = CASE WHEN %s THEN CURRENT_TIMESTAMP ELSE NULL END,
+                        purge_after = CASE
+                            WHEN %s THEN CURRENT_TIMESTAMP + INTERVAL '30 days'
+                            ELSE NULL
+                        END,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE asset_id = %s AND user_id = %s
                     RETURNING asset_id
                     """,
-                    (deleted, asset_id, user_id),
+                    (deleted, deleted, asset_id, user_id),
                 )
                 if cursor.fetchone() is None:
                     raise AssetNotFound("asset was not found")
@@ -509,6 +583,7 @@ class AssetRepository:
             name=row["name"],
             current_version_id=row["current_version_id"],
             deleted_at=row["deleted_at"].isoformat() if row["deleted_at"] else None,
+            purge_after=row["purge_after"].isoformat() if row["purge_after"] else None,
             created_at=row["created_at"].isoformat(),
             updated_at=row["updated_at"].isoformat(),
             current_version=version,

@@ -329,7 +329,30 @@ async function loadTasks() {
         await loadTasks();
       }));
     }
+    if (["completed", "failed", "interrupted"].includes(task.status)) {
+      item.append(actionButton("移入回收站", "danger-button compact", async () => {
+        await api(`/api/tasks/${encodeURIComponent(task.task_id)}`, { method: "DELETE" });
+        await loadTasks();
+      }));
+    }
     list.append(item);
+  }
+}
+
+async function loadTaskTrash() {
+  const trash = document.querySelector("#task-trash-list");
+  const result = await api("/api/tasks/trash");
+  trash.replaceChildren();
+  for (const task of result.tasks) {
+    const item = document.createElement("article");
+    item.className = "list-item";
+    const title = document.createElement("strong");
+    title.textContent = `${task.model_id} · ${task.status} · 已删除`;
+    item.append(title, actionButton("恢复任务", "secondary-button compact", async () => {
+      await api(`/api/tasks/${encodeURIComponent(task.task_id)}/restore`, { method: "POST" });
+      await Promise.all([loadTasks(), loadTaskTrash()]);
+    }));
+    trash.append(item);
   }
 }
 
@@ -381,6 +404,17 @@ document.querySelector("#download-task-archive").addEventListener("click", () =>
     return;
   }
   window.location.assign(`/api/tasks/archive?ids=${ids.map(encodeURIComponent).join(",")}`);
+});
+document.querySelector("#show-task-trash").addEventListener("click", async () => {
+  const trash = document.querySelector("#task-trash-list");
+  trash.hidden = !trash.hidden;
+  if (!trash.hidden) {
+    try {
+      await loadTaskTrash();
+    } catch (error) {
+      errorElement.textContent = error.message;
+    }
+  }
 });
 
 document.querySelector("#create-asset-form").addEventListener("submit", async (event) => {

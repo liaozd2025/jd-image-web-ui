@@ -90,6 +90,24 @@ def install_task_routes(
             }
         )
 
+    @app.get("/api/tasks/trash", response_model=None)
+    def list_task_trash(request: Request) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        return JSONResponse(
+            content={
+                "tasks": [
+                    _task_payload(task)
+                    for task in tasks.list_tasks(
+                        session.user.user_id,
+                        limit=100,
+                        include_deleted=True,
+                        only_deleted=True,
+                    )
+                    if task.deleted_at is not None
+                ]
+            }
+        )
+
     @app.get("/api/tasks/archive")
     def archive_tasks(request: Request) -> Response:
         session: AuthenticatedSession = request.state.auth_session
@@ -124,6 +142,26 @@ def install_task_routes(
         session: AuthenticatedSession = request.state.auth_session
         try:
             task = tasks.get_task(session.user.user_id, task_id)
+        except TaskNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        return JSONResponse(content={"task": _task_payload(task)})
+
+    @app.delete("/api/tasks/{task_id}", response_model=None)
+    def delete_task(request: Request, task_id: str) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        try:
+            task = tasks.soft_delete_task(session.user.user_id, task_id)
+        except TaskNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        except TaskConfigurationError as error:
+            return JSONResponse(status_code=409, content={"detail": str(error)})
+        return JSONResponse(content={"task": _task_payload(task)})
+
+    @app.post("/api/tasks/{task_id}/restore", response_model=None)
+    def restore_task(request: Request, task_id: str) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        try:
+            task = tasks.restore_task(session.user.user_id, task_id)
         except TaskNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
         return JSONResponse(content={"task": _task_payload(task)})
@@ -203,6 +241,10 @@ def _task_payload(task: GenerationTask) -> dict[str, object]:
         "input_bytes": task.input_bytes,
         "input_media_type": task.input_media_type,
         "asset_versions": task.asset_versions,
+        "thumbnail_bytes": task.thumbnail_bytes,
+        "deleted": task.deleted_at is not None,
+        "deleted_at": task.deleted_at,
+        "purge_after": task.purge_after,
         "status": task.status,
         "result_sha256": task.result_sha256,
         "result_bytes": task.result_bytes,

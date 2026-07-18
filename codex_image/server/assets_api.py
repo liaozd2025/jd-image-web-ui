@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel, Field
 from starlette.datastructures import UploadFile
 from starlette.formparsers import MultiPartException
 
@@ -19,9 +20,30 @@ from .assets import (
     AssetVersion,
 )
 from .identity import AuthenticatedSession
+from .auth import require_admin
+
+
+class StorageQuotaPayload(BaseModel):
+    quota_bytes: int = Field(ge=0, le=10 * 1024 * 1024 * 1024)
 
 
 def install_asset_routes(app: FastAPI, *, assets: AssetRepository) -> None:
+    @app.patch("/api/admin/users/{user_id}/storage-quota", response_model=None)
+    def set_user_storage_quota(
+        user_id: str,
+        payload: StorageQuotaPayload,
+        admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
+    ) -> JSONResponse:
+        try:
+            quota = assets.set_quota(
+                user_id,
+                payload.quota_bytes,
+                actor_user_id=admin_session.user.user_id,
+            )
+        except AssetNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        return JSONResponse(content={"quota": _quota_payload(quota)})
+
     @app.get("/api/assets/quota", response_model=None)
     def get_quota(request: Request) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
@@ -44,6 +66,7 @@ def install_asset_routes(app: FastAPI, *, assets: AssetRepository) -> None:
                         session.user.user_id,
                         kind=kind,
                         include_deleted=True,
+                        only_deleted=True,
                         limit=limit,
                     )
                     if asset.deleted_at is not None
@@ -296,6 +319,7 @@ def _asset_payload(
         "name": asset.name,
         "deleted": asset.deleted_at is not None,
         "deleted_at": asset.deleted_at,
+        "purge_after": asset.purge_after,
         "created_at": asset.created_at,
         "updated_at": asset.updated_at,
         "current_version_id": asset.current_version_id,

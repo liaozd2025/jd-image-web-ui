@@ -11,7 +11,7 @@ from uuid import uuid4
 from psycopg.rows import dict_row
 
 from .audit import record_audit_event
-from .assets import AssetNotFound, AssetRepository, AssetValidationError
+from .assets import AssetNotFound, AssetQuotaExceeded, AssetRepository, AssetValidationError
 from .database import PostgresConnections
 from .provider_secrets import MasterKeyMismatch, ProviderSecretCipher
 
@@ -40,6 +40,7 @@ class GenerationTask:
     input_sha256: str | None
     input_bytes: int | None
     asset_versions: list[dict[str, object]]
+    thumbnail_bytes: int | None
     status: TaskStatus
     result_relative_path: str | None
     thumbnail_relative_path: str | None
@@ -52,6 +53,8 @@ class GenerationTask:
     started_at: str | None
     completed_at: str | None
     updated_at: str
+    deleted_at: str | None
+    purge_after: str | None
 
 
 @dataclass(frozen=True)
@@ -141,6 +144,11 @@ class GenerationTaskRepository:
                 input_path.parent.mkdir(parents=True, exist_ok=True)
                 input_content = input_bytes if input_bytes is not None else prompt.encode("utf-8")
                 input_type = input_media_type or "text/plain; charset=utf-8"
+                if self.assets is not None:
+                    try:
+                        self.assets.ensure_capacity_cursor(cursor, user_id, len(input_content))
+                    except (AssetNotFound, AssetQuotaExceeded, AssetValidationError) as error:
+                        raise TaskConfigurationError(str(error)) from error
                 temporary_path = input_path.with_name(f".{input_path.name}.{uuid4().hex}.tmp")
                 temporary_path.write_bytes(input_content)
                 temporary_path.replace(input_path)
@@ -191,16 +199,23 @@ class GenerationTaskRepository:
         *,
         status: TaskStatus | None = None,
         limit: int = 50,
+        include_deleted: bool = False,
+        only_deleted: bool = False,
     ) -> list[GenerationTask]:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
                 status_clause = "AND status = %s" if status is not None else ""
+                deleted_clause = (
+                    "AND deleted_at IS NOT NULL"
+                    if only_deleted
+                    else "" if include_deleted else "AND deleted_at IS NULL"
+                )
                 params: tuple[object, ...] = (user_id, status, limit) if status is not None else (user_id, limit)
                 cursor.execute(
                     f"""
                     SELECT *
                     FROM server_generation_tasks
-                    WHERE user_id = %s {status_clause}
+                    WHERE user_id = %s {deleted_clause} {status_clause}
                     ORDER BY created_at DESC, task_id DESC
                     LIMIT %s
                     """,
@@ -208,13 +223,14 @@ class GenerationTaskRepository:
                 )
                 return [self._task_from_row(row) for row in cursor.fetchall()]
 
-    def get_task(self, user_id: str, task_id: str) -> GenerationTask:
+    def get_task(self, user_id: str, task_id: str, *, include_deleted: bool = False) -> GenerationTask:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
+                deleted_clause = "" if include_deleted else "AND deleted_at IS NULL"
                 cursor.execute(
-                    """
+                    f"""
                     SELECT * FROM server_generation_tasks
-                    WHERE user_id = %s AND task_id = %s
+                    WHERE user_id = %s AND task_id = %s {deleted_clause}
                     """,
                     (user_id, task_id),
                 )
@@ -239,7 +255,65 @@ class GenerationTaskRepository:
             request_parameters=task.request_parameters,
             input_bytes=input_content,
             input_media_type=task.input_media_type,
+            asset_version_ids=[
+                str(snapshot["asset_version_id"])
+                for snapshot in task.asset_versions
+                if snapshot.get("asset_version_id")
+            ],
         )
+
+    def soft_delete_task(self, user_id: str, task_id: str) -> GenerationTask:
+        task = self.get_task(user_id, task_id)
+        if task.status in {"queued", "running"}:
+            raise TaskConfigurationError("task is still active")
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                cursor.execute(
+                    """
+                    UPDATE server_generation_tasks
+                    SET deleted_at = CURRENT_TIMESTAMP,
+                        purge_after = CURRENT_TIMESTAMP + INTERVAL '30 days',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE task_id = %s AND user_id = %s AND deleted_at IS NULL
+                    RETURNING *
+                    """,
+                    (task_id, user_id),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    raise TaskNotFound("task was not found")
+                record_audit_event(
+                    cursor,
+                    action="task.deleted",
+                    actor_user_id=user_id,
+                    subject_user_id=user_id,
+                    details={"task_id": task_id},
+                )
+        return self._task_from_row(row)
+
+    def restore_task(self, user_id: str, task_id: str) -> GenerationTask:
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                cursor.execute(
+                    """
+                    UPDATE server_generation_tasks
+                    SET deleted_at = NULL, purge_after = NULL, updated_at = CURRENT_TIMESTAMP
+                    WHERE task_id = %s AND user_id = %s AND deleted_at IS NOT NULL
+                    RETURNING *
+                    """,
+                    (task_id, user_id),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    raise TaskNotFound("task was not found")
+                record_audit_event(
+                    cursor,
+                    action="task.restored",
+                    actor_user_id=user_id,
+                    subject_user_id=user_id,
+                    details={"task_id": task_id},
+                )
+        return self._task_from_row(row)
 
     def claim_next_task(self) -> ClaimedGenerationTask | None:
         with self.connections.connect() as connection:
@@ -259,7 +333,7 @@ class GenerationTaskRepository:
                       ON credentials.provider_version_id = tasks.provider_version_id
                      AND credentials.user_id = tasks.user_id
                      AND credentials.is_active = TRUE
-                    WHERE tasks.status = 'queued'
+                    WHERE tasks.status = 'queued' AND tasks.deleted_at IS NULL
                     ORDER BY tasks.created_at, tasks.task_id
                     FOR UPDATE OF tasks SKIP LOCKED
                     LIMIT 1
@@ -327,48 +401,69 @@ class GenerationTaskRepository:
         relative_path = Path("tasks") / task.user_id / f"{task.task_id}.{_safe_extension(output_format)}"
         absolute_path = self.data_root / relative_path
         absolute_path.parent.mkdir(parents=True, exist_ok=True)
+        thumbnail_relative_path = self._write_thumbnail(task, image_bytes)
+        thumbnail_bytes = (
+            (self.data_root / thumbnail_relative_path).stat().st_size
+            if thumbnail_relative_path
+            else 0
+        )
         temporary_path = absolute_path.with_name(f".{absolute_path.name}.{uuid4().hex}.tmp")
         temporary_path.write_bytes(image_bytes)
         temporary_path.replace(absolute_path)
-        thumbnail_relative_path = self._write_thumbnail(task, image_bytes)
         digest = hashlib.sha256(image_bytes).hexdigest()
         media_type = _media_type(output_format)
-        with self.connections.connect() as connection:
-            with connection.cursor(row_factory=dict_row) as cursor:
-                cursor.execute(
-                    """
-                    UPDATE server_generation_tasks
-                    SET status = 'completed', result_relative_path = %s,
-                        thumbnail_relative_path = %s,
-                        result_media_type = %s, result_sha256 = %s,
-                        result_bytes = %s, revised_prompt = %s,
-                        completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-                    WHERE task_id = %s AND status = 'running'
-                    RETURNING *
-                    """,
-                    (
-                        relative_path.as_posix(),
-                        thumbnail_relative_path,
-                        media_type,
-                        digest,
-                        len(image_bytes),
-                        revised_prompt,
-                        task.task_id,
-                    ),
-                )
-                row = cursor.fetchone()
-                if row is None:
-                    absolute_path.unlink(missing_ok=True)
-                    if thumbnail_relative_path:
-                        (self.data_root / thumbnail_relative_path).unlink(missing_ok=True)
-                    raise TaskNotFound("running task was not found")
-                record_audit_event(
-                    cursor,
-                    action="task.completed",
-                    actor_user_id=None,
-                    subject_user_id=task.user_id,
-                    details={"task_id": task.task_id, "result_sha256": digest},
-                )
+        try:
+            with self.connections.connect() as connection:
+                with connection.cursor(row_factory=dict_row) as cursor:
+                    if self.assets is not None:
+                        self.assets.ensure_capacity_cursor(
+                            cursor,
+                            task.user_id,
+                            len(image_bytes) + thumbnail_bytes,
+                        )
+                    cursor.execute(
+                        """
+                        UPDATE server_generation_tasks
+                        SET status = 'completed', result_relative_path = %s,
+                            thumbnail_relative_path = %s,
+                            thumbnail_bytes = %s,
+                            result_media_type = %s, result_sha256 = %s,
+                            result_bytes = %s, revised_prompt = %s,
+                            completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                        WHERE task_id = %s AND status = 'running'
+                        RETURNING *
+                        """,
+                        (
+                            relative_path.as_posix(),
+                            thumbnail_relative_path,
+                            thumbnail_bytes,
+                            media_type,
+                            digest,
+                            len(image_bytes),
+                            revised_prompt,
+                            task.task_id,
+                        ),
+                    )
+                    row = cursor.fetchone()
+                    if row is None:
+                        raise TaskNotFound("running task was not found")
+                    record_audit_event(
+                        cursor,
+                        action="task.completed",
+                        actor_user_id=None,
+                        subject_user_id=task.user_id,
+                        details={"task_id": task.task_id, "result_sha256": digest},
+                    )
+        except (AssetNotFound, AssetQuotaExceeded, AssetValidationError) as error:
+            absolute_path.unlink(missing_ok=True)
+            if thumbnail_relative_path:
+                (self.data_root / thumbnail_relative_path).unlink(missing_ok=True)
+            raise TaskConfigurationError(str(error)) from error
+        except TaskNotFound:
+            absolute_path.unlink(missing_ok=True)
+            if thumbnail_relative_path:
+                (self.data_root / thumbnail_relative_path).unlink(missing_ok=True)
+            raise
         return self._task_from_row(row)
 
     def fail_task(self, task: GenerationTask, error_message: str) -> GenerationTask:
@@ -431,9 +526,15 @@ class GenerationTaskRepository:
 
     def _artifact_path(self, task: GenerationTask, relative_path: str) -> Path:
         root = self.data_root.resolve()
+        tasks_root = (root / "tasks").resolve()
         user_root = (root / "tasks" / task.user_id).resolve()
         path = (root / relative_path).resolve()
-        if path.parent != user_root or not path.name.startswith(f"{task.task_id}."):
+        outside_tasks = tasks_root != path and tasks_root not in path.parents
+        if (
+            outside_tasks
+            or path.parent != user_root
+            or not path.name.startswith(f"{task.task_id}.")
+        ):
             raise TaskNotFound("task artifact path is invalid")
         return path
 
@@ -469,6 +570,7 @@ class GenerationTaskRepository:
             input_sha256=row["input_sha256"],
             input_bytes=row["input_bytes"],
             asset_versions=row.get("asset_versions") or [],
+            thumbnail_bytes=row.get("thumbnail_bytes"),
             status=cast(TaskStatus, row["status"]),
             result_relative_path=row["result_relative_path"],
             thumbnail_relative_path=row["thumbnail_relative_path"],
@@ -481,6 +583,8 @@ class GenerationTaskRepository:
             started_at=row["started_at"].isoformat() if row["started_at"] else None,
             completed_at=row["completed_at"].isoformat() if row["completed_at"] else None,
             updated_at=row["updated_at"].isoformat(),
+            deleted_at=row.get("deleted_at").isoformat() if row.get("deleted_at") else None,
+            purge_after=row.get("purge_after").isoformat() if row.get("purge_after") else None,
         )
 
 
