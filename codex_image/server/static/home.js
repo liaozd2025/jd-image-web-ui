@@ -218,7 +218,8 @@ function updateTaskModels() {
 }
 
 async function loadTasks() {
-  const result = await api("/api/tasks");
+  const status = document.querySelector("#task-status-filter").value;
+  const result = await api(`/api/tasks${status ? `?status=${encodeURIComponent(status)}` : ""}`);
   const list = document.querySelector("#task-list");
   list.replaceChildren();
   for (const task of result.tasks) {
@@ -232,11 +233,27 @@ async function loadTasks() {
     details.append(title, meta);
     item.append(details);
     if (task.status === "completed" && task.result_url) {
+      const select = document.createElement("input");
+      select.type = "checkbox";
+      select.dataset.taskId = task.task_id;
+      select.setAttribute("aria-label", `选择任务 ${task.task_id} 下载`);
+      item.prepend(select);
       const image = document.createElement("img");
       image.className = "task-result";
-      image.src = task.result_url;
+      image.src = task.thumbnail_url || task.result_url;
       image.alt = task.revised_prompt || task.prompt;
       item.append(image);
+      const links = document.createElement("div");
+      links.className = "button-row task-links";
+      for (const [label, url] of [["查看原图", task.result_url], ["下载原图", `/api/tasks/${encodeURIComponent(task.task_id)}/download`], ["下载缩略图", task.thumbnail_url]]) {
+        if (!url) continue;
+        const link = document.createElement("a");
+        link.href = url;
+        link.textContent = label;
+        link.className = "secondary-button compact task-link";
+        links.append(link);
+      }
+      item.append(links);
     } else if (task.status === "failed") {
       const error = document.createElement("small");
       error.className = "error";
@@ -293,6 +310,17 @@ document.querySelector("#create-user-form").addEventListener("submit", async (ev
 });
 
 document.querySelector("#task-provider").addEventListener("change", updateTaskModels);
+document.querySelector("#task-status-filter").addEventListener("change", () => void loadTasks());
+document.querySelector("#download-task-archive").addEventListener("click", () => {
+  const ids = [...document.querySelectorAll("#task-list input[type=checkbox]:checked")]
+    .map((input) => input.dataset.taskId)
+    .filter(Boolean);
+  if (!ids.length) {
+    errorElement.textContent = "请先选择已完成任务";
+    return;
+  }
+  window.location.assign(`/api/tasks/archive?ids=${ids.map(encodeURIComponent).join(",")}`);
+});
 
 document.querySelector("#create-task-form").addEventListener("submit", async (event) => {
   event.preventDefault();

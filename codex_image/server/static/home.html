@@ -97,6 +97,18 @@
             <button type="submit">提交任务</button>
           </form>
         </div>
+        <div class="task-history-toolbar">
+          <label for="task-status-filter">状态筛选</label>
+          <select id="task-status-filter">
+            <option value="">全部</option>
+            <option value="queued">等待中</option>
+            <option value="running">执行中</option>
+            <option value="interrupted">已中断</option>
+            <option value="completed">已完成</option>
+            <option value="failed">失败</option>
+          </select>
+          <button id="download-task-archive" class="secondary-button compact" type="button">下载选中 ZIP</button>
+        </div>
         <div id="task-list" class="item-list" aria-live="polite"></div>
       </section>
 

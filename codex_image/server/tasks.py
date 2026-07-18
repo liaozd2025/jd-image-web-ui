@@ -211,6 +211,8 @@ class GenerationTaskRepository:
 
     def resubmit_task(self, user_id: str, task_id: str) -> GenerationTask:
         task = self.get_task(user_id, task_id)
+        if task.status not in {"failed", "interrupted"}:
+            raise TaskConfigurationError("task is not retryable")
         try:
             input_content = self.input_path(task).read_bytes()
         except (OSError, TaskNotFound) as error:
@@ -385,28 +387,24 @@ class GenerationTaskRepository:
     def result_path(self, task: GenerationTask) -> Path:
         if not task.result_relative_path:
             raise TaskNotFound("task has no result")
-        root = self.data_root.resolve()
-        path = (root / task.result_relative_path).resolve()
-        if root != path and root not in path.parents:
-            raise TaskNotFound("task result path is invalid")
-        return path
+        return self._artifact_path(task, task.result_relative_path)
 
     def input_path(self, task: GenerationTask) -> Path:
         if not task.input_relative_path:
             raise TaskNotFound("task has no input")
-        root = self.data_root.resolve()
-        path = (root / task.input_relative_path).resolve()
-        if root != path and root not in path.parents:
-            raise TaskNotFound("task input path is invalid")
-        return path
+        return self._artifact_path(task, task.input_relative_path)
 
     def thumbnail_path(self, task: GenerationTask) -> Path:
         if not task.thumbnail_relative_path:
             raise TaskNotFound("task has no thumbnail")
+        return self._artifact_path(task, task.thumbnail_relative_path)
+
+    def _artifact_path(self, task: GenerationTask, relative_path: str) -> Path:
         root = self.data_root.resolve()
-        path = (root / task.thumbnail_relative_path).resolve()
-        if root != path and root not in path.parents:
-            raise TaskNotFound("task thumbnail path is invalid")
+        user_root = (root / "tasks" / task.user_id).resolve()
+        path = (root / relative_path).resolve()
+        if path.parent != user_root or not path.name.startswith(f"{task.task_id}."):
+            raise TaskNotFound("task artifact path is invalid")
         return path
 
     def _write_thumbnail(self, task: GenerationTask, image_bytes: bytes) -> str | None:

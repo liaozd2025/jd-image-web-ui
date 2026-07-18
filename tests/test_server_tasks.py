@@ -118,6 +118,7 @@ class ServerGenerationTaskTests(unittest.TestCase):
                             headers={"X-CSRF-Token": admin_csrf},
                         )
                         second_user_temporary_password = second_user.json()["temporary_password"]
+                        second_user_id = second_user.json()["user"]["user_id"]
                         provider = admin.post(
                             "/api/admin/provider-catalog",
                             json={
@@ -207,6 +208,15 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         archive = user.get(f"/api/tasks/archive?ids={task_id}")
                         self.assertEqual(archive.status_code, 200)
                         self.assertIn(f"task-{task_id}.png".encode(), archive.content)
+                        stolen_path = data_root / "tasks" / second_user_id / f"{task_id}.png"
+                        stolen_path.parent.mkdir(parents=True, exist_ok=True)
+                        stolen_path.write_bytes(FAKE_PNG)
+                        with psycopg.connect(database_url) as connection:
+                            connection.execute(
+                                "UPDATE server_generation_tasks SET result_relative_path = %s WHERE task_id = %s",
+                                (f"tasks/{second_user_id}/{task_id}.png", task_id),
+                            )
+                        self.assertEqual(user.get(f"/api/tasks/{task_id}/result").status_code, 404)
                         self.assertEqual(completed.json()["task"]["model_id"], "fake-image-1")
                         self.assertEqual(completed.json()["task"]["request_parameters"]["output_format"], "png")
                         self.assertEqual(FakeProviderHandler.requests[0]["authorization"], f"Bearer {TASK_API_KEY}")
@@ -261,6 +271,8 @@ class ServerGenerationTaskTests(unittest.TestCase):
                             self.assertEqual(other.get("/api/tasks").json()["tasks"], [])
                             self.assertEqual(other.get(f"/api/tasks/{task_id}").status_code, 404)
                             self.assertEqual(other.get(f"/api/tasks/{task_id}/result").status_code, 404)
+                            self.assertEqual(other.get(f"/api/tasks/{task_id}/download").status_code, 404)
+                            self.assertEqual(other.get(f"/api/tasks/{task_id}/thumbnail").status_code, 404)
                             self.assertEqual(other.get(f"/api/tasks/{task_id}/input").status_code, 404)
                             self.assertEqual(other.get(f"/api/tasks/archive?ids={task_id}").status_code, 404)
                             self.assertEqual(

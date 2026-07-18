@@ -159,6 +159,31 @@ select {
   object-fit: cover;
 }
 
+.task-history-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.task-history-toolbar label {
+  margin: 0;
+}
+
+.task-history-toolbar select {
+  width: auto;
+}
+
+.task-link {
+  display: inline-block;
+  color: white;
+  text-decoration: none;
+}
+
+.task-links {
+  margin-top: 8px;
+}
+
 .inline-form button,
 .button-row button,
 .workbench-header button,
@@ -279,5 +304,14 @@ button {
   .task-result {
     width: 100%;
     max-height: 240px;
+  }
+
+  .task-history-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .task-history-toolbar select {
+    width: 100%;
   }
 }
