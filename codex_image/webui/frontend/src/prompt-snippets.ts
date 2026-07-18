@@ -1,6 +1,7 @@
 import { getLegacyBridge } from "./state";
 import { positionPromptPopoverAtAnchor } from "./prompt-popover-position";
 import { formatTranslation, translate } from "./i18n";
+import { normalizeResourceScope, resourceScopeBadgeHtml } from "./resource-scope";
 
 const PROMPT_SNIPPETS_ENDPOINT = "/api/prompt-snippets";
 const DEFAULT_PROMPT_SNIPPET_CATEGORY = "\u5e38\u7528";
@@ -54,6 +55,8 @@ function normalizePromptSnippet(value: any) {
     order: Number.isFinite(Number(value.order)) ? Number.parseInt(value.order, 10) : 0,
     created_at: value.created_at || "",
     updated_at: value.updated_at || "",
+    scope: normalizeResourceScope(value.scope),
+    read_only: Boolean(value.read_only),
   };
 }
 
@@ -175,7 +178,7 @@ function updatePromptSnippetSuggest() {
     <button type="button" class="prompt-snippet-option" data-prompt-snippet-id="${escapeHtml(snippet.id)}">
       <span class="prompt-snippet-option-tag">~${escapeHtml(snippet.tag)}</span>
       <span class="prompt-snippet-option-main">
-        <span>${escapeHtml(snippet.title)}</span>
+        <span class="prompt-snippet-option-title">${escapeHtml(snippet.title)}${resourceScopeBadgeHtml(snippet.scope)}</span>
         <small>${escapeHtml(promptSnippetPreview(snippet.content))}</small>
       </span>
       <small>${escapeHtml(snippet.category)}</small>

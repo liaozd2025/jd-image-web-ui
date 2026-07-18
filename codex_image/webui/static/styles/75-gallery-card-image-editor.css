@@ -156,16 +156,30 @@
 }
 
 .gallery-card-heading {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
 }
 
 .gallery-card-heading strong {
   display: block;
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.gallery-card-heading .resource-scope-badge {
+  overflow: visible;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: clip;
+}
+
+.gallery-card-heading .resource-scope-shared {
+  color: var(--primary-strong);
 }
 
 .gallery-card-body span {

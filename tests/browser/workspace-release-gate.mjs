@@ -88,6 +88,10 @@ async function loginExisting(page, account) {
   await page.locator("#login-form button[type=submit]").click();
   await page.waitForURL(`${baseUrl}/`);
   await page.locator(".layout-container").waitFor({ state: "visible" });
+  await eventually(
+    async () => Boolean((await page.locator("#serverAccountName").textContent())?.trim()),
+    "server account did not load after login",
+  );
 }
 
 async function waitForWorkspace(page) {
@@ -163,6 +167,10 @@ try {
   pageA.on("response", (response) => collectServerError("user-a", response));
   await loginAndChangePassword(pageA, credentials.userA);
   await waitForWorkspace(pageA);
+  check((await pageA.locator("#serverAccountName").textContent()).includes(credentials.userA.username), "current username was not shown in the original workspace header");
+  check(await pageA.locator("#serverAdminLink").isHidden(), "normal user saw the administrator entry");
+  check(await pageA.locator("[data-auth-source]").count() === 0, "server workspace still exposed the Codex/local auth switcher");
+  check(await pageA.locator("#systemSettingsCodexTab").isHidden(), "server workspace still exposed Codex settings");
   check((await api(pageA, "/admin")).status === 403, "normal user accessed administrator UI");
 
   const sharedGallery = await api(pageA, "/api/gallery");
@@ -184,6 +192,7 @@ try {
   await pageA.locator("#galleryManageButton").click();
   await pageA.locator("#galleryDrawer.open").waitFor({ state: "visible" });
   check((await pageA.locator("#galleryGrid").textContent()).includes("Shared browser image"), "shared gallery was not rendered in the original drawer");
+  check((await pageA.locator(`[data-gallery-id="${sharedGalleryItem.id}"] .resource-scope-badge`).textContent()).trim() === "共享", "shared gallery source badge was missing");
   await pageA.locator(`[data-gallery-use="${sharedGalleryItem.id}"]`).click();
   check(await pageA.locator(`.gallery-chip[data-gallery-id="${sharedGalleryItem.id}"]`).count() === 1, "shared gallery item was not inserted into the original prompt flow");
   await pageA.locator("#clearImagesButton").click();
@@ -191,6 +200,7 @@ try {
   await pageA.locator("#galleryDrawer.open").waitFor({ state: "visible" });
   await pageA.locator('[data-gallery-drawer-category="product"]').click();
   check((await pageA.locator("#galleryGrid").textContent()).includes("User A private image"), "personal gallery was not rendered in the original drawer");
+  check((await pageA.locator(`[data-gallery-id="${privateAssetId}"] .resource-scope-badge`).textContent()).trim() === "个人", "personal gallery source badge was missing");
   await pageA.locator(`[data-gallery-use="${privateAssetId}"]`).click();
   check(await pageA.locator(`.gallery-chip[data-gallery-id="${privateAssetId}"]`).count() === 1, "personal gallery item was not inserted into the original prompt flow");
   await pageA.locator("#clearImagesButton").click();
@@ -209,6 +219,8 @@ try {
   await pageA.locator("#promptTemplateDrawer.open").waitFor({ state: "visible" });
   check((await pageA.locator("#promptTemplateList").textContent()).includes("Shared browser template"), "shared template was not rendered in the original template drawer");
   check((await pageA.locator("#promptTemplateList").textContent()).includes("Private A template"), "personal template was not rendered in the original template drawer");
+  check((await pageA.locator('.prompt-template-card', { hasText: "Shared browser template" }).locator(".resource-scope-badge").textContent()).trim() === "共享", "shared template source badge was missing");
+  check((await pageA.locator(`[data-prompt-template-id="${personalTemplateId}"] .resource-scope-badge`).textContent()).trim() === "个人", "personal template source badge was missing");
   await pageA.locator('.prompt-template-card', { hasText: "Shared browser template" }).click();
   await pageA.locator("[data-prompt-template-insert]").click();
   check((await pageA.locator("#promptEditor").textContent()).includes("shared browser template"), "shared template was not inserted through the original prompt flow");
@@ -219,10 +231,12 @@ try {
   check((await pageA.locator("#promptEditor").textContent()).includes("private user A template"), "personal template was not inserted through the original prompt flow");
   await pageA.locator("#promptEditor").fill("~shared");
   await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${sharedSnippet.id}"]`).waitFor({ state: "visible" });
+  check((await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${sharedSnippet.id}"] .resource-scope-badge`).textContent()).trim() === "共享", "shared snippet source badge was missing");
   await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${sharedSnippet.id}"]`).click();
   check(await pageA.locator(`.prompt-snippet-chip[data-prompt-snippet-id="${sharedSnippet.id}"]`).count() === 1, "shared snippet was not inserted through the original prompt flow");
   await pageA.locator("#promptEditor").fill("~privateA");
   await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${personalSnippetId}"]`).waitFor({ state: "visible" });
+  check((await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${personalSnippetId}"] .resource-scope-badge`).textContent()).trim() === "个人", "personal snippet source badge was missing");
   await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${personalSnippetId}"]`).click();
   check(await pageA.locator(`.prompt-snippet-chip[data-prompt-snippet-id="${personalSnippetId}"]`).count() === 1, "personal snippet was not inserted through the original prompt flow");
 
@@ -346,11 +360,18 @@ try {
   adminPage.on("console", (message) => collectConsoleError("admin", message));
   adminPage.on("response", (response) => collectServerError("admin", response));
   await loginExisting(adminPage, credentials.admin);
+  check((await adminPage.locator("#serverAccountName").textContent()).includes(credentials.admin.username), "administrator username was not shown in the original workspace header");
+  check(await adminPage.locator("#serverAdminLink").isVisible(), "administrator entry was not shown to the administrator");
   await adminPage.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
   await adminPage.locator("#server-home").waitFor({ state: "visible" });
   await adminPage.locator("#user-management").waitFor({ state: "visible" });
   const adminTasks = await api(adminPage, `/api/admin/users/${userAId}/tasks?limit=100`);
   check(adminTasks.status === 200 && adminTasks.body.tasks.some((item) => item.task_id === generated.task_id), "admin could not inspect user tasks");
+  await adminPage.locator("#user-list .list-item", { hasText: credentials.userA.username }).getByRole("button", { name: "只读查看" }).click();
+  await eventually(
+    async () => await adminPage.locator(`[data-admin-task-id="${edited.task_id}"] [data-admin-output-index]`).count() === 2,
+    "administrator UI did not render every generated output",
+  );
   check((await api(adminPage, `/api/admin/users/${userAId}/tasks/${generated.task_id}/download`)).status === 200, "admin could not download protected user output");
   const audit = await api(adminPage, `/api/admin/audit?subject_user_id=${userAId}&limit=200`);
   const actions = new Set(audit.body.events.map((event) => event.action));
@@ -365,6 +386,8 @@ try {
 
   check(userBId && userBId !== userAId, "release gate did not use two distinct normal users");
   check(consoleErrors.length === 0, `browser console errors:\n${consoleErrors.join("\n")}`);
+  await pageB.locator("#serverLogoutButton").click();
+  await pageB.waitForURL(/\/login(?:\?|$)/);
   await Promise.all([contextA.close(), contextB.close(), adminContext.close()]);
 } finally {
   await browser.close();

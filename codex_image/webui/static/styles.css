@@ -2302,6 +2302,50 @@ button, input, select, textarea {
   position: relative;
 }
 
+.server-account {
+  order: 1;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.server-account-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: var(--top-nav-control-font-size);
+}
+
+.server-account-action {
+  min-height: var(--top-nav-control-height);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 11px;
+  border: 1px solid color-mix(in srgb, var(--line) 76%, transparent);
+  border-radius: var(--top-nav-control-radius);
+  background: color-mix(in srgb, var(--surface-soft) 72%, transparent);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--top-nav-control-font-size);
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.server-account-action:hover,
+.server-account-action:focus-visible {
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  background: var(--primary-light);
+  color: var(--primary-strong);
+  outline: none;
+}
+
 .auth-source-group {
   height: var(--top-nav-control-height);
   display: inline-flex;
@@ -2381,7 +2425,8 @@ button, input, select, textarea {
   .queue-button,
   .theme-option,
   .auth-source-button,
-  .auth-source-settings-button {
+  .auth-source-settings-button,
+  .server-account-action {
     transition: none;
   }
 }
@@ -3073,6 +3118,28 @@ svg.button-icon {
   background: transparent;
   color: var(--primary-foreground);
   box-shadow: none;
+}
+
+.resource-scope-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 18px;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-soft) 78%, transparent);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.resource-scope-shared {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--line));
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  color: var(--primary-strong);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4512,6 +4579,12 @@ svg.button-icon {
   white-space: nowrap;
 }
 
+.prompt-snippet-option-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .prompt-snippet-option small {
   color: var(--muted);
 }
@@ -4941,6 +5014,13 @@ svg.button-icon {
   gap: 8px;
   color: var(--muted);
   font-size: 11px;
+}
+
+.prompt-template-card-source {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .prompt-template-empty {
@@ -9941,16 +10021,30 @@ body.lightbox-open {
 }
 
 .gallery-card-heading {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
 }
 
 .gallery-card-heading strong {
   display: block;
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.gallery-card-heading .resource-scope-badge {
+  overflow: visible;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: clip;
+}
+
+.gallery-card-heading .resource-scope-shared {
+  color: var(--primary-strong);
 }
 
 .gallery-card-body span {
@@ -11442,7 +11536,8 @@ button:disabled {
     display: none;
   }
 
-  .auth-source-switcher {
+  .auth-source-switcher,
+  .server-account {
     flex: 0 0 auto;
   }
 

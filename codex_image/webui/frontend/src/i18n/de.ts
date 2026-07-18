@@ -1,6 +1,10 @@
 import type { TranslationDictionary } from "./types";
 
 export const DE_DICTIONARY: TranslationDictionary = {
+    "serverAccount.admin": "Verwaltung",
+    "serverAccount.logout": "Abmelden",
+    "resourceScope.personal": "Persönlich",
+    "resourceScope.shared": "Geteilt",
     "app.newTask": "Neu",
     "app.newTaskAria": "Neuer Chat",
     "sidebar.searchPlaceholder": "Suchaufforderungen oder Aufgabe ID",

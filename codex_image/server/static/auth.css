@@ -200,6 +200,30 @@ select {
   margin-top: 8px;
 }
 
+.admin-task-results {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-task-result-link {
+  display: grid;
+  gap: 4px;
+  color: #bdc9dc;
+  font-size: 12px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.admin-task-result-thumb {
+  width: 72px;
+  height: 72px;
+  border: 1px solid #344564;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
 .inline-form button,
 .button-row button,
 .workbench-header button,

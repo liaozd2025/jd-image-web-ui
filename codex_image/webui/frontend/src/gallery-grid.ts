@@ -1,6 +1,7 @@
 import { getLegacyBridge } from "./state";
 import { setGalleryDragPreview } from "./gallery-drag-preview";
 import { formatTranslation, LOCALE_CHANGE_EVENT, translate } from "./i18n";
+import { resourceScopeBadgeHtml } from "./resource-scope";
 
 const GALLERY_GRID_TRANSITION_MS = 220;
 const bridge = getLegacyBridge();
@@ -176,6 +177,7 @@ function galleryGridContentHtml(items: any) {
       <div class="gallery-card-body">
         <div class="gallery-card-heading">
           <strong>${escapeHtml(item.name)}</strong>
+          ${resourceScopeBadgeHtml(item.scope)}
         </div>
         <span>${escapeHtml(categoryLabel(item.category))}</span>
       </div>

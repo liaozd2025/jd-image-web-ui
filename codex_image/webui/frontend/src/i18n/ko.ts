@@ -1,6 +1,10 @@
 import type { TranslationDictionary } from "./types";
 
 export const KO_DICTIONARY: TranslationDictionary = {
+    "serverAccount.admin": "관리자",
+    "serverAccount.logout": "로그아웃",
+    "resourceScope.personal": "개인",
+    "resourceScope.shared": "공유",
     "app.newTask": "새로 만들기",
     "app.newTaskAria": "새 채팅 만들기",
     "sidebar.searchPlaceholder": "프롬프트 또는 작업 ID 검색",

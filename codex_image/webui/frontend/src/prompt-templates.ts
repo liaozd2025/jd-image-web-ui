@@ -1,5 +1,6 @@
 import { getLegacyBridge } from "./state";
 import { formatTranslation, LOCALE_CHANGE_EVENT, translate } from "./i18n";
+import { normalizeResourceScope, resourceScopeBadgeHtml } from "./resource-scope";
 
 const PROMPT_TEMPLATES_ENDPOINT = "/api/prompt-templates";
 const PROMPT_TEMPLATE_CATEGORIES_ENDPOINT = "/api/prompt-template-categories";
@@ -75,6 +76,8 @@ function normalizePromptTemplate(value: any) {
     created_at: value.created_at || "",
     updated_at: value.updated_at || "",
     last_used_at: value.last_used_at || "",
+    scope: normalizeResourceScope(value.scope),
+    read_only: Boolean(value.read_only),
   };
 }
 
@@ -342,7 +345,7 @@ function renderPromptTemplateList() {
       ${promptTemplateCardSubtitle(template) ? `<span class="prompt-template-card-subtitle">${escapeHtml(promptTemplateCardSubtitle(template))}</span>` : ""}
       <span class="prompt-template-card-preview">${escapeHtml(promptTemplatePreview(template.content, 64))}</span>
       <span class="prompt-template-card-meta">
-        <span>${escapeHtml(promptTemplateCategoryLabel(template.category))}</span>
+        <span class="prompt-template-card-source">${resourceScopeBadgeHtml(template.scope)}<span>${escapeHtml(promptTemplateCategoryLabel(template.category))}</span></span>
         <span>${template.favorite ? translate("templates.favoriteBadge") : formatTranslation("templates.usageCount", { count: template.usage_count || 0 })}</span>
       </span>
     </button>
@@ -391,6 +394,7 @@ function selectPromptTemplate(templateId: any) {
     ${template.thumbnail_url ? `<img class="prompt-template-detail-thumb" src="${escapeHtml(template.thumbnail_url)}" alt="" loading="lazy" decoding="async">` : ""}
     <h3>${escapeHtml(template.title)}</h3>
     <div class="prompt-template-detail-meta">
+      ${resourceScopeBadgeHtml(template.scope)}
       <span>${escapeHtml(promptTemplateCategoryLabel(template.category))}</span>
       <span>${escapeHtml(template.model_hint)}</span>
       ${template.favorite ? `<span>${translate("templates.favoriteBadge")}</span>` : ""}

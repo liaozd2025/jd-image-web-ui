@@ -1,6 +1,10 @@
 import type { TranslationDictionary } from "./types";
 
 export const HI_DICTIONARY: TranslationDictionary = {
+    "serverAccount.admin": "व्यवस्थापन",
+    "serverAccount.logout": "लॉग आउट",
+    "resourceScope.personal": "निजी",
+    "resourceScope.shared": "साझा",
     "app.newTask": "नया",
     "app.newTaskAria": "नई चैट",
     "sidebar.searchPlaceholder": "प्रॉम्प्ट या कार्य ID खोजें",

@@ -1,6 +1,10 @@
 import type { TranslationDictionary } from "./types";
 
 export const JA_DICTIONARY: TranslationDictionary = {
+    "serverAccount.admin": "管理画面",
+    "serverAccount.logout": "ログアウト",
+    "resourceScope.personal": "個人",
+    "resourceScope.shared": "共有",
     "app.newTask": "新規",
     "app.newTaskAria": "新規チャット",
     "sidebar.searchPlaceholder": "プロンプトまたはタスク ID を検索",

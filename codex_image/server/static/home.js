@@ -117,15 +117,37 @@ async function loadAdminReadOnlyView(user) {
   for (const task of tasks.tasks) {
     const item = document.createElement("article");
     item.className = "list-item";
+    item.dataset.adminTaskId = task.task_id;
     const title = document.createElement("strong");
     title.textContent = `${task.model_id} · ${task.status}`;
     item.append(title);
-    if (task.result_url) {
-      const link = document.createElement("a");
-      link.href = task.result_url;
-      link.textContent = "查看结果";
-      link.className = "secondary-button compact task-link";
-      item.append(link);
+    const taskOutputs = Array.isArray(task.outputs)
+      ? task.outputs.filter((output) => output && output.url)
+      : [];
+    const outputs = taskOutputs.length
+      ? taskOutputs
+      : task.result_url
+        ? [{ index: 1, url: task.result_url, thumbnail_url: task.thumbnail_url }]
+        : [];
+    if (outputs.length) {
+      const results = document.createElement("div");
+      results.className = "admin-task-results";
+      outputs.forEach((output, index) => {
+        const outputIndex = output.index || index + 1;
+        const link = document.createElement("a");
+        link.href = output.url;
+        link.className = "admin-task-result-link";
+        link.setAttribute("data-admin-output-index", String(outputIndex));
+        const image = document.createElement("img");
+        image.className = "admin-task-result-thumb";
+        image.src = output.thumbnail_url || output.url;
+        image.alt = `结果 ${outputIndex}`;
+        const label = document.createElement("span");
+        label.textContent = `结果 ${outputIndex}`;
+        link.append(image, label);
+        results.append(link);
+      });
+      item.append(results);
     }
     taskList.append(item);
   }

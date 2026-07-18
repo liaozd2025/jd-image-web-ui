@@ -423,6 +423,12 @@
   white-space: nowrap;
 }
 
+.prompt-snippet-option-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .prompt-snippet-option small {
   color: var(--muted);
 }
@@ -852,6 +858,13 @@
   gap: 8px;
   color: var(--muted);
   font-size: 11px;
+}
+
+.prompt-template-card-source {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .prompt-template-empty {

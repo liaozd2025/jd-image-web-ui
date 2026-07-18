@@ -8,7 +8,7 @@ let systemSettingsHeightAnimationTimer: number | undefined;
 type SystemSettingsTab = "api" | "codex" | "language" | "storage";
 
 const MIN_SYSTEM_SETTINGS_MODAL_EDGE = 30;
-const VALID_TABS = new Set<SystemSettingsTab>(["api", "codex", "language", "storage"]);
+const VALID_TABS = new Set<SystemSettingsTab>(["api", "language", "storage"]);
 
 function normalizedTab(tab: any): SystemSettingsTab {
   return VALID_TABS.has(tab) ? tab : "api";

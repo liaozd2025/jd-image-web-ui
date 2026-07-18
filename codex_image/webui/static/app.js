@@ -477,6 +477,10 @@
 
   // codex_image/webui/frontend/src/i18n/en.ts
   var EN_DICTIONARY = {
+    "serverAccount.admin": "Admin",
+    "serverAccount.logout": "Log out",
+    "resourceScope.personal": "Personal",
+    "resourceScope.shared": "Shared",
     "app.newTask": "New",
     "app.newTaskAria": "New chat",
     "sidebar.searchPlaceholder": "Search prompts or task ID",
@@ -1458,6 +1462,10 @@
 
   // codex_image/webui/frontend/src/i18n/de.ts
   var DE_DICTIONARY = {
+    "serverAccount.admin": "Verwaltung",
+    "serverAccount.logout": "Abmelden",
+    "resourceScope.personal": "Pers\xF6nlich",
+    "resourceScope.shared": "Geteilt",
     "app.newTask": "Neu",
     "app.newTaskAria": "Neuer Chat",
     "sidebar.searchPlaceholder": "Suchaufforderungen oder Aufgabe ID",
@@ -2429,6 +2437,10 @@
 
   // codex_image/webui/frontend/src/i18n/es.ts
   var ES_DICTIONARY = {
+    "serverAccount.admin": "Administraci\xF3n",
+    "serverAccount.logout": "Cerrar sesi\xF3n",
+    "resourceScope.personal": "Personal",
+    "resourceScope.shared": "Compartido",
     "app.newTask": "Nuevo",
     "app.newTaskAria": "Nuevo chat",
     "sidebar.searchPlaceholder": "Mensajes de b\xFAsqueda o tarea ID",
@@ -3400,6 +3412,10 @@
 
   // codex_image/webui/frontend/src/i18n/fr.ts
   var FR_DICTIONARY = {
+    "serverAccount.admin": "Administration",
+    "serverAccount.logout": "Se d\xE9connecter",
+    "resourceScope.personal": "Personnel",
+    "resourceScope.shared": "Partag\xE9",
     "app.newTask": "Nouveau",
     "app.newTaskAria": "Nouvelle discussion",
     "sidebar.searchPlaceholder": "Rechercher des invites ou une t\xE2che ID",
@@ -4371,6 +4387,10 @@
 
   // codex_image/webui/frontend/src/i18n/ja.ts
   var JA_DICTIONARY = {
+    "serverAccount.admin": "\u7BA1\u7406\u753B\u9762",
+    "serverAccount.logout": "\u30ED\u30B0\u30A2\u30A6\u30C8",
+    "resourceScope.personal": "\u500B\u4EBA",
+    "resourceScope.shared": "\u5171\u6709",
     "app.newTask": "\u65B0\u898F",
     "app.newTaskAria": "\u65B0\u898F\u30C1\u30E3\u30C3\u30C8",
     "sidebar.searchPlaceholder": "\u30D7\u30ED\u30F3\u30D7\u30C8\u307E\u305F\u306F\u30BF\u30B9\u30AF ID \u3092\u691C\u7D22",
@@ -5342,6 +5362,10 @@
 
   // codex_image/webui/frontend/src/i18n/ko.ts
   var KO_DICTIONARY = {
+    "serverAccount.admin": "\uAD00\uB9AC\uC790",
+    "serverAccount.logout": "\uB85C\uADF8\uC544\uC6C3",
+    "resourceScope.personal": "\uAC1C\uC778",
+    "resourceScope.shared": "\uACF5\uC720",
     "app.newTask": "\uC0C8\uB85C \uB9CC\uB4E4\uAE30",
     "app.newTaskAria": "\uC0C8 \uCC44\uD305 \uB9CC\uB4E4\uAE30",
     "sidebar.searchPlaceholder": "\uD504\uB86C\uD504\uD2B8 \uB610\uB294 \uC791\uC5C5 ID \uAC80\uC0C9",
@@ -6313,6 +6337,10 @@
 
   // codex_image/webui/frontend/src/i18n/pt.ts
   var PT_DICTIONARY = {
+    "serverAccount.admin": "Administra\xE7\xE3o",
+    "serverAccount.logout": "Sair",
+    "resourceScope.personal": "Pessoal",
+    "resourceScope.shared": "Compartilhado",
     "app.newTask": "Novo",
     "app.newTaskAria": "Novo bate-papo",
     "sidebar.searchPlaceholder": "Solicita\xE7\xF5es de pesquisa ou tarefa ID",
@@ -7284,6 +7312,10 @@
 
   // codex_image/webui/frontend/src/i18n/ru.ts
   var RU_DICTIONARY = {
+    "serverAccount.admin": "\u0410\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u0435",
+    "serverAccount.logout": "\u0412\u044B\u0439\u0442\u0438",
+    "resourceScope.personal": "\u041B\u0438\u0447\u043D\u043E\u0435",
+    "resourceScope.shared": "\u041E\u0431\u0449\u0435\u0435",
     "app.newTask": "\u041D\u043E\u0432\u044B\u0439",
     "app.newTaskAria": "\u041D\u043E\u0432\u044B\u0439 \u0447\u0430\u0442",
     "sidebar.searchPlaceholder": "\u041F\u043E\u0438\u0441\u043A\u043E\u0432\u044B\u0435 \u0437\u0430\u043F\u0440\u043E\u0441\u044B \u0438\u043B\u0438 \u0437\u0430\u0434\u0430\u0447\u0430 ID",
@@ -8255,6 +8287,10 @@
 
   // codex_image/webui/frontend/src/i18n/it.ts
   var IT_DICTIONARY = {
+    "serverAccount.admin": "Amministrazione",
+    "serverAccount.logout": "Esci",
+    "resourceScope.personal": "Personale",
+    "resourceScope.shared": "Condiviso",
     "app.newTask": "Nuovo",
     "app.newTaskAria": "Nuova chat",
     "sidebar.searchPlaceholder": "Richieste di ricerca o attivit\xE0 ID",
@@ -9226,6 +9262,10 @@
 
   // codex_image/webui/frontend/src/i18n/hi.ts
   var HI_DICTIONARY = {
+    "serverAccount.admin": "\u0935\u094D\u092F\u0935\u0938\u094D\u0925\u093E\u092A\u0928",
+    "serverAccount.logout": "\u0932\u0949\u0917 \u0906\u0909\u091F",
+    "resourceScope.personal": "\u0928\u093F\u091C\u0940",
+    "resourceScope.shared": "\u0938\u093E\u091D\u093E",
     "app.newTask": "\u0928\u092F\u093E",
     "app.newTaskAria": "\u0928\u0908 \u091A\u0948\u091F",
     "sidebar.searchPlaceholder": "\u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F \u092F\u093E \u0915\u093E\u0930\u094D\u092F ID \u0916\u094B\u091C\u0947\u0902",
@@ -10197,6 +10237,10 @@
 
   // codex_image/webui/frontend/src/i18n/zh-cn.ts
   var ZH_CN_DICTIONARY = {
+    "serverAccount.admin": "\u7BA1\u7406\u540E\u53F0",
+    "serverAccount.logout": "\u9000\u51FA",
+    "resourceScope.personal": "\u4E2A\u4EBA",
+    "resourceScope.shared": "\u5171\u4EAB",
     "app.newTask": "\u65B0\u5EFA",
     "app.newTaskAria": "\u65B0\u5EFA\u5BF9\u8BDD",
     "sidebar.searchPlaceholder": "\u641C\u7D22\u63D0\u793A\u8BCD\u6216\u4EFB\u52A1 ID",
@@ -10535,7 +10579,7 @@
     "recentAssets.use": "\u4F7F\u7528{name}",
     "recentAssets.delete": "\u5220\u9664{name}",
     "recentAssets.deleteTitle": "\u5220\u9664\u6700\u8FD1\u4E0A\u4F20\uFF1F",
-    "recentAssets.deleteMessage": "\u4F1A\u4ECE\u300C\u6700\u8FD1\u4E0A\u4F20\u300D\u4E2D\u5220\u9664\u8FD9\u5F20\u56FE\u7247\u3002\u5982\u679C\u5B83\u5DF2\u88AB\u6DFB\u52A0\u5230\u5F53\u524D\u56FE\u50CF\u8F93\u5165\uFF0C\u4F1A\u4ECE\u5F53\u524D\u8F93\u5165\u4E2D\u79FB\u9664\uFF1B\u5386\u53F2\u4EFB\u52A1\u91CC\u5F15\u7528\u8FD9\u5F20\u6700\u8FD1\u4E0A\u4F20\u56FE\u7684\u8F93\u5165\u9884\u89C8\u4E5F\u4F1A\u5931\u6548\u3002\u4E0D\u4F1A\u5F71\u54CD\u516C\u7528\u56FE\u5E93\u3002",
+    "recentAssets.deleteMessage": "\u4F1A\u4ECE\u300C\u6700\u8FD1\u4E0A\u4F20\u300D\u4E2D\u5220\u9664\u8FD9\u5F20\u56FE\u7247\u3002\u5982\u679C\u5B83\u5DF2\u88AB\u6DFB\u52A0\u5230\u5F53\u524D\u56FE\u50CF\u8F93\u5165\uFF0C\u4F1A\u4ECE\u5F53\u524D\u8F93\u5165\u4E2D\u79FB\u9664\uFF1B\u5386\u53F2\u4EFB\u52A1\u91CC\u5F15\u7528\u8FD9\u5F20\u6700\u8FD1\u4E0A\u4F20\u56FE\u7684\u8F93\u5165\u9884\u89C8\u4E5F\u4F1A\u5931\u6548\u3002\u4E0D\u4F1A\u5F71\u54CD\u5171\u4EAB\u56FE\u5E93\u3002",
     "recentAssets.loadFailed": "\u6700\u8FD1\u4E0A\u4F20\u8BFB\u53D6\u5931\u8D25",
     "recentAssets.deleteFailed": "\u6700\u8FD1\u4E0A\u4F20\u5220\u9664\u5931\u8D25",
     "recentAssets.deleted": "\u6700\u8FD1\u4E0A\u4F20\u5DF2\u5220\u9664",
@@ -10567,7 +10611,7 @@
     "referenceCollector.added": "\u5DF2\u52A0\u5165 {count} \u5F20\u53C2\u8003\u56FE",
     "referenceCollector.addFailed": "\u5F85\u52A0\u5165\u53C2\u8003\u56FE\u52A0\u5165\u5931\u8D25",
     "referenceCollector.readFailed": "\u56FE\u7247\u8BFB\u53D6\u5931\u8D25\uFF1A{status}",
-    "gallery.quick": "\u5FEB\u901F\u9009\u62E9\u516C\u7528\u56FE\u5E93",
+    "gallery.quick": "\u5FEB\u901F\u9009\u62E9\u5171\u4EAB\u56FE\u5E93",
     "gallery.current": "\u5F53\u524D\u5206\u7C7B\u56FE\u5E93",
     "gallery.categories": "\u56FE\u5E93\u5206\u7C7B",
     "gallery.categoryPortrait": "\u4EBA\u50CF",
@@ -10962,7 +11006,7 @@
     "settings.status": "\u4FDD\u5B58\u5B58\u50A8\u8DEF\u5F84\u540E\u91CD\u542F WebUI \u751F\u6548",
     "settings.inputRoot": "\u8F93\u5165\u76EE\u5F55",
     "settings.outputRoot": "\u8F93\u51FA\u76EE\u5F55",
-    "settings.galleryRoot": "\u516C\u7528\u56FE\u5E93\u76EE\u5F55",
+    "settings.galleryRoot": "\u5171\u4EAB\u56FE\u5E93\u76EE\u5F55",
     "settings.sourceDataRoot": "\u6E90\u6570\u636E\u76EE\u5F55",
     "settings.language": "\u754C\u9762\u8BED\u8A00",
     "settings.languageCopy": "\u9996\u6B21\u542F\u52A8\u4F1A\u81EA\u52A8\u8DDF\u968F\u6D4F\u89C8\u5668\u8BED\u8A00\uFF0C\u624B\u52A8\u9009\u62E9\u540E\u4F1A\u8BB0\u4F4F\u504F\u597D\u3002",
@@ -11104,7 +11148,7 @@
     "imageEditor.emptyInsertList": "\u6682\u65E0\u5176\u4ED6\u8F93\u5165\u56FE",
     "imageEditor.selectLayerFirst": "\u8BF7\u5148\u9009\u62E9\u56FE\u5C42",
     "imageEditor.baseLayer": "\u539F\u56FE",
-    "gallery.title": "\u516C\u7528\u56FE\u5E93",
+    "gallery.title": "\u5171\u4EAB\u56FE\u5E93",
     "gallery.subtitle": "\u9009\u62E9\u53C2\u8003\u56FE\u52A0\u5165\u5F53\u524D\u4EFB\u52A1",
     "gallery.manageCategories": "\u7BA1\u7406\u5206\u7C7B",
     "gallery.categoryManager": "\u7BA1\u7406\u56FE\u5E93\u5206\u7C7B",
@@ -11139,7 +11183,7 @@
     "close.apiSettings": "\u5173\u95ED API \u8BBE\u7F6E\u9762\u677F",
     "close.systemSettings": "\u5173\u95ED\u7CFB\u7EDF\u8BBE\u7F6E\u9762\u677F",
     "close.imageEditor": "\u5173\u95ED\u7F16\u8F91\u8F93\u5165\u56FE\u7247\u9762\u677F",
-    "close.gallery": "\u5173\u95ED\u516C\u7528\u56FE\u5E93\u9762\u677F",
+    "close.gallery": "\u5173\u95ED\u5171\u4EAB\u56FE\u5E93\u9762\u677F",
     "close.addGallery": "\u5173\u95ED\u6DFB\u52A0\u5230\u56FE\u5E93\u9762\u677F",
     "close.version": "\u5173\u95ED\u7248\u672C\u66F4\u65B0\u9762\u677F",
     "imageInput.referenceTitle": "\u53C2\u8003\u8F93\u5165\uFF08\u53EF\u9009\uFF09",
@@ -11178,6 +11222,10 @@
 
   // codex_image/webui/frontend/src/i18n/zh-hk.ts
   var ZH_HK_DICTIONARY = {
+    "serverAccount.admin": "\u7BA1\u7406\u5F8C\u53F0",
+    "serverAccount.logout": "\u767B\u51FA",
+    "resourceScope.personal": "\u500B\u4EBA",
+    "resourceScope.shared": "\u5171\u4EAB",
     "app.newTask": "\u65B0\u589E",
     "app.newTaskAria": "\u65B0\u5EFA\u5C0D\u8A71",
     "sidebar.searchPlaceholder": "\u641C\u5C0B\u63D0\u793A\u8A5E\u6216\u4EFB\u52D9ID",
@@ -11516,7 +11564,7 @@
     "recentAssets.use": "\u4F7F\u7528{name}",
     "recentAssets.delete": "\u522A\u9664{name}",
     "recentAssets.deleteTitle": "\u522A\u9664\u6700\u8FD1\u4E0A\u50B3\uFF1F",
-    "recentAssets.deleteMessage": "\u6703\u5F9E\u300C\u6700\u8FD1\u4E0A\u50B3\u300D\u522A\u9664\u9019\u5F35\u5716\u7247\u3002\u5982\u679C\u5B83\u5DF2\u88AB\u52A0\u5165\u5230\u7576\u524D\u5716\u50CF\u8F38\u5165\uFF0C\u5247\u6703\u5F9E\u7576\u524D\u8F38\u5165\u4E2D\u79FB\u9664\uFF1B\u6B77\u53F2\u4EFB\u52D9\u4E2D\u53C3\u7167\u9019\u5F35\u6700\u8FD1\u4E0A\u50B3\u5716\u7684\u8F38\u5165\u9810\u89BD\u4E5F\u6703\u5931\u6548\u3002\u4E0D\u6703\u5F71\u97FF\u516C\u7528\u5716\u5EAB\u3002",
+    "recentAssets.deleteMessage": "\u6703\u5F9E\u300C\u6700\u8FD1\u4E0A\u50B3\u300D\u522A\u9664\u9019\u5F35\u5716\u7247\u3002\u5982\u679C\u5B83\u5DF2\u88AB\u52A0\u5165\u5230\u7576\u524D\u5716\u50CF\u8F38\u5165\uFF0C\u5247\u6703\u5F9E\u7576\u524D\u8F38\u5165\u4E2D\u79FB\u9664\uFF1B\u6B77\u53F2\u4EFB\u52D9\u4E2D\u53C3\u7167\u9019\u5F35\u6700\u8FD1\u4E0A\u50B3\u5716\u7684\u8F38\u5165\u9810\u89BD\u4E5F\u6703\u5931\u6548\u3002\u4E0D\u6703\u5F71\u97FF\u5171\u4EAB\u5716\u5EAB\u3002",
     "recentAssets.loadFailed": "\u6700\u8FD1\u4E0A\u50B3\u8B80\u53D6\u5931\u6557",
     "recentAssets.deleteFailed": "\u6700\u8FD1\u4E0A\u50B3\u522A\u9664\u5931\u6557",
     "recentAssets.deleted": "\u6700\u8FD1\u4E0A\u50B3\u5DF2\u522A\u9664",
@@ -11548,7 +11596,7 @@
     "referenceCollector.added": "\u5DF2\u52A0\u5165{count}\u5F35\u53C3\u8003\u5716",
     "referenceCollector.addFailed": "\u5F85\u52A0\u5165\u53C3\u8003\u5716\u52A0\u5165\u5931\u6557",
     "referenceCollector.readFailed": "\u5716\u7247\u8B80\u53D6\u5931\u6557\uFF1A{status}",
-    "gallery.quick": "\u5FEB\u901F\u9078\u64C7\u516C\u7528\u5716\u5EAB",
+    "gallery.quick": "\u5FEB\u901F\u9078\u64C7\u5171\u4EAB\u5716\u5EAB",
     "gallery.current": "\u76EE\u524D\u5206\u985E\u5716\u5EAB",
     "gallery.categories": "\u5716\u5EAB\u5206\u985E",
     "gallery.categoryPortrait": "\u4EBA\u50CF",
@@ -11943,7 +11991,7 @@
     "settings.status": "\u5132\u5B58\u8DEF\u5F91\u8A2D\u5B9A\u5F8C\u91CD\u555F WebUI \u751F\u6548",
     "settings.inputRoot": "\u8F38\u5165\u76EE\u9304",
     "settings.outputRoot": "\u8F38\u51FA\u76EE\u9304",
-    "settings.galleryRoot": "\u516C\u7528\u5716\u5EAB\u76EE\u9304",
+    "settings.galleryRoot": "\u5171\u4EAB\u5716\u5EAB\u76EE\u9304",
     "settings.sourceDataRoot": "\u4F86\u6E90\u8CC7\u6599\u76EE\u9304",
     "settings.language": "\u4ECB\u9762\u8A9E\u8A00",
     "settings.languageCopy": "\u9996\u6B21\u555F\u52D5\u6703\u81EA\u52D5\u8DDF\u96A8\u700F\u89BD\u5668\u8A9E\u8A00\uFF0C\u624B\u52D5\u9078\u64C7\u5F8C\u6703\u8A18\u4F4F\u504F\u597D\u3002",
@@ -12085,7 +12133,7 @@
     "imageEditor.emptyInsertList": "\u66AB\u7121\u5176\u4ED6\u8F38\u5165\u5716",
     "imageEditor.selectLayerFirst": "\u8ACB\u5148\u9078\u64C7\u5716\u5C64",
     "imageEditor.baseLayer": "\u539F\u5716",
-    "gallery.title": "\u516C\u7528\u5716\u5EAB",
+    "gallery.title": "\u5171\u4EAB\u5716\u5EAB",
     "gallery.subtitle": "\u9078\u64C7\u53C3\u8003\u5716\u52A0\u5165\u76EE\u524D\u4EFB\u52D9",
     "gallery.manageCategories": "\u7BA1\u7406\u5206\u985E",
     "gallery.categoryManager": "\u7BA1\u7406\u5716\u5EAB\u5206\u985E",
@@ -12120,7 +12168,7 @@
     "close.apiSettings": "\u95DC\u9589API\u8A2D\u5B9A\u9762\u677F",
     "close.systemSettings": "\u95DC\u9589\u7CFB\u7D71\u8A2D\u5B9A\u9762\u677F",
     "close.imageEditor": "\u95DC\u9589\u7DE8\u8F2F\u8F38\u5165\u5716\u7247\u9762\u677F",
-    "close.gallery": "\u95DC\u9589\u516C\u7528\u5716\u5EAB\u9762\u677F",
+    "close.gallery": "\u95DC\u9589\u5171\u4EAB\u5716\u5EAB\u9762\u677F",
     "close.addGallery": "\u95DC\u9589\u5DF2\u65B0\u589E\u81F3\u5716\u5EAB\u9762\u677F",
     "close.version": "\u95DC\u9589\u7248\u672C\u66F4\u65B0\u9762\u677F",
     "imageInput.referenceTitle": "\u53C3\u8003\u8F38\u5165\uFF08\u53EF\u9078\uFF09",
@@ -12159,6 +12207,10 @@
 
   // codex_image/webui/frontend/src/i18n/zh-tw.ts
   var ZH_TW_DICTIONARY = {
+    "serverAccount.admin": "\u7BA1\u7406\u5F8C\u53F0",
+    "serverAccount.logout": "\u767B\u51FA",
+    "resourceScope.personal": "\u500B\u4EBA",
+    "resourceScope.shared": "\u5171\u4EAB",
     "app.newTask": "\u65B0\u589E",
     "app.newTaskAria": "\u65B0\u5EFA\u5C0D\u8A71",
     "sidebar.searchPlaceholder": "\u641C\u5C0B\u63D0\u793A\u8A5E\u6216\u4EFB\u52D9ID",
@@ -12497,7 +12549,7 @@
     "recentAssets.use": "\u4F7F\u7528{name}",
     "recentAssets.delete": "\u522A\u9664{name}",
     "recentAssets.deleteTitle": "\u522A\u9664\u6700\u8FD1\u4E0A\u50B3\uFF1F",
-    "recentAssets.deleteMessage": "\u6703\u5F9E\u300C\u6700\u8FD1\u4E0A\u50B3\u300D\u522A\u9664\u9019\u5F35\u5716\u7247\u3002\u5982\u679C\u5B83\u5DF2\u88AB\u52A0\u5165\u5230\u76EE\u524D\u5716\u50CF\u8F38\u5165\uFF0C\u6703\u5F9E\u76EE\u524D\u8F38\u5165\u4E2D\u79FB\u9664\uFF1B\u6B77\u53F2\u4EFB\u52D9\u91CC\u53C3\u7167\u9019\u5F35\u6700\u8FD1\u4E0A\u50B3\u5716\u7684\u8F38\u5165\u9810\u89BD\u4E5F\u6703\u5931\u6548\u3002\u4E0D\u6703\u5F71\u97FF\u516C\u7528\u5716\u5EAB\u3002",
+    "recentAssets.deleteMessage": "\u6703\u5F9E\u300C\u6700\u8FD1\u4E0A\u50B3\u300D\u522A\u9664\u9019\u5F35\u5716\u7247\u3002\u5982\u679C\u5B83\u5DF2\u88AB\u52A0\u5165\u5230\u76EE\u524D\u5716\u50CF\u8F38\u5165\uFF0C\u6703\u5F9E\u76EE\u524D\u8F38\u5165\u4E2D\u79FB\u9664\uFF1B\u6B77\u53F2\u4EFB\u52D9\u91CC\u53C3\u7167\u9019\u5F35\u6700\u8FD1\u4E0A\u50B3\u5716\u7684\u8F38\u5165\u9810\u89BD\u4E5F\u6703\u5931\u6548\u3002\u4E0D\u6703\u5F71\u97FF\u5171\u4EAB\u5716\u5EAB\u3002",
     "recentAssets.loadFailed": "\u6700\u8FD1\u4E0A\u50B3\u8B80\u53D6\u5931\u6557",
     "recentAssets.deleteFailed": "\u6700\u8FD1\u4E0A\u50B3\u522A\u9664\u5931\u6557",
     "recentAssets.deleted": "\u6700\u8FD1\u4E0A\u50B3\u5DF2\u522A\u9664",
@@ -12529,7 +12581,7 @@
     "referenceCollector.added": "\u5DF2\u52A0\u5165{count}\u5F35\u53C3\u8003\u5716",
     "referenceCollector.addFailed": "\u5F85\u52A0\u5165\u53C3\u8003\u5716\u52A0\u5165\u5931\u6557",
     "referenceCollector.readFailed": "\u5716\u7247\u8B80\u53D6\u5931\u6557\uFF1A{status}",
-    "gallery.quick": "\u5FEB\u901F\u9078\u64C7\u516C\u7528\u5716\u5EAB",
+    "gallery.quick": "\u5FEB\u901F\u9078\u64C7\u5171\u4EAB\u5716\u5EAB",
     "gallery.current": "\u76EE\u524D\u5206\u985E\u5716\u5EAB",
     "gallery.categories": "\u5716\u5EAB\u5206\u985E",
     "gallery.categoryPortrait": "\u4EBA\u50CF",
@@ -12924,7 +12976,7 @@
     "settings.status": "\u5132\u5B58\u8DEF\u5F91\u8A2D\u5B9A\u5F8C\u91CD\u555F WebUI \u751F\u6548",
     "settings.inputRoot": "\u8F38\u5165\u76EE\u9304",
     "settings.outputRoot": "\u8F38\u51FA\u76EE\u9304",
-    "settings.galleryRoot": "\u516C\u7528\u5716\u5EAB\u76EE\u9304",
+    "settings.galleryRoot": "\u5171\u4EAB\u5716\u5EAB\u76EE\u9304",
     "settings.sourceDataRoot": "\u4F86\u6E90\u8CC7\u6599\u76EE\u9304",
     "settings.language": "\u4ECB\u9762\u8A9E\u8A00",
     "settings.languageCopy": "\u9996\u6B21\u555F\u52D5\u6703\u81EA\u52D5\u8DDF\u96A8\u700F\u89BD\u5668\u8A9E\u8A00\uFF0C\u624B\u52D5\u9078\u64C7\u5F8C\u6703\u8A18\u4F4F\u504F\u597D\u3002",
@@ -13066,7 +13118,7 @@
     "imageEditor.emptyInsertList": "\u66AB\u7121\u5176\u4ED6\u8F38\u5165\u5716",
     "imageEditor.selectLayerFirst": "\u8ACB\u5148\u9078\u64C7\u5716\u5C64",
     "imageEditor.baseLayer": "\u539F\u5716",
-    "gallery.title": "\u516C\u7528\u5716\u5EAB",
+    "gallery.title": "\u5171\u4EAB\u5716\u5EAB",
     "gallery.subtitle": "\u9078\u64C7\u53C3\u8003\u5716\u52A0\u5165\u76EE\u524D\u4EFB\u52D9",
     "gallery.manageCategories": "\u7BA1\u7406\u5206\u985E",
     "gallery.categoryManager": "\u7BA1\u7406\u5716\u5EAB\u5206\u985E",
@@ -13101,7 +13153,7 @@
     "close.apiSettings": "\u95DC\u9589API\u8A2D\u5B9A\u9762\u677F",
     "close.systemSettings": "\u95DC\u9589\u7CFB\u7D71\u8A2D\u5B9A\u9762\u677F",
     "close.imageEditor": "\u95DC\u9589\u7DE8\u8F2F\u8F38\u5165\u5716\u7247\u9762\u677F",
-    "close.gallery": "\u95DC\u9589\u516C\u7528\u5716\u5EAB\u9762\u677F",
+    "close.gallery": "\u95DC\u9589\u5171\u4EAB\u5716\u5EAB\u9762\u677F",
     "close.addGallery": "\u95DC\u9589\u5DF2\u65B0\u589E\u81F3\u5716\u5EAB\u9762\u677F",
     "close.version": "\u95DC\u9589\u7248\u672C\u66F4\u65B0\u9762\u677F",
     "imageInput.referenceTitle": "\u53C3\u8003\u8F38\u5165\uFF08\u53EF\u9078\uFF09",
@@ -29265,6 +29317,16 @@ ${hint}` : hint;
     });
   }
 
+  // codex_image/webui/frontend/src/resource-scope.ts
+  function normalizeResourceScope(value) {
+    return value === "shared" ? "shared" : "personal";
+  }
+  function resourceScopeBadgeHtml(value) {
+    const scope = normalizeResourceScope(value);
+    const key = scope === "shared" ? "resourceScope.shared" : "resourceScope.personal";
+    return `<span class="resource-scope-badge resource-scope-${scope}">${translate(key)}</span>`;
+  }
+
   // codex_image/webui/frontend/src/gallery-grid.ts
   var GALLERY_GRID_TRANSITION_MS = 220;
   var bridge4 = getLegacyBridge();
@@ -29450,6 +29512,7 @@ ${hint}` : hint;
       <div class="gallery-card-body">
         <div class="gallery-card-heading">
           <strong>${escapeHtml6(item.name)}</strong>
+          ${resourceScopeBadgeHtml(item.scope)}
         </div>
         <span>${escapeHtml6(categoryLabel3(item.category))}</span>
       </div>
@@ -30580,7 +30643,7 @@ ${hint}` : hint;
   var systemSettingsHeightAnimationToken = 0;
   var systemSettingsHeightAnimationTimer;
   var MIN_SYSTEM_SETTINGS_MODAL_EDGE = 30;
-  var VALID_TABS = /* @__PURE__ */ new Set(["api", "codex", "language", "storage"]);
+  var VALID_TABS = /* @__PURE__ */ new Set(["api", "language", "storage"]);
   function normalizedTab(tab) {
     return VALID_TABS.has(tab) ? tab : "api";
   }
@@ -32620,7 +32683,9 @@ ${hint}` : hint;
       category: String(value.category || DEFAULT_PROMPT_SNIPPET_CATEGORY).trim() || DEFAULT_PROMPT_SNIPPET_CATEGORY,
       order: Number.isFinite(Number(value.order)) ? Number.parseInt(value.order, 10) : 0,
       created_at: value.created_at || "",
-      updated_at: value.updated_at || ""
+      updated_at: value.updated_at || "",
+      scope: normalizeResourceScope(value.scope),
+      read_only: Boolean(value.read_only)
     };
   }
   function normalizePromptSnippetList(items) {
@@ -32727,7 +32792,7 @@ ${hint}` : hint;
     <button type="button" class="prompt-snippet-option" data-prompt-snippet-id="${escapeHtml9(snippet.id)}">
       <span class="prompt-snippet-option-tag">~${escapeHtml9(snippet.tag)}</span>
       <span class="prompt-snippet-option-main">
-        <span>${escapeHtml9(snippet.title)}</span>
+        <span class="prompt-snippet-option-title">${escapeHtml9(snippet.title)}${resourceScopeBadgeHtml(snippet.scope)}</span>
         <small>${escapeHtml9(promptSnippetPreview(snippet.content))}</small>
       </span>
       <small>${escapeHtml9(snippet.category)}</small>
@@ -33333,7 +33398,9 @@ ${hint}` : hint;
       usage_count: Math.max(0, usageCount),
       created_at: value.created_at || "",
       updated_at: value.updated_at || "",
-      last_used_at: value.last_used_at || ""
+      last_used_at: value.last_used_at || "",
+      scope: normalizeResourceScope(value.scope),
+      read_only: Boolean(value.read_only)
     };
   }
   function normalizePromptTemplateCategory(value, index = 0) {
@@ -33566,7 +33633,7 @@ ${hint}` : hint;
       ${promptTemplateCardSubtitle(template) ? `<span class="prompt-template-card-subtitle">${escapeHtml10(promptTemplateCardSubtitle(template))}</span>` : ""}
       <span class="prompt-template-card-preview">${escapeHtml10(promptTemplatePreview(template.content, 64))}</span>
       <span class="prompt-template-card-meta">
-        <span>${escapeHtml10(promptTemplateCategoryLabel(template.category))}</span>
+        <span class="prompt-template-card-source">${resourceScopeBadgeHtml(template.scope)}<span>${escapeHtml10(promptTemplateCategoryLabel(template.category))}</span></span>
         <span>${template.favorite ? translate("templates.favoriteBadge") : formatTranslation("templates.usageCount", { count: template.usage_count || 0 })}</span>
       </span>
     </button>
@@ -33609,6 +33676,7 @@ ${hint}` : hint;
     ${template.thumbnail_url ? `<img class="prompt-template-detail-thumb" src="${escapeHtml10(template.thumbnail_url)}" alt="" loading="lazy" decoding="async">` : ""}
     <h3>${escapeHtml10(template.title)}</h3>
     <div class="prompt-template-detail-meta">
+      ${resourceScopeBadgeHtml(template.scope)}
       <span>${escapeHtml10(promptTemplateCategoryLabel(template.category))}</span>
       <span>${escapeHtml10(template.model_hint)}</span>
       ${template.favorite ? `<span>${translate("templates.favoriteBadge")}</span>` : ""}
@@ -44637,6 +44705,45 @@ ${galleryText}`;
     });
   }
 
+  // codex_image/webui/frontend/src/server-account.ts
+  var serverAccountInitialized = false;
+  function cookieValue(name) {
+    const prefix = `${name}=`;
+    const part = document.cookie.split(";").map((value) => value.trim()).find((value) => value.startsWith(prefix));
+    return part ? decodeURIComponent(part.slice(prefix.length)) : "";
+  }
+  async function loadServerAccount() {
+    const response = await fetch("/api/auth/me");
+    if (!response.ok) return;
+    const { user } = await response.json();
+    const name = document.querySelector("#serverAccountName");
+    const adminLink = document.querySelector("#serverAdminLink");
+    if (name) name.textContent = user.username;
+    const isAdmin = user.role === "admin";
+    adminLink?.classList.toggle("hidden", !isAdmin);
+  }
+  async function logout() {
+    const button = document.querySelector("#serverLogoutButton");
+    if (button) button.disabled = true;
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "X-CSRF-Token": cookieValue("jd_image_csrf") }
+      });
+      if (response.ok) window.location.assign("/login");
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+  function initServerAccountFeature() {
+    if (serverAccountInitialized) return;
+    serverAccountInitialized = true;
+    document.querySelector("#serverLogoutButton")?.addEventListener("click", () => {
+      void logout();
+    });
+    void loadServerAccount();
+  }
+
   // codex_image/webui/frontend/src/main.ts
   initReferenceFileInputsFeature();
   initInputSourcesFeature();
@@ -44678,6 +44785,7 @@ ${galleryText}`;
   initOverlayPopoversFeature();
   initShellUiFeature();
   initI18nFeature();
+  initServerAccountFeature();
   initAppVersionFeature();
   initLightboxFeature();
   initializeQueueFeature();
