@@ -59,7 +59,9 @@ class ProviderStatusPayload(BaseModel):
 
 
 class PersonalCredentialPayload(BaseModel):
-    api_key: str = Field(min_length=1, max_length=4096)
+    # Length is checked in the route so Pydantic's validation response never
+    # echoes a submitted secret back to the browser.
+    api_key: str
 
 
 def install_provider_routes(app: FastAPI, *, providers: ProviderRepository) -> None:
@@ -138,6 +140,8 @@ def install_provider_routes(app: FastAPI, *, providers: ProviderRepository) -> N
         payload: PersonalCredentialPayload,
     ) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
+        if not payload.api_key or len(payload.api_key) > 4096:
+            return JSONResponse(status_code=422, content={"detail": "api_key_invalid"})
         try:
             credential = providers.save_personal_credential(
                 session.user.user_id,

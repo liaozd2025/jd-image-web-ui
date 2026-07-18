@@ -156,6 +156,15 @@ class ServerProviderConfigurationTests(unittest.TestCase):
                             [second_version_id],
                         )
 
+                        oversized_key = "oversized-provider-secret-" + ("x" * 4096)
+                        rejected_oversized = user.put(
+                            f"/api/providers/personal/{second_version_id}",
+                            json={"api_key": oversized_key},
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(rejected_oversized.status_code, 422)
+                        self.assertNotIn(oversized_key, rejected_oversized.text)
+
                         saved = user.put(
                             f"/api/providers/personal/{second_version_id}",
                             json={"api_key": FIRST_API_KEY},
