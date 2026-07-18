@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 from starlette.datastructures import UploadFile
+from starlette.formparsers import MultiPartException
 
 from .identity import AuthenticatedSession
 from .tasks import GenerationTask, GenerationTaskRepository, TaskConfigurationError, TaskNotFound
@@ -154,6 +155,6 @@ async def _parse_task_request(
                 return None
             values = body
         payload = CreateTaskPayload.model_validate(values)
-    except (ValueError, ValidationError, RuntimeError):
+    except (MultiPartException, ValueError, ValidationError, RuntimeError):
         return None
     return payload, input_bytes, input_media_type

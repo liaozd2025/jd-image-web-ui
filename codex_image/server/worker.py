@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import signal
 import base64
+import signal
 import threading
 from uuid import uuid4
 
