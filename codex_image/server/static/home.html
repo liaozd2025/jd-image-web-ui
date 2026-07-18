@@ -79,6 +79,31 @@
         <div id="provider-catalog-list" class="item-list" aria-live="polite"></div>
       </section>
 
+      <section id="asset-management" class="panel">
+        <div class="panel-heading">
+          <div>
+            <h2>个人资产</h2>
+            <p id="asset-quota">正在读取存储额度…</p>
+          </div>
+          <form id="create-asset-form" class="asset-form">
+            <label for="asset-kind">类型</label>
+            <select id="asset-kind">
+              <option value="image">图片</option>
+              <option value="reference">参考素材</option>
+              <option value="template">模板</option>
+              <option value="prompt">提示词片段</option>
+            </select>
+            <label for="asset-name">名称</label>
+            <input id="asset-name" required maxlength="160" placeholder="资产名称">
+            <label for="asset-file">文件（模板/提示词也可上传文本）</label>
+            <input id="asset-file" type="file" required>
+            <button type="submit">保存资产</button>
+          </form>
+        </div>
+        <div id="asset-list" class="item-list" aria-live="polite"></div>
+        <div id="asset-trash-list" class="item-list" aria-live="polite"></div>
+      </section>
+
       <section id="task-management" class="panel">
         <div class="panel-heading">
           <div>
@@ -92,6 +117,8 @@
             <select id="task-model" required></select>
             <label for="task-prompt">提示词</label>
             <textarea id="task-prompt" required maxlength="16000" rows="3" placeholder="描述要生成的图片"></textarea>
+            <label for="task-assets">固定版本参考资产（可选）</label>
+            <select id="task-assets" multiple size="4"></select>
             <label for="task-input-file">参考图片（可选）</label>
             <input id="task-input-file" type="file" accept="image/png,image/jpeg,image/webp">
             <button type="submit">提交任务</button>

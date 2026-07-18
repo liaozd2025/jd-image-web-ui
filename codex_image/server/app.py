@@ -8,6 +8,8 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from .auth import install_authentication
+from .assets import AssetRepository
+from .assets_api import install_asset_routes
 from .config import ServerSettings
 from .database import PostgresConnections, ServerRuntimeRepository
 from .health import HealthStatus, ReadyComponents
@@ -30,7 +32,13 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
     runtime = ServerRuntimeRepository(connections)
     identity = IdentityRepository(connections)
     provider_cipher = ProviderSecretCipher.from_encoded_key(settings.master_key)
-    task_repository = GenerationTaskRepository(connections, provider_cipher, settings.data_root)
+    asset_repository = AssetRepository(connections, settings.data_root)
+    task_repository = GenerationTaskRepository(
+        connections,
+        provider_cipher,
+        settings.data_root,
+        assets=asset_repository,
+    )
     migration_lock = threading.Lock()
     schema_ready = False
 
@@ -81,5 +89,6 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
         app,
         providers=ProviderRepository(connections, provider_cipher),
     )
+    install_asset_routes(app, assets=asset_repository)
     install_task_routes(app, tasks=task_repository)
     return app

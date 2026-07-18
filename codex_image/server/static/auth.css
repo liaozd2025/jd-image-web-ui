@@ -166,6 +166,22 @@ select {
   margin-top: 18px;
 }
 
+.asset-form {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: min(100%, 420px);
+}
+
+.asset-form button {
+  grid-column: 2;
+}
+
+.asset-version-list {
+  margin-top: 6px;
+}
+
 .task-history-toolbar label {
   margin: 0;
 }
@@ -309,6 +325,15 @@ button {
   .task-history-toolbar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .asset-form {
+    grid-template-columns: 1fr;
+    min-width: 0;
+  }
+
+  .asset-form button {
+    grid-column: auto;
   }
 
   .task-history-toolbar select {

@@ -25,6 +25,7 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0008_reconcile_generation_tasks",
     "0009_generation_task_inputs",
     "0010_generation_task_thumbnails",
+    "0011_personal_assets",
 ]
 
 

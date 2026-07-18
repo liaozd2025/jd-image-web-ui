@@ -11,6 +11,7 @@ from uuid import uuid4
 from psycopg.rows import dict_row
 
 from .audit import record_audit_event
+from .assets import AssetNotFound, AssetRepository, AssetValidationError
 from .database import PostgresConnections
 from .provider_secrets import MasterKeyMismatch, ProviderSecretCipher
 
@@ -38,6 +39,7 @@ class GenerationTask:
     input_media_type: str | None
     input_sha256: str | None
     input_bytes: int | None
+    asset_versions: list[dict[str, object]]
     status: TaskStatus
     result_relative_path: str | None
     thumbnail_relative_path: str | None
@@ -67,10 +69,12 @@ class GenerationTaskRepository:
         connections: PostgresConnections,
         cipher: ProviderSecretCipher,
         data_root: Path,
+        assets: AssetRepository | None = None,
     ) -> None:
         self.connections = connections
         self.cipher = cipher
         self.data_root = data_root
+        self.assets = assets
 
     def create_task(
         self,
@@ -82,8 +86,17 @@ class GenerationTaskRepository:
         request_parameters: dict[str, object],
         input_bytes: bytes | None = None,
         input_media_type: str | None = None,
+        asset_version_ids: list[str] | None = None,
     ) -> GenerationTask:
         task_id = str(uuid4())
+        asset_snapshots: list[dict[str, object]] = []
+        if asset_version_ids:
+            if self.assets is None:
+                raise TaskConfigurationError("asset repository is unavailable")
+            try:
+                asset_snapshots = self.assets.resolve_versions(user_id, asset_version_ids)
+            except (AssetNotFound, AssetValidationError) as error:
+                raise TaskConfigurationError(str(error)) from error
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
                 cursor.execute(
@@ -137,8 +150,8 @@ class GenerationTaskRepository:
                         INSERT INTO server_generation_tasks (
                             task_id, user_id, provider_version_id, model_id, prompt,
                             request_parameters, status, input_relative_path,
-                            input_media_type, input_sha256, input_bytes
-                        ) VALUES (%s, %s, %s, %s, %s, %s::jsonb, 'queued', %s, %s, %s, %s)
+                            input_media_type, input_sha256, input_bytes, asset_versions
+                        ) VALUES (%s, %s, %s, %s, %s, %s::jsonb, 'queued', %s, %s, %s, %s, %s::jsonb)
                         RETURNING *
                         """,
                         (
@@ -152,6 +165,7 @@ class GenerationTaskRepository:
                             input_type,
                             hashlib.sha256(input_content).hexdigest(),
                             len(input_content),
+                            json.dumps(asset_snapshots, separators=(",", ":")),
                         ),
                     )
                     row = cursor.fetchone()
@@ -394,6 +408,22 @@ class GenerationTaskRepository:
             raise TaskNotFound("task has no input")
         return self._artifact_path(task, task.input_relative_path)
 
+    def asset_reference_path(self, task: GenerationTask, snapshot: dict[str, object]) -> Path:
+        asset_id = str(snapshot.get("asset_id") or "")
+        version_id = str(snapshot.get("asset_version_id") or "")
+        relative_path = str(snapshot.get("stored_relative_path") or "")
+        root = self.data_root.resolve()
+        asset_root = (root / "assets" / task.user_id / asset_id).resolve()
+        path = (root / relative_path).resolve()
+        if (
+            not asset_id
+            or not version_id
+            or path.parent != asset_root
+            or not path.name.startswith(f"{version_id}.")
+        ):
+            raise TaskNotFound("task asset reference path is invalid")
+        return path
+
     def thumbnail_path(self, task: GenerationTask) -> Path:
         if not task.thumbnail_relative_path:
             raise TaskNotFound("task has no thumbnail")
@@ -438,6 +468,7 @@ class GenerationTaskRepository:
             input_media_type=row["input_media_type"],
             input_sha256=row["input_sha256"],
             input_bytes=row["input_bytes"],
+            asset_versions=row.get("asset_versions") or [],
             status=cast(TaskStatus, row["status"]),
             result_relative_path=row["result_relative_path"],
             thumbnail_relative_path=row["thumbnail_relative_path"],

@@ -189,6 +189,66 @@ async function loadProviderCatalog() {
   }
 }
 
+function renderAssetItem(asset, { trash = false } = {}) {
+  const item = document.createElement("article");
+  item.className = "list-item asset-item";
+  const details = document.createElement("div");
+  const title = document.createElement("strong");
+  title.textContent = `${asset.name} · ${asset.asset_kind}`;
+  const version = asset.current_version;
+  const meta = document.createElement("small");
+  meta.textContent = version
+    ? `v${version.version_number} · ${version.byte_size} bytes · ${version.sha256.slice(0, 12)}`
+    : "没有可用版本";
+  details.append(title, meta);
+  const actions = document.createElement("div");
+  actions.className = "button-row";
+  if (version && asset.download_url) {
+    const link = document.createElement("a");
+    link.href = asset.download_url;
+    link.textContent = "下载当前版本";
+    link.className = "secondary-button compact task-link";
+    actions.append(link);
+  }
+  actions.append(actionButton(trash ? "恢复" : "移入回收站", trash ? "secondary-button compact" : "danger-button compact", async () => {
+    await api(trash ? `/api/assets/${encodeURIComponent(asset.asset_id)}/restore` : `/api/assets/${encodeURIComponent(asset.asset_id)}`, { method: trash ? "POST" : "DELETE" });
+    await loadAssets();
+  }));
+  item.append(details, actions);
+  return item;
+}
+
+async function loadAssets() {
+  const [quotaResult, listResult, trashResult] = await Promise.all([
+    api("/api/assets/quota"),
+    api("/api/assets?limit=100"),
+    api("/api/assets/trash?limit=100"),
+  ]);
+  const quota = quotaResult.quota;
+  document.querySelector("#asset-quota").textContent = `已用 ${quota.used_bytes} / ${quota.quota_bytes} bytes，剩余 ${quota.available_bytes} bytes（回收站内容仍计入额度）`;
+  const list = document.querySelector("#asset-list");
+  list.replaceChildren();
+  for (const asset of listResult.assets) list.append(renderAssetItem(asset));
+  const trash = document.querySelector("#asset-trash-list");
+  trash.replaceChildren();
+  if (trashResult.assets.length) {
+    const heading = document.createElement("p");
+    heading.className = "empty-state";
+    heading.textContent = "回收站（恢复后可再次用于新任务）";
+    trash.append(heading);
+    for (const asset of trashResult.assets) trash.append(renderAssetItem(asset, { trash: true }));
+  }
+  const taskAssets = document.querySelector("#task-assets");
+  taskAssets.replaceChildren();
+  for (const asset of listResult.assets) {
+    if (!asset.current_version) continue;
+    const option = document.createElement("option");
+    option.value = asset.current_version.asset_version_id;
+    option.textContent = `${asset.name} · v${asset.current_version.version_number}`;
+    taskAssets.append(option);
+  }
+}
+
 async function loadTaskProviders() {
   const result = await api("/api/providers/catalog");
   const providerSelect = document.querySelector("#task-provider");
@@ -279,6 +339,7 @@ async function boot() {
     document.querySelector("#current-user").textContent = `${result.user.username} · ${result.user.role}`;
     await loadSessions();
     await loadPersonalProviders();
+    await loadAssets();
     await loadTaskProviders();
     await loadTasks();
     if (result.user.role === "admin") {
@@ -322,21 +383,40 @@ document.querySelector("#download-task-archive").addEventListener("click", () =>
   window.location.assign(`/api/tasks/archive?ids=${ids.map(encodeURIComponent).join(",")}`);
 });
 
+document.querySelector("#create-asset-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    const file = document.querySelector("#asset-file").files[0];
+    const form = new FormData();
+    form.append("asset_kind", document.querySelector("#asset-kind").value);
+    form.append("name", document.querySelector("#asset-name").value);
+    form.append("file", file);
+    await api("/api/assets", { method: "POST", body: form });
+    event.target.reset();
+    await loadAssets();
+  } catch (error) {
+    errorElement.textContent = error.message;
+  }
+});
+
 document.querySelector("#create-task-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
     const inputFile = document.querySelector("#task-input-file").files[0];
+    const assetVersionIds = [...document.querySelector("#task-assets").selectedOptions].map((option) => option.value);
     const requestBody = inputFile ? (() => {
       const form = new FormData();
       form.append("provider_version_id", document.querySelector("#task-provider").value);
       form.append("model_id", document.querySelector("#task-model").value);
       form.append("prompt", document.querySelector("#task-prompt").value);
+      form.append("asset_version_ids", JSON.stringify(assetVersionIds));
       form.append("input_file", inputFile);
       return form;
     })() : JSON.stringify({
       provider_version_id: document.querySelector("#task-provider").value,
       model_id: document.querySelector("#task-model").value,
       prompt: document.querySelector("#task-prompt").value,
+      asset_version_ids: assetVersionIds,
     });
     await api("/api/tasks", {
       method: "POST",

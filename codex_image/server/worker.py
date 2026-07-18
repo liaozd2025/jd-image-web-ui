@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from codex_image.client import OpenAIImagesImageClient, OpenAIResponsesImageClient
 
+from .assets import AssetRepository
 from .config import ServerSettings
 from .database import PostgresConnections, ServerRuntimeRepository
 from .migrations import MigrationRunner
@@ -25,10 +26,12 @@ class HeartbeatWorker:
         self.migrations = MigrationRunner(connections)
         self.runtime = ServerRuntimeRepository(connections)
         self.provider_cipher = ProviderSecretCipher.from_encoded_key(settings.master_key)
+        self.assets = AssetRepository(connections, settings.data_root)
         self.tasks = GenerationTaskRepository(
             connections,
             self.provider_cipher,
             settings.data_root,
+            assets=self.assets,
         )
         self.instance_id = str(uuid4())
         self.stop_event = threading.Event()
@@ -93,8 +96,21 @@ class HeartbeatWorker:
                 input_data = input_path.read_bytes()
                 encoded = base64.b64encode(input_data).decode("ascii")
                 reference_images = [f"data:{claimed.task.input_media_type};base64,{encoded}"]
+            for snapshot in claimed.task.asset_versions:
+                asset_path = self.tasks.asset_reference_path(claimed.task, snapshot)
+                asset_kind = str(snapshot.get("asset_kind"))
+                if asset_kind in {"image", "reference"}:
+                    asset_data = asset_path.read_bytes()
+                    encoded = base64.b64encode(asset_data).decode("ascii")
+                    reference_images.append(f"data:{snapshot.get('mime_type')};base64,{encoded}")
+            prompt = claimed.task.prompt
+            for snapshot in claimed.task.asset_versions:
+                if str(snapshot.get("asset_kind")) not in {"template", "prompt"}:
+                    continue
+                asset_path = self.tasks.asset_reference_path(claimed.task, snapshot)
+                prompt = f"{prompt}\n\n{asset_path.read_text(encoding='utf-8')}"
             result = client.generate_image(
-                prompt=claimed.task.prompt,
+                prompt=prompt,
                 model=claimed.task.model_id,
                 reference_images=reference_images or None,
                 size=str(parameters.get("size") or "1024x1024"),
