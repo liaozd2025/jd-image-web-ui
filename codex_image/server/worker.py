@@ -44,6 +44,7 @@ class HeartbeatWorker:
                     self.schema_ready = self.migrations.try_apply()
                     if self.schema_ready:
                         self.provider_cipher.ensure_database_key(self.runtime.connections)
+                        self.tasks.reconcile_running_tasks()
                 if self.schema_ready:
                     try:
                         self._process_one_task()

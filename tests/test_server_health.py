@@ -22,6 +22,7 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0005_user_lifecycle",
     "0006_provider_catalog",
     "0007_generation_tasks",
+    "0008_reconcile_generation_tasks",
 ]
 
 

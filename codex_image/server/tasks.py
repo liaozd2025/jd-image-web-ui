@@ -14,7 +14,7 @@ from .database import PostgresConnections
 from .provider_secrets import MasterKeyMismatch, ProviderSecretCipher
 
 
-TaskStatus = Literal["queued", "running", "completed", "failed"]
+TaskStatus = Literal["queued", "running", "interrupted", "completed", "failed"]
 
 
 class TaskConfigurationError(RuntimeError):
@@ -236,6 +236,20 @@ class GenerationTaskRepository:
                     api_key=api_key,
                     configuration_error=configuration_error,
                 )
+
+    def reconcile_running_tasks(self) -> int:
+        with self.connections.connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE server_generation_tasks
+                    SET status = 'interrupted',
+                        error_message = 'worker interrupted before completion',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE status = 'running'
+                    """
+                )
+                return cursor.rowcount
 
     def complete_task(
         self,
