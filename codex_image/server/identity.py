@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import hashlib
 import hmac
-from typing import Any, Literal, cast
+from typing import Any, Literal, TypeAlias, cast
 from uuid import uuid4
 
 from psycopg import errors
@@ -30,6 +30,14 @@ SessionAuditAction = Literal[
     "session.revoked",
     "session.revoked_others",
     "session.revoked_all",
+]
+SessionRevocationReason = Literal[
+    "account_deactivated",
+    "password_changed",
+    "password_reset",
+    "user_logout",
+    "user_requested",
+    "user_targeted",
 ]
 
 
@@ -85,6 +93,34 @@ class BrowserSession:
     created_at: datetime
     last_seen_at: datetime
     expires_at: datetime
+
+
+@dataclass(frozen=True)
+class AllBrowserSessions:
+    pass
+
+
+@dataclass(frozen=True)
+class TargetBrowserSession:
+    session_id: str
+
+
+@dataclass(frozen=True)
+class OtherBrowserSessions:
+    current_session_id: str
+
+
+@dataclass(frozen=True)
+class BrowserSessionByTokenHash:
+    token_hash: str
+
+
+SessionRevocationSelector: TypeAlias = (
+    AllBrowserSessions
+    | TargetBrowserSession
+    | OtherBrowserSessions
+    | BrowserSessionByTokenHash
+)
 
 
 class IdentityRepository:
@@ -366,6 +402,7 @@ class IdentityRepository:
                     actor_user_id=user_id,
                     action="session.revoked_all",
                     reason="password_changed",
+                    selector=AllBrowserSessions(),
                 )
                 record_audit_event(
                     cursor,
@@ -392,7 +429,7 @@ class IdentityRepository:
                     actor_user_id=user_id,
                     action="session.revoked",
                     reason="user_logout",
-                    token_hash=hash_token(token),
+                    selector=BrowserSessionByTokenHash(hash_token(token)),
                     record_empty=False,
                 )
 
@@ -438,7 +475,7 @@ class IdentityRepository:
                     actor_user_id=user_id,
                     action="session.revoked",
                     reason="user_targeted",
-                    target_session_id=target_session_id,
+                    selector=TargetBrowserSession(target_session_id),
                     record_empty=False,
                 )
                 return bool(revoked_sessions)
@@ -452,7 +489,7 @@ class IdentityRepository:
                     actor_user_id=user_id,
                     action="session.revoked_others",
                     reason="user_requested",
-                    exclude_session_id=current_session_id,
+                    selector=OtherBrowserSessions(current_session_id),
                 )
                 return len(revoked_sessions)
 
@@ -465,6 +502,7 @@ class IdentityRepository:
                     actor_user_id=user_id,
                     action="session.revoked_all",
                     reason="user_requested",
+                    selector=AllBrowserSessions(),
                 )
                 return len(revoked_sessions)
 
@@ -557,6 +595,7 @@ class IdentityRepository:
                     actor_user_id=actor_user_id,
                     action="session.revoked_all",
                     reason="password_reset",
+                    selector=AllBrowserSessions(),
                 )
                 record_audit_event(
                     cursor,
@@ -593,6 +632,7 @@ class IdentityRepository:
                         actor_user_id=actor_user_id,
                         action="session.revoked_all",
                         reason="account_deactivated",
+                        selector=AllBrowserSessions(),
                     )
                 record_audit_event(
                     cursor,
@@ -668,27 +708,21 @@ class IdentityRepository:
         user_id: str,
         actor_user_id: str,
         action: SessionAuditAction,
-        reason: str,
-        target_session_id: str | None = None,
-        exclude_session_id: str | None = None,
-        token_hash: str | None = None,
+        reason: SessionRevocationReason,
+        selector: SessionRevocationSelector,
         record_empty: bool = True,
     ) -> list[str]:
-        selectors = [target_session_id, exclude_session_id, token_hash]
-        if sum(value is not None for value in selectors) > 1:
-            raise ValueError("only one session revocation selector may be used")
-
         conditions = ["user_id = %s", "revoked_at IS NULL"]
         parameters: list[object] = [user_id]
-        if target_session_id is not None:
+        if isinstance(selector, TargetBrowserSession):
             conditions.append("session_id = %s")
-            parameters.append(target_session_id)
-        elif exclude_session_id is not None:
+            parameters.append(selector.session_id)
+        elif isinstance(selector, OtherBrowserSessions):
             conditions.append("session_id <> %s")
-            parameters.append(exclude_session_id)
-        elif token_hash is not None:
+            parameters.append(selector.current_session_id)
+        elif isinstance(selector, BrowserSessionByTokenHash):
             conditions.append("token_hash = %s")
-            parameters.append(token_hash)
+            parameters.append(selector.token_hash)
 
         cursor.execute(
             "UPDATE server_sessions "
