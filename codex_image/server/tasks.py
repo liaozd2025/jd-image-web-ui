@@ -209,6 +209,22 @@ class GenerationTaskRepository:
             raise TaskNotFound("task was not found")
         return self._task_from_row(row)
 
+    def resubmit_task(self, user_id: str, task_id: str) -> GenerationTask:
+        task = self.get_task(user_id, task_id)
+        try:
+            input_content = self.input_path(task).read_bytes()
+        except (OSError, TaskNotFound) as error:
+            raise TaskConfigurationError("task input is unavailable") from error
+        return self.create_task(
+            user_id,
+            provider_version_id=task.provider_version_id,
+            model_id=task.model_id,
+            prompt=task.prompt,
+            request_parameters=task.request_parameters,
+            input_bytes=input_content,
+            input_media_type=task.input_media_type,
+        )
+
     def claim_next_task(self) -> ClaimedGenerationTask | None:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:

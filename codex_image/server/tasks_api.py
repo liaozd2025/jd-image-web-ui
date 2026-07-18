@@ -125,6 +125,17 @@ def install_task_routes(
             return JSONResponse(status_code=404, content={"detail": str(error)})
         return JSONResponse(content={"task": _task_payload(task)})
 
+    @app.post("/api/tasks/{task_id}/resubmit", response_model=None, status_code=201)
+    def resubmit_task(request: Request, task_id: str) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        try:
+            task = tasks.resubmit_task(session.user.user_id, task_id)
+        except TaskNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        except TaskConfigurationError as error:
+            return JSONResponse(status_code=409, content={"detail": str(error)})
+        return JSONResponse(status_code=201, content={"task": _task_payload(task)})
+
     @app.get("/api/tasks/{task_id}/result")
     def get_task_result(request: Request, task_id: str):
         return _serve_task_file(request, task_id, kind="result", download=False)

@@ -242,6 +242,15 @@ async function loadTasks() {
       error.className = "error";
       error.textContent = task.error_message || "供应商执行失败";
       item.append(error);
+      item.append(actionButton("重新提交", "secondary-button compact", async () => {
+        await api(`/api/tasks/${encodeURIComponent(task.task_id)}/resubmit`, { method: "POST" });
+        await loadTasks();
+      }));
+    } else if (task.status === "interrupted") {
+      item.append(actionButton("重新提交", "secondary-button compact", async () => {
+        await api(`/api/tasks/${encodeURIComponent(task.task_id)}/resubmit`, { method: "POST" });
+        await loadTasks();
+      }));
     }
     list.append(item);
   }

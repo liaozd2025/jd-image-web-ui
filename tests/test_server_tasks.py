@@ -239,6 +239,11 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         failed = self._wait_for_status(user, failed_task, "failed")
                         self.assertIn("fake provider failure", failed.json()["task"]["error_message"])
                         self.assertNotIn(TASK_API_KEY, failed.text)
+                        resubmitted = user.post(
+                            f"/api/tasks/{failed_task}/resubmit",
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(resubmitted.status_code, 201)
 
                         with TestClient(create_server_app(settings)) as other:
                             other_login = login(
@@ -258,6 +263,13 @@ class ServerGenerationTaskTests(unittest.TestCase):
                             self.assertEqual(other.get(f"/api/tasks/{task_id}/result").status_code, 404)
                             self.assertEqual(other.get(f"/api/tasks/{task_id}/input").status_code, 404)
                             self.assertEqual(other.get(f"/api/tasks/archive?ids={task_id}").status_code, 404)
+                            self.assertEqual(
+                                other.post(
+                                    f"/api/tasks/{task_id}/resubmit",
+                                    headers={"X-CSRF-Token": other_changed["csrf_token"]},
+                                ).status_code,
+                                404,
+                            )
         finally:
             if worker is not None and worker.poll() is None:
                 worker.terminate()
