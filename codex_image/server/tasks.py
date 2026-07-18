@@ -163,7 +163,8 @@ class GenerationTaskRepository:
                     raise TaskConfigurationError("model is not allowed for this provider version")
                 encrypted_api_key = provider["encrypted_api_key"]
                 if not encrypted_api_key:
-                    raise TaskConfigurationError("active personal provider credential is required")
+                    scope_label = "department" if provider_scope == "department" else "personal"
+                    raise TaskConfigurationError(f"active {scope_label} provider credential is required")
                 try:
                     if provider_scope == "department":
                         # Department credentials are intentionally decrypted only in Worker.
@@ -387,6 +388,12 @@ class GenerationTaskRepository:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
                 cursor.execute(
+                    "SELECT global_concurrency, per_user_concurrency FROM server_scheduler_settings WHERE singleton FOR UPDATE"
+                )
+                limits = cursor.fetchone()
+                if limits is None:
+                    return None
+                cursor.execute(
                     """
                     SELECT
                         tasks.*,
@@ -406,11 +413,24 @@ class GenerationTaskRepository:
                     LEFT JOIN department_provider_credentials AS department_credentials
                       ON department_credentials.provider_version_id = tasks.provider_version_id
                      AND department_credentials.is_active = TRUE
+                    LEFT JOIN server_scheduler_user_state AS scheduler_state
+                      ON scheduler_state.user_id = tasks.user_id
                     WHERE tasks.status = 'queued' AND tasks.deleted_at IS NULL
-                    ORDER BY tasks.created_at, tasks.task_id
+                      AND (
+                          SELECT COUNT(*) FROM server_generation_tasks AS running_tasks
+                          WHERE running_tasks.status = 'running'
+                      ) < %s
+                      AND (
+                          SELECT COUNT(*) FROM server_generation_tasks AS user_running_tasks
+                          WHERE user_running_tasks.status = 'running'
+                            AND user_running_tasks.user_id = tasks.user_id
+                      ) < %s
+                    ORDER BY COALESCE(scheduler_state.last_claimed_at, TIMESTAMP 'epoch'),
+                             tasks.created_at, tasks.task_id
                     FOR UPDATE OF tasks SKIP LOCKED
                     LIMIT 1
-                    """
+                    """,
+                    (limits[0], limits[1]),
                 )
                 row = cursor.fetchone()
                 if row is None:
@@ -426,6 +446,14 @@ class GenerationTaskRepository:
                     (row["task_id"],),
                 )
                 task = self._task_from_row(cursor.fetchone())
+                cursor.execute(
+                    """
+                    INSERT INTO server_scheduler_user_state (user_id, last_claimed_at)
+                    VALUES (%s, CURRENT_TIMESTAMP)
+                    ON CONFLICT (user_id) DO UPDATE SET last_claimed_at = EXCLUDED.last_claimed_at
+                    """,
+                    (task.user_id,),
+                )
                 api_key: str | None = None
                 configuration_error: str | None = None
                 encrypted_api_key = (
@@ -451,7 +479,11 @@ class GenerationTaskRepository:
                                 encrypted_value=encrypted_api_key,
                             )
                     except MasterKeyMismatch:
-                        configuration_error = "personal provider credential is unavailable"
+                        configuration_error = (
+                            "department provider credential is unavailable"
+                            if row["provider_scope"] == "department"
+                            else "personal provider credential is unavailable"
+                        )
                 return ClaimedGenerationTask(
                     task=task,
                     api_mode=cast(Literal["responses", "images"] | None, row["api_mode"]),

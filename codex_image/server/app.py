@@ -22,6 +22,7 @@ from .providers import ProviderRepository
 from .providers_api import install_provider_routes
 from .shared_assets import SharedAssetRepository
 from .shared_assets_api import install_shared_asset_routes
+from .scheduler_api import install_scheduler_routes
 from .tasks import GenerationTaskRepository
 from .tasks_api import install_task_routes
 from .volume import check_file_volume
@@ -100,5 +101,6 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
     install_asset_routes(app, assets=asset_repository)
     install_shared_asset_routes(app, shared_assets=shared_asset_repository)
     install_department_provider_routes(app, departments=department_provider_repository)
+    install_scheduler_routes(app, connections=connections)
     install_task_routes(app, tasks=task_repository)
     return app

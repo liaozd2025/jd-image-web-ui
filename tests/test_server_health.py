@@ -30,6 +30,7 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0013_task_trash_and_storage_usage",
     "0014_shared_assets",
     "0015_department_providers_and_quota",
+    "0016_scheduler_limits",
 ]
 
 
