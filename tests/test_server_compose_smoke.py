@@ -29,6 +29,7 @@ class ServerComposeSmokeTests(unittest.TestCase):
         cls.environment.update(
             {
                 "JD_IMAGE_HTTP_PORT": str(cls.http_port),
+                "JD_IMAGE_POSTGRES_PASSWORD": "jd_image_smoke_test",
                 "JD_IMAGE_WORKER_HEARTBEAT_INTERVAL_SECONDS": "0.2",
                 "JD_IMAGE_WORKER_HEARTBEAT_TTL_SECONDS": "0.8",
             }
@@ -68,15 +69,37 @@ class ServerComposeSmokeTests(unittest.TestCase):
 
         self._compose("start", "worker")
         self._wait_for_status("/health/ready", 200)
-        self._compose("restart", "web", "worker")
+
+        self._compose("stop", "postgres")
+        database_down = self._wait_for_status("/health/ready", 503)
+        database_down_live = self._wait_for_status("/health/live", 200)
+        self._compose("start", "postgres")
+        self._wait_for_status("/health/ready", 200)
+
+        self._compose("exec", "--user", "root", "--no-TTY", "web", "chmod", "-R", "a-w", "/srv/jd-image-data")
+        try:
+            volume_unwritable = self._wait_for_status("/health/ready", 503)
+        finally:
+            self._compose("exec", "--user", "root", "--no-TTY", "web", "chmod", "-R", "u+w", "/srv/jd-image-data")
+        self._wait_for_status("/health/ready", 200)
+
+        self._compose("restart", "postgres", "web", "worker")
         restarted = self._wait_for_status("/health/ready", 200)
         restarted_components = restarted["components"]
 
         self.assertEqual(degraded["components"]["worker"]["status"], "unavailable")
         self.assertEqual(live, {"status": "ok", "component": "web"})
+        self.assertEqual(database_down["components"]["database"]["status"], "unavailable")
+        self.assertEqual(database_down["components"]["file_volume"]["status"], "ready")
+        self.assertEqual(database_down_live, {"status": "ok", "component": "web"})
+        self.assertEqual(volume_unwritable["components"]["file_volume"]["status"], "unavailable")
         self.assertEqual(
             first_components["database"]["schema_migrations"],
             restarted_components["database"]["schema_migrations"],
+        )
+        self.assertEqual(
+            first_components["database"]["database_id"],
+            restarted_components["database"]["database_id"],
         )
         self.assertEqual(
             first_components["file_volume"]["volume_id"],

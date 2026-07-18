@@ -16,18 +16,35 @@ TEST_DATABASE_URL = os.environ.get("JD_IMAGE_TEST_DATABASE_URL", "")
 
 @unittest.skipUnless(TEST_DATABASE_URL, "set JD_IMAGE_TEST_DATABASE_URL to a real PostgreSQL database")
 class ServerHealthTests(unittest.TestCase):
-    def test_http_health_distinguishes_live_web_from_missing_worker(self) -> None:
-        from codex_image.server.app import create_server_app
+    def _settings(self, data_root: Path):
         from codex_image.server.config import ServerSettings
 
+        return ServerSettings(
+            database_url=TEST_DATABASE_URL,
+            data_root=data_root,
+            database_connect_timeout_seconds=2,
+            worker_heartbeat_interval_seconds=0.1,
+            worker_heartbeat_ttl_seconds=0.4,
+        )
+
+    def _worker_environment(self, data_root: Path) -> dict[str, str]:
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "JD_IMAGE_DATABASE_URL": TEST_DATABASE_URL,
+                "JD_IMAGE_DATA_ROOT": str(data_root),
+                "JD_IMAGE_DATABASE_CONNECT_TIMEOUT_SECONDS": "2",
+                "JD_IMAGE_WORKER_HEARTBEAT_INTERVAL_SECONDS": "0.1",
+                "JD_IMAGE_WORKER_HEARTBEAT_TTL_SECONDS": "0.4",
+            }
+        )
+        return environment
+
+    def test_http_health_distinguishes_live_web_from_missing_worker(self) -> None:
+        from codex_image.server.app import create_server_app
+
         with tempfile.TemporaryDirectory() as tmp:
-            settings = ServerSettings(
-                database_url=TEST_DATABASE_URL,
-                data_root=Path(tmp),
-                database_connect_timeout_seconds=2,
-                worker_heartbeat_interval_seconds=0.1,
-                worker_heartbeat_ttl_seconds=0.4,
-            )
+            settings = self._settings(Path(tmp))
             with TestClient(create_server_app(settings)) as client:
                 live = client.get("/health/live")
                 ready = client.get("/health/ready")
@@ -39,37 +56,20 @@ class ServerHealthTests(unittest.TestCase):
         self.assertEqual(ready.json()["components"]["database"]["status"], "ready")
         self.assertEqual(
             ready.json()["components"]["database"]["schema_versions"],
-            ["0001_server_runtime"],
+            ["0001_server_runtime", "0002_server_runtime_identity"],
         )
         self.assertEqual(ready.json()["components"]["file_volume"]["status"], "ready")
         self.assertEqual(ready.json()["components"]["worker"]["status"], "unavailable")
 
     def test_independent_worker_makes_server_ready_and_stopping_it_degrades_readiness(self) -> None:
         from codex_image.server.app import create_server_app
-        from codex_image.server.config import ServerSettings
 
         with tempfile.TemporaryDirectory() as tmp:
             data_root = Path(tmp)
-            settings = ServerSettings(
-                database_url=TEST_DATABASE_URL,
-                data_root=data_root,
-                database_connect_timeout_seconds=2,
-                worker_heartbeat_interval_seconds=0.1,
-                worker_heartbeat_ttl_seconds=0.4,
-            )
-            worker_environment = os.environ.copy()
-            worker_environment.update(
-                {
-                    "JD_IMAGE_DATABASE_URL": TEST_DATABASE_URL,
-                    "JD_IMAGE_DATA_ROOT": str(data_root),
-                    "JD_IMAGE_DATABASE_CONNECT_TIMEOUT_SECONDS": "2",
-                    "JD_IMAGE_WORKER_HEARTBEAT_INTERVAL_SECONDS": "0.1",
-                    "JD_IMAGE_WORKER_HEARTBEAT_TTL_SECONDS": "0.4",
-                }
-            )
+            settings = self._settings(data_root)
             worker = subprocess.Popen(
                 [sys.executable, "-m", "codex_image.server.worker"],
-                env=worker_environment,
+                env=self._worker_environment(data_root),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
                 text=True,
@@ -96,24 +96,21 @@ class ServerHealthTests(unittest.TestCase):
 
     def test_schema_migration_and_file_volume_identity_persist_across_web_restarts(self) -> None:
         from codex_image.server.app import create_server_app
-        from codex_image.server.config import ServerSettings
 
         with tempfile.TemporaryDirectory() as tmp:
-            settings = ServerSettings(
-                database_url=TEST_DATABASE_URL,
-                data_root=Path(tmp),
-                database_connect_timeout_seconds=2,
-                worker_heartbeat_interval_seconds=0.1,
-                worker_heartbeat_ttl_seconds=0.4,
-            )
+            settings = self._settings(Path(tmp))
             with TestClient(create_server_app(settings)) as first_client:
                 first = first_client.get("/health/ready").json()["components"]
             time.sleep(0.05)
             with TestClient(create_server_app(settings)) as second_client:
                 second = second_client.get("/health/ready").json()["components"]
 
-        self.assertEqual(first["database"]["schema_versions"], ["0001_server_runtime"])
+        self.assertEqual(
+            first["database"]["schema_versions"],
+            ["0001_server_runtime", "0002_server_runtime_identity"],
+        )
         self.assertEqual(first["database"]["schema_migrations"], second["database"]["schema_migrations"])
+        self.assertEqual(first["database"]["database_id"], second["database"]["database_id"])
         self.assertEqual(first["file_volume"]["volume_id"], second["file_volume"]["volume_id"])
 
     def _wait_for_status(self, client: TestClient, path: str, status_code: int):

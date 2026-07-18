@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: ${JD_IMAGE_POSTGRES_DB:-jd_image}
       POSTGRES_USER: ${JD_IMAGE_POSTGRES_USER:-jd_image}
-      POSTGRES_PASSWORD: ${JD_IMAGE_POSTGRES_PASSWORD:-jd_image_dev}
+      POSTGRES_PASSWORD: ${JD_IMAGE_POSTGRES_PASSWORD:?JD_IMAGE_POSTGRES_PASSWORD is required}
     healthcheck:
       test:
         - CMD-SHELL
@@ -20,7 +20,7 @@ services:
       context: .
       dockerfile: Dockerfile.server
     environment: &server_environment
-      JD_IMAGE_DATABASE_URL: postgresql://${JD_IMAGE_POSTGRES_USER:-jd_image}:${JD_IMAGE_POSTGRES_PASSWORD:-jd_image_dev}@postgres:5432/${JD_IMAGE_POSTGRES_DB:-jd_image}
+      JD_IMAGE_DATABASE_URL: postgresql://${JD_IMAGE_POSTGRES_USER:-jd_image}:${JD_IMAGE_POSTGRES_PASSWORD:?JD_IMAGE_POSTGRES_PASSWORD is required}@postgres:5432/${JD_IMAGE_POSTGRES_DB:-jd_image}
       JD_IMAGE_DATA_ROOT: /srv/jd-image-data
       JD_IMAGE_DATABASE_CONNECT_TIMEOUT_SECONDS: ${JD_IMAGE_DATABASE_CONNECT_TIMEOUT_SECONDS:-2}
       JD_IMAGE_WORKER_HEARTBEAT_INTERVAL_SECONDS: ${JD_IMAGE_WORKER_HEARTBEAT_INTERVAL_SECONDS:-2}

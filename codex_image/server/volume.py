@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
 from uuid import uuid4
+
+from .health import FileVolumeHealth, HealthStatus
 
 
 VOLUME_ID_FILE = ".server-volume-id"
 
 
-def check_file_volume(data_root: Path, *, component: str = "web") -> dict[str, Any]:
+def check_file_volume(data_root: Path, *, component: str = "web") -> FileVolumeHealth:
     probe_path: Path | None = None
     try:
         data_root.mkdir(parents=True, exist_ok=True)
@@ -29,9 +30,9 @@ def check_file_volume(data_root: Path, *, component: str = "web") -> dict[str, A
         probe_path.write_text("ok", encoding="utf-8")
         if probe_path.read_text(encoding="utf-8") != "ok":
             raise OSError("file volume probe could not be read")
-        return {"status": "ready", "volume_id": volume_id}
+        return {"status": HealthStatus.READY, "volume_id": volume_id}
     except OSError:
-        return {"status": "unavailable"}
+        return {"status": HealthStatus.UNAVAILABLE}
     finally:
         if probe_path is not None:
             probe_path.unlink(missing_ok=True)
