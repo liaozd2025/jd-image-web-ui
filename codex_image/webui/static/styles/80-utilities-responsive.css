@@ -816,7 +816,7 @@ button:disabled {
     min-height: 64px;
     flex: 0 0 64px;
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     border-right: none;
     border-bottom: 1px solid var(--line);
@@ -883,6 +883,24 @@ button:disabled {
 
   .task-history-batch-button {
     display: none;
+  }
+
+  .sidebar-account {
+    padding: 0 12px 0 0;
+    border-top: 0;
+  }
+
+  .sidebar-account-trigger {
+    width: auto;
+    min-width: 154px;
+  }
+
+  .sidebar-account-menu {
+    top: calc(100% + 2px);
+    right: 10px;
+    bottom: auto;
+    left: auto;
+    width: 230px;
   }
 
   .top-nav {

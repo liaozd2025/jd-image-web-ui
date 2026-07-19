@@ -5,21 +5,25 @@ import unittest
 
 
 class ServerVersionWorkspaceUiTests(unittest.TestCase):
-    def test_workspace_uses_server_account_controls_without_codex_switcher(self) -> None:
+    def test_workspace_uses_sidebar_account_controls_without_separate_admin_ui(self) -> None:
         html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
         account = Path("codex_image/webui/frontend/src/server-account.ts").read_text(encoding="utf-8")
 
         self.assertIn('id="serverAccountName"', html)
         self.assertIn('id="serverLogoutButton"', html)
-        self.assertIn('id="serverAdminLink"', html)
+        self.assertIn('id="serverAccountButton"', html)
+        self.assertIn('id="serverAccountSettingsButton"', html)
+        self.assertNotIn('id="serverAdminLink"', html)
         self.assertNotIn('id="authSourceGroup"', html)
         self.assertNotIn('data-auth-source="codex"', html)
         self.assertNotIn('data-auth-source="api"', html)
-        self.assertIn('id="systemSettingsCodexTab"', html)
-        self.assertRegex(html, r'id="systemSettingsCodexTab"[^>]*hidden[^>]*disabled')
+        self.assertIn('data-system-settings-tab="users"', html)
+        self.assertIn('data-admin-only', html)
         self.assertIn('fetch("/api/auth/me")', account)
         self.assertIn('fetch("/api/auth/logout"', account)
-        self.assertIn('user.role === "admin"', account)
+        self.assertIn('document.documentElement.dataset.userRole = context.user.role', account)
+        self.assertIn('translate(role === "admin" ? "serverAccount.roleAdmin" : "serverAccount.roleUser")', account)
+        self.assertIn('document.addEventListener(LOCALE_CHANGE_EVENT, renderCurrentUser)', account)
         self.assertIn('"X-CSRF-Token"', account)
 
     def test_personal_and_shared_sources_are_marked_and_shared_wording_is_used(self) -> None:

@@ -1333,7 +1333,7 @@ console.log(cases.map((color) => readableTextColor(color)).join("\\n"));
             r'id="modeSpecificSettings"[\s\S]*id="mainModelField"[\s\S]*id="apiDirectSettingsNotice"[\s\S]*id="promptFidelityField"',
         )
         self.assertIn("使用 API 图像生成模型", html)
-        self.assertIn("API 设置", html)
+        self.assertIn("系统设置", html)
         self.assertIn("不参与本次请求", html)
         self.assertNotIn("原始/保真/创意可用，保真规则随 prompt 发送", html)
         self.assertNotIn("<span>提示词模式</span>\n                      <strong>原始/保真/创意可用", html)

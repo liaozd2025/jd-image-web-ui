@@ -2,181 +2,198 @@ import { getLegacyBridge } from "./state";
 import { refreshSegmentedIndicators } from "./segmented-indicator";
 
 let systemSettingsFeatureInitialized = false;
-let systemSettingsHeightAnimationToken = 0;
-let systemSettingsHeightAnimationTimer: number | undefined;
+let activeTab = "account";
+let pendingUrlTab = "";
+let dirtyForm: HTMLFormElement | null = null;
+let hasLooseDirtyInput = false;
 
-type SystemSettingsTab = "api" | "codex" | "language" | "storage";
-
-const MIN_SYSTEM_SETTINGS_MODAL_EDGE = 30;
-const VALID_TABS = new Set<SystemSettingsTab>(["api", "language", "storage"]);
-
-function normalizedTab(tab: any): SystemSettingsTab {
-  return VALID_TABS.has(tab) ? tab : "api";
-}
+const PERSONAL_TABS = new Set(["account", "language", "api", "notifications", "usage"]);
+const ADMIN_TABS = new Set(["users", "catalog", "department", "shared", "scheduler", "content", "audit"]);
+const VALID_TABS = new Set([...PERSONAL_TABS, ...ADMIN_TABS]);
+const LAST_TAB_KEY = "codex-image-system-settings-tab";
 
 function maybeCall(name: string, ...args: any[]): void {
   const method = getLegacyBridge().methods[name];
   if (typeof method === "function") method(...args);
 }
 
-function systemSettingsPanel(): HTMLElement | null {
-  const { els } = getLegacyBridge();
-  return els.systemSettingsModal?.querySelector(".system-settings-modal-panel") || null;
+function normalizeTab(tab: unknown): string {
+  const value = tab === "storage" ? "notifications" : String(tab || "");
+  return VALID_TABS.has(value) ? value : "account";
 }
 
-function shouldAnimateSystemSettingsHeight(): boolean {
-  const { els } = getLegacyBridge();
-  if (els.systemSettingsModal?.classList.contains("hidden")) return false;
-  return !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+function isAdmin(): boolean {
+  return document.documentElement.dataset.userRole === "admin";
 }
 
-function clearSystemSettingsHeightAnimation(panel: HTMLElement): void {
-  systemSettingsHeightAnimationToken += 1;
-  if (systemSettingsHeightAnimationTimer !== undefined) {
-    window.clearTimeout(systemSettingsHeightAnimationTimer);
-    systemSettingsHeightAnimationTimer = undefined;
+function allowedTab(tab: unknown): string {
+  const value = normalizeTab(tab);
+  return ADMIN_TABS.has(value) && !isAdmin() ? "account" : value;
+}
+
+function shell(): HTMLElement | null {
+  return document.querySelector<HTMLElement>("#systemSettingsModal");
+}
+
+function clearGlobalStatus(): void {
+  const status = document.querySelector<HTMLElement>("#systemSettingsGlobalStatus");
+  if (status) status.textContent = "";
+}
+
+function updateSettingsUrl(open: boolean): void {
+  const url = new URL(window.location.href);
+  if (open) {
+    url.searchParams.set("settings", "1");
+    url.searchParams.set("settingsTab", activeTab);
+    url.searchParams.delete("tab");
+  } else {
+    url.searchParams.delete("settings");
+    url.searchParams.delete("settingsTab");
+    url.searchParams.delete("tab");
   }
-  panel.classList.remove("is-height-animating");
-  panel.style.height = "";
+  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
-function positionSystemSettingsModal(): void {
-  const { els } = getLegacyBridge();
-  const modal = els.systemSettingsModal as HTMLElement | null;
-  const panel = systemSettingsPanel();
-  if (!modal || !panel || modal.classList.contains("hidden")) return;
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-  const panelHeight = panel.getBoundingClientRect().height;
-  const centeredTop = Math.floor((viewportHeight - panelHeight) / 2);
-  const top = Math.max(MIN_SYSTEM_SETTINGS_MODAL_EDGE, centeredTop);
-  modal.style.setProperty("--system-settings-modal-top", `${top}px`);
+function confirmDiscard(): boolean {
+  if (!dirtyForm && !hasLooseDirtyInput) return true;
+  const confirmed = window.confirm("当前页面有未保存的更改，确定放弃吗？");
+  if (confirmed) {
+    dirtyForm?.setAttribute("data-dirty", "false");
+    dirtyForm = null;
+    hasLooseDirtyInput = false;
+  }
+  return confirmed;
 }
 
-function systemSettingsTargetHeight(panel: HTMLElement): number {
-  const style = window.getComputedStyle(panel);
-  const borderHeight = (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
-  const naturalHeight = Math.ceil(panel.scrollHeight + borderHeight);
-  const maxHeight = parseFloat(style.maxHeight);
-  return Number.isFinite(maxHeight) ? Math.min(naturalHeight, Math.ceil(maxHeight)) : naturalHeight;
-}
-
-function animateSystemSettingsPanelHeight(panel: HTMLElement, beforeHeight: number): void {
-  const afterHeight = systemSettingsTargetHeight(panel);
-  if (Math.abs(afterHeight - beforeHeight) < 1) {
-    clearSystemSettingsHeightAnimation(panel);
+export function markSystemSettingsDirty(form?: HTMLFormElement | null): void {
+  const target = form || document.querySelector<HTMLFormElement>("[data-sensitive-form]:focus-within");
+  if (!target) {
+    hasLooseDirtyInput = true;
     return;
   }
-  systemSettingsHeightAnimationToken += 1;
-  const token = systemSettingsHeightAnimationToken;
-  panel.classList.add("is-height-animating");
-  panel.style.height = `${beforeHeight}px`;
-  panel.getBoundingClientRect();
-  window.requestAnimationFrame(() => {
-    if (token !== systemSettingsHeightAnimationToken) return;
-    panel.style.height = `${afterHeight}px`;
-  });
-  const cleanup = (event?: TransitionEvent): void => {
-    if (event && (event.target !== panel || event.propertyName !== "height")) return;
-    if (token !== systemSettingsHeightAnimationToken) return;
-    systemSettingsHeightAnimationToken += 1;
-    if (systemSettingsHeightAnimationTimer !== undefined) {
-      window.clearTimeout(systemSettingsHeightAnimationTimer);
-      systemSettingsHeightAnimationTimer = undefined;
-    }
-    panel.removeEventListener("transitionend", cleanup);
-    panel.classList.remove("is-height-animating");
-    panel.style.height = "";
-  };
-  panel.addEventListener("transitionend", cleanup);
-  systemSettingsHeightAnimationTimer = window.setTimeout(() => cleanup(), 320);
+  if (dirtyForm && dirtyForm !== target) dirtyForm.dataset.dirty = "false";
+  dirtyForm = target;
+  target.dataset.dirty = "true";
 }
 
-export function setSystemSettingsTab(tab: any, options: { refresh?: boolean } = {}): void {
-  const selected = normalizedTab(tab);
-  const { els } = getLegacyBridge();
-  const panel = systemSettingsPanel();
-  const animateHeight = Boolean(panel && shouldAnimateSystemSettingsHeight());
-  const beforeHeight = animateHeight && panel ? panel.getBoundingClientRect().height : 0;
-  if (animateHeight && panel) clearSystemSettingsHeightAnimation(panel);
-  const buttons = Array.from(els.systemSettingsTabs?.querySelectorAll("[data-system-settings-tab]") || []);
-  buttons.forEach((button: any) => {
+export function clearSystemSettingsDirty(form?: HTMLFormElement | null): void {
+  if (form && dirtyForm !== form) return;
+  dirtyForm?.setAttribute("data-dirty", "false");
+  dirtyForm = null;
+  if (!form) hasLooseDirtyInput = false;
+}
+
+function applyRoleVisibility(): void {
+  const admin = isAdmin();
+  document.querySelectorAll<HTMLElement>("#systemSettingsModal [data-admin-only]").forEach((node) => {
+    node.classList.toggle("hidden", !admin);
+    if (!admin && node.matches("[data-system-settings-panel]")) node.hidden = true;
+  });
+  if (!admin && ADMIN_TABS.has(activeTab)) setSystemSettingsTab("account", { refresh: false, updateUrl: false });
+}
+
+export function setSystemSettingsTab(
+  tab: unknown,
+  options: { refresh?: boolean; updateUrl?: boolean; skipGuard?: boolean } = {},
+): boolean {
+  const selected = allowedTab(tab);
+  if (!options.skipGuard && selected !== activeTab && !confirmDiscard()) return false;
+  activeTab = selected;
+  clearGlobalStatus();
+  document.querySelectorAll<HTMLElement>("#systemSettingsTabs [data-system-settings-tab]").forEach((button) => {
     const active = button.dataset.systemSettingsTab === selected;
     button.classList.toggle("active", active);
-    button.setAttribute("aria-selected", active ? "true" : "false");
+    button.setAttribute("aria-current", active ? "page" : "false");
     button.tabIndex = active ? 0 : -1;
   });
-  [
-    ["api", els.systemSettingsApiPanel],
-    ["codex", els.systemSettingsCodexPanel],
-    ["language", els.systemSettingsLanguagePanel],
-    ["storage", els.systemSettingsStoragePanel],
-  ].forEach(([name, panel]: any[]) => {
-    if (!panel) return;
-    const active = name === selected;
+  document.querySelectorAll<HTMLElement>("#systemSettingsModal [data-system-settings-panel]").forEach((panel) => {
+    const active = panel.dataset.systemSettingsPanel === selected;
     panel.hidden = !active;
     panel.setAttribute("aria-hidden", active ? "false" : "true");
   });
-  if (options.refresh === false) return;
-  if (selected === "storage") maybeCall("refreshSettings");
-  if (selected === "api" || selected === "codex") {
+  try { window.localStorage.setItem(LAST_TAB_KEY, selected); } catch { /* storage may be unavailable */ }
+  if (options.updateUrl !== false && !shell()?.classList.contains("hidden")) updateSettingsUrl(true);
+  if (options.refresh !== false && selected === "api") {
     maybeCall("setApiSettingsFeedback", "", "");
     maybeCall("populateApiSettingsForm");
     maybeCall("updateModeSpecificSettings");
   }
+  document.dispatchEvent(new CustomEvent("codex-image-settings-tab-change", { detail: { tab: selected } }));
   refreshSegmentedIndicators();
-  if (animateHeight && panel) animateSystemSettingsPanelHeight(panel, beforeHeight);
+  document.querySelector<HTMLElement>(`[data-system-settings-panel="${selected}"]`)?.scrollTo({ top: 0 });
+  return true;
 }
 
-export function openSystemSettingsModal(tab: any = "api"): void {
-  const { els } = getLegacyBridge();
-  const wasHidden = els.systemSettingsModal?.classList.contains("hidden") ?? true;
-  setSystemSettingsTab(tab);
-  els.systemSettingsModal?.classList.remove("hidden");
-  els.systemSettingsModal?.setAttribute("aria-hidden", "false");
-  if (wasHidden) positionSystemSettingsModal();
-  refreshSegmentedIndicators();
+export function openSystemSettingsModal(tab?: unknown): void {
+  let requested = tab;
+  if (!requested) {
+    try { requested = window.localStorage.getItem(LAST_TAB_KEY) || "account"; } catch { requested = "account"; }
+  }
+  applyRoleVisibility();
+  setSystemSettingsTab(requested, { skipGuard: true, updateUrl: false });
+  const modal = shell();
+  modal?.classList.remove("hidden");
+  modal?.setAttribute("aria-hidden", "false");
+  document.body.classList.add("system-settings-open");
+  updateSettingsUrl(true);
+  document.querySelector<HTMLInputElement>("#systemSettingsSearch")?.focus();
 }
 
 export function closeSystemSettingsModal(): void {
-  const { els } = getLegacyBridge();
-  els.systemSettingsModal?.classList.add("hidden");
-  els.systemSettingsModal?.setAttribute("aria-hidden", "true");
-  (els.systemSettingsModal as HTMLElement | null)?.style.removeProperty("--system-settings-modal-top");
+  if (!confirmDiscard()) return;
+  const modal = shell();
+  modal?.classList.add("hidden");
+  modal?.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("system-settings-open");
+  updateSettingsUrl(false);
 }
 
 export function openSystemSettingsFromUrl(): void {
   const params = new URLSearchParams(window.location.search);
   if (params.get("settings") !== "1") return;
-  const requestedTab = params.get("settingsTab") || params.get("tab");
-  const settingsTab = requestedTab && VALID_TABS.has(requestedTab as SystemSettingsTab)
-    ? requestedTab
-    : "";
-  openSystemSettingsModal(settingsTab || "api");
-  const url = new URL(window.location.href);
-  url.searchParams.delete("settings");
-  url.searchParams.delete("settingsTab");
-  url.searchParams.delete("tab");
-  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  pendingUrlTab = normalizeTab(params.get("settingsTab") || params.get("tab") || "account");
+  openSystemSettingsModal(pendingUrlTab);
 }
 
-function handleSystemSettingsTabClick(event: Event): void {
-  const target = event.target as HTMLElement | null;
-  const button = target?.closest?.("[data-system-settings-tab]") as HTMLElement | null;
-  if (!button) return;
-  event.preventDefault();
-  setSystemSettingsTab(button.dataset.systemSettingsTab || "api");
-}
-
-function handleSystemSettingsResize(): void {
-  positionSystemSettingsModal();
+function handleSearch(event: Event): void {
+  const query = (event.currentTarget as HTMLInputElement).value.trim().toLocaleLowerCase();
+  document.querySelectorAll<HTMLElement>("#systemSettingsTabs [data-settings-nav-group]").forEach((group) => {
+    let visible = 0;
+    group.querySelectorAll<HTMLElement>("[data-settings-search]").forEach((button) => {
+      const matches = !query || (button.dataset.settingsSearch || "").toLocaleLowerCase().includes(query)
+        || (button.textContent || "").toLocaleLowerCase().includes(query);
+      button.classList.toggle("search-hidden", !matches);
+      if (matches) visible += 1;
+    });
+    group.classList.toggle("search-hidden", visible === 0);
+  });
 }
 
 export function initSystemSettingsFeature(): void {
   if (systemSettingsFeatureInitialized) return;
   systemSettingsFeatureInitialized = true;
-  const { els } = getLegacyBridge();
-  els.systemSettingsTabs?.addEventListener("click", handleSystemSettingsTabClick);
-  window.addEventListener("resize", handleSystemSettingsResize);
+  document.querySelector("#systemSettingsTabs")?.addEventListener("click", (event) => {
+    const button = (event.target as HTMLElement | null)?.closest<HTMLElement>("[data-system-settings-tab]");
+    if (button) setSystemSettingsTab(button.dataset.systemSettingsTab);
+  });
+  document.querySelector("#systemSettingsSearch")?.addEventListener("input", handleSearch);
+  document.querySelector("#systemSettingsModal")?.addEventListener("input", (event) => {
+    const form = (event.target as HTMLElement | null)?.closest<HTMLFormElement>("form[data-sensitive-form]");
+    if (form) markSystemSettingsDirty(form);
+  });
+  document.querySelector("#serverAccountSettingsButton")?.addEventListener("click", () => openSystemSettingsModal());
+  document.addEventListener("codex-image-user-context", () => {
+    applyRoleVisibility();
+    if (pendingUrlTab && (PERSONAL_TABS.has(pendingUrlTab) || isAdmin())) {
+      setSystemSettingsTab(pendingUrlTab, { skipGuard: true });
+      pendingUrlTab = "";
+    }
+  });
+  window.addEventListener("beforeunload", (event) => {
+    if (!dirtyForm && !hasLooseDirtyInput) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
   Object.assign(getLegacyBridge().methods, {
     setSystemSettingsTab,
     openSystemSettingsModal,

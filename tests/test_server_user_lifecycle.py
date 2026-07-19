@@ -300,7 +300,9 @@ class ServerUserLifecycleTests(unittest.TestCase):
                         self.assertIn(delete_user.status_code, {404, 405})
                         self.assertEqual(impersonate.status_code, 404)
                         protected_workbench = admin.get("/admin")
-                        self.assertIn('id="user-management"', protected_workbench.text)
+                        self.assertIn('class="system-settings-shell hidden"', protected_workbench.text)
+                        self.assertIn('data-system-settings-tab="users"', protected_workbench.text)
+                        self.assertIn("settingsTab=users", str(protected_workbench.url))
 
                     with psycopg.connect(database_url) as connection:
                         audit_rows = connection.execute(

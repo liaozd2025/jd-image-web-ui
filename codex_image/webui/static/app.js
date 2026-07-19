@@ -479,6 +479,8 @@
   var EN_DICTIONARY = {
     "serverAccount.admin": "Admin",
     "serverAccount.logout": "Log out",
+    "serverAccount.roleAdmin": "System administrator",
+    "serverAccount.roleUser": "Standard user",
     "resourceScope.personal": "Personal",
     "resourceScope.shared": "Shared",
     "app.newTask": "New",
@@ -1260,6 +1262,22 @@
     "settings.saved": "Saved",
     "settings.savedRestartStatus": "Storage settings saved. Restart WebUI to apply.",
     "systemSettings.title": "System Settings",
+    "systemSettings.back": "Back to app",
+    "systemSettings.search": "Search settings\u2026",
+    "systemSettings.personalGroup": "Personal",
+    "systemSettings.adminGroup": "System management",
+    "systemSettings.accountTab": "Account & security",
+    "systemSettings.appearanceTab": "Appearance & language",
+    "systemSettings.apiProviderTab": "API providers",
+    "systemSettings.notificationsTab": "Notifications",
+    "systemSettings.usageTab": "Storage & usage",
+    "systemSettings.usersTab": "User management",
+    "systemSettings.catalogTab": "Provider catalog",
+    "systemSettings.departmentTab": "Department providers & quota",
+    "systemSettings.sharedTab": "Shared assets & storage",
+    "systemSettings.schedulerTab": "Task scheduling",
+    "systemSettings.contentTab": "Read-only user content",
+    "systemSettings.auditTab": "Audit log",
     "systemSettings.tabsLabel": "System settings sections",
     "systemSettings.apiTab": "API Settings",
     "systemSettings.codexTab": "Codex Channel",
@@ -10238,7 +10256,9 @@
   // codex_image/webui/frontend/src/i18n/zh-cn.ts
   var ZH_CN_DICTIONARY = {
     "serverAccount.admin": "\u7BA1\u7406\u540E\u53F0",
-    "serverAccount.logout": "\u9000\u51FA",
+    "serverAccount.logout": "\u9000\u51FA\u767B\u5F55",
+    "serverAccount.roleAdmin": "\u7CFB\u7EDF\u7BA1\u7406\u5458",
+    "serverAccount.roleUser": "\u666E\u901A\u7528\u6237",
     "resourceScope.personal": "\u4E2A\u4EBA",
     "resourceScope.shared": "\u5171\u4EAB",
     "app.newTask": "\u65B0\u5EFA",
@@ -11020,6 +11040,22 @@
     "settings.saved": "\u5DF2\u4FDD\u5B58",
     "settings.savedRestartStatus": "\u5B58\u50A8\u8BBE\u7F6E\u5DF2\u4FDD\u5B58\uFF0C\u91CD\u542F WebUI \u540E\u751F\u6548",
     "systemSettings.title": "\u7CFB\u7EDF\u8BBE\u7F6E",
+    "systemSettings.back": "\u8FD4\u56DE\u5E94\u7528",
+    "systemSettings.search": "\u641C\u7D22\u8BBE\u7F6E\u2026",
+    "systemSettings.personalGroup": "\u4E2A\u4EBA",
+    "systemSettings.adminGroup": "\u7CFB\u7EDF\u7BA1\u7406",
+    "systemSettings.accountTab": "\u8D26\u6237\u4E0E\u5B89\u5168",
+    "systemSettings.appearanceTab": "\u5916\u89C2\u4E0E\u8BED\u8A00",
+    "systemSettings.apiProviderTab": "API \u4F9B\u5E94\u5546",
+    "systemSettings.notificationsTab": "\u901A\u77E5",
+    "systemSettings.usageTab": "\u5B58\u50A8\u4E0E\u7528\u91CF",
+    "systemSettings.usersTab": "\u7528\u6237\u7BA1\u7406",
+    "systemSettings.catalogTab": "\u4F9B\u5E94\u5546\u76EE\u5F55",
+    "systemSettings.departmentTab": "\u90E8\u95E8\u4F9B\u5E94\u5546\u4E0E\u989D\u5EA6",
+    "systemSettings.sharedTab": "\u5171\u4EAB\u8D44\u4EA7\u4E0E\u5B58\u50A8",
+    "systemSettings.schedulerTab": "\u4EFB\u52A1\u8C03\u5EA6",
+    "systemSettings.contentTab": "\u7528\u6237\u5185\u5BB9\u53EA\u8BFB\u67E5\u770B",
+    "systemSettings.auditTab": "\u5BA1\u8BA1\u65E5\u5FD7",
     "systemSettings.tabsLabel": "\u7CFB\u7EDF\u8BBE\u7F6E\u9009\u9879",
     "systemSettings.apiTab": "API \u8BBE\u7F6E",
     "systemSettings.codexTab": "Codex \u901A\u9053",
@@ -30557,7 +30593,6 @@ ${hint}` : hint;
   var HOST_SELECTORS = [
     ".radio-group:not(.ratio-group)",
     "#authSourceGroup",
-    "#systemSettingsTabs",
     ".history-view-toggle",
     ".history-sort-toggle"
   ];
@@ -30640,161 +30675,183 @@ ${hint}` : hint;
 
   // codex_image/webui/frontend/src/system-settings.ts
   var systemSettingsFeatureInitialized = false;
-  var systemSettingsHeightAnimationToken = 0;
-  var systemSettingsHeightAnimationTimer;
-  var MIN_SYSTEM_SETTINGS_MODAL_EDGE = 30;
-  var VALID_TABS = /* @__PURE__ */ new Set(["api", "language", "storage"]);
-  function normalizedTab(tab) {
-    return VALID_TABS.has(tab) ? tab : "api";
-  }
+  var activeTab = "account";
+  var pendingUrlTab = "";
+  var dirtyForm = null;
+  var hasLooseDirtyInput = false;
+  var PERSONAL_TABS = /* @__PURE__ */ new Set(["account", "language", "api", "notifications", "usage"]);
+  var ADMIN_TABS = /* @__PURE__ */ new Set(["users", "catalog", "department", "shared", "scheduler", "content", "audit"]);
+  var VALID_TABS = /* @__PURE__ */ new Set([...PERSONAL_TABS, ...ADMIN_TABS]);
+  var LAST_TAB_KEY = "codex-image-system-settings-tab";
   function maybeCall(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method === "function") method(...args);
   }
-  function systemSettingsPanel() {
-    const { els: els43 } = getLegacyBridge();
-    return els43.systemSettingsModal?.querySelector(".system-settings-modal-panel") || null;
+  function normalizeTab(tab) {
+    const value = tab === "storage" ? "notifications" : String(tab || "");
+    return VALID_TABS.has(value) ? value : "account";
   }
-  function shouldAnimateSystemSettingsHeight() {
-    const { els: els43 } = getLegacyBridge();
-    if (els43.systemSettingsModal?.classList.contains("hidden")) return false;
-    return !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  function isAdmin() {
+    return document.documentElement.dataset.userRole === "admin";
   }
-  function clearSystemSettingsHeightAnimation(panel) {
-    systemSettingsHeightAnimationToken += 1;
-    if (systemSettingsHeightAnimationTimer !== void 0) {
-      window.clearTimeout(systemSettingsHeightAnimationTimer);
-      systemSettingsHeightAnimationTimer = void 0;
+  function allowedTab(tab) {
+    const value = normalizeTab(tab);
+    return ADMIN_TABS.has(value) && !isAdmin() ? "account" : value;
+  }
+  function shell() {
+    return document.querySelector("#systemSettingsModal");
+  }
+  function clearGlobalStatus() {
+    const status = document.querySelector("#systemSettingsGlobalStatus");
+    if (status) status.textContent = "";
+  }
+  function updateSettingsUrl(open) {
+    const url = new URL(window.location.href);
+    if (open) {
+      url.searchParams.set("settings", "1");
+      url.searchParams.set("settingsTab", activeTab);
+      url.searchParams.delete("tab");
+    } else {
+      url.searchParams.delete("settings");
+      url.searchParams.delete("settingsTab");
+      url.searchParams.delete("tab");
     }
-    panel.classList.remove("is-height-animating");
-    panel.style.height = "";
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
   }
-  function positionSystemSettingsModal() {
-    const { els: els43 } = getLegacyBridge();
-    const modal = els43.systemSettingsModal;
-    const panel = systemSettingsPanel();
-    if (!modal || !panel || modal.classList.contains("hidden")) return;
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    const panelHeight = panel.getBoundingClientRect().height;
-    const centeredTop = Math.floor((viewportHeight - panelHeight) / 2);
-    const top = Math.max(MIN_SYSTEM_SETTINGS_MODAL_EDGE, centeredTop);
-    modal.style.setProperty("--system-settings-modal-top", `${top}px`);
+  function confirmDiscard() {
+    if (!dirtyForm && !hasLooseDirtyInput) return true;
+    const confirmed = window.confirm("\u5F53\u524D\u9875\u9762\u6709\u672A\u4FDD\u5B58\u7684\u66F4\u6539\uFF0C\u786E\u5B9A\u653E\u5F03\u5417\uFF1F");
+    if (confirmed) {
+      dirtyForm?.setAttribute("data-dirty", "false");
+      dirtyForm = null;
+      hasLooseDirtyInput = false;
+    }
+    return confirmed;
   }
-  function systemSettingsTargetHeight(panel) {
-    const style = window.getComputedStyle(panel);
-    const borderHeight = (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
-    const naturalHeight = Math.ceil(panel.scrollHeight + borderHeight);
-    const maxHeight = parseFloat(style.maxHeight);
-    return Number.isFinite(maxHeight) ? Math.min(naturalHeight, Math.ceil(maxHeight)) : naturalHeight;
-  }
-  function animateSystemSettingsPanelHeight(panel, beforeHeight) {
-    const afterHeight = systemSettingsTargetHeight(panel);
-    if (Math.abs(afterHeight - beforeHeight) < 1) {
-      clearSystemSettingsHeightAnimation(panel);
+  function markSystemSettingsDirty(form) {
+    const target = form || document.querySelector("[data-sensitive-form]:focus-within");
+    if (!target) {
+      hasLooseDirtyInput = true;
       return;
     }
-    systemSettingsHeightAnimationToken += 1;
-    const token = systemSettingsHeightAnimationToken;
-    panel.classList.add("is-height-animating");
-    panel.style.height = `${beforeHeight}px`;
-    panel.getBoundingClientRect();
-    window.requestAnimationFrame(() => {
-      if (token !== systemSettingsHeightAnimationToken) return;
-      panel.style.height = `${afterHeight}px`;
+    if (dirtyForm && dirtyForm !== target) dirtyForm.dataset.dirty = "false";
+    dirtyForm = target;
+    target.dataset.dirty = "true";
+  }
+  function clearSystemSettingsDirty(form) {
+    if (form && dirtyForm !== form) return;
+    dirtyForm?.setAttribute("data-dirty", "false");
+    dirtyForm = null;
+    if (!form) hasLooseDirtyInput = false;
+  }
+  function applyRoleVisibility() {
+    const admin = isAdmin();
+    document.querySelectorAll("#systemSettingsModal [data-admin-only]").forEach((node) => {
+      node.classList.toggle("hidden", !admin);
+      if (!admin && node.matches("[data-system-settings-panel]")) node.hidden = true;
     });
-    const cleanup = (event) => {
-      if (event && (event.target !== panel || event.propertyName !== "height")) return;
-      if (token !== systemSettingsHeightAnimationToken) return;
-      systemSettingsHeightAnimationToken += 1;
-      if (systemSettingsHeightAnimationTimer !== void 0) {
-        window.clearTimeout(systemSettingsHeightAnimationTimer);
-        systemSettingsHeightAnimationTimer = void 0;
-      }
-      panel.removeEventListener("transitionend", cleanup);
-      panel.classList.remove("is-height-animating");
-      panel.style.height = "";
-    };
-    panel.addEventListener("transitionend", cleanup);
-    systemSettingsHeightAnimationTimer = window.setTimeout(() => cleanup(), 320);
+    if (!admin && ADMIN_TABS.has(activeTab)) setSystemSettingsTab("account", { refresh: false, updateUrl: false });
   }
   function setSystemSettingsTab(tab, options = {}) {
-    const selected = normalizedTab(tab);
-    const { els: els43 } = getLegacyBridge();
-    const panel = systemSettingsPanel();
-    const animateHeight = Boolean(panel && shouldAnimateSystemSettingsHeight());
-    const beforeHeight = animateHeight && panel ? panel.getBoundingClientRect().height : 0;
-    if (animateHeight && panel) clearSystemSettingsHeightAnimation(panel);
-    const buttons = Array.from(els43.systemSettingsTabs?.querySelectorAll("[data-system-settings-tab]") || []);
-    buttons.forEach((button) => {
+    const selected = allowedTab(tab);
+    if (!options.skipGuard && selected !== activeTab && !confirmDiscard()) return false;
+    activeTab = selected;
+    clearGlobalStatus();
+    document.querySelectorAll("#systemSettingsTabs [data-system-settings-tab]").forEach((button) => {
       const active = button.dataset.systemSettingsTab === selected;
       button.classList.toggle("active", active);
-      button.setAttribute("aria-selected", active ? "true" : "false");
+      button.setAttribute("aria-current", active ? "page" : "false");
       button.tabIndex = active ? 0 : -1;
     });
-    [
-      ["api", els43.systemSettingsApiPanel],
-      ["codex", els43.systemSettingsCodexPanel],
-      ["language", els43.systemSettingsLanguagePanel],
-      ["storage", els43.systemSettingsStoragePanel]
-    ].forEach(([name, panel2]) => {
-      if (!panel2) return;
-      const active = name === selected;
-      panel2.hidden = !active;
-      panel2.setAttribute("aria-hidden", active ? "false" : "true");
+    document.querySelectorAll("#systemSettingsModal [data-system-settings-panel]").forEach((panel) => {
+      const active = panel.dataset.systemSettingsPanel === selected;
+      panel.hidden = !active;
+      panel.setAttribute("aria-hidden", active ? "false" : "true");
     });
-    if (options.refresh === false) return;
-    if (selected === "storage") maybeCall("refreshSettings");
-    if (selected === "api" || selected === "codex") {
+    try {
+      window.localStorage.setItem(LAST_TAB_KEY, selected);
+    } catch {
+    }
+    if (options.updateUrl !== false && !shell()?.classList.contains("hidden")) updateSettingsUrl(true);
+    if (options.refresh !== false && selected === "api") {
       maybeCall("setApiSettingsFeedback", "", "");
       maybeCall("populateApiSettingsForm");
       maybeCall("updateModeSpecificSettings");
     }
+    document.dispatchEvent(new CustomEvent("codex-image-settings-tab-change", { detail: { tab: selected } }));
     refreshSegmentedIndicators();
-    if (animateHeight && panel) animateSystemSettingsPanelHeight(panel, beforeHeight);
+    document.querySelector(`[data-system-settings-panel="${selected}"]`)?.scrollTo({ top: 0 });
+    return true;
   }
-  function openSystemSettingsModal(tab = "api") {
-    const { els: els43 } = getLegacyBridge();
-    const wasHidden = els43.systemSettingsModal?.classList.contains("hidden") ?? true;
-    setSystemSettingsTab(tab);
-    els43.systemSettingsModal?.classList.remove("hidden");
-    els43.systemSettingsModal?.setAttribute("aria-hidden", "false");
-    if (wasHidden) positionSystemSettingsModal();
-    refreshSegmentedIndicators();
+  function openSystemSettingsModal(tab) {
+    let requested = tab;
+    if (!requested) {
+      try {
+        requested = window.localStorage.getItem(LAST_TAB_KEY) || "account";
+      } catch {
+        requested = "account";
+      }
+    }
+    applyRoleVisibility();
+    setSystemSettingsTab(requested, { skipGuard: true, updateUrl: false });
+    const modal = shell();
+    modal?.classList.remove("hidden");
+    modal?.setAttribute("aria-hidden", "false");
+    document.body.classList.add("system-settings-open");
+    updateSettingsUrl(true);
+    document.querySelector("#systemSettingsSearch")?.focus();
   }
   function closeSystemSettingsModal() {
-    const { els: els43 } = getLegacyBridge();
-    els43.systemSettingsModal?.classList.add("hidden");
-    els43.systemSettingsModal?.setAttribute("aria-hidden", "true");
-    els43.systemSettingsModal?.style.removeProperty("--system-settings-modal-top");
+    if (!confirmDiscard()) return;
+    const modal = shell();
+    modal?.classList.add("hidden");
+    modal?.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("system-settings-open");
+    updateSettingsUrl(false);
   }
   function openSystemSettingsFromUrl() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("settings") !== "1") return;
-    const requestedTab = params.get("settingsTab") || params.get("tab");
-    const settingsTab = requestedTab && VALID_TABS.has(requestedTab) ? requestedTab : "";
-    openSystemSettingsModal(settingsTab || "api");
-    const url = new URL(window.location.href);
-    url.searchParams.delete("settings");
-    url.searchParams.delete("settingsTab");
-    url.searchParams.delete("tab");
-    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    pendingUrlTab = normalizeTab(params.get("settingsTab") || params.get("tab") || "account");
+    openSystemSettingsModal(pendingUrlTab);
   }
-  function handleSystemSettingsTabClick(event) {
-    const target = event.target;
-    const button = target?.closest?.("[data-system-settings-tab]");
-    if (!button) return;
-    event.preventDefault();
-    setSystemSettingsTab(button.dataset.systemSettingsTab || "api");
-  }
-  function handleSystemSettingsResize() {
-    positionSystemSettingsModal();
+  function handleSearch(event) {
+    const query = event.currentTarget.value.trim().toLocaleLowerCase();
+    document.querySelectorAll("#systemSettingsTabs [data-settings-nav-group]").forEach((group) => {
+      let visible = 0;
+      group.querySelectorAll("[data-settings-search]").forEach((button) => {
+        const matches = !query || (button.dataset.settingsSearch || "").toLocaleLowerCase().includes(query) || (button.textContent || "").toLocaleLowerCase().includes(query);
+        button.classList.toggle("search-hidden", !matches);
+        if (matches) visible += 1;
+      });
+      group.classList.toggle("search-hidden", visible === 0);
+    });
   }
   function initSystemSettingsFeature() {
     if (systemSettingsFeatureInitialized) return;
     systemSettingsFeatureInitialized = true;
-    const { els: els43 } = getLegacyBridge();
-    els43.systemSettingsTabs?.addEventListener("click", handleSystemSettingsTabClick);
-    window.addEventListener("resize", handleSystemSettingsResize);
+    document.querySelector("#systemSettingsTabs")?.addEventListener("click", (event) => {
+      const button = event.target?.closest("[data-system-settings-tab]");
+      if (button) setSystemSettingsTab(button.dataset.systemSettingsTab);
+    });
+    document.querySelector("#systemSettingsSearch")?.addEventListener("input", handleSearch);
+    document.querySelector("#systemSettingsModal")?.addEventListener("input", (event) => {
+      const form = event.target?.closest("form[data-sensitive-form]");
+      if (form) markSystemSettingsDirty(form);
+    });
+    document.querySelector("#serverAccountSettingsButton")?.addEventListener("click", () => openSystemSettingsModal());
+    document.addEventListener("codex-image-user-context", () => {
+      applyRoleVisibility();
+      if (pendingUrlTab && (PERSONAL_TABS.has(pendingUrlTab) || isAdmin())) {
+        setSystemSettingsTab(pendingUrlTab, { skipGuard: true });
+        pendingUrlTab = "";
+      }
+    });
+    window.addEventListener("beforeunload", (event) => {
+      if (!dirtyForm && !hasLooseDirtyInput) return;
+      event.preventDefault();
+      event.returnValue = "";
+    });
     Object.assign(getLegacyBridge().methods, {
       setSystemSettingsTab,
       openSystemSettingsModal,
@@ -34134,7 +34191,7 @@ ${hint}` : hint;
       const thumbnailClear = target?.closest("[data-prompt-template-thumbnail-clear]");
       const card = target?.closest("[data-prompt-template-id]");
       const insert = target?.closest("[data-prompt-template-insert]");
-      const replace = target?.closest("[data-prompt-template-replace]");
+      const replace2 = target?.closest("[data-prompt-template-replace]");
       const copy = target?.closest("[data-prompt-template-copy]");
       const edit = target?.closest("[data-prompt-template-edit]");
       const remove = target?.closest("[data-prompt-template-delete]");
@@ -34185,8 +34242,8 @@ ${hint}` : hint;
       if (insert) {
         const template = findPromptTemplateById(insert.dataset.promptTemplateInsert);
         void applyPromptTemplate(template, "insert");
-      } else if (replace) {
-        const template = findPromptTemplateById(replace.dataset.promptTemplateReplace);
+      } else if (replace2) {
+        const template = findPromptTemplateById(replace2.dataset.promptTemplateReplace);
         void applyPromptTemplate(template, "replace");
       } else if (copy) {
         void copyPromptTemplateContent(findPromptTemplateById(copy.dataset.promptTemplateCopy));
@@ -38322,11 +38379,11 @@ ${galleryText}`;
     }
   }
   function syncTaskHistoryAnchorInset() {
-    const shell = element(els29.taskHistoryShell);
+    const shell2 = element(els29.taskHistoryShell);
     const sidebarContent = element(els29.sidebarContent);
-    if (!shell || !sidebarContent) return;
+    if (!shell2 || !sidebarContent) return;
     const scrollbarInset = Math.max(0, sidebarContent.offsetWidth - sidebarContent.clientWidth);
-    shell.style.setProperty("--task-history-scrollbar-offset", `${scrollbarInset}px`);
+    shell2.style.setProperty("--task-history-scrollbar-offset", `${scrollbarInset}px`);
   }
   function nearestVisibleGroupKey(groups, currentKey) {
     const visibleKeys = groups.map((group) => String(group.key));
@@ -38431,10 +38488,10 @@ ${galleryText}`;
     applyImmediateAnchorSelection(layout.expandedKey || "");
   }
   function taskHistoryLayoutElements() {
-    const shell = element(els29.taskHistoryShell);
-    if (!shell) return [];
+    const shell2 = element(els29.taskHistoryShell);
+    if (!shell2) return [];
     return Array.from(
-      shell.querySelectorAll(".task-history-anchor-row, .task-group-header-split")
+      shell2.querySelectorAll(".task-history-anchor-row, .task-group-header-split")
     ).map((node) => {
       const key = String(
         node.dataset.activeTaskGroupToggle ? "active" : node.dataset.taskGroupAnchorKey || node.dataset.taskGroupToggleKey || ""
@@ -42959,17 +43016,17 @@ ${galleryText}`;
   }
   function retryFailureSummaryButton(task) {
     const taskId = escapeHtml19(task.task_id || "");
-    const actions = [];
+    const actions2 = [];
     if (canRetryFailedTask3(task)) {
-      actions.push(`<button class="ghost-button text-sm" type="button" data-preview-retry-failed-task-id="${taskId}">${escapeHtml19(translate("preview.retryFailed"))}</button>`);
+      actions2.push(`<button class="ghost-button text-sm" type="button" data-preview-retry-failed-task-id="${taskId}">${escapeHtml19(translate("preview.retryFailed"))}</button>`);
     }
     if (canAcceptTaskSuccesses3(task)) {
-      actions.push(`<button class="ghost-button text-sm" type="button" data-preview-accept-successes-task-id="${taskId}">${escapeHtml19(translate("preview.acceptSuccesses"))}</button>`);
+      actions2.push(`<button class="ghost-button text-sm" type="button" data-preview-accept-successes-task-id="${taskId}">${escapeHtml19(translate("preview.acceptSuccesses"))}</button>`);
     }
-    if (!actions.length) return "";
+    if (!actions2.length) return "";
     return `
     <div class="failure-summary-actions">
-      ${actions.join("")}
+      ${actions2.join("")}
     </div>
   `;
   }
@@ -43734,7 +43791,7 @@ ${galleryText}`;
       count: Array.from(normalizedPromptText(value)).length
     });
   }
-  function promptPopoverSection(label, text, meta, tone = "", actions = "") {
+  function promptPopoverSection(label, text, meta, tone = "", actions2 = "") {
     const toneClass = tone ? ` prompt-popover-section-${tone}` : "";
     return `
     <section class="prompt-popover-section${toneClass}">
@@ -43742,7 +43799,7 @@ ${galleryText}`;
         <div class="prompt-popover-label">${escapeHtml20(label)}</div>
         <div class="prompt-popover-section-tools">
           <span class="prompt-popover-meta">${escapeHtml20(meta || promptLengthLabel(text))}</span>
-          ${actions}
+          ${actions2}
         </div>
       </div>
       <pre class="prompt-popover-text">${escapeHtml20(text || translate("promptPopover.empty"))}</pre>
@@ -44735,19 +44792,61 @@ ${galleryText}`;
   // codex_image/webui/frontend/src/server-account.ts
   var serverAccountInitialized = false;
   var csrfToken = "";
+  var currentUser = null;
+  function initials(username) {
+    const chars = Array.from(username.trim());
+    return (chars.slice(0, 2).join("") || "--").toLocaleUpperCase();
+  }
+  function roleLabel(role) {
+    return translate(role === "admin" ? "serverAccount.roleAdmin" : "serverAccount.roleUser");
+  }
+  function setText(selector, value) {
+    const element2 = document.querySelector(selector);
+    if (element2) element2.textContent = value;
+  }
+  function closeMenu() {
+    const menu = document.querySelector("#serverAccountMenu");
+    const trigger = document.querySelector("#serverAccountButton");
+    menu?.classList.add("hidden");
+    menu?.setAttribute("aria-hidden", "true");
+    trigger?.setAttribute("aria-expanded", "false");
+  }
+  function toggleMenu() {
+    const menu = document.querySelector("#serverAccountMenu");
+    const trigger = document.querySelector("#serverAccountButton");
+    const open = Boolean(menu?.classList.contains("hidden"));
+    menu?.classList.toggle("hidden", !open);
+    menu?.setAttribute("aria-hidden", open ? "false" : "true");
+    trigger?.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  function renderCurrentUser() {
+    if (!currentUser) return;
+    const avatar = initials(currentUser.username);
+    const role = roleLabel(currentUser.role);
+    setText("#serverAccountName", currentUser.username);
+    setText("#serverAccountMenuName", currentUser.username);
+    setText("#systemSettingsAccountName", currentUser.username);
+    setText("#settingsAccountUsername", currentUser.username);
+    setText("#serverAccountRole", role);
+    setText("#serverAccountMenuRole", role);
+    setText("#systemSettingsAccountRole", role);
+    setText("#settingsAccountRole", role);
+    setText("#serverAccountAvatar", avatar);
+    setText("#serverAccountMenuAvatar", avatar);
+    setText("#systemSettingsAccountAvatar", avatar);
+  }
   async function loadServerAccount() {
     const response = await fetch("/api/auth/me");
     if (!response.ok) return;
     const context = await response.json();
-    const { user } = context;
-    const name = document.querySelector("#serverAccountName");
-    const adminLink = document.querySelector("#serverAdminLink");
-    const logoutButton = document.querySelector("#serverLogoutButton");
+    currentUser = context.user;
     csrfToken = context.csrf_token;
-    if (name) name.textContent = user.username;
-    const isAdmin = user.role === "admin";
-    adminLink?.classList.toggle("hidden", !isAdmin);
+    document.documentElement.dataset.userRole = context.user.role;
+    renderCurrentUser();
+    document.querySelector("#serverAccount")?.classList.remove("hidden");
+    const logoutButton = document.querySelector("#serverLogoutButton");
     if (logoutButton) logoutButton.disabled = !csrfToken;
+    document.dispatchEvent(new CustomEvent("codex-image-user-context", { detail: context }));
   }
   async function logout() {
     const button = document.querySelector("#serverLogoutButton");
@@ -44755,7 +44854,11 @@ ${galleryText}`;
     try {
       const response = await fetch("/api/auth/logout", {
         method: "POST",
-        headers: { "X-CSRF-Token": csrfToken }
+        headers: {
+          "X-CSRF-Token": decodeURIComponent(
+            document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("jd_image_csrf="))?.slice("jd_image_csrf=".length) || csrfToken
+          )
+        }
       });
       if (response.ok) window.location.assign("/login");
     } finally {
@@ -44765,10 +44868,484 @@ ${galleryText}`;
   function initServerAccountFeature() {
     if (serverAccountInitialized) return;
     serverAccountInitialized = true;
-    document.querySelector("#serverLogoutButton")?.addEventListener("click", () => {
-      void logout();
+    document.querySelector("#serverAccountButton")?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleMenu();
+    });
+    document.querySelector("#serverAccountMenu")?.addEventListener("click", (event) => event.stopPropagation());
+    document.querySelector("#serverAccountSettingsButton")?.addEventListener("click", closeMenu);
+    document.querySelector("#serverLogoutButton")?.addEventListener("click", () => void logout());
+    document.addEventListener(LOCALE_CHANGE_EVENT, renderCurrentUser);
+    document.addEventListener("click", closeMenu);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeMenu();
     });
     void loadServerAccount();
+  }
+
+  // codex_image/webui/frontend/src/server-settings.ts
+  var initialized3 = false;
+  var managedUsers = [];
+  function cookieValue(name) {
+    const prefix = `${name}=`;
+    const match = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(prefix));
+    return match ? decodeURIComponent(match.slice(prefix.length)) : "";
+  }
+  async function api(path, options = {}) {
+    const headers = new Headers(options.headers || {});
+    const method = String(options.method || "GET").toUpperCase();
+    if (!["GET", "HEAD"].includes(method)) headers.set("X-CSRF-Token", cookieValue("jd_image_csrf"));
+    const response = await fetch(path, { ...options, headers });
+    if (response.status === 401) {
+      window.location.assign("/login");
+      throw new Error("\u767B\u5F55\u5DF2\u5931\u6548");
+    }
+    if (!response.ok) {
+      let message = `\u8BF7\u6C42\u5931\u8D25\uFF08${response.status}\uFF09`;
+      try {
+        const payload2 = await response.json();
+        if (payload2?.detail) message = String(payload2.detail);
+      } catch {
+      }
+      throw new Error(message);
+    }
+    return await response.json();
+  }
+  function textElement(tag, value, className = "") {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    node.textContent = value;
+    return node;
+  }
+  function actionButton(label, action, danger = false) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `ghost-button text-sm${danger ? " danger-button" : ""}`;
+    button.textContent = label;
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      try {
+        await action();
+      } catch (error) {
+        reportError(error);
+      } finally {
+        button.disabled = false;
+      }
+    });
+    return button;
+  }
+  function listRow(title, meta, actions2) {
+    const row = document.createElement("article");
+    row.className = "settings-list-row";
+    const copy = document.createElement("span");
+    copy.append(textElement("strong", title), textElement("small", meta));
+    row.append(copy);
+    if (actions2) row.append(actions2);
+    return row;
+  }
+  function actions() {
+    const node = document.createElement("div");
+    node.className = "settings-row-actions";
+    return node;
+  }
+  function replace(selector, ...nodes) {
+    document.querySelector(selector)?.replaceChildren(...nodes);
+  }
+  function reportError(error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const status = document.querySelector("#systemSettingsGlobalStatus");
+    if (status) status.textContent = `\u7CFB\u7EDF\u8BBE\u7F6E\uFF1A${message}`;
+  }
+  function fmtDate(value) {
+    if (!value) return "--";
+    const date = new Date(String(value));
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+  }
+  function fmtBytes(value) {
+    let bytes = Number(value || 0);
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let index = 0;
+    while (bytes >= 1024 && index < units.length - 1) {
+      bytes /= 1024;
+      index += 1;
+    }
+    return `${bytes >= 10 || index === 0 ? bytes.toFixed(0) : bytes.toFixed(1)} ${units[index]}`;
+  }
+  function metric(label, value) {
+    const node = document.createElement("article");
+    node.className = "settings-metric";
+    node.append(textElement("small", label), textElement("strong", value));
+    return node;
+  }
+  function jsonOptions(body) {
+    return { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  }
+  async function loadSessions() {
+    const result = await api("/api/auth/sessions");
+    const rows = (result.sessions || []).map((session) => {
+      const rowActions = actions();
+      if (!session.current) {
+        rowActions.append(actionButton("\u9000\u51FA\u4F1A\u8BDD", async () => {
+          if (!window.confirm("\u786E\u5B9A\u9000\u51FA\u8FD9\u4E2A\u767B\u5F55\u4F1A\u8BDD\u5417\uFF1F")) return;
+          await api(`/api/auth/sessions/${encodeURIComponent(session.session_id)}`, { method: "DELETE" });
+          await loadSessions();
+        }, true));
+      }
+      return listRow(
+        session.current ? `${session.user_agent}\uFF08\u5F53\u524D\u8BBE\u5907\uFF09` : String(session.user_agent),
+        `\u6700\u8FD1\u6D3B\u52A8 ${fmtDate(session.last_seen_at)} \xB7 \u5230\u671F ${fmtDate(session.expires_at)}`,
+        rowActions.childElementCount ? rowActions : void 0
+      );
+    });
+    replace("#settingsSessionList", ...rows);
+  }
+  async function loadUsage() {
+    const [assetResult, quotaResult] = await Promise.all([
+      api("/api/assets/quota"),
+      api("/api/quotas/department")
+    ]);
+    const storage = assetResult.quota || {};
+    const quota = quotaResult.quota || {};
+    replace(
+      "#settingsUsageSummary",
+      metric("\u4E2A\u4EBA\u5B58\u50A8\u5DF2\u7528", fmtBytes(storage.used_bytes)),
+      metric("\u4E2A\u4EBA\u5B58\u50A8\u4E0A\u9650", fmtBytes(storage.quota_bytes)),
+      metric("\u90E8\u95E8\u989D\u5EA6\u53EF\u7528", String(quota.available_units ?? 0)),
+      metric("\u90E8\u95E8\u989D\u5EA6\u5DF2\u7528", String(quota.consumed_units ?? 0)),
+      metric("\u90E8\u95E8\u5468\u671F\u603B\u989D", String(quota.global_quota_units ?? 0)),
+      metric("\u5468\u671F\u7ED3\u675F", fmtDate(quota.period_end))
+    );
+  }
+  async function userUsage(userId) {
+    try {
+      return await api(`/api/admin/users/${encodeURIComponent(userId)}/usage`);
+    } catch {
+      return null;
+    }
+  }
+  async function loadUsers() {
+    const result = await api("/api/admin/users");
+    managedUsers = result.users || [];
+    const usages = await Promise.all(managedUsers.map((user) => userUsage(user.user_id)));
+    const rows = managedUsers.map((user, index) => {
+      const rowActions = actions();
+      const usage = usages[index]?.usage?.storage;
+      if (user.role === "user") {
+        const storageInput = document.createElement("input");
+        storageInput.className = "control";
+        storageInput.type = "number";
+        storageInput.min = "1";
+        storageInput.placeholder = usage ? String(Math.round(Number(usage.quota_bytes) / 1024 / 1024)) : "\u5B58\u50A8 MB";
+        storageInput.title = "\u4E2A\u4EBA\u5B58\u50A8\u4E0A\u9650\uFF08MB\uFF09";
+        storageInput.addEventListener("input", () => markSystemSettingsDirty());
+        rowActions.append(storageInput);
+        rowActions.append(actionButton("\u4FDD\u5B58\u5B58\u50A8", async () => {
+          const quotaMb = Number(storageInput.value);
+          if (!Number.isFinite(quotaMb) || quotaMb < 1) throw new Error("\u8BF7\u8F93\u5165\u6709\u6548\u7684\u5B58\u50A8\u989D\u5EA6");
+          await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/storage-quota`, {
+            method: "PATCH",
+            ...jsonOptions({ quota_bytes: Math.round(quotaMb * 1024 * 1024) })
+          });
+          clearSystemSettingsDirty();
+          await loadUsers();
+        }));
+        rowActions.append(actionButton("\u91CD\u7F6E\u5BC6\u7801", async () => {
+          if (!window.confirm(`\u786E\u5B9A\u91CD\u7F6E ${user.username} \u7684\u5BC6\u7801\u5417\uFF1F`)) return;
+          const reset = await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/reset-password`, { method: "POST" });
+          showCredential(`${user.username} \u7684\u4E34\u65F6\u5BC6\u7801\uFF1A${reset.temporary_password}`);
+          await loadUsers();
+        }, true));
+        rowActions.append(actionButton(user.is_active ? "\u505C\u7528" : "\u6062\u590D", async () => {
+          if (!window.confirm(`\u786E\u5B9A${user.is_active ? "\u505C\u7528" : "\u6062\u590D"}\u7528\u6237 ${user.username} \u5417\uFF1F`)) return;
+          await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/status`, {
+            method: "PATCH",
+            ...jsonOptions({ is_active: !user.is_active })
+          });
+          await loadUsers();
+        }, user.is_active));
+      }
+      const storageMeta = usage ? ` \xB7 \u5B58\u50A8 ${fmtBytes(usage.used_bytes)} / ${fmtBytes(usage.quota_bytes)}` : "";
+      return listRow(`${user.username} \xB7 ${user.role === "admin" ? "\u7CFB\u7EDF\u7BA1\u7406\u5458" : "\u666E\u901A\u7528\u6237"}`, `${user.is_active ? "\u6B63\u5E38" : "\u5DF2\u505C\u7528"}${storageMeta}`, rowActions.childElementCount ? rowActions : void 0);
+    });
+    replace("#settingsUserList", ...rows);
+    populateContentUsers();
+  }
+  function showCredential(value) {
+    const node = document.querySelector("#settingsTemporaryCredential");
+    if (!node) return;
+    node.textContent = value;
+    node.classList.remove("hidden");
+  }
+  function providerTitle(provider) {
+    return `${provider.display_name} \xB7 v${provider.version_number}`;
+  }
+  function providerModels(provider) {
+    return (provider.models || []).map((model) => model.model_id).join("\u3001") || "\u65E0\u6A21\u578B";
+  }
+  async function loadCatalog() {
+    const result = await api("/api/admin/provider-catalog");
+    const rows = (result.providers || []).map((provider) => {
+      const rowActions = actions();
+      rowActions.append(actionButton(provider.is_active ? "\u505C\u7528" : "\u6062\u590D", async () => {
+        if (!window.confirm(`\u786E\u5B9A${provider.is_active ? "\u505C\u7528" : "\u6062\u590D"} ${providerTitle(provider)} \u5417\uFF1F`)) return;
+        await api(`/api/admin/provider-catalog/${encodeURIComponent(provider.provider_version_id)}/status`, {
+          method: "PATCH",
+          ...jsonOptions({ is_active: !provider.is_active })
+        });
+        await loadCatalog();
+      }, provider.is_active));
+      return listRow(providerTitle(provider), `${provider.provider_key} \xB7 ${provider.api_mode} \xB7 ${provider.is_active ? "\u53EF\u7528" : "\u5DF2\u505C\u7528"} \xB7 ${providerModels(provider)}`, rowActions);
+    });
+    replace("#settingsCatalogList", ...rows);
+  }
+  async function loadDepartment() {
+    if (!managedUsers.length) await loadUsers();
+    const [catalogResult, configuredResult, quotaResult] = await Promise.all([
+      api("/api/admin/provider-catalog"),
+      api("/api/admin/providers/department"),
+      api("/api/quotas/department")
+    ]);
+    const quotaInput = document.querySelector("#settingsDepartmentQuotaForm [name=quota_units]");
+    if (quotaInput) quotaInput.value = String(quotaResult.quota?.global_quota_units ?? 0);
+    const configured = new Map((configuredResult.providers || []).map((item) => [item.provider_version_id, item]));
+    const providerRows = (catalogResult.providers || []).map((provider) => {
+      const credential = configured.get(provider.provider_version_id);
+      const rowActions = actions();
+      const key = document.createElement("input");
+      key.className = "control";
+      key.type = "password";
+      key.autocomplete = "new-password";
+      key.placeholder = credential?.api_key_mask || "\u8F93\u5165\u90E8\u95E8 API Key";
+      key.addEventListener("input", () => markSystemSettingsDirty());
+      rowActions.append(key, actionButton("\u4FDD\u5B58\u51ED\u636E", async () => {
+        if (!key.value) throw new Error("\u8BF7\u8F93\u5165 API Key");
+        await api(`/api/admin/providers/department/${encodeURIComponent(provider.provider_version_id)}`, {
+          method: "PUT",
+          ...jsonOptions({ api_key: key.value })
+        });
+        key.value = "";
+        clearSystemSettingsDirty();
+        await loadDepartment();
+      }));
+      if (credential?.has_credential) rowActions.append(actionButton(credential.is_active ? "\u505C\u7528" : "\u6062\u590D", async () => {
+        if (!window.confirm(`\u786E\u5B9A${credential.is_active ? "\u505C\u7528" : "\u6062\u590D"}\u8BE5\u90E8\u95E8\u51ED\u636E\u5417\uFF1F`)) return;
+        await api(`/api/admin/providers/department/${encodeURIComponent(provider.provider_version_id)}/status`, {
+          method: "PATCH",
+          ...jsonOptions({ is_active: !credential.is_active })
+        });
+        await loadDepartment();
+      }, credential.is_active));
+      return listRow(providerTitle(provider), `${credential?.has_credential ? "\u5DF2\u914D\u7F6E" : "\u672A\u914D\u7F6E"} \xB7 ${provider.is_active ? "\u76EE\u5F55\u53EF\u7528" : "\u76EE\u5F55\u5DF2\u505C\u7528"}`, rowActions);
+    });
+    replace("#settingsDepartmentProviderList", ...providerRows);
+    const ordinaryUsers = managedUsers.filter((user) => user.role === "user");
+    const usageResults = await Promise.all(ordinaryUsers.map((user) => userUsage(user.user_id)));
+    const quotaRows = ordinaryUsers.map((user, index) => {
+      const current = usageResults[index]?.usage?.department_quota;
+      const rowActions = actions();
+      const input = document.createElement("input");
+      input.className = "control";
+      input.type = "number";
+      input.min = "0";
+      input.value = String(current?.user_quota_units ?? 0);
+      input.addEventListener("input", () => markSystemSettingsDirty());
+      rowActions.append(input, actionButton("\u4FDD\u5B58\u989D\u5EA6", async () => {
+        await api(`/api/admin/quotas/department/users/${encodeURIComponent(user.user_id)}`, {
+          method: "PATCH",
+          ...jsonOptions({ quota_units: Number(input.value) })
+        });
+        clearSystemSettingsDirty();
+        await loadDepartment();
+      }));
+      return listRow(user.username, `\u5DF2\u7528 ${current?.consumed_units ?? 0} \xB7 \u53EF\u7528 ${current?.available_units ?? 0}`, rowActions);
+    });
+    replace("#settingsUserQuotaList", ...quotaRows);
+  }
+  async function loadShared() {
+    const [quotaResult, assetResult] = await Promise.all([api("/api/admin/shared-storage-quota"), api("/api/admin/shared-assets")]);
+    const quotaInput = document.querySelector("#settingsSharedQuotaForm [name=quota_mb]");
+    if (quotaInput) quotaInput.value = String(Math.max(1, Math.round(Number(quotaResult.quota?.quota_bytes || 0) / 1024 / 1024)));
+    const rows = (assetResult.assets || []).map((asset) => {
+      const rowActions = actions();
+      rowActions.append(actionButton(asset.is_active ? "\u505C\u7528" : "\u6062\u590D", async () => {
+        if (!window.confirm(`\u786E\u5B9A${asset.is_active ? "\u505C\u7528" : "\u6062\u590D"}\u5171\u4EAB\u8D44\u4EA7 ${asset.name} \u5417\uFF1F`)) return;
+        await api(`/api/shared-assets/${encodeURIComponent(asset.asset_id)}/status`, {
+          method: "PATCH",
+          ...jsonOptions({ is_active: !asset.is_active })
+        });
+        await loadShared();
+      }, asset.is_active));
+      return listRow(`${asset.name} \xB7 ${asset.asset_kind}`, `\u53D1\u5E03\u8005 ${asset.publisher_user_id} \xB7 ${asset.is_active ? "\u53EF\u7528" : "\u5DF2\u505C\u7528"}`, rowActions);
+    });
+    replace("#settingsSharedAssetList", ...rows);
+  }
+  async function loadScheduler() {
+    const result = await api("/api/admin/scheduler");
+    const scheduler = result.scheduler || {};
+    const form = document.querySelector("#settingsSchedulerForm");
+    const globalInput = form?.elements.namedItem("global_concurrency");
+    const userInput = form?.elements.namedItem("per_user_concurrency");
+    if (globalInput) globalInput.value = String(scheduler.global_concurrency ?? 1);
+    if (userInput) userInput.value = String(scheduler.per_user_concurrency ?? 1);
+    replace("#settingsSchedulerSummary", metric("\u7B49\u5F85\u4EFB\u52A1", String(scheduler.queue?.queued ?? 0)), metric("\u8FD0\u884C\u4EFB\u52A1", String(scheduler.queue?.running ?? 0)), metric("\u963B\u585E\u7C7B\u578B", String(scheduler.queue?.blocked?.length ?? 0)));
+    const rows = (scheduler.queue?.users || []).map((user) => listRow(String(user.user_id), `\u7B49\u5F85 ${user.queued} \xB7 \u8FD0\u884C ${user.running}`));
+    replace("#settingsSchedulerUsers", ...rows);
+  }
+  function populateContentUsers() {
+    const select = document.querySelector("#settingsContentUser");
+    if (!select) return;
+    const previous = select.value;
+    select.replaceChildren(...managedUsers.filter((user) => user.role === "user").map((user) => {
+      const option = document.createElement("option");
+      option.value = user.user_id;
+      option.textContent = user.username;
+      return option;
+    }));
+    if (previous && [...select.options].some((option) => option.value === previous)) select.value = previous;
+  }
+  async function loadContent() {
+    if (!managedUsers.length) await loadUsers();
+    populateContentUsers();
+    const select = document.querySelector("#settingsContentUser");
+    const userId = select?.value;
+    if (!userId) return;
+    const [tasksResult, assetsResult, usageResult] = await Promise.all([
+      api(`/api/admin/users/${encodeURIComponent(userId)}/tasks?limit=100`),
+      api(`/api/admin/users/${encodeURIComponent(userId)}/assets?limit=100`),
+      api(`/api/admin/users/${encodeURIComponent(userId)}/usage`)
+    ]);
+    const usage = usageResult.usage || {};
+    const taskCount = Object.values(usage.tasks || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+    replace("#settingsContentSummary", metric("\u4EFB\u52A1\u603B\u6570", String(taskCount)), metric("\u5B58\u50A8\u5DF2\u7528", fmtBytes(usage.storage?.used_bytes)), metric("\u90E8\u95E8\u989D\u5EA6\u5DF2\u7528", String(usage.department_quota?.consumed_units ?? 0)));
+    replace("#settingsContentTasks", ...(tasksResult.tasks || []).map((task) => listRow(`${task.model_id} \xB7 ${task.status}`, `${fmtDate(task.created_at)} \xB7 ${task.prompt || ""}`)));
+    replace("#settingsContentAssets", ...(assetsResult.assets || []).map((asset) => listRow(`${asset.name} \xB7 ${asset.asset_kind}`, `\u521B\u5EFA\u4E8E ${fmtDate(asset.created_at)}`)));
+  }
+  async function loadAudit(action = "") {
+    const query = action ? `&action=${encodeURIComponent(action)}` : "";
+    const result = await api(`/api/admin/audit?limit=100${query}`);
+    const rows = (result.events || []).map((event) => listRow(`${event.action} \xB7 ${event.outcome}`, `${fmtDate(event.occurred_at)} \xB7 \u64CD\u4F5C\u8005 ${event.actor_user_id}${event.subject_user_id ? ` \xB7 \u5BF9\u8C61 ${event.subject_user_id}` : ""}`));
+    replace("#settingsAuditList", ...rows);
+  }
+  async function loadTab(tab) {
+    if (tab === "account") await loadSessions();
+    else if (tab === "usage") await loadUsage();
+    else if (tab === "users") await loadUsers();
+    else if (tab === "catalog") await loadCatalog();
+    else if (tab === "department") await loadDepartment();
+    else if (tab === "shared") await loadShared();
+    else if (tab === "scheduler") await loadScheduler();
+    else if (tab === "content") await loadContent();
+    else if (tab === "audit") await loadAudit();
+  }
+  function bindForms() {
+    document.querySelector("#settingsPasswordForm")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const data = new FormData(form);
+      const status = document.querySelector("#settingsPasswordStatus");
+      try {
+        await api("/api/auth/password", { method: "POST", ...jsonOptions({ current_password: data.get("current_password"), new_password: data.get("new_password") }) });
+        form.reset();
+        clearSystemSettingsDirty(form);
+        if (status) status.textContent = "\u5BC6\u7801\u5DF2\u66F4\u65B0";
+        await loadSessions();
+      } catch (error) {
+        if (status) status.textContent = error instanceof Error ? error.message : String(error);
+      }
+    });
+    document.querySelector("#settingsLogoutOtherSessions")?.addEventListener("click", async () => {
+      if (!window.confirm("\u786E\u5B9A\u9000\u51FA\u9664\u5F53\u524D\u8BBE\u5907\u5916\u7684\u5168\u90E8\u4F1A\u8BDD\u5417\uFF1F")) return;
+      try {
+        await api("/api/auth/sessions/logout-others", { method: "POST" });
+        await loadSessions();
+      } catch (error) {
+        reportError(error);
+      }
+    });
+    document.querySelector("#settingsCreateUserForm")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const data = new FormData(form);
+      try {
+        const created = await api("/api/admin/users", { method: "POST", ...jsonOptions({ username: data.get("username") }) });
+        showCredential(`${created.user.username} \u7684\u4E34\u65F6\u5BC6\u7801\uFF1A${created.temporary_password}`);
+        form.reset();
+        clearSystemSettingsDirty(form);
+        await loadUsers();
+      } catch (error) {
+        reportError(error);
+      }
+    });
+    document.querySelector("#settingsCatalogForm")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const data = new FormData(form);
+      const models = String(data.get("models") || "").split(",").map((item) => item.trim()).filter(Boolean).map((model_id) => ({ model_id, capabilities: ["image_generation"] }));
+      try {
+        await api("/api/admin/provider-catalog", { method: "POST", ...jsonOptions({ provider_key: data.get("provider_key"), display_name: data.get("display_name"), base_url: data.get("base_url"), api_mode: data.get("api_mode"), models, parameter_constraints: {} }) });
+        form.reset();
+        clearSystemSettingsDirty(form);
+        await loadCatalog();
+      } catch (error) {
+        reportError(error);
+      }
+    });
+    document.querySelector("#settingsDepartmentQuotaForm")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const data = new FormData(form);
+      try {
+        await api("/api/admin/quotas/department", { method: "PATCH", ...jsonOptions({ quota_units: Number(data.get("quota_units")) }) });
+        clearSystemSettingsDirty(form);
+        await loadDepartment();
+      } catch (error) {
+        reportError(error);
+      }
+    });
+    document.querySelector("#settingsSharedQuotaForm")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const data = new FormData(form);
+      try {
+        await api("/api/admin/shared-storage-quota", { method: "PATCH", ...jsonOptions({ quota_bytes: Math.round(Number(data.get("quota_mb")) * 1024 * 1024) }) });
+        clearSystemSettingsDirty(form);
+        await loadShared();
+      } catch (error) {
+        reportError(error);
+      }
+    });
+    document.querySelector("#settingsSchedulerForm")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const data = new FormData(form);
+      try {
+        await api("/api/admin/scheduler", { method: "PATCH", ...jsonOptions({ global_concurrency: Number(data.get("global_concurrency")), per_user_concurrency: Number(data.get("per_user_concurrency")) }) });
+        clearSystemSettingsDirty(form);
+        await loadScheduler();
+      } catch (error) {
+        reportError(error);
+      }
+    });
+    document.querySelector("#settingsAuditFilter")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const data = new FormData(event.currentTarget);
+      void loadAudit(String(data.get("action") || "")).catch(reportError);
+    });
+    document.querySelector("#settingsContentUser")?.addEventListener("change", () => void loadContent().catch(reportError));
+  }
+  function initServerSettingsFeature() {
+    if (initialized3) return;
+    initialized3 = true;
+    bindForms();
+    document.addEventListener("codex-image-user-context", () => void loadSessions().catch(reportError));
+    document.addEventListener("codex-image-settings-tab-change", (event) => {
+      const tab = event.detail.tab;
+      void loadTab(tab).catch(reportError);
+    });
+    document.querySelectorAll("#systemSettingsModal form[data-sensitive-form]").forEach((form) => {
+      form.addEventListener("change", () => markSystemSettingsDirty(form));
+    });
+    document.querySelector("#settingsUserList")?.addEventListener("dblclick", () => setSystemSettingsTab("content"));
   }
 
   // codex_image/webui/frontend/src/main.ts
@@ -44812,6 +45389,7 @@ ${galleryText}`;
   initOverlayPopoversFeature();
   initShellUiFeature();
   initI18nFeature();
+  initServerSettingsFeature();
   initServerAccountFeature();
   initAppVersionFeature();
   initLightboxFeature();

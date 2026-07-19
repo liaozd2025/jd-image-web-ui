@@ -78,6 +78,14 @@ async function loginAndChangePassword(page, account) {
   await page.locator("#password-form button[type=submit]").click();
   await page.waitForURL(`${baseUrl}/`);
   await page.locator(".layout-container").waitFor({ state: "visible" });
+  await waitForAccount(page, account.username);
+}
+
+async function waitForAccount(page, username) {
+  await eventually(
+    async () => (await page.locator("#serverAccountName").textContent())?.trim() === username,
+    "server account did not load after login",
+  );
 }
 
 async function loginExisting(page, account) {
@@ -88,10 +96,7 @@ async function loginExisting(page, account) {
   await page.locator("#login-form button[type=submit]").click();
   await page.waitForURL(`${baseUrl}/`);
   await page.locator(".layout-container").waitFor({ state: "visible" });
-  await eventually(
-    async () => Boolean((await page.locator("#serverAccountName").textContent())?.trim()),
-    "server account did not load after login",
-  );
+  await waitForAccount(page, account.username);
 }
 
 async function waitForWorkspace(page) {
@@ -167,11 +172,42 @@ try {
   pageA.on("response", (response) => collectServerError("user-a", response));
   await loginAndChangePassword(pageA, credentials.userA);
   await waitForWorkspace(pageA);
-  check((await pageA.locator("#serverAccountName").textContent()).includes(credentials.userA.username), "current username was not shown in the original workspace header");
-  check(await pageA.locator("#serverAdminLink").isHidden(), "normal user saw the administrator entry");
+  check((await pageA.locator("#serverAccountName").textContent()).includes(credentials.userA.username), "current username was not shown in the sidebar account entry");
+  check((await pageA.locator("#serverAccountRole").textContent()).trim() === "普通用户", "normal user role was not shown in the sidebar account entry");
+  check(await pageA.locator("#serverAdminLink").count() === 0, "legacy administrator entry is still present");
   check(await pageA.locator("[data-auth-source]").count() === 0, "server workspace still exposed the Codex/local auth switcher");
   check(await pageA.locator("#systemSettingsCodexTab").isHidden(), "server workspace still exposed Codex settings");
   check((await api(pageA, "/admin")).status === 403, "normal user accessed administrator UI");
+
+  await pageA.locator("#serverAccountButton").click();
+  await pageA.locator("#serverAccountMenu").waitFor({ state: "visible" });
+  check(await pageA.locator("#serverAccountSettingsButton").isVisible(), "system settings action was missing from the account menu");
+  check(await pageA.locator("#serverLogoutButton").isVisible(), "logout action was missing from the account menu");
+  await pageA.locator("#serverAccountSettingsButton").click();
+  await pageA.locator("#systemSettingsModal").waitFor({ state: "visible" });
+  check(new URL(pageA.url()).searchParams.get("settingsTab") === "account", "system settings did not open on the account page");
+  check(await pageA.locator("[data-settings-nav-group][data-admin-only]").isHidden(), "normal user saw the system-management navigation group");
+  check(await pageA.locator('[data-system-settings-tab="account"]:visible, [data-system-settings-tab="language"]:visible, [data-system-settings-tab="api"]:visible, [data-system-settings-tab="notifications"]:visible, [data-system-settings-tab="usage"]:visible').count() === 5, "normal user did not receive all five personal settings pages");
+  await pageA.locator("#systemSettingsSearch").fill("用户管理");
+  check(await pageA.locator('[data-system-settings-tab="users"]:visible').count() === 0, "normal-user settings search revealed administrator navigation");
+  await pageA.locator("#systemSettingsSearch").fill("");
+  await pageA.locator('#settingsPasswordForm [name="current_password"]').fill("unsaved-change");
+  pageA.once("dialog", async (dialog) => dialog.dismiss());
+  await pageA.locator('[data-system-settings-tab="language"]').click();
+  check(await pageA.locator('[data-system-settings-panel="account"]').isVisible(), "canceling the unsaved-change warning still left the account page");
+  pageA.once("dialog", async (dialog) => dialog.accept());
+  await pageA.locator('[data-system-settings-tab="language"]').click();
+  check(await pageA.locator('[data-system-settings-panel="language"]').isVisible(), "accepting the unsaved-change warning did not change settings page");
+  check(new URL(pageA.url()).searchParams.get("settingsTab") === "language", "settings navigation did not update the address");
+  await pageA.locator("#languageSelect").selectOption("en");
+  check((await pageA.locator('[data-system-settings-tab="account"]').textContent()).trim().endsWith("Account & security"), "settings navigation did not follow the language preference");
+  check((await pageA.locator("#serverAccountRole").textContent()).trim() === "Standard user", "account role did not follow the language preference");
+  await pageA.locator("#languageSelect").selectOption("zh-CN");
+  await pageA.locator('[data-theme-option="dark"]').click();
+  check(await pageA.locator("html").getAttribute("data-theme") === "dark", "theme preference did not apply immediately");
+  await pageA.locator("#systemSettingsModalClose").click();
+  await pageA.locator("#systemSettingsModal").waitFor({ state: "hidden" });
+  check(await pageA.locator(".layout-container").isVisible(), "returning from settings did not restore the image workspace");
   const providerCatalogA = await api(pageA, "/api/providers/catalog");
   const personalProviderVersionId = providerCatalogA.body.providers.find((item) => item.provider_key === "browser-fake-provider")?.provider_version_id;
   check(personalProviderVersionId, "personal provider catalog entry was missing");
@@ -372,18 +408,28 @@ try {
   adminPage.on("console", (message) => collectConsoleError("admin", message));
   adminPage.on("response", (response) => collectServerError("admin", response));
   await loginExisting(adminPage, credentials.admin);
-  check((await adminPage.locator("#serverAccountName").textContent()).includes(credentials.admin.username), "administrator username was not shown in the original workspace header");
-  check(await adminPage.locator("#serverAdminLink").isVisible(), "administrator entry was not shown to the administrator");
+  check((await adminPage.locator("#serverAccountName").textContent()).includes(credentials.admin.username), "administrator username was not shown in the sidebar account entry");
+  await adminPage.locator("#serverAccountButton").click();
+  await adminPage.locator("#serverAccountSettingsButton").click();
+  await adminPage.locator("#systemSettingsModal").waitFor({ state: "visible" });
+  check(await adminPage.locator("[data-settings-nav-group][data-admin-only]").isVisible(), "administrator system-management navigation was not shown");
+  check(await adminPage.locator('[data-settings-nav-group][data-admin-only] [data-system-settings-tab]:visible').count() === 7, "administrator did not receive all seven management pages");
   await adminPage.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
-  await adminPage.locator("#server-home").waitFor({ state: "visible" });
-  await adminPage.locator("#user-management").waitFor({ state: "visible" });
+  await adminPage.locator("#systemSettingsModal").waitFor({ state: "visible" });
+  await eventually(
+    async () => new URL(adminPage.url()).searchParams.get("settingsTab") === "users",
+    "legacy /admin entry did not redirect to user management",
+  );
+  await eventually(async () => (await adminPage.locator("#settingsUserList").textContent()).includes(credentials.userA.username), "unified user management did not load users");
   const adminTasks = await api(adminPage, `/api/admin/users/${userAId}/tasks?limit=100`);
   check(adminTasks.status === 200 && adminTasks.body.tasks.some((item) => item.task_id === generated.task_id), "admin could not inspect user tasks");
-  await adminPage.locator("#user-list .list-item", { hasText: credentials.userA.username }).getByRole("button", { name: "只读查看" }).click();
+  await adminPage.locator('[data-system-settings-tab="content"]').click();
+  await adminPage.locator("#settingsContentUser").selectOption(userAId);
   await eventually(
-    async () => await adminPage.locator(`[data-admin-task-id="${edited.task_id}"] [data-admin-output-index]`).count() === 2,
-    "administrator UI did not render every generated output",
+    async () => (await adminPage.locator("#settingsContentTasks").textContent()).includes("browser image edit with two references"),
+    "unified read-only content view did not render the user's generated task",
   );
+  check(await adminPage.locator('[data-system-settings-panel="content"] button', { hasText: /删除|编辑|执行/ }).count() === 0, "read-only user content view exposed a mutating action");
   check((await api(adminPage, `/api/admin/users/${userAId}/tasks/${generated.task_id}/download`)).status === 200, "admin could not download protected user output");
   const audit = await api(adminPage, `/api/admin/audit?subject_user_id=${userAId}&limit=200`);
   const actions = new Set(audit.body.events.map((event) => event.action));
@@ -398,6 +444,8 @@ try {
 
   check(userBId && userBId !== userAId, "release gate did not use two distinct normal users");
   check(consoleErrors.length === 0, `browser console errors:\n${consoleErrors.join("\n")}`);
+  await pageB.locator("#serverAccountButton").click();
+  await pageB.locator("#serverAccountMenu").waitFor({ state: "visible" });
   await pageB.locator("#serverLogoutButton").click();
   await pageB.waitForURL(/\/login(?:\?|$)/);
   await Promise.all([contextA.close(), contextB.close(), adminContext.close()]);

@@ -115,9 +115,10 @@ class WebUIStaticI18nTests(WebUIStaticTestCase):
         self.assertRegex(bootstrap, r"document\.documentElement\.dataset\.locale = currentLocale;")
         self.assertNotIn('id="languageSwitcher"', html)
         self.assertNotIn('id="languageSelect"', nav_actions)
-        self.assertLess(nav_actions.index('id="themeSwitcher"'), nav_actions.index('id="githubLink"'))
+        self.assertNotIn('id="themeSwitcher"', nav_actions)
+        self.assertIn('id="themeSwitcher"', language_panel)
         self.assertIn('id="systemSettingsLanguageTab"', html)
-        self.assertIn('data-i18n="systemSettings.languageTab"', html)
+        self.assertIn('data-i18n="systemSettings.appearanceTab"', html)
         self.assertIn('id="languageSelect"', language_panel)
         self.assertIn('<option value="zh-TW">正體中文</option>', language_panel)
         self.assertIn('<option value="zh-HK">繁体中文</option>', language_panel)
@@ -289,9 +290,8 @@ class WebUIStaticI18nTests(WebUIStaticTestCase):
             "outputSettings.title",
             "preview.title",
             "systemSettings.title",
-            "systemSettings.codexTab",
-            "systemSettings.languageTab",
-            "settings.status",
+            "systemSettings.accountTab",
+            "systemSettings.usersTab",
             "settings.language",
             "apiSettings.providers",
             "apiSettings.copyProvider",
@@ -300,6 +300,9 @@ class WebUIStaticI18nTests(WebUIStaticTestCase):
             "gallery.title",
         ):
             self.assertIn(f'data-i18n="{key}"', html)
+        self.assertNotIn('data-i18n="settings.status"', html)
+        self.assertIn('data-system-settings-tab="account"', html)
+        self.assertIn('data-system-settings-tab="users"', html)
         self.assertIn('data-i18n-attr="placeholder:sidebar.searchPlaceholder"', html)
         self.assertIn('data-i18n-attr="aria-label:prompt.editorLabel;data-placeholder:prompt.placeholder"', html)
 

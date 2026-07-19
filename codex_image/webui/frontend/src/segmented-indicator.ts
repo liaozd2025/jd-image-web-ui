@@ -1,7 +1,6 @@
 const HOST_SELECTORS = [
   ".radio-group:not(.ratio-group)",
   "#authSourceGroup",
-  "#systemSettingsTabs",
   ".history-view-toggle",
   ".history-sort-toggle",
 ];

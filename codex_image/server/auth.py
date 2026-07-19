@@ -344,8 +344,8 @@ def install_authentication(
     @app.get("/admin", response_model=None)
     def admin_home(
         admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
-    ) -> FileResponse:
-        return FileResponse(static_root / "home.html", headers={"Cache-Control": "no-store"})
+    ) -> RedirectResponse:
+        return RedirectResponse("/?settings=1&settingsTab=users", status_code=303)
 
 
 def _request_has_same_origin(request: Request) -> bool:

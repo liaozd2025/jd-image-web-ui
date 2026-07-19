@@ -43,6 +43,12 @@ def _free_port() -> int:
         return int(candidate.getsockname()[1])
 
 
+def _terminate_process(process: subprocess.Popen[str] | None) -> None:
+    if process is not None and process.poll() is None:
+        process.terminate()
+        process.wait(timeout=5)
+
+
 @unittest.skipUnless(
     RUN_BROWSER and TEST_DATABASE_URL and shutil.which("node"),
     "set JD_IMAGE_RUN_BROWSER=1 and JD_IMAGE_TEST_DATABASE_URL; Node.js is also required",
@@ -240,12 +246,14 @@ class ServerWorkspaceBrowserReleaseGateTests(unittest.TestCase):
                         timeout=90,
                         check=False,
                     )
+                    _terminate_process(worker_process)
+                    _terminate_process(web_process)
+                    worker_process = None
+                    web_process = None
                     self.assertEqual(result.returncode, 0, f"{result.stdout}\n{result.stderr}")
         finally:
             for process in (worker_process, web_process):
-                if process is not None and process.poll() is None:
-                    process.terminate()
-                    process.wait(timeout=5)
+                _terminate_process(process)
             fake_provider.shutdown()
             fake_provider.server_close()
             fake_thread.join(timeout=5)

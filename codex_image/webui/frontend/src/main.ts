@@ -44,6 +44,7 @@ import { initializeQueueFeature } from "./queue";
 import { initSegmentedIndicatorFeature } from "./segmented-indicator";
 import { initI18nFeature } from "./i18n";
 import { initServerAccountFeature } from "./server-account";
+import { initServerSettingsFeature } from "./server-settings";
 
 initReferenceFileInputsFeature();
 initInputSourcesFeature();
@@ -85,6 +86,7 @@ initTaskSelectionFeature();
 initOverlayPopoversFeature();
 initShellUiFeature();
 initI18nFeature();
+initServerSettingsFeature();
 initServerAccountFeature();
 initAppVersionFeature();
 initLightboxFeature();
