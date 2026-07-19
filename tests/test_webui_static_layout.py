@@ -1025,6 +1025,7 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
             self.assertIn("iLab", source)
         for source in (login_html, workspace_html):
             self.assertNotIn("GPT-image-2 Studio", source)
+
     def test_output_size_controls_match_gpt_image_2_ratios(self) -> None:
         html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
         script = self._frontend_script_source()

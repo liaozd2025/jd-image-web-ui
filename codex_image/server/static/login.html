@@ -3,31 +3,121 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>登录 · JD Image Web UI</title>
+    <title>登录 · iLab GPT CONJURE</title>
     <link rel="stylesheet" href="/auth-static/auth.css">
+    <link rel="stylesheet" href="/auth-static/login.css">
     <script src="/auth-static/login.js" type="module"></script>
   </head>
-  <body>
-    <main class="auth-card">
-      <h1>JD Image Web UI</h1>
-      <p class="subtitle">部门图片工作台</p>
-      <form id="login-form">
-        <label for="username">用户名</label>
-        <input id="username" name="username" autocomplete="username" required maxlength="64">
-        <label for="password">密码</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024">
-        <button type="submit">登录</button>
-        <p id="login-error" class="error" aria-live="polite"></p>
-      </form>
-      <form id="password-form" hidden>
-        <p>首次登录必须修改临时密码。</p>
-        <label for="current-password">临时密码</label>
-        <input id="current-password" type="password" autocomplete="current-password" required maxlength="1024">
-        <label for="new-password">新密码（至少 12 个字符）</label>
-        <input id="new-password" type="password" autocomplete="new-password" required minlength="12" maxlength="1024">
-        <button type="submit">修改密码并进入</button>
-        <p id="password-error" class="error" aria-live="polite"></p>
-      </form>
+  <body class="login-page">
+    <main class="login-shell" aria-label="iLab GPT CONJURE 登录">
+      <section class="login-canvas" aria-label="图片工作区介绍">
+        <div class="login-brand">
+          <span class="login-brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <g fill="currentColor">
+                <ellipse cx="8.3" cy="6.3" rx="1.45" ry="4.15" transform="rotate(-9 8.3 6.3)"/>
+                <ellipse cx="12.7" cy="6.6" rx="1.35" ry="4.25" transform="rotate(36 12.7 6.6)"/>
+                <ellipse cx="14.4" cy="15.6" rx="6.3" ry="4.8"/>
+                <ellipse cx="8.9" cy="12.4" rx="4.6" ry="4.25"/>
+                <ellipse cx="19.3" cy="13.9" rx="1.85" ry="1.95"/>
+                <ellipse cx="9.4" cy="19.1" rx="2.7" ry="1.15"/>
+                <ellipse cx="15.3" cy="19.2" rx="3.2" ry="1.15"/>
+              </g>
+              <ellipse cx="8.2" cy="5.9" rx=".52" ry="2.25" fill="#457B66" transform="rotate(-9 8.2 5.9)"/>
+              <ellipse cx="12.45" cy="6" rx=".48" ry="2.15" fill="#457B66" transform="rotate(36 12.45 6)"/>
+              <circle cx="7.45" cy="11.7" r=".72" fill="#457B66"/>
+              <path d="M18.9 5.2v2.4M17.7 6.4h2.4" fill="none" stroke="#D3B776" stroke-width="1.55" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <span class="login-brand-copy">
+            <strong>iLab GPT CONJURE</strong>
+            <small>IMAGE WORKSPACE</small>
+          </span>
+        </div>
+
+        <div class="canvas-copy">
+          <span class="canvas-eyebrow">部门图片工作台</span>
+          <h1>让灵感更快<br>成为可用的图像</h1>
+          <p>生成、编辑、素材与任务，在同一个工作区内自然衔接。</p>
+        </div>
+
+        <div class="canvas-preview" aria-hidden="true">
+          <div class="preview-image preview-image-tall"><span>4:5</span></div>
+          <div class="preview-image preview-image-wide"><span>16:9</span></div>
+          <div class="preview-image preview-image-square"><span>1:1</span></div>
+          <div class="preview-prompt"><i></i><i></i><i></i><b></b></div>
+        </div>
+
+        <p class="canvas-footnote">安全登录 · 个人内容隔离 · 部门资源共享</p>
+      </section>
+
+      <aside class="login-panel">
+        <section class="login-card" aria-live="polite">
+          <div class="login-card-accent" aria-hidden="true"></div>
+          <form id="login-form" class="login-form">
+            <header class="login-heading">
+              <span class="login-eyebrow">欢迎回来</span>
+              <h2>登录图片工作区</h2>
+              <p>使用管理员为你创建的账号继续。</p>
+            </header>
+            <div class="login-field">
+              <label for="username">用户名</label>
+              <div class="login-control">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.7-4 3-6 7-6s6.3 2 7 6"></path></svg>
+                <input id="username" name="username" autocomplete="username" required maxlength="64" placeholder="请输入用户名">
+              </div>
+            </div>
+            <div class="login-field">
+              <div class="login-label-row">
+                <label for="password">密码</label>
+                <span>忘记密码请联系管理员</span>
+              </div>
+              <div class="login-control">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+                <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024" placeholder="请输入密码">
+              </div>
+            </div>
+            <button class="login-submit" type="submit">
+              <span>登录并进入工作区</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"></path></svg>
+            </button>
+            <p id="login-error" class="login-error" aria-live="polite"></p>
+            <p class="login-assurance"><span aria-hidden="true">✓</span> 登录后进入你的图片工作区，个人内容相互隔离</p>
+          </form>
+
+          <form id="password-form" class="login-form" hidden>
+            <header class="login-heading">
+              <span class="login-eyebrow login-eyebrow-step">首次登录</span>
+              <h2>设置你的新密码</h2>
+              <p>临时密码仅用于首次登录，请设置一个仅你知道的新密码。</p>
+            </header>
+            <div class="login-field">
+              <label for="current-password">临时密码</label>
+              <div class="login-control">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+                <input id="current-password" type="password" autocomplete="current-password" required maxlength="1024" placeholder="请输入临时密码">
+              </div>
+            </div>
+            <div class="login-field">
+              <div class="login-label-row">
+                <label for="new-password">新密码</label>
+                <span>至少 12 个字符</span>
+              </div>
+              <div class="login-control">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+                <input id="new-password" type="password" autocomplete="new-password" required minlength="12" maxlength="1024" placeholder="设置新密码">
+              </div>
+            </div>
+            <button class="login-submit" type="submit">
+              <span>修改密码并进入</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"></path></svg>
+            </button>
+            <p id="password-error" class="login-error" aria-live="polite"></p>
+            <p class="login-assurance"><span aria-hidden="true">✓</span> 完成后将直接进入图片工作区</p>
+          </form>
+        </section>
+        <p class="login-version">SERVER VERSION</p>
+      </aside>
     </main>
   </body>
 </html>
