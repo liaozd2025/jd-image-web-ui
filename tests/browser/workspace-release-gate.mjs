@@ -107,6 +107,78 @@ async function loginAndChangePassword(page, account) {
   await waitForAccount(page, account.username);
 }
 
+async function verifyLoginExperience(browser) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: "light" });
+  const page = await context.newPage();
+  try {
+    await page.goto(`${baseUrl}/login`, { waitUntil: "domcontentloaded" });
+    await page.getByText("iLab GPT CONJURE", { exact: true }).waitFor({ state: "visible" });
+    await page.getByRole("heading", { name: "让灵感更快" }).waitFor({ state: "visible" });
+    await page.getByRole("heading", { name: "登录图片工作区" }).waitFor({ state: "visible" });
+    check(await page.locator("#prototype-switcher, [data-variant]").count() === 0, "login page still exposed prototype controls");
+
+    await page.evaluate(() => localStorage.setItem("codex-image-theme-preference", "light"));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    check(await page.locator("html").getAttribute("data-theme") === "light", "login page did not apply the light preference");
+    check(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme) === "light", "login page inherited dark native controls in light mode");
+    await page.evaluate(() => localStorage.setItem("codex-image-theme-preference", "dark"));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    check(await page.locator("html").getAttribute("data-theme") === "dark", "login page did not apply the dark preference");
+    check(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme) === "dark", "login page did not apply dark native controls");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const mobileLayout = await page.evaluate(() => ({ scrollWidth: document.body.scrollWidth, viewportWidth: innerWidth }));
+    check(mobileLayout.scrollWidth <= mobileLayout.viewportWidth, "390px login page introduced horizontal scrolling");
+    check(await page.getByText("iLab GPT CONJURE", { exact: true }).isVisible(), "login brand was hidden at 390px");
+    check(await page.getByRole("heading", { name: "登录图片工作区" }).isVisible(), "login form was hidden at 390px");
+
+    await page.goto(`${baseUrl}/login?change=1`, { waitUntil: "domcontentloaded" });
+    await page.locator("#password-form").waitFor({ state: "visible" });
+    await eventually(
+      async () => await page.locator("#current-password").evaluate((element) => element === document.activeElement),
+      "direct password-change flow did not focus the current password",
+    );
+
+    await page.goto(`${baseUrl}/login`, { waitUntil: "domcontentloaded" });
+    await page.route("**/api/auth/login", (route) => (
+      route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ detail: "invalid credentials" }) })
+    ));
+    await page.locator("#login-form").getByLabel("用户名").fill("invalid-user");
+    await page.locator("#login-form").getByLabel("密码").fill("invalid-password");
+    await page.locator("#login-form button[type=submit]").click();
+    await eventually(
+      async () => (await page.locator("#login-error").textContent())?.includes("用户名或密码错误"),
+      "invalid-login message was not shown",
+    );
+    await page.unroute("**/api/auth/login");
+
+    await page.route("**/api/auth/login", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      await route.fulfill({ status: 429, contentType: "application/json", body: JSON.stringify({ detail: "rate limited" }) });
+    });
+    await page.locator("#login-form").getByLabel("用户名").fill("limited-user");
+    await page.locator("#login-form").getByLabel("密码").fill("limited-password");
+    await page.locator("#login-form button[type=submit]").click();
+    check(await page.locator("#login-form button[type=submit]").isDisabled(), "login submit remained enabled while the request was pending");
+    await eventually(
+      async () => (await page.locator("#login-error").textContent())?.includes("尝试次数过多"),
+      "login rate-limit message was not shown",
+    );
+    await page.unroute("**/api/auth/login");
+
+    await page.route("**/api/auth/login", (route) => route.abort("failed"));
+    await page.locator("#login-form button[type=submit]").click();
+    await eventually(
+      async () => (await page.locator("#login-error").textContent())?.includes("暂时无法连接服务器"),
+      "login connection error was not shown",
+    );
+    await page.unroute("**/api/auth/login");
+  } finally {
+    await context.close();
+  }
+}
+
 async function waitForAccount(page, username) {
   await eventually(
     async () => (await page.locator("#serverAccountName").textContent())?.trim() === username,
@@ -191,6 +263,7 @@ function collectServerError(scope, response) {
   if (response.status() >= 500) consoleErrors.push(`${scope} server response: ${response.status()} ${response.url()}`);
 }
 try {
+  await verifyLoginExperience(browser);
   const contextA = await browser.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true });
   const pageA = await contextA.newPage();
   pageA.on("pageerror", (error) => consoleErrors.push(`user-a pageerror: ${error.message}`));

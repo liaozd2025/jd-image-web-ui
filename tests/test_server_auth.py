@@ -143,6 +143,7 @@ class ServerAuthenticationFlowTests(unittest.TestCase):
                 try:
                     with TestClient(create_server_app(settings)) as client:
                         login_page = client.get("/login")
+                        login_styles = client.get("/auth-static/login.css")
                         anonymous_api = client.get("/api/auth/me")
                         anonymous_file = client.get("/files/private/example.png")
                         cross_site = client.post(
@@ -234,7 +235,14 @@ class ServerAuthenticationFlowTests(unittest.TestCase):
 
         self.assertEqual(login_page.status_code, 200)
         self.assertIn('id="login-form"', login_page.text)
+        self.assertIn("iLab GPT CONJURE", login_page.text)
+        self.assertIn("让灵感更快", login_page.text)
+        self.assertIn("登录图片工作区", login_page.text)
+        self.assertIn('href="/auth-static/login.css"', login_page.text)
+        self.assertNotIn("prototype-switcher", login_page.text)
+        self.assertNotIn("data-variant", login_page.text)
         self.assertIn("default-src 'self'", login_page.headers["content-security-policy"])
+        self.assertEqual(login_styles.status_code, 200)
         self.assertEqual(anonymous_api.status_code, 401)
         self.assertEqual(anonymous_file.status_code, 401)
         self.assertEqual(cross_site.status_code, 403)
