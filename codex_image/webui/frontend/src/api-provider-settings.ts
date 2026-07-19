@@ -10,7 +10,13 @@ import {
 import { refreshHealth } from "./auth-source";
 import { updateModeSpecificSettings } from "./api-mode-settings";
 import { formatTranslation, translate } from "./i18n";
-import { closeSystemSettingsModal, openSystemSettingsModal } from "./system-settings";
+import {
+  clearSystemSettingsDirty,
+  closeSystemSettingsModal,
+  markSystemSettingsDirty,
+  openSystemSettingsModal,
+} from "./system-settings";
+import { getCsrfToken } from "./server-account";
 import { resetApiAdvancedSettings } from "./api-advanced-settings";
 import {
   apiProviderMatchesSearch,
@@ -664,6 +670,7 @@ export function cancelApiProviderEdit(): void {
   state.apiProviderEditingId = null;
   state.apiProviderDraft = null;
   state.apiProviderDraftIsNew = false;
+  clearSystemSettingsDirty();
   populateApiSettingsForm();
   setApiSettingsFeedback("", "");
   scrollActiveApiProviderCardIntoView(activeApiProvider().id, "center");
@@ -907,7 +914,10 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
   try {
     const response = await fetch("/api/api-settings", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": getCsrfToken(),
+      },
       body: JSON.stringify(payload),
     });
     const data = await response.json();
@@ -916,6 +926,7 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
     state.apiProviderEditingId = null;
     state.apiProviderDraft = null;
     state.apiProviderDraftIsNew = false;
+    if (!autoSave) clearSystemSettingsDirty();
     persistApiSettings();
     populateApiSettingsForm();
     setApiSettingsFeedback(autoSave ? translate("apiSettings.autoSaved") : formatTranslation("apiSettings.savedSummary", {

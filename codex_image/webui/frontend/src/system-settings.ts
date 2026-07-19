@@ -40,7 +40,9 @@ function clearGlobalStatus(): void {
   if (status) status.textContent = "";
 }
 
-function updateSettingsUrl(open: boolean): void {
+type SettingsHistoryMode = "push" | "replace";
+
+function updateSettingsUrl(open: boolean, mode: SettingsHistoryMode = "replace"): void {
   const url = new URL(window.location.href);
   if (open) {
     url.searchParams.set("settings", "1");
@@ -51,7 +53,11 @@ function updateSettingsUrl(open: boolean): void {
     url.searchParams.delete("settingsTab");
     url.searchParams.delete("tab");
   }
-  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextUrl === currentUrl) return;
+  if (mode === "push") window.history.pushState(window.history.state, "", nextUrl);
+  else window.history.replaceState(window.history.state, "", nextUrl);
 }
 
 function confirmDiscard(): boolean {
@@ -94,10 +100,11 @@ function applyRoleVisibility(): void {
 
 export function setSystemSettingsTab(
   tab: unknown,
-  options: { refresh?: boolean; updateUrl?: boolean; skipGuard?: boolean } = {},
+  options: { refresh?: boolean; updateUrl?: boolean; skipGuard?: boolean; historyMode?: SettingsHistoryMode } = {},
 ): boolean {
   const selected = allowedTab(tab);
   if (!options.skipGuard && selected !== activeTab && !confirmDiscard()) return false;
+  const previousTab = activeTab;
   activeTab = selected;
   clearGlobalStatus();
   document.querySelectorAll<HTMLElement>("#systemSettingsTabs [data-system-settings-tab]").forEach((button) => {
@@ -112,7 +119,9 @@ export function setSystemSettingsTab(
     panel.setAttribute("aria-hidden", active ? "false" : "true");
   });
   try { window.localStorage.setItem(LAST_TAB_KEY, selected); } catch { /* storage may be unavailable */ }
-  if (options.updateUrl !== false && !shell()?.classList.contains("hidden")) updateSettingsUrl(true);
+  if (options.updateUrl !== false && !shell()?.classList.contains("hidden")) {
+    updateSettingsUrl(true, options.historyMode || (selected === previousTab ? "replace" : "push"));
+  }
   if (options.refresh !== false && selected === "api") {
     maybeCall("setApiSettingsFeedback", "", "");
     maybeCall("populateApiSettingsForm");
@@ -135,7 +144,8 @@ export function openSystemSettingsModal(tab?: unknown): void {
   modal?.classList.remove("hidden");
   modal?.setAttribute("aria-hidden", "false");
   document.body.classList.add("system-settings-open");
-  updateSettingsUrl(true);
+  const alreadyAddressed = new URLSearchParams(window.location.search).get("settings") === "1";
+  updateSettingsUrl(true, alreadyAddressed ? "replace" : "push");
   document.querySelector<HTMLInputElement>("#systemSettingsSearch")?.focus();
 }
 
@@ -146,6 +156,31 @@ export function closeSystemSettingsModal(): void {
   modal?.setAttribute("aria-hidden", "true");
   document.body.classList.remove("system-settings-open");
   updateSettingsUrl(false);
+}
+
+function restoreSettingsFromHistory(): void {
+  const params = new URLSearchParams(window.location.search);
+  const modal = shell();
+  if (params.get("settings") !== "1") {
+    if (!modal?.classList.contains("hidden") && !confirmDiscard()) {
+      window.history.forward();
+      return;
+    }
+    modal?.classList.add("hidden");
+    modal?.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("system-settings-open");
+    return;
+  }
+  const requested = normalizeTab(params.get("settingsTab") || params.get("tab") || "account");
+  if (!modal?.classList.contains("hidden") && requested !== activeTab && !confirmDiscard()) {
+    window.history.forward();
+    return;
+  }
+  applyRoleVisibility();
+  setSystemSettingsTab(requested, { skipGuard: true, updateUrl: false });
+  modal?.classList.remove("hidden");
+  modal?.setAttribute("aria-hidden", "false");
+  document.body.classList.add("system-settings-open");
 }
 
 export function openSystemSettingsFromUrl(): void {
@@ -185,10 +220,11 @@ export function initSystemSettingsFeature(): void {
   document.addEventListener("codex-image-user-context", () => {
     applyRoleVisibility();
     if (pendingUrlTab && (PERSONAL_TABS.has(pendingUrlTab) || isAdmin())) {
-      setSystemSettingsTab(pendingUrlTab, { skipGuard: true });
+      setSystemSettingsTab(pendingUrlTab, { skipGuard: true, historyMode: "replace" });
       pendingUrlTab = "";
     }
   });
+  window.addEventListener("popstate", restoreSettingsFromHistory);
   window.addEventListener("beforeunload", (event) => {
     if (!dirtyForm && !hasLooseDirtyInput) return;
     event.preventDefault();

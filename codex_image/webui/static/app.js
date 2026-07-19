@@ -30380,6 +30380,310 @@ ${hint}` : hint;
     });
   }
 
+  // codex_image/webui/frontend/src/segmented-indicator.ts
+  var HOST_SELECTORS = [
+    ".radio-group:not(.ratio-group)",
+    "#authSourceGroup",
+    ".history-view-toggle",
+    ".history-sort-toggle"
+  ];
+  var HOST_SELECTOR = HOST_SELECTORS.join(", ");
+  var BUTTON_SELECTOR = ".radio-btn, .auth-source-button, .system-settings-tab, .history-view-button, .history-sort-button";
+  var INDICATOR_CLASS = "segmented-indicator";
+  var HOST_CLASS = "segmented-indicator-host";
+  var initializedHosts = /* @__PURE__ */ new WeakSet();
+  var scheduledFrames = /* @__PURE__ */ new WeakMap();
+  var segmentedIndicatorsInitialized = false;
+  var resizeObserver = null;
+  function activeSegment(host) {
+    return host.querySelector(".radio-btn.active, .auth-source-button.active, .system-settings-tab.active, .history-view-button.active, .history-sort-button.active");
+  }
+  function ensureIndicator(host) {
+    const existing = Array.from(host.children).find((child) => child.classList.contains(INDICATOR_CLASS));
+    if (existing instanceof HTMLElement) return existing;
+    const indicator = document.createElement("span");
+    indicator.className = INDICATOR_CLASS;
+    indicator.setAttribute("aria-hidden", "true");
+    host.insertBefore(indicator, host.firstElementChild);
+    return indicator;
+  }
+  function updateIndicator(host) {
+    scheduledFrames.delete(host);
+    if (!host.isConnected) return;
+    const indicator = ensureIndicator(host);
+    const active = activeSegment(host);
+    if (!active) {
+      indicator.style.setProperty("--segmented-indicator-opacity", "0");
+      return;
+    }
+    const hostRect = host.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    const hostStyle = window.getComputedStyle(host);
+    const borderLeft = Number.parseFloat(hostStyle.borderLeftWidth) || 0;
+    const borderTop = Number.parseFloat(hostStyle.borderTopWidth) || 0;
+    indicator.style.setProperty("--segmented-indicator-x", `${activeRect.left - hostRect.left - borderLeft}px`);
+    indicator.style.setProperty("--segmented-indicator-y", `${activeRect.top - hostRect.top - borderTop}px`);
+    indicator.style.setProperty("--segmented-indicator-width", `${activeRect.width}px`);
+    indicator.style.setProperty("--segmented-indicator-height", `${activeRect.height}px`);
+    indicator.style.setProperty("--segmented-indicator-opacity", "1");
+  }
+  function scheduleIndicatorUpdate(host) {
+    if (scheduledFrames.has(host)) return;
+    scheduledFrames.set(host, window.requestAnimationFrame(() => updateIndicator(host)));
+  }
+  function watchButtonClassChanges(host) {
+    const observer = new MutationObserver(() => scheduleIndicatorUpdate(host));
+    host.querySelectorAll(BUTTON_SELECTOR).forEach((button) => {
+      observer.observe(button, { attributes: true, attributeFilter: ["class"] });
+    });
+  }
+  function initHost(host) {
+    if (initializedHosts.has(host)) return;
+    initializedHosts.add(host);
+    host.classList.add(HOST_CLASS);
+    ensureIndicator(host);
+    host.addEventListener("click", () => scheduleIndicatorUpdate(host));
+    watchButtonClassChanges(host);
+    if ("ResizeObserver" in window) {
+      resizeObserver || (resizeObserver = new ResizeObserver((entries) => {
+        entries.forEach((entry) => scheduleIndicatorUpdate(entry.target));
+      }));
+      resizeObserver.observe(host);
+    }
+    scheduleIndicatorUpdate(host);
+  }
+  function refreshSegmentedIndicators() {
+    document.querySelectorAll(HOST_SELECTOR).forEach(scheduleIndicatorUpdate);
+  }
+  function initSegmentedIndicatorFeature() {
+    if (segmentedIndicatorsInitialized) return;
+    segmentedIndicatorsInitialized = true;
+    document.querySelectorAll(HOST_SELECTOR).forEach(initHost);
+    window.addEventListener("resize", refreshSegmentedIndicators, { passive: true });
+    document.fonts?.ready?.then(refreshSegmentedIndicators).catch(() => {
+    });
+  }
+
+  // codex_image/webui/frontend/src/system-settings.ts
+  var systemSettingsFeatureInitialized = false;
+  var activeTab = "account";
+  var pendingUrlTab = "";
+  var dirtyForm = null;
+  var hasLooseDirtyInput = false;
+  var PERSONAL_TABS = /* @__PURE__ */ new Set(["account", "language", "api", "notifications", "usage"]);
+  var ADMIN_TABS = /* @__PURE__ */ new Set(["users", "catalog", "department", "shared", "scheduler", "content", "audit"]);
+  var VALID_TABS = /* @__PURE__ */ new Set([...PERSONAL_TABS, ...ADMIN_TABS]);
+  var LAST_TAB_KEY = "codex-image-system-settings-tab";
+  function maybeCall(name, ...args) {
+    const method = getLegacyBridge().methods[name];
+    if (typeof method === "function") method(...args);
+  }
+  function normalizeTab(tab) {
+    const value = tab === "storage" ? "notifications" : String(tab || "");
+    return VALID_TABS.has(value) ? value : "account";
+  }
+  function isAdmin() {
+    return document.documentElement.dataset.userRole === "admin";
+  }
+  function allowedTab(tab) {
+    const value = normalizeTab(tab);
+    return ADMIN_TABS.has(value) && !isAdmin() ? "account" : value;
+  }
+  function shell() {
+    return document.querySelector("#systemSettingsModal");
+  }
+  function clearGlobalStatus() {
+    const status = document.querySelector("#systemSettingsGlobalStatus");
+    if (status) status.textContent = "";
+  }
+  function updateSettingsUrl(open, mode = "replace") {
+    const url = new URL(window.location.href);
+    if (open) {
+      url.searchParams.set("settings", "1");
+      url.searchParams.set("settingsTab", activeTab);
+      url.searchParams.delete("tab");
+    } else {
+      url.searchParams.delete("settings");
+      url.searchParams.delete("settingsTab");
+      url.searchParams.delete("tab");
+    }
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl === currentUrl) return;
+    if (mode === "push") window.history.pushState(window.history.state, "", nextUrl);
+    else window.history.replaceState(window.history.state, "", nextUrl);
+  }
+  function confirmDiscard() {
+    if (!dirtyForm && !hasLooseDirtyInput) return true;
+    const confirmed = window.confirm("\u5F53\u524D\u9875\u9762\u6709\u672A\u4FDD\u5B58\u7684\u66F4\u6539\uFF0C\u786E\u5B9A\u653E\u5F03\u5417\uFF1F");
+    if (confirmed) {
+      dirtyForm?.setAttribute("data-dirty", "false");
+      dirtyForm = null;
+      hasLooseDirtyInput = false;
+    }
+    return confirmed;
+  }
+  function markSystemSettingsDirty(form) {
+    const target = form || document.querySelector("[data-sensitive-form]:focus-within");
+    if (!target) {
+      hasLooseDirtyInput = true;
+      return;
+    }
+    if (dirtyForm && dirtyForm !== target) dirtyForm.dataset.dirty = "false";
+    dirtyForm = target;
+    target.dataset.dirty = "true";
+  }
+  function clearSystemSettingsDirty(form) {
+    if (form && dirtyForm !== form) return;
+    dirtyForm?.setAttribute("data-dirty", "false");
+    dirtyForm = null;
+    if (!form) hasLooseDirtyInput = false;
+  }
+  function applyRoleVisibility() {
+    const admin = isAdmin();
+    document.querySelectorAll("#systemSettingsModal [data-admin-only]").forEach((node) => {
+      node.classList.toggle("hidden", !admin);
+      if (!admin && node.matches("[data-system-settings-panel]")) node.hidden = true;
+    });
+    if (!admin && ADMIN_TABS.has(activeTab)) setSystemSettingsTab("account", { refresh: false, updateUrl: false });
+  }
+  function setSystemSettingsTab(tab, options = {}) {
+    const selected = allowedTab(tab);
+    if (!options.skipGuard && selected !== activeTab && !confirmDiscard()) return false;
+    const previousTab = activeTab;
+    activeTab = selected;
+    clearGlobalStatus();
+    document.querySelectorAll("#systemSettingsTabs [data-system-settings-tab]").forEach((button) => {
+      const active = button.dataset.systemSettingsTab === selected;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-current", active ? "page" : "false");
+      button.tabIndex = active ? 0 : -1;
+    });
+    document.querySelectorAll("#systemSettingsModal [data-system-settings-panel]").forEach((panel) => {
+      const active = panel.dataset.systemSettingsPanel === selected;
+      panel.hidden = !active;
+      panel.setAttribute("aria-hidden", active ? "false" : "true");
+    });
+    try {
+      window.localStorage.setItem(LAST_TAB_KEY, selected);
+    } catch {
+    }
+    if (options.updateUrl !== false && !shell()?.classList.contains("hidden")) {
+      updateSettingsUrl(true, options.historyMode || (selected === previousTab ? "replace" : "push"));
+    }
+    if (options.refresh !== false && selected === "api") {
+      maybeCall("setApiSettingsFeedback", "", "");
+      maybeCall("populateApiSettingsForm");
+      maybeCall("updateModeSpecificSettings");
+    }
+    document.dispatchEvent(new CustomEvent("codex-image-settings-tab-change", { detail: { tab: selected } }));
+    refreshSegmentedIndicators();
+    document.querySelector(`[data-system-settings-panel="${selected}"]`)?.scrollTo({ top: 0 });
+    return true;
+  }
+  function openSystemSettingsModal(tab) {
+    let requested = tab;
+    if (!requested) {
+      try {
+        requested = window.localStorage.getItem(LAST_TAB_KEY) || "account";
+      } catch {
+        requested = "account";
+      }
+    }
+    applyRoleVisibility();
+    setSystemSettingsTab(requested, { skipGuard: true, updateUrl: false });
+    const modal = shell();
+    modal?.classList.remove("hidden");
+    modal?.setAttribute("aria-hidden", "false");
+    document.body.classList.add("system-settings-open");
+    const alreadyAddressed = new URLSearchParams(window.location.search).get("settings") === "1";
+    updateSettingsUrl(true, alreadyAddressed ? "replace" : "push");
+    document.querySelector("#systemSettingsSearch")?.focus();
+  }
+  function closeSystemSettingsModal() {
+    if (!confirmDiscard()) return;
+    const modal = shell();
+    modal?.classList.add("hidden");
+    modal?.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("system-settings-open");
+    updateSettingsUrl(false);
+  }
+  function restoreSettingsFromHistory() {
+    const params = new URLSearchParams(window.location.search);
+    const modal = shell();
+    if (params.get("settings") !== "1") {
+      if (!modal?.classList.contains("hidden") && !confirmDiscard()) {
+        window.history.forward();
+        return;
+      }
+      modal?.classList.add("hidden");
+      modal?.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("system-settings-open");
+      return;
+    }
+    const requested = normalizeTab(params.get("settingsTab") || params.get("tab") || "account");
+    if (!modal?.classList.contains("hidden") && requested !== activeTab && !confirmDiscard()) {
+      window.history.forward();
+      return;
+    }
+    applyRoleVisibility();
+    setSystemSettingsTab(requested, { skipGuard: true, updateUrl: false });
+    modal?.classList.remove("hidden");
+    modal?.setAttribute("aria-hidden", "false");
+    document.body.classList.add("system-settings-open");
+  }
+  function openSystemSettingsFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("settings") !== "1") return;
+    pendingUrlTab = normalizeTab(params.get("settingsTab") || params.get("tab") || "account");
+    openSystemSettingsModal(pendingUrlTab);
+  }
+  function handleSearch(event) {
+    const query = event.currentTarget.value.trim().toLocaleLowerCase();
+    document.querySelectorAll("#systemSettingsTabs [data-settings-nav-group]").forEach((group) => {
+      let visible = 0;
+      group.querySelectorAll("[data-settings-search]").forEach((button) => {
+        const matches = !query || (button.dataset.settingsSearch || "").toLocaleLowerCase().includes(query) || (button.textContent || "").toLocaleLowerCase().includes(query);
+        button.classList.toggle("search-hidden", !matches);
+        if (matches) visible += 1;
+      });
+      group.classList.toggle("search-hidden", visible === 0);
+    });
+  }
+  function initSystemSettingsFeature() {
+    if (systemSettingsFeatureInitialized) return;
+    systemSettingsFeatureInitialized = true;
+    document.querySelector("#systemSettingsTabs")?.addEventListener("click", (event) => {
+      const button = event.target?.closest("[data-system-settings-tab]");
+      if (button) setSystemSettingsTab(button.dataset.systemSettingsTab);
+    });
+    document.querySelector("#systemSettingsSearch")?.addEventListener("input", handleSearch);
+    document.querySelector("#systemSettingsModal")?.addEventListener("input", (event) => {
+      const form = event.target?.closest("form[data-sensitive-form]");
+      if (form) markSystemSettingsDirty(form);
+    });
+    document.querySelector("#serverAccountSettingsButton")?.addEventListener("click", () => openSystemSettingsModal());
+    document.addEventListener("codex-image-user-context", () => {
+      applyRoleVisibility();
+      if (pendingUrlTab && (PERSONAL_TABS.has(pendingUrlTab) || isAdmin())) {
+        setSystemSettingsTab(pendingUrlTab, { skipGuard: true, historyMode: "replace" });
+        pendingUrlTab = "";
+      }
+    });
+    window.addEventListener("popstate", restoreSettingsFromHistory);
+    window.addEventListener("beforeunload", (event) => {
+      if (!dirtyForm && !hasLooseDirtyInput) return;
+      event.preventDefault();
+      event.returnValue = "";
+    });
+    Object.assign(getLegacyBridge().methods, {
+      setSystemSettingsTab,
+      openSystemSettingsModal,
+      openSystemSettingsFromUrl,
+      closeSystemSettingsModal
+    });
+  }
+
   // codex_image/webui/frontend/src/api-mode-settings.ts
   var bridge7 = getLegacyBridge();
   var els8 = bridge7.els;
@@ -30589,275 +30893,101 @@ ${hint}` : hint;
     return authSource === "api" && currentApiMode2() !== "responses" || authSource === "codex" && currentCodexMode2() !== "responses";
   }
 
-  // codex_image/webui/frontend/src/segmented-indicator.ts
-  var HOST_SELECTORS = [
-    ".radio-group:not(.ratio-group)",
-    "#authSourceGroup",
-    ".history-view-toggle",
-    ".history-sort-toggle"
-  ];
-  var HOST_SELECTOR = HOST_SELECTORS.join(", ");
-  var BUTTON_SELECTOR = ".radio-btn, .auth-source-button, .system-settings-tab, .history-view-button, .history-sort-button";
-  var INDICATOR_CLASS = "segmented-indicator";
-  var HOST_CLASS = "segmented-indicator-host";
-  var initializedHosts = /* @__PURE__ */ new WeakSet();
-  var scheduledFrames = /* @__PURE__ */ new WeakMap();
-  var segmentedIndicatorsInitialized = false;
-  var resizeObserver = null;
-  function activeSegment(host) {
-    return host.querySelector(".radio-btn.active, .auth-source-button.active, .system-settings-tab.active, .history-view-button.active, .history-sort-button.active");
+  // codex_image/webui/frontend/src/server-account.ts
+  var serverAccountInitialized = false;
+  var csrfToken = "";
+  var currentUser = null;
+  function getCsrfToken() {
+    return csrfToken;
   }
-  function ensureIndicator(host) {
-    const existing = Array.from(host.children).find((child) => child.classList.contains(INDICATOR_CLASS));
-    if (existing instanceof HTMLElement) return existing;
-    const indicator = document.createElement("span");
-    indicator.className = INDICATOR_CLASS;
-    indicator.setAttribute("aria-hidden", "true");
-    host.insertBefore(indicator, host.firstElementChild);
-    return indicator;
+  function initials(username) {
+    const chars = Array.from(username.trim());
+    return (chars.slice(0, 2).join("") || "--").toLocaleUpperCase();
   }
-  function updateIndicator(host) {
-    scheduledFrames.delete(host);
-    if (!host.isConnected) return;
-    const indicator = ensureIndicator(host);
-    const active = activeSegment(host);
-    if (!active) {
-      indicator.style.setProperty("--segmented-indicator-opacity", "0");
-      return;
-    }
-    const hostRect = host.getBoundingClientRect();
-    const activeRect = active.getBoundingClientRect();
-    const hostStyle = window.getComputedStyle(host);
-    const borderLeft = Number.parseFloat(hostStyle.borderLeftWidth) || 0;
-    const borderTop = Number.parseFloat(hostStyle.borderTopWidth) || 0;
-    indicator.style.setProperty("--segmented-indicator-x", `${activeRect.left - hostRect.left - borderLeft}px`);
-    indicator.style.setProperty("--segmented-indicator-y", `${activeRect.top - hostRect.top - borderTop}px`);
-    indicator.style.setProperty("--segmented-indicator-width", `${activeRect.width}px`);
-    indicator.style.setProperty("--segmented-indicator-height", `${activeRect.height}px`);
-    indicator.style.setProperty("--segmented-indicator-opacity", "1");
+  function roleLabel(role) {
+    return translate(role === "admin" ? "serverAccount.roleAdmin" : "serverAccount.roleUser");
   }
-  function scheduleIndicatorUpdate(host) {
-    if (scheduledFrames.has(host)) return;
-    scheduledFrames.set(host, window.requestAnimationFrame(() => updateIndicator(host)));
+  function setText(selector, value) {
+    const element2 = document.querySelector(selector);
+    if (element2) element2.textContent = value;
   }
-  function watchButtonClassChanges(host) {
-    const observer = new MutationObserver(() => scheduleIndicatorUpdate(host));
-    host.querySelectorAll(BUTTON_SELECTOR).forEach((button) => {
-      observer.observe(button, { attributes: true, attributeFilter: ["class"] });
-    });
+  function closeMenu() {
+    const menu = document.querySelector("#serverAccountMenu");
+    const trigger = document.querySelector("#serverAccountButton");
+    menu?.classList.add("hidden");
+    menu?.setAttribute("aria-hidden", "true");
+    trigger?.setAttribute("aria-expanded", "false");
   }
-  function initHost(host) {
-    if (initializedHosts.has(host)) return;
-    initializedHosts.add(host);
-    host.classList.add(HOST_CLASS);
-    ensureIndicator(host);
-    host.addEventListener("click", () => scheduleIndicatorUpdate(host));
-    watchButtonClassChanges(host);
-    if ("ResizeObserver" in window) {
-      resizeObserver || (resizeObserver = new ResizeObserver((entries) => {
-        entries.forEach((entry) => scheduleIndicatorUpdate(entry.target));
-      }));
-      resizeObserver.observe(host);
-    }
-    scheduleIndicatorUpdate(host);
+  function toggleMenu() {
+    const menu = document.querySelector("#serverAccountMenu");
+    const trigger = document.querySelector("#serverAccountButton");
+    const open = Boolean(menu?.classList.contains("hidden"));
+    menu?.classList.toggle("hidden", !open);
+    menu?.setAttribute("aria-hidden", open ? "false" : "true");
+    trigger?.setAttribute("aria-expanded", open ? "true" : "false");
   }
-  function refreshSegmentedIndicators() {
-    document.querySelectorAll(HOST_SELECTOR).forEach(scheduleIndicatorUpdate);
+  function renderCurrentUser() {
+    if (!currentUser) return;
+    const avatar = initials(currentUser.username);
+    const role = roleLabel(currentUser.role);
+    setText("#serverAccountName", currentUser.username);
+    setText("#serverAccountMenuName", currentUser.username);
+    setText("#systemSettingsAccountName", currentUser.username);
+    setText("#settingsAccountUsername", currentUser.username);
+    setText("#serverAccountRole", role);
+    setText("#serverAccountMenuRole", role);
+    setText("#systemSettingsAccountRole", role);
+    setText("#settingsAccountRole", role);
+    setText("#serverAccountAvatar", avatar);
+    setText("#serverAccountMenuAvatar", avatar);
+    setText("#systemSettingsAccountAvatar", avatar);
   }
-  function initSegmentedIndicatorFeature() {
-    if (segmentedIndicatorsInitialized) return;
-    segmentedIndicatorsInitialized = true;
-    document.querySelectorAll(HOST_SELECTOR).forEach(initHost);
-    window.addEventListener("resize", refreshSegmentedIndicators, { passive: true });
-    document.fonts?.ready?.then(refreshSegmentedIndicators).catch(() => {
-    });
+  async function loadServerAccount() {
+    const response = await fetch("/api/auth/me");
+    if (!response.ok) return;
+    const context = await response.json();
+    currentUser = context.user;
+    csrfToken = context.csrf_token;
+    document.documentElement.dataset.userRole = context.user.role;
+    renderCurrentUser();
+    document.querySelector("#serverAccount")?.classList.remove("hidden");
+    const logoutButton = document.querySelector("#serverLogoutButton");
+    if (logoutButton) logoutButton.disabled = !csrfToken;
+    document.dispatchEvent(new CustomEvent("codex-image-user-context", { detail: context }));
   }
-
-  // codex_image/webui/frontend/src/system-settings.ts
-  var systemSettingsFeatureInitialized = false;
-  var activeTab = "account";
-  var pendingUrlTab = "";
-  var dirtyForm = null;
-  var hasLooseDirtyInput = false;
-  var PERSONAL_TABS = /* @__PURE__ */ new Set(["account", "language", "api", "notifications", "usage"]);
-  var ADMIN_TABS = /* @__PURE__ */ new Set(["users", "catalog", "department", "shared", "scheduler", "content", "audit"]);
-  var VALID_TABS = /* @__PURE__ */ new Set([...PERSONAL_TABS, ...ADMIN_TABS]);
-  var LAST_TAB_KEY = "codex-image-system-settings-tab";
-  function maybeCall(name, ...args) {
-    const method = getLegacyBridge().methods[name];
-    if (typeof method === "function") method(...args);
-  }
-  function normalizeTab(tab) {
-    const value = tab === "storage" ? "notifications" : String(tab || "");
-    return VALID_TABS.has(value) ? value : "account";
-  }
-  function isAdmin() {
-    return document.documentElement.dataset.userRole === "admin";
-  }
-  function allowedTab(tab) {
-    const value = normalizeTab(tab);
-    return ADMIN_TABS.has(value) && !isAdmin() ? "account" : value;
-  }
-  function shell() {
-    return document.querySelector("#systemSettingsModal");
-  }
-  function clearGlobalStatus() {
-    const status = document.querySelector("#systemSettingsGlobalStatus");
-    if (status) status.textContent = "";
-  }
-  function updateSettingsUrl(open) {
-    const url = new URL(window.location.href);
-    if (open) {
-      url.searchParams.set("settings", "1");
-      url.searchParams.set("settingsTab", activeTab);
-      url.searchParams.delete("tab");
-    } else {
-      url.searchParams.delete("settings");
-      url.searchParams.delete("settingsTab");
-      url.searchParams.delete("tab");
-    }
-    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
-  }
-  function confirmDiscard() {
-    if (!dirtyForm && !hasLooseDirtyInput) return true;
-    const confirmed = window.confirm("\u5F53\u524D\u9875\u9762\u6709\u672A\u4FDD\u5B58\u7684\u66F4\u6539\uFF0C\u786E\u5B9A\u653E\u5F03\u5417\uFF1F");
-    if (confirmed) {
-      dirtyForm?.setAttribute("data-dirty", "false");
-      dirtyForm = null;
-      hasLooseDirtyInput = false;
-    }
-    return confirmed;
-  }
-  function markSystemSettingsDirty(form) {
-    const target = form || document.querySelector("[data-sensitive-form]:focus-within");
-    if (!target) {
-      hasLooseDirtyInput = true;
-      return;
-    }
-    if (dirtyForm && dirtyForm !== target) dirtyForm.dataset.dirty = "false";
-    dirtyForm = target;
-    target.dataset.dirty = "true";
-  }
-  function clearSystemSettingsDirty(form) {
-    if (form && dirtyForm !== form) return;
-    dirtyForm?.setAttribute("data-dirty", "false");
-    dirtyForm = null;
-    if (!form) hasLooseDirtyInput = false;
-  }
-  function applyRoleVisibility() {
-    const admin = isAdmin();
-    document.querySelectorAll("#systemSettingsModal [data-admin-only]").forEach((node) => {
-      node.classList.toggle("hidden", !admin);
-      if (!admin && node.matches("[data-system-settings-panel]")) node.hidden = true;
-    });
-    if (!admin && ADMIN_TABS.has(activeTab)) setSystemSettingsTab("account", { refresh: false, updateUrl: false });
-  }
-  function setSystemSettingsTab(tab, options = {}) {
-    const selected = allowedTab(tab);
-    if (!options.skipGuard && selected !== activeTab && !confirmDiscard()) return false;
-    activeTab = selected;
-    clearGlobalStatus();
-    document.querySelectorAll("#systemSettingsTabs [data-system-settings-tab]").forEach((button) => {
-      const active = button.dataset.systemSettingsTab === selected;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-current", active ? "page" : "false");
-      button.tabIndex = active ? 0 : -1;
-    });
-    document.querySelectorAll("#systemSettingsModal [data-system-settings-panel]").forEach((panel) => {
-      const active = panel.dataset.systemSettingsPanel === selected;
-      panel.hidden = !active;
-      panel.setAttribute("aria-hidden", active ? "false" : "true");
-    });
+  async function logout() {
+    const button = document.querySelector("#serverLogoutButton");
+    if (button) button.disabled = true;
     try {
-      window.localStorage.setItem(LAST_TAB_KEY, selected);
-    } catch {
-    }
-    if (options.updateUrl !== false && !shell()?.classList.contains("hidden")) updateSettingsUrl(true);
-    if (options.refresh !== false && selected === "api") {
-      maybeCall("setApiSettingsFeedback", "", "");
-      maybeCall("populateApiSettingsForm");
-      maybeCall("updateModeSpecificSettings");
-    }
-    document.dispatchEvent(new CustomEvent("codex-image-settings-tab-change", { detail: { tab: selected } }));
-    refreshSegmentedIndicators();
-    document.querySelector(`[data-system-settings-panel="${selected}"]`)?.scrollTo({ top: 0 });
-    return true;
-  }
-  function openSystemSettingsModal(tab) {
-    let requested = tab;
-    if (!requested) {
-      try {
-        requested = window.localStorage.getItem(LAST_TAB_KEY) || "account";
-      } catch {
-        requested = "account";
-      }
-    }
-    applyRoleVisibility();
-    setSystemSettingsTab(requested, { skipGuard: true, updateUrl: false });
-    const modal = shell();
-    modal?.classList.remove("hidden");
-    modal?.setAttribute("aria-hidden", "false");
-    document.body.classList.add("system-settings-open");
-    updateSettingsUrl(true);
-    document.querySelector("#systemSettingsSearch")?.focus();
-  }
-  function closeSystemSettingsModal() {
-    if (!confirmDiscard()) return;
-    const modal = shell();
-    modal?.classList.add("hidden");
-    modal?.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("system-settings-open");
-    updateSettingsUrl(false);
-  }
-  function openSystemSettingsFromUrl() {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("settings") !== "1") return;
-    pendingUrlTab = normalizeTab(params.get("settingsTab") || params.get("tab") || "account");
-    openSystemSettingsModal(pendingUrlTab);
-  }
-  function handleSearch(event) {
-    const query = event.currentTarget.value.trim().toLocaleLowerCase();
-    document.querySelectorAll("#systemSettingsTabs [data-settings-nav-group]").forEach((group) => {
-      let visible = 0;
-      group.querySelectorAll("[data-settings-search]").forEach((button) => {
-        const matches = !query || (button.dataset.settingsSearch || "").toLocaleLowerCase().includes(query) || (button.textContent || "").toLocaleLowerCase().includes(query);
-        button.classList.toggle("search-hidden", !matches);
-        if (matches) visible += 1;
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: {
+          "X-CSRF-Token": decodeURIComponent(
+            document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("jd_image_csrf="))?.slice("jd_image_csrf=".length) || csrfToken
+          )
+        }
       });
-      group.classList.toggle("search-hidden", visible === 0);
-    });
+      if (response.ok) window.location.assign("/login");
+    } finally {
+      if (button) button.disabled = false;
+    }
   }
-  function initSystemSettingsFeature() {
-    if (systemSettingsFeatureInitialized) return;
-    systemSettingsFeatureInitialized = true;
-    document.querySelector("#systemSettingsTabs")?.addEventListener("click", (event) => {
-      const button = event.target?.closest("[data-system-settings-tab]");
-      if (button) setSystemSettingsTab(button.dataset.systemSettingsTab);
+  function initServerAccountFeature() {
+    if (serverAccountInitialized) return;
+    serverAccountInitialized = true;
+    document.querySelector("#serverAccountButton")?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleMenu();
     });
-    document.querySelector("#systemSettingsSearch")?.addEventListener("input", handleSearch);
-    document.querySelector("#systemSettingsModal")?.addEventListener("input", (event) => {
-      const form = event.target?.closest("form[data-sensitive-form]");
-      if (form) markSystemSettingsDirty(form);
+    document.querySelector("#serverAccountMenu")?.addEventListener("click", (event) => event.stopPropagation());
+    document.querySelector("#serverAccountSettingsButton")?.addEventListener("click", closeMenu);
+    document.querySelector("#serverLogoutButton")?.addEventListener("click", () => void logout());
+    document.addEventListener(LOCALE_CHANGE_EVENT, renderCurrentUser);
+    document.addEventListener("click", closeMenu);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeMenu();
     });
-    document.querySelector("#serverAccountSettingsButton")?.addEventListener("click", () => openSystemSettingsModal());
-    document.addEventListener("codex-image-user-context", () => {
-      applyRoleVisibility();
-      if (pendingUrlTab && (PERSONAL_TABS.has(pendingUrlTab) || isAdmin())) {
-        setSystemSettingsTab(pendingUrlTab, { skipGuard: true });
-        pendingUrlTab = "";
-      }
-    });
-    window.addEventListener("beforeunload", (event) => {
-      if (!dirtyForm && !hasLooseDirtyInput) return;
-      event.preventDefault();
-      event.returnValue = "";
-    });
-    Object.assign(getLegacyBridge().methods, {
-      setSystemSettingsTab,
-      openSystemSettingsModal,
-      openSystemSettingsFromUrl,
-      closeSystemSettingsModal
-    });
+    void loadServerAccount();
   }
 
   // codex_image/webui/frontend/src/api-advanced-settings.ts
@@ -31543,6 +31673,7 @@ ${hint}` : hint;
     state9.apiProviderEditingId = null;
     state9.apiProviderDraft = null;
     state9.apiProviderDraftIsNew = false;
+    clearSystemSettingsDirty();
     populateApiSettingsForm();
     setApiSettingsFeedback("", "");
     scrollActiveApiProviderCardIntoView(activeApiProvider().id, "center");
@@ -31753,7 +31884,10 @@ ${hint}` : hint;
     try {
       const response = await fetch("/api/api-settings", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": getCsrfToken()
+        },
         body: JSON.stringify(payload2)
       });
       const data = await response.json();
@@ -31762,6 +31896,7 @@ ${hint}` : hint;
       state9.apiProviderEditingId = null;
       state9.apiProviderDraft = null;
       state9.apiProviderDraftIsNew = false;
+      if (!autoSave) clearSystemSettingsDirty();
       persistApiSettings();
       populateApiSettingsForm();
       setApiSettingsFeedback(autoSave ? translate("apiSettings.autoSaved") : formatTranslation("apiSettings.savedSummary", {
@@ -31807,6 +31942,7 @@ ${hint}` : hint;
   function initApiSettingsFeature() {
     if (apiSettingsFeatureInitialized) return;
     apiSettingsFeatureInitialized = true;
+    document.querySelector("#apiProviderEditor")?.addEventListener("input", () => markSystemSettingsDirty());
     document.addEventListener(LOCALE_CHANGE_EVENT, () => {
       const bridge39 = getLegacyBridge();
       renderAuthSource(bridge39.state.authStatus);
@@ -44789,100 +44925,6 @@ ${galleryText}`;
     });
   }
 
-  // codex_image/webui/frontend/src/server-account.ts
-  var serverAccountInitialized = false;
-  var csrfToken = "";
-  var currentUser = null;
-  function initials(username) {
-    const chars = Array.from(username.trim());
-    return (chars.slice(0, 2).join("") || "--").toLocaleUpperCase();
-  }
-  function roleLabel(role) {
-    return translate(role === "admin" ? "serverAccount.roleAdmin" : "serverAccount.roleUser");
-  }
-  function setText(selector, value) {
-    const element2 = document.querySelector(selector);
-    if (element2) element2.textContent = value;
-  }
-  function closeMenu() {
-    const menu = document.querySelector("#serverAccountMenu");
-    const trigger = document.querySelector("#serverAccountButton");
-    menu?.classList.add("hidden");
-    menu?.setAttribute("aria-hidden", "true");
-    trigger?.setAttribute("aria-expanded", "false");
-  }
-  function toggleMenu() {
-    const menu = document.querySelector("#serverAccountMenu");
-    const trigger = document.querySelector("#serverAccountButton");
-    const open = Boolean(menu?.classList.contains("hidden"));
-    menu?.classList.toggle("hidden", !open);
-    menu?.setAttribute("aria-hidden", open ? "false" : "true");
-    trigger?.setAttribute("aria-expanded", open ? "true" : "false");
-  }
-  function renderCurrentUser() {
-    if (!currentUser) return;
-    const avatar = initials(currentUser.username);
-    const role = roleLabel(currentUser.role);
-    setText("#serverAccountName", currentUser.username);
-    setText("#serverAccountMenuName", currentUser.username);
-    setText("#systemSettingsAccountName", currentUser.username);
-    setText("#settingsAccountUsername", currentUser.username);
-    setText("#serverAccountRole", role);
-    setText("#serverAccountMenuRole", role);
-    setText("#systemSettingsAccountRole", role);
-    setText("#settingsAccountRole", role);
-    setText("#serverAccountAvatar", avatar);
-    setText("#serverAccountMenuAvatar", avatar);
-    setText("#systemSettingsAccountAvatar", avatar);
-  }
-  async function loadServerAccount() {
-    const response = await fetch("/api/auth/me");
-    if (!response.ok) return;
-    const context = await response.json();
-    currentUser = context.user;
-    csrfToken = context.csrf_token;
-    document.documentElement.dataset.userRole = context.user.role;
-    renderCurrentUser();
-    document.querySelector("#serverAccount")?.classList.remove("hidden");
-    const logoutButton = document.querySelector("#serverLogoutButton");
-    if (logoutButton) logoutButton.disabled = !csrfToken;
-    document.dispatchEvent(new CustomEvent("codex-image-user-context", { detail: context }));
-  }
-  async function logout() {
-    const button = document.querySelector("#serverLogoutButton");
-    if (button) button.disabled = true;
-    try {
-      const response = await fetch("/api/auth/logout", {
-        method: "POST",
-        headers: {
-          "X-CSRF-Token": decodeURIComponent(
-            document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("jd_image_csrf="))?.slice("jd_image_csrf=".length) || csrfToken
-          )
-        }
-      });
-      if (response.ok) window.location.assign("/login");
-    } finally {
-      if (button) button.disabled = false;
-    }
-  }
-  function initServerAccountFeature() {
-    if (serverAccountInitialized) return;
-    serverAccountInitialized = true;
-    document.querySelector("#serverAccountButton")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      toggleMenu();
-    });
-    document.querySelector("#serverAccountMenu")?.addEventListener("click", (event) => event.stopPropagation());
-    document.querySelector("#serverAccountSettingsButton")?.addEventListener("click", closeMenu);
-    document.querySelector("#serverLogoutButton")?.addEventListener("click", () => void logout());
-    document.addEventListener(LOCALE_CHANGE_EVENT, renderCurrentUser);
-    document.addEventListener("click", closeMenu);
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") closeMenu();
-    });
-    void loadServerAccount();
-  }
-
   // codex_image/webui/frontend/src/server-settings.ts
   var initialized3 = false;
   var managedUsers = [];
@@ -45226,16 +45268,19 @@ ${galleryText}`;
     const rows = (result.events || []).map((event) => listRow(`${event.action} \xB7 ${event.outcome}`, `${fmtDate(event.occurred_at)} \xB7 \u64CD\u4F5C\u8005 ${event.actor_user_id}${event.subject_user_id ? ` \xB7 \u5BF9\u8C61 ${event.subject_user_id}` : ""}`));
     replace("#settingsAuditList", ...rows);
   }
+  var TAB_LOADERS = {
+    account: loadSessions,
+    usage: loadUsage,
+    users: loadUsers,
+    catalog: loadCatalog,
+    department: loadDepartment,
+    shared: loadShared,
+    scheduler: loadScheduler,
+    content: loadContent,
+    audit: () => loadAudit()
+  };
   async function loadTab(tab) {
-    if (tab === "account") await loadSessions();
-    else if (tab === "usage") await loadUsage();
-    else if (tab === "users") await loadUsers();
-    else if (tab === "catalog") await loadCatalog();
-    else if (tab === "department") await loadDepartment();
-    else if (tab === "shared") await loadShared();
-    else if (tab === "scheduler") await loadScheduler();
-    else if (tab === "content") await loadContent();
-    else if (tab === "audit") await loadAudit();
+    await TAB_LOADERS[tab]?.();
   }
   function bindForms() {
     document.querySelector("#settingsPasswordForm")?.addEventListener("submit", async (event) => {

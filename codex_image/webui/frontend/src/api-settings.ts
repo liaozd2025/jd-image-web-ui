@@ -1,5 +1,6 @@
 import { getLegacyBridge } from "./state";
 import { LOCALE_CHANGE_EVENT } from "./i18n";
+import { markSystemSettingsDirty } from "./system-settings";
 import {
   applyAuthSourceSelection,
   authSourceDetailText,
@@ -70,6 +71,7 @@ let apiSettingsFeatureInitialized = false;
 export function initApiSettingsFeature(): void {
   if (apiSettingsFeatureInitialized) return;
   apiSettingsFeatureInitialized = true;
+  document.querySelector("#apiProviderEditor")?.addEventListener("input", () => markSystemSettingsDirty());
   document.addEventListener(LOCALE_CHANGE_EVENT, () => {
     const bridge = getLegacyBridge();
     renderAuthSource(bridge.state.authStatus);

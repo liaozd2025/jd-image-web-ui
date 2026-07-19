@@ -199,6 +199,10 @@ try {
   await pageA.locator('[data-system-settings-tab="language"]').click();
   check(await pageA.locator('[data-system-settings-panel="language"]').isVisible(), "accepting the unsaved-change warning did not change settings page");
   check(new URL(pageA.url()).searchParams.get("settingsTab") === "language", "settings navigation did not update the address");
+  await pageA.goBack();
+  await eventually(async () => await pageA.locator('[data-system-settings-panel="account"]').isVisible(), "browser history did not restore the previous settings page");
+  await pageA.goForward();
+  await eventually(async () => await pageA.locator('[data-system-settings-panel="language"]').isVisible(), "browser history did not restore the next settings page");
   await pageA.locator("#languageSelect").selectOption("en");
   check((await pageA.locator('[data-system-settings-tab="account"]').textContent()).trim().endsWith("Account & security"), "settings navigation did not follow the language preference");
   check((await pageA.locator("#serverAccountRole").textContent()).trim() === "Standard user", "account role did not follow the language preference");
@@ -211,11 +215,25 @@ try {
   const providerCatalogA = await api(pageA, "/api/providers/catalog");
   const personalProviderVersionId = providerCatalogA.body.providers.find((item) => item.provider_key === "browser-fake-provider")?.provider_version_id;
   check(personalProviderVersionId, "personal provider catalog entry was missing");
-  const personalCredentialA = await api(pageA, `/api/providers/personal/${personalProviderVersionId}`, {
-    method: "PUT",
-    json: { api_key: "browser-user-a-private-provider-key" },
-  });
-  check(personalCredentialA.status === 200, "user A personal provider configuration failed");
+  await pageA.locator("#serverAccountButton").click();
+  await pageA.locator("#serverAccountSettingsButton").click();
+  await pageA.locator('[data-system-settings-tab="api"]').click();
+  const personalProviderCard = pageA.locator('[data-api-provider-id]', { hasText: "Browser Fake Provider · 个人" });
+  await personalProviderCard.waitFor({ state: "visible" });
+  await personalProviderCard.click();
+  await pageA.locator("#editApiProviderButton").click();
+  await pageA.locator("#apiKey").fill("browser-user-a-private-provider-key");
+  pageA.once("dialog", async (dialog) => dialog.dismiss());
+  await pageA.locator('[data-system-settings-tab="usage"]').click();
+  check(await pageA.locator('[data-system-settings-panel="api"]').isVisible(), "API Key draft was not protected by the unsaved-change guard");
+  const personalSaveResponse = pageA.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/api-settings" && response.request().method() === "PATCH"
+  ));
+  await pageA.locator("#saveApiProviderEditButton").click();
+  check((await personalSaveResponse).status() === 200, "personal provider UI save was rejected");
+  const personalCredentialsA = await api(pageA, "/api/providers/personal");
+  check(personalCredentialsA.body.credentials.some((item) => item.provider_version_id === personalProviderVersionId), "personal provider UI save did not persist the credential");
+  await pageA.locator("#systemSettingsModalClose").click();
 
   const sharedGallery = await api(pageA, "/api/gallery");
   const sharedGalleryItem = sharedGallery.body.items.find((item) => item.scope === "shared" && item.read_only);
@@ -421,6 +439,33 @@ try {
     "legacy /admin entry did not redirect to user management",
   );
   await eventually(async () => (await adminPage.locator("#settingsUserList").textContent()).includes(credentials.userA.username), "unified user management did not load users");
+  let cancelledStatusRequests = 0;
+  const countCancelledStatusRequest = (request) => {
+    if (new URL(request.url()).pathname === `/api/admin/users/${userAId}/status`) cancelledStatusRequests += 1;
+  };
+  adminPage.on("request", countCancelledStatusRequest);
+  adminPage.once("dialog", async (dialog) => dialog.dismiss());
+  await adminPage.locator("#settingsUserList .settings-list-row", { hasText: credentials.userA.username }).getByRole("button", { name: "停用" }).click();
+  await adminPage.waitForTimeout(300);
+  adminPage.off("request", countCancelledStatusRequest);
+  check(cancelledStatusRequests === 0, "canceling a high-impact confirmation still sent a status request");
+
+  await adminPage.locator('[data-system-settings-tab="catalog"]').click();
+  await eventually(async () => (await adminPage.locator("#settingsCatalogList").textContent()).includes("Browser Fake Provider"), "provider catalog settings did not load");
+  await adminPage.locator('[data-system-settings-tab="department"]').click();
+  await eventually(async () => (await adminPage.locator("#settingsDepartmentProviderList").textContent()).includes("Browser Fake Provider"), "department provider settings did not load");
+  check((await adminPage.locator("#settingsUserQuotaList").textContent()).includes(credentials.userA.username), "per-user department quotas did not load");
+  await adminPage.locator('[data-system-settings-tab="shared"]').click();
+  await eventually(async () => (await adminPage.locator("#settingsSharedAssetList").textContent()).includes("Shared browser image"), "shared asset settings did not load");
+  await adminPage.locator('[data-system-settings-tab="scheduler"]').click();
+  await eventually(async () => Boolean((await adminPage.locator("#settingsSchedulerSummary").textContent()).trim()), "scheduler settings did not load");
+  const schedulerSaveResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/admin/scheduler" && response.request().method() === "PATCH"
+  ));
+  await adminPage.locator("#settingsSchedulerForm").getByRole("button", { name: "保存调度设置" }).click();
+  check((await schedulerSaveResponse).status() === 200, "scheduler settings save failed");
+  await adminPage.locator('[data-system-settings-tab="audit"]').click();
+  await eventually(async () => Boolean((await adminPage.locator("#settingsAuditList").textContent()).trim()), "audit settings did not load");
   const adminTasks = await api(adminPage, `/api/admin/users/${userAId}/tasks?limit=100`);
   check(adminTasks.status === 200 && adminTasks.body.tasks.some((item) => item.task_id === generated.task_id), "admin could not inspect user tasks");
   await adminPage.locator('[data-system-settings-tab="content"]').click();

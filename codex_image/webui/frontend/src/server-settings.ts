@@ -349,16 +349,20 @@ async function loadAudit(action = ""): Promise<void> {
   replace("#settingsAuditList", ...rows);
 }
 
+const TAB_LOADERS: Record<string, () => Promise<void>> = {
+  account: loadSessions,
+  usage: loadUsage,
+  users: loadUsers,
+  catalog: loadCatalog,
+  department: loadDepartment,
+  shared: loadShared,
+  scheduler: loadScheduler,
+  content: loadContent,
+  audit: () => loadAudit(),
+};
+
 async function loadTab(tab: string): Promise<void> {
-  if (tab === "account") await loadSessions();
-  else if (tab === "usage") await loadUsage();
-  else if (tab === "users") await loadUsers();
-  else if (tab === "catalog") await loadCatalog();
-  else if (tab === "department") await loadDepartment();
-  else if (tab === "shared") await loadShared();
-  else if (tab === "scheduler") await loadScheduler();
-  else if (tab === "content") await loadContent();
-  else if (tab === "audit") await loadAudit();
+  await TAB_LOADERS[tab]?.();
 }
 
 function bindForms(): void {
