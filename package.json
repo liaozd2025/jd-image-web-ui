@@ -1,6 +1,7 @@
 {
   "private": true,
   "scripts": {
+    "prototype:settings": "python3 -m http.server 4173 --bind 127.0.0.1 --directory codex_image/webui/static/prototypes/settings",
     "build:webui:css": "node scripts/build-webui-css.mjs",
     "typecheck:webui": "tsc -p tsconfig.webui.json --noEmit",
     "build:webui": "esbuild codex_image/webui/frontend/src/main.ts --bundle --format=iife --target=es2020 --outfile=codex_image/webui/static/app.js --sourcemap --log-level=warning && esbuild codex_image/webui/frontend/src/history.ts --bundle --format=iife --target=es2020 --outfile=codex_image/webui/static/history.js --sourcemap --log-level=warning",
