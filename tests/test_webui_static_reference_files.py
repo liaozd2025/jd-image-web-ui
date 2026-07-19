@@ -362,10 +362,10 @@ class ReferenceFileFrontendContractTests(unittest.TestCase):
         index = (ROOT / "codex_image/webui/static/index.html").read_text(encoding="utf-8")
         history = (ROOT / "codex_image/webui/static/history.html").read_text(encoding="utf-8")
         worker = (ROOT / "codex_image/webui/static/service-worker.js").read_text(encoding="utf-8")
-        self.assertIn("runtime-568", index)
-        self.assertIn("runtime-568", history)
+        self.assertIn("runtime-569", index)
+        self.assertIn("runtime-569", history)
         self.assertIn("history-69", history)
-        self.assertIn('ilab-gpt-conjure-shell-v50', worker)
+        self.assertIn('ilab-gpt-conjure-shell-v51', worker)
 
     def test_design_system_documents_shared_input_rail_and_filename_summary_tiles(self) -> None:
         design_path = ROOT / "DESIGN.md"
