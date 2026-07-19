@@ -1,0 +1,76 @@
+from __future__ import annotations
+
+import base64
+import json
+import unittest
+
+from codex_image.openai_images_client import OpenAIImagesImageClient
+from tests.helpers import FakeResponse, FakeTransport
+
+
+PNG_1X1 = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
+
+
+class VolcengineArkImagesClientTests(unittest.TestCase):
+    def test_seedream_uses_ark_json_generation_contract_for_reference_images(self) -> None:
+        transport = FakeTransport(
+            [
+                FakeResponse(
+                    status=200,
+                    body=json.dumps(
+                        {
+                            "model": "doubao-seedream-test",
+                            "data": [{"b64_json": base64.b64encode(PNG_1X1).decode("ascii")}],
+                        }
+                    ).encode("utf-8"),
+                ),
+                FakeResponse(
+                    status=200,
+                    body=json.dumps(
+                        {
+                            "model": "doubao-seedream-test",
+                            "data": [{"b64_json": base64.b64encode(PNG_1X1).decode("ascii")}],
+                        }
+                    ).encode("utf-8"),
+                ),
+            ]
+        )
+        reference_image = "data:image/png;base64," + base64.b64encode(PNG_1X1).decode("ascii")
+        client = OpenAIImagesImageClient(
+            api_key="test-ark-key",
+            base_url="https://ark.cn-beijing.volces.com/api/v3",
+            image_model="doubao-seedream-test",
+            transport=transport,
+        )
+
+        results = client.generate_images(
+            prompt="generate from reference",
+            reference_images=[reference_image],
+            size="2048x2048",
+            quality="high",
+            output_format="png",
+            n=2,
+        )
+
+        self.assertEqual(len(results), 2)
+        self.assertEqual(len(transport.requests), 2)
+        request = transport.requests[0]
+        self.assertEqual(request["url"], "https://ark.cn-beijing.volces.com/api/v3/images/generations")
+        self.assertEqual(request["headers"]["Content-Type"], "application/json")
+        payload = json.loads(request["body"])
+        self.assertEqual(payload["model"], "doubao-seedream-test")
+        self.assertEqual(payload["prompt"], "generate from reference")
+        self.assertEqual(payload["image"], [reference_image])
+        self.assertEqual(payload["size"], "2048x2048")
+        self.assertEqual(payload["response_format"], "b64_json")
+        self.assertNotIn("sequential_image_generation", payload)
+        self.assertNotIn("sequential_image_generation_options", payload)
+        self.assertNotIn("n", payload)
+        self.assertNotIn("output_format", payload)
+        self.assertNotIn("quality", payload)
+
+
+if __name__ == "__main__":
+    unittest.main()

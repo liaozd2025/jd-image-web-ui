@@ -3,23 +3,27 @@ from __future__ import annotations
 import asyncio
 from io import BytesIO
 import json
+import re
 from typing import Any
 import zipfile
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from pydantic import ValidationError
 from starlette.datastructures import FormData, UploadFile
 from starlette.formparsers import MultiPartException
 
 from .assets import AssetNotFound, AssetQuotaExceeded, AssetRepository, AssetValidationError
-from .department_providers import DepartmentProviderRepository
+from .department_providers import DepartmentCredentialNotFound, DepartmentProviderRepository
 from .identity import AuthenticatedSession
 from .providers import (
     PersonalCredentialNotFound,
+    ProviderVersion,
     ProviderRepository,
     ProviderVersionInactive,
     ProviderVersionNotFound,
 )
+from .providers_api import ProviderVersionPayload
 from .tasks import (
     GenerationTask,
     GenerationTaskRepository,
@@ -92,30 +96,38 @@ def install_workspace_routes(
         if not isinstance(payload, dict) or not isinstance(payload.get("providers", []), list):
             return JSONResponse(status_code=422, content={"detail": "invalid_provider_settings"})
         if session.user.role == "admin":
-            return JSONResponse(status_code=403, content={"detail": "administrators_use_department_credentials"})
-        for item in payload.get("providers", []):
-            if not isinstance(item, dict):
-                continue
-            scope, provider_version_id = _split_provider_id(item.get("id"))
-            api_key = item.get("api_key")
-            if scope != "personal" or not provider_version_id or not isinstance(api_key, str):
-                continue
             try:
-                if api_key:
-                    providers.save_personal_credential(
-                        session.user.user_id,
-                        provider_version_id=provider_version_id,
-                        api_key=api_key,
-                    )
-                elif item.get("api_key_set") is False:
-                    providers.delete_personal_credential(
-                        session.user.user_id,
-                        provider_version_id=provider_version_id,
-                    )
-            except PersonalCredentialNotFound:
-                pass
+                _save_department_api_settings(session, payload, providers, departments)
+            except (TypeError, ValueError, ValidationError):
+                return JSONResponse(status_code=422, content={"detail": "invalid_provider_settings"})
+            except DepartmentCredentialNotFound as error:
+                return JSONResponse(status_code=409, content={"detail": str(error)})
             except (ProviderVersionNotFound, ProviderVersionInactive) as error:
                 return JSONResponse(status_code=409, content={"detail": str(error)})
+        else:
+            for item in payload.get("providers", []):
+                if not isinstance(item, dict):
+                    continue
+                scope, provider_version_id = _split_provider_id(item.get("id"))
+                api_key = item.get("api_key")
+                if scope != "personal" or not provider_version_id or not isinstance(api_key, str):
+                    continue
+                try:
+                    if api_key:
+                        providers.save_personal_credential(
+                            session.user.user_id,
+                            provider_version_id=provider_version_id,
+                            api_key=api_key,
+                        )
+                    elif item.get("api_key_set") is False:
+                        providers.delete_personal_credential(
+                            session.user.user_id,
+                            provider_version_id=provider_version_id,
+                        )
+                except PersonalCredentialNotFound:
+                    pass
+                except (ProviderVersionNotFound, ProviderVersionInactive) as error:
+                    return JSONResponse(status_code=409, content={"detail": str(error)})
         return JSONResponse(content={"settings": _api_settings(session, providers, departments)})
 
     @app.get("/api/settings", response_model=None)
@@ -1530,6 +1542,157 @@ def _available_providers(
     return result
 
 
+def _save_department_api_settings(
+    session: AuthenticatedSession,
+    payload: dict[str, Any],
+    providers: ProviderRepository,
+    departments: DepartmentProviderRepository,
+) -> None:
+    actor_user_id = session.user.user_id
+    catalog = {item.provider_version_id: item for item in providers.list_catalog(active_only=True)}
+    for item in payload.get("providers", []):
+        if not isinstance(item, dict):
+            continue
+        raw_id = str(item.get("id") or "").strip()
+        scope, provider_version_id = _split_provider_id(raw_id)
+        existing = catalog.get(provider_version_id) if scope == "department" else None
+        raw_api_key = item.get("api_key")
+        if raw_api_key is not None and (not isinstance(raw_api_key, str) or len(raw_api_key) > 4096):
+            raise ValueError("invalid API key")
+        api_key = str(raw_api_key or "").strip()
+
+        if existing is None:
+            if raw_id in {"", "default"} and not api_key:
+                continue
+            if not api_key:
+                api_key = _department_source_api_key(item, departments)
+            if not api_key:
+                raise ValueError("new department provider requires an API key")
+            validated = _workspace_provider_payload(item)
+            created = providers.create_provider_version(
+                actor_user_id,
+                provider_key=validated.provider_key,
+                display_name=validated.display_name,
+                base_url=validated.base_url,
+                api_mode=validated.api_mode,
+                models=[model.model_dump() for model in validated.models],
+                parameter_constraints=validated.parameter_constraints,
+            )
+            departments.save_credential(
+                actor_user_id,
+                provider_version_id=created.provider_version_id,
+                api_key=api_key,
+            )
+            catalog[created.provider_version_id] = created
+            continue
+
+        validated = _workspace_provider_payload(item, existing=existing)
+        if _workspace_provider_changed(existing, validated):
+            if not api_key:
+                api_key = departments.resolve_api_key(provider_version_id=existing.provider_version_id)
+            created = providers.create_provider_version(
+                actor_user_id,
+                provider_key=existing.provider_key,
+                display_name=validated.display_name,
+                base_url=validated.base_url,
+                api_mode=validated.api_mode,
+                models=[model.model_dump() for model in validated.models],
+                parameter_constraints=validated.parameter_constraints,
+            )
+            departments.save_credential(
+                actor_user_id,
+                provider_version_id=created.provider_version_id,
+                api_key=api_key,
+            )
+            try:
+                departments.set_active(
+                    actor_user_id,
+                    provider_version_id=existing.provider_version_id,
+                    is_active=False,
+                )
+            except DepartmentCredentialNotFound:
+                pass
+            providers.set_provider_active(
+                actor_user_id,
+                provider_version_id=existing.provider_version_id,
+                is_active=False,
+            )
+            catalog.pop(existing.provider_version_id, None)
+            catalog[created.provider_version_id] = created
+        elif api_key:
+            departments.save_credential(
+                actor_user_id,
+                provider_version_id=existing.provider_version_id,
+                api_key=api_key,
+            )
+
+
+def _department_source_api_key(item: dict[str, Any], departments: DepartmentProviderRepository) -> str:
+    raw_source = str(item.get("api_key_source_provider_id") or "").strip()
+    if not raw_source:
+        return ""
+    scope, provider_version_id = _split_provider_id(raw_source)
+    if scope != "department" or not provider_version_id:
+        raise ValueError("invalid department provider source")
+    return departments.resolve_api_key(provider_version_id=provider_version_id)
+
+
+def _workspace_provider_payload(
+    item: dict[str, Any],
+    *,
+    existing: ProviderVersion | None = None,
+) -> ProviderVersionPayload:
+    image_model = str(
+        item.get("image_model")
+        or (_first_provider_model(existing) if existing is not None else "")
+    ).strip()
+    api_mode = str(item.get("api_mode") or (existing.api_mode if existing is not None else "images")).strip()
+    capabilities = ["image_generation", "image_input"]
+    if api_mode == "responses":
+        capabilities.append("text_input")
+    return ProviderVersionPayload.model_validate(
+        {
+            "provider_key": existing.provider_key if existing is not None else _workspace_provider_key(item),
+            "display_name": str(
+                item.get("name")
+                or (existing.display_name if existing is not None else "")
+            ).strip(),
+            "base_url": str(
+                item.get("base_url")
+                or (existing.base_url if existing is not None else "")
+            ).strip(),
+            "api_mode": api_mode,
+            "models": [{"model_id": image_model, "capabilities": capabilities}],
+            "parameter_constraints": dict(existing.parameter_constraints) if existing is not None else {},
+        }
+    )
+
+
+def _workspace_provider_key(item: dict[str, Any]) -> str:
+    candidate = str(item.get("provider_key") or item.get("id") or item.get("name") or "provider").lower()
+    candidate = re.sub(r"[^a-z0-9-]+", "-", candidate).strip("-")
+    if len(candidate) < 2:
+        candidate = f"provider-{candidate or 'custom'}"
+    return candidate[:64].rstrip("-")
+
+
+def _first_provider_model(provider: ProviderVersion | None) -> str:
+    if provider is None or not provider.models or not isinstance(provider.models[0], dict):
+        return ""
+    return str(provider.models[0].get("model_id") or "").strip()
+
+
+def _workspace_provider_changed(existing: ProviderVersion, desired: ProviderVersionPayload) -> bool:
+    return any(
+        (
+            existing.display_name != desired.display_name,
+            existing.base_url.rstrip("/") != desired.base_url.rstrip("/"),
+            existing.api_mode != desired.api_mode,
+            _first_provider_model(existing) != desired.models[0].model_id,
+        )
+    )
+
+
 def _api_settings(
     session: AuthenticatedSession,
     providers: ProviderRepository,
@@ -1537,36 +1700,81 @@ def _api_settings(
 ) -> dict[str, object]:
     catalog = providers.list_catalog(active_only=True)
     personal = {item.provider_version_id: item for item in providers.list_personal_credentials(session.user.user_id)}
-    department = {item.provider_version_id: item for item in departments.list_credentials(active_only=True)}
+    department = {item.provider_version_id: item for item in departments.list_credentials(active_only=False)}
     items: list[dict[str, Any]] = []
-    if session.user.role != "admin":
+    is_admin = session.user.role == "admin"
+    if is_admin:
         for catalog_item in catalog:
-            items.append(_provider_item(catalog_item, scope="personal", credential=personal.get(catalog_item.provider_version_id)))
-    for catalog_item in catalog:
-        credential = department.get(catalog_item.provider_version_id)
-        if credential and credential.has_credential and credential.is_active:
-            items.append(_provider_item(catalog_item, scope="department", credential=credential))
+            items.append(
+                _provider_item(
+                    catalog_item,
+                    scope="department",
+                    credential=department.get(catalog_item.provider_version_id),
+                    read_only=False,
+                    catalog_fields_read_only=False,
+                    include_scope_label=False,
+                )
+            )
+    else:
+        for catalog_item in catalog:
+            items.append(
+                _provider_item(
+                    catalog_item,
+                    scope="personal",
+                    credential=personal.get(catalog_item.provider_version_id),
+                    read_only=False,
+                    catalog_fields_read_only=True,
+                )
+            )
+        for catalog_item in catalog:
+            credential = department.get(catalog_item.provider_version_id)
+            if credential and credential.has_credential and credential.is_active:
+                items.append(
+                    _provider_item(
+                        catalog_item,
+                        scope="department",
+                        credential=credential,
+                        read_only=True,
+                        catalog_fields_read_only=True,
+                    )
+                )
     active = next((item["id"] for item in items if item.get("api_key_set")), items[0]["id"] if items else "")
-    return {"codex_mode": "images", "active_provider_id": active, "providers": items}
+    return {
+        "codex_mode": "images",
+        "active_provider_id": active,
+        "providers": items,
+        "allow_new_provider": is_admin,
+        "credential_scope": "department" if is_admin else "personal",
+    }
 
 
-def _provider_item(catalog_item: Any, *, scope: str, credential: Any) -> dict[str, Any]:
+def _provider_item(
+    catalog_item: Any,
+    *,
+    scope: str,
+    credential: Any,
+    read_only: bool | None = None,
+    catalog_fields_read_only: bool = True,
+    include_scope_label: bool = True,
+) -> dict[str, Any]:
     models = list(catalog_item.models or [])
     first_model = str(models[0].get("model_id")) if models and isinstance(models[0], dict) else ""
     label = "个人" if scope == "personal" else "部门"
     return {
         "id": f"{scope}-{catalog_item.provider_version_id}",
         "provider_version_id": catalog_item.provider_version_id,
+        "provider_key": catalog_item.provider_key,
         "provider_scope": scope,
-        "name": f"{catalog_item.display_name} · {label}",
+        "name": f"{catalog_item.display_name} · {label}" if include_scope_label else catalog_item.display_name,
         "base_url": catalog_item.base_url,
         "image_model": first_model,
         "models": models,
         "api_mode": catalog_item.api_mode,
         "images_concurrency": 1,
-        "api_key_set": bool(credential and credential.has_credential),
+        "api_key_set": bool(credential and credential.has_credential and credential.is_active),
         "api_key_masked": str(getattr(credential, "api_key_mask", "") or ""),
-        "read_only": scope == "department",
+        "read_only": scope == "department" if read_only is None else read_only,
+        "catalog_fields_read_only": catalog_fields_read_only,
     }
 
 

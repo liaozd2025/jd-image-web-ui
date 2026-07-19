@@ -41,6 +41,9 @@ export function normalizeApiProvider(provider: any = {}, index: any = 0): any {
   const id = String(provider.id || fallbackId).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || fallbackId;
   return {
     id,
+    provider_version_id: String(provider.provider_version_id || "").trim(),
+    provider_key: String(provider.provider_key || "").trim(),
+    provider_scope: provider.provider_scope === "department" ? "department" : "personal",
     name: String(provider.name || (id === "default" ? "Default" : `Provider ${index + 1}`)).trim() || id,
     base_url: String(provider.base_url || DEFAULT_API_BASE_URL).trim() || DEFAULT_API_BASE_URL,
     api_key: String(provider.api_key || "").trim(),
@@ -50,6 +53,9 @@ export function normalizeApiProvider(provider: any = {}, index: any = 0): any {
     api_key_set: Boolean(provider.api_key_set || provider.api_key),
     api_key_masked: String(provider.api_key_masked || ""),
     api_key_source_provider_id: String(provider.api_key_source_provider_id || "").trim(),
+    models: Array.isArray(provider.models) ? provider.models : [],
+    read_only: Boolean(provider.read_only),
+    catalog_fields_read_only: Boolean(provider.catalog_fields_read_only),
   };
 }
 
@@ -187,6 +193,8 @@ function scrollApiProviderEditorIntoView(): void {
 }
 
 function setApiProviderEditorVisible(visible: boolean): void {
+  const settings = normalizeApiSettings(state.apiSettings);
+  const allowCatalogManagement = Boolean(settings.allow_new_provider);
   els.apiProviderSection?.classList.toggle("editing", visible);
   els.apiProviderSection?.setAttribute("aria-hidden", visible ? "true" : "false");
   if (visible) els.apiProviderSection?.setAttribute("inert", "");
@@ -197,9 +205,9 @@ function setApiProviderEditorVisible(visible: boolean): void {
   els.apiSettingsActions?.classList.toggle("hidden", visible);
   els.apiSettingsActions?.setAttribute("aria-hidden", visible ? "true" : "false");
   if (els.editApiProviderButton) els.editApiProviderButton.disabled = visible;
-  if (els.addApiProviderButton) els.addApiProviderButton.disabled = visible;
-  if (els.copyApiProviderButton) els.copyApiProviderButton.disabled = visible;
-  if (els.sortApiProvidersButton) els.sortApiProvidersButton.disabled = visible;
+  if (els.addApiProviderButton) els.addApiProviderButton.disabled = visible || !allowCatalogManagement;
+  if (els.copyApiProviderButton) els.copyApiProviderButton.disabled = visible || !allowCatalogManagement;
+  if (els.sortApiProvidersButton) els.sortApiProvidersButton.disabled = visible || !allowCatalogManagement;
   if (els.deleteApiProviderButton) {
     els.deleteApiProviderButton.disabled = visible || normalizeApiSettings(state.apiSettings).providers.length <= 1;
   }
@@ -227,6 +235,8 @@ function draftProviderFromForm(): any {
 }
 
 function writeProviderForm(provider: any): void {
+  const catalogFieldsReadOnly = Boolean(provider.catalog_fields_read_only);
+  const providerReadOnly = Boolean(provider.read_only);
   if (els.apiProviderName) els.apiProviderName.value = provider.name || "";
   if (els.apiBaseUrl) els.apiBaseUrl.value = provider.base_url || DEFAULT_API_BASE_URL;
   if (els.apiMode) {
@@ -241,6 +251,11 @@ function writeProviderForm(provider: any): void {
       ? translate("apiSettings.savedKeyPlaceholder")
       : "sk-...";
   }
+  [els.apiProviderName, els.apiBaseUrl, els.apiMode, els.apiImageModel, els.apiImagesConcurrency]
+    .filter(Boolean)
+    .forEach((element: any) => { element.disabled = catalogFieldsReadOnly || providerReadOnly; });
+  if (els.apiKey) els.apiKey.disabled = providerReadOnly;
+  if (els.apiKeyRevealButton) els.apiKeyRevealButton.disabled = providerReadOnly || !els.apiKey?.value;
   hideApiKeyReveal();
   updateApiKeyRevealButton();
   updateApiRequestEndpointPreview();
@@ -250,20 +265,21 @@ function writeProviderForm(provider: any): void {
 export function renderApiProviderList(): void {
   const settings = normalizeApiSettings(state.apiSettings);
   state.apiSettings = settings;
-  const sorting = Boolean(state.apiProviderSortMode && settings.providers.length > 1);
+  const allowCatalogManagement = Boolean(settings.allow_new_provider);
+  const sorting = Boolean(allowCatalogManagement && state.apiProviderSortMode && settings.providers.length > 1);
   const searchQuery = updateApiProviderListPresentation(settings.providers.length, sorting);
   setElementText(els.apiProviderCount, formatTranslation("apiSettings.providerCount", {
     count: String(settings.providers.length),
   }));
   if (els.sortApiProvidersButton) {
-    const canSort = settings.providers.length > 1;
+    const canSort = allowCatalogManagement && settings.providers.length > 1;
     els.sortApiProvidersButton.classList.toggle("hidden", !canSort);
     els.sortApiProvidersButton.classList.toggle("active", sorting);
     els.sortApiProvidersButton.disabled = apiProviderEditorActive() || !canSort;
     els.sortApiProvidersButton.textContent = translate(sorting ? "apiSettings.finishSortProviders" : "apiSettings.sortProviders");
     els.sortApiProvidersButton.setAttribute("aria-pressed", sorting ? "true" : "false");
   }
-  els.addApiProviderButton?.classList.toggle("hidden", sorting || apiProviderEditorActive());
+  els.addApiProviderButton?.classList.toggle("hidden", !allowCatalogManagement || sorting || apiProviderEditorActive());
   if (!els.apiProviderList) return;
   els.apiProviderList.classList.toggle("is-sorting", sorting);
   els.apiProviderList.setAttribute("role", sorting ? "list" : "listbox");
@@ -335,6 +351,9 @@ function renderApiProviderDetail(): void {
   setElementText(els.apiProviderDetailKey, providerKeyLabel(provider));
   setElementText(els.apiProviderDetailMode, apiModeLabel(providerMode(provider)));
   setElementText(els.apiProviderDetailConcurrency, normalizeApiImagesConcurrency(provider.images_concurrency));
+  if (els.editApiProviderButton) els.editApiProviderButton.disabled = Boolean(provider.read_only);
+  els.copyApiProviderButton?.classList.toggle("hidden", !state.apiSettings.allow_new_provider);
+  els.deleteApiProviderButton?.classList.toggle("hidden", !state.apiSettings.allow_new_provider);
 }
 
 function renderApiProviderEditor(): void {
@@ -392,6 +411,8 @@ export function normalizeApiSettings(settings: any = {}): any {
     codex_mode: normalizeCodexMode(settings.codex_mode),
     active_provider_id: activeProvider.id,
     providers,
+    allow_new_provider: Boolean(settings.allow_new_provider),
+    credential_scope: settings.credential_scope === "department" ? "department" : "personal",
   };
 }
 
@@ -495,6 +516,7 @@ export function currentApiProviderLabel(): string {
 }
 
 export function addApiProvider(): void {
+  if (!normalizeApiSettings(state.apiSettings).allow_new_provider) return;
   if (apiProviderEditorActive()) {
     setApiSettingsFeedback(translate("apiSettings.finishEditFirst"), "error");
     return;
@@ -518,6 +540,7 @@ export function addApiProvider(): void {
 }
 
 export function copyApiProvider(): void {
+  if (!normalizeApiSettings(state.apiSettings).allow_new_provider) return;
   if (apiProviderEditorActive()) {
     setApiSettingsFeedback(translate("apiSettings.finishEditFirst"), "error");
     return;
@@ -626,6 +649,7 @@ export function editApiProvider(): void {
   if (apiProviderEditorActive()) return;
   state.apiProviderSortMode = false;
   const provider = activeApiProvider();
+  if (provider.read_only) return;
   state.apiProviderEditingId = provider.id;
   state.apiProviderDraftIsNew = false;
   state.apiProviderDraft = normalizeApiProvider({ ...provider }, 0);
@@ -859,12 +883,15 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
     providers: settings.providers.map((provider: any) => {
       const item: any = {
         id: provider.id,
+        provider_version_id: provider.provider_version_id,
+        provider_key: provider.provider_key,
         name: provider.name,
         base_url: provider.base_url,
         image_model: provider.image_model,
         api_mode: provider.api_mode,
       };
       item.images_concurrency = provider.images_concurrency;
+      item.api_key_set = provider.api_key_set;
       if (provider.api_key || !provider.api_key_set) item.api_key = provider.api_key;
       if (!provider.api_key && provider.api_key_source_provider_id) {
         item.api_key_source_provider_id = provider.api_key_source_provider_id;

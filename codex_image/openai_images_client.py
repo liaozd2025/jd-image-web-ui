@@ -239,8 +239,18 @@ class OpenAIImagesImageClient:
         return self._request_and_parse_many(payload)[0]
 
     def _request_and_parse_many(self, payload: dict[str, Any]) -> list[ImageResult]:
+        if self._uses_volcengine_ark_dialect(payload) and self._normalize_image_count(payload.get("n", 1)) > 1:
+            results: list[ImageResult] = []
+            for _ in range(self._normalize_image_count(payload.get("n", 1))):
+                results.extend(self._request_and_parse_many({**payload, "n": 1}))
+            return results
         endpoint = str(payload.get("endpoint") or "/images/generations")
-        if endpoint == "/images/edits":
+        if self._uses_volcengine_ark_dialect(payload):
+            request_payload = self._volcengine_ark_request_payload(payload)
+            body = json.dumps(request_payload).encode("utf-8")
+            url = self.generations_url
+            headers = self._build_headers(content_type="application/json")
+        elif endpoint == "/images/edits":
             body, content_type = self._build_multipart_edit_body(payload)
             url = self.edits_url
             headers = self._build_headers(content_type=content_type)
@@ -269,6 +279,33 @@ class OpenAIImagesImageClient:
                 detail = f"OpenAI-compatible images request failed: HTTP {response.status}"
             raise RuntimeError(detail)
         return self.parse_response_json_items(response.body, request_payload=payload, url_fetcher=self._fetch_image_url)
+
+    def _uses_volcengine_ark_dialect(self, payload: dict[str, Any]) -> bool:
+        host = str(urlsplit(self.base_url).hostname or "").lower()
+        model = str(payload.get("model") or self.image_model or "").lower()
+        return host.endswith(".volces.com") and model.startswith("doubao-seedream-")
+
+    @staticmethod
+    def _volcengine_ark_request_payload(payload: dict[str, Any]) -> dict[str, Any]:
+        request_payload: dict[str, Any] = {
+            "model": payload.get("model"),
+            "prompt": payload.get("prompt"),
+            "response_format": "b64_json",
+        }
+        if payload.get("size"):
+            request_payload["size"] = payload["size"]
+        images = payload.get("images")
+        image_values = [
+            str(item.get("image_url") or "")
+            for item in images
+            if isinstance(item, dict) and item.get("image_url")
+        ] if isinstance(images, list) else []
+        mask = payload.get("mask")
+        if isinstance(mask, dict) and mask.get("image_url"):
+            image_values.append(str(mask["image_url"]))
+        if image_values:
+            request_payload["image"] = image_values
+        return request_payload
 
     def _build_headers(self, *, content_type: str) -> dict[str, str]:
         return {
