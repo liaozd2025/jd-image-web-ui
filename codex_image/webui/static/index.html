@@ -9,7 +9,7 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <script src="/static/pwa.js?v=pwa-1" defer></script>
     <script src="/static/workspace-preload.js?v=server-1"></script>
-    <link rel="stylesheet" href="/static/styles.css?v=runtime-569" />
+    <link rel="stylesheet" href="/static/styles.css?v=runtime-573" />
   </head>
   <body>
     <div class="layout-container">
@@ -1185,7 +1185,7 @@
         </section>
 
         <section class="system-settings-section" data-system-settings-panel="shared" data-admin-only hidden aria-hidden="true">
-          <header class="system-settings-page-heading"><p data-i18n="systemSettings.adminGroup">系统管理</p><h2 data-i18n="systemSettings.sharedTab">共享资产与存储</h2><span data-i18n="systemSettings.sharedDescription">设置共享空间配额并管理资产可见状态。</span></header>
+          <header class="system-settings-page-heading"><p data-i18n="systemSettings.adminGroup">系统管理</p><h2 data-i18n="systemSettings.sharedTab">共享资产与存储</h2><span data-i18n="systemSettings.sharedDescription">设置共享空间配额、使用共享图片并管理资产可见状态。</span></header>
           <form id="settingsSharedQuotaForm" class="settings-card settings-inline-form" data-sensitive-form>
             <label><span data-i18n="systemSettings.sharedQuotaMb">共享空间（MB）</span><input name="quota_mb" class="control" type="number" min="1" step="1" required /></label>
             <button class="run-button" type="submit" data-i18n="systemSettings.saveStorage">保存空间</button>
@@ -1418,7 +1418,11 @@
         <div class="gallery-drawer-top">
           <div class="gallery-drawer-toolbar">
             <div id="galleryDrawerCategoryTabs" class="gallery-drawer-category-tabs" aria-label="图库分类" data-i18n-attr="aria-label:gallery.categories"></div>
-            <button id="galleryCategoryManageToggle" class="ghost-button text-sm" type="button" aria-expanded="false" data-i18n="gallery.manageCategories">管理分类</button>
+            <div class="gallery-drawer-actions">
+              <button id="gallerySharedImageUploadButton" class="ghost-button text-sm hidden" type="button" data-i18n="gallery.addSharedImage" hidden>添加图片</button>
+              <input id="gallerySharedImageInput" type="file" accept="image/*" hidden disabled />
+              <button id="galleryCategoryManageToggle" class="ghost-button text-sm" type="button" aria-expanded="false" data-i18n="gallery.manageCategories">管理分类</button>
+            </div>
           </div>
           <div id="galleryCategoryManagePanel" class="gallery-category-manage-panel hidden" aria-label="管理图库分类" data-i18n-attr="aria-label:gallery.categoryManager">
             <div class="gallery-category-manage-copy">
@@ -1460,6 +1464,13 @@
             <input id="galleryNameInput" class="control" type="text" maxlength="64" placeholder="例如：小美" data-i18n-attr="placeholder:addGallery.namePlaceholder" />
           </label>
           <label class="field">
+            <span data-i18n="addGallery.scope">保存位置</span>
+            <select id="galleryScopeInput" class="control">
+              <option value="personal" data-i18n="addGallery.scopePersonal">个人图库</option>
+              <option id="galleryScopeSharedOption" value="shared" hidden disabled data-i18n="addGallery.scopeShared">共享图库</option>
+            </select>
+          </label>
+          <label id="galleryCategoryField" class="field">
             <span data-i18n="addGallery.category">分类</span>
             <select id="galleryCategoryInput" class="control">
               <option value="portrait" data-i18n="gallery.categoryPortrait">人像</option>
@@ -1467,7 +1478,7 @@
               <option value="product" data-i18n="gallery.categoryProduct">产品</option>
             </select>
           </label>
-          <label class="field">
+          <label id="galleryPromptNoteField" class="field">
             <span data-i18n="addGallery.note">引用备注</span>
             <textarea id="galleryPromptNoteInput" class="control" maxlength="160" placeholder="例如：只参考脸型和发型，不参考衣服和背景" data-i18n-attr="placeholder:addGallery.notePlaceholder"></textarea>
           </label>
@@ -1477,7 +1488,7 @@
     </div>
 
     <div id="taskNotificationToastRegion" class="task-notification-toast-region" aria-live="polite"></div>
-  <script src="/static/app.js?v=runtime-569"></script>
+  <script src="/static/app.js?v=runtime-573"></script>
   <script src="/static/workspace-controls.js?v=server-1"></script>
   </body>
 </html>

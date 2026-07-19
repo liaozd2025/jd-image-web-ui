@@ -187,8 +187,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn('/static/app.js?v=runtime-569', html)
-        self.assertIn('/static/styles.css?v=runtime-569', html)
+        self.assertIn('/static/app.js?v=runtime-573', html)
+        self.assertIn('/static/styles.css?v=runtime-573', html)
         self.assertIn('id="recentAssetDock"', html)
         self.assertRegex(html, r'class="image-input-footer"[\s\S]*id="recentAssetDock"[\s\S]*id="recentAssetList"')
         self.assertRegex(html, r'id="recentAssetDock"[\s\S]*id="quickGalleryDock"[\s\S]*id="galleryManagePanel"')
@@ -472,7 +472,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
             self.assertNotRegex(gallery_source, rf"\n(?:async\s+)?function {function_name}\(")
         self.assertIn("data-gallery-edit-save", source)
         self.assertIn("data-gallery-edit-cancel", source)
-        self.assertIn('fetch(`/api/gallery/${encodeURIComponent(itemId)}/image`', source)
+        self.assertIn('`/api/gallery/${encodeURIComponent(itemId)}/image`', source)
+        self.assertIn('`/api/shared-assets/${encodeURIComponent(String(itemId).split(":", 2)[1] || "")}/versions`', source)
         self.assertIn("Object.assign(getLegacyBridge().methods", source)
     def test_api_settings_feature_has_typescript_source_contract(self) -> None:
         api_settings_source = self._api_settings_source()
@@ -1609,7 +1610,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertRegex(script, r'data-gallery-replace="\$\{escapeHtml\(item\.id\)\}">\$\{translate\("gallery\.replace"\)\}</button>')
         self.assertNotIn(">替换图像</button>", script)
         self.assertIn("function replaceGalleryItemImage", script)
-        self.assertIn('fetch(`/api/gallery/${encodeURIComponent(itemId)}/image`', script)
+        self.assertIn('`/api/gallery/${encodeURIComponent(itemId)}/image`', script)
+        self.assertIn('`/api/shared-assets/${encodeURIComponent(String(itemId).split(":", 2)[1] || "")}/versions`', script)
         self.assertNotIn('querySelectorAll("[data-gallery-rename]").forEach', script)
         self.assertRegex(styles, r"\.gallery-edit-popover\s*\{[^}]*position:\s*fixed")
         self.assertRegex(styles, r"\.gallery-edit-field\s*\{[^}]*display:\s*grid")
@@ -3019,6 +3021,11 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         account_script = Path("codex_image/webui/frontend/src/server-account.ts").read_text(encoding="utf-8")
         provider_script = Path("codex_image/webui/frontend/src/api-provider-settings.ts").read_text(encoding="utf-8")
         self.assertIn("window.confirm", settings_script)
+        self.assertIn("getLegacyBridge().methods.openConfirmPopover(button", settings_script)
+        self.assertIn('translate("serverSettings.resetPasswordConfirmTitle")', settings_script)
+        self.assertIn('translate(user.is_active ? "serverSettings.deactivateUserConfirmTitle"', settings_script)
+        self.assertNotIn('window.confirm(formatTranslation("serverSettings.confirmResetPassword"', settings_script)
+        self.assertNotIn('window.confirm(formatTranslation(user.is_active ? "serverSettings.confirmDeactivateUser"', settings_script)
         for action in ("reset-password", "/status", "logout-others"):
             self.assertIn(action, settings_script)
         self.assertIn('return cookieValue("jd_image_csrf") || csrfToken', account_script)
@@ -3037,7 +3044,7 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertIn("openConfirmPopover(els.batchDeleteButton", script)
         self.assertIn("openConfirmPopover(button", script)
         self.assertRegex(styles, r"\.confirm-popover\s*\{[^}]*position:\s*fixed")
-        self.assertRegex(styles, r"\.confirm-popover\s*\{[^}]*z-index:\s*9300")
+        self.assertRegex(styles, r"\.confirm-popover\s*\{[^}]*z-index:\s*10100")
         self.assertRegex(styles, r"\.confirm-popover-actions\s*\{[^}]*display:\s*flex")
         self.assertRegex(styles, r"\.confirm-popover-confirm\.danger-button\s*\{[^}]*background:")
     def test_system_settings_uses_real_usage_instead_of_server_paths(self) -> None:
@@ -3063,8 +3070,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn('/static/app.js?v=runtime-569', html)
-        self.assertIn('/static/styles.css?v=runtime-569', html)
+        self.assertIn('/static/app.js?v=runtime-573', html)
+        self.assertIn('/static/styles.css?v=runtime-573', html)
         self.assertIn('id="pasteClipboardButton"', html)
         self.assertIn('id="statusText"', html)
         self.assertRegex(
@@ -3510,8 +3517,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn("/static/app.js?v=runtime-569", html)
-        self.assertIn("/static/styles.css?v=runtime-569", html)
+        self.assertIn("/static/app.js?v=runtime-573", html)
+        self.assertIn("/static/styles.css?v=runtime-573", html)
         self.assertIn('const THEME_STORAGE_KEY = "codex-image-theme-preference";', script)
         self.assertIn('themePreference: "system"', script)
         self.assertIn('call(methods, "restoreThemePreference")', script)

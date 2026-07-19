@@ -150,6 +150,7 @@ const bridgeMethods: LegacyMethods = {
   saveFavoriteColor: proxy("saveFavoriteColor"),
   saveSettings: proxy("saveSettings"),
   saveUploadToGallery: proxy("saveUploadToGallery"),
+  syncGalleryScopeFields: proxy("syncGalleryScopeFields"),
   scheduleQuickGalleryFocusUpdate: proxy("scheduleQuickGalleryFocusUpdate"),
   queueApiSettingsAutosave: proxy("queueApiSettingsAutosave"),
   selectCodexMode: proxy("selectCodexMode"),

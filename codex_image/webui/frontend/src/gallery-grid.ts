@@ -2,6 +2,7 @@ import { getLegacyBridge } from "./state";
 import { setGalleryDragPreview } from "./gallery-drag-preview";
 import { formatTranslation, LOCALE_CHANGE_EVENT, translate } from "./i18n";
 import { resourceScopeBadgeHtml } from "./resource-scope";
+import { getCurrentServerUser } from "./server-account";
 
 const GALLERY_GRID_TRANSITION_MS = 220;
 const bridge = getLegacyBridge();
@@ -148,8 +149,14 @@ function galleryGridContentHtml(items: any) {
   if (!items.length) {
     return `<div class="gallery-empty">${translate("gallery.emptyCategory")}</div>`;
   }
-  return items.map((item: any) => `
+  const isAdmin = getCurrentServerUser()?.role === "admin";
+  return items.map((item: any) => {
+    const canManage = item.scope !== "shared" || isAdmin;
+    const canDeactivate = item.scope !== "shared" || isAdmin;
+    const canEditDetails = item.scope !== "shared";
+    return `
     <article class="gallery-card" data-gallery-id="${escapeHtml(item.id)}">
+      ${canEditDetails ? `
       <button
         class="gallery-card-drag-strip"
         type="button"
@@ -170,7 +177,7 @@ function galleryGridContentHtml(items: any) {
           </svg>
         </span>
         <span>${translate("gallery.dragSort")}</span>
-      </button>
+      </button>` : ""}
       <div class="gallery-card-media">
         <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.name)}" draggable="false" loading="lazy" decoding="async">
       </div>
@@ -183,14 +190,16 @@ function galleryGridContentHtml(items: any) {
       </div>
       <div class="gallery-card-actions">
         <button class="ghost-button text-sm" type="button" data-gallery-use="${escapeHtml(item.id)}">${translate("gallery.use")}</button>
-        <button class="ghost-button text-sm" type="button" data-gallery-replace="${escapeHtml(item.id)}">${translate("gallery.replace")}</button>
+        ${canManage ? `<button class="ghost-button text-sm" type="button" data-gallery-replace="${escapeHtml(item.id)}">${translate("gallery.replace")}</button>` : ""}
+        ${canEditDetails ? `
         <button class="ghost-button text-sm" type="button" data-gallery-rename="${escapeHtml(item.id)}">${translate("gallery.rename")}</button>
         <button class="ghost-button text-sm" type="button" data-gallery-move="${escapeHtml(item.id)}">${translate("gallery.moveCategory")}</button>
-        <button class="ghost-button text-sm" type="button" data-gallery-note="${escapeHtml(item.id)}">${translate("gallery.note")}</button>
-        <button class="ghost-button text-sm danger-button" type="button" data-gallery-delete="${escapeHtml(item.id)}">${translate("gallery.delete")}</button>
+        <button class="ghost-button text-sm" type="button" data-gallery-note="${escapeHtml(item.id)}">${translate("gallery.note")}</button>` : ""}
+        ${canDeactivate ? `<button class="ghost-button text-sm danger-button" type="button" data-gallery-delete="${escapeHtml(item.id)}">${translate(item.scope === "shared" ? "gallery.deactivate" : "gallery.delete")}</button>` : ""}
       </div>
     </article>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function bindGalleryGridActions(root: any = els.galleryGrid) {
@@ -206,6 +215,13 @@ function handleGalleryGridClick(event: any) {
     closeGallery();
     return;
   }
+  const itemId = button.dataset.galleryRename
+    || button.dataset.galleryReplace
+    || button.dataset.galleryMove
+    || button.dataset.galleryNote
+    || button.dataset.galleryDelete;
+  const item = findGalleryItem(itemId);
+  if (item?.scope === "shared" && getCurrentServerUser()?.role !== "admin") return;
   if (button.dataset.galleryRename) {
     renameGalleryItem(button, button.dataset.galleryRename);
     return;
@@ -312,6 +328,10 @@ function handleGalleryGridDragStart(event: DragEvent) {
   const itemId = String((handle as HTMLElement | null)?.dataset.galleryId || "");
   if (!handle || !itemId || !els.galleryGrid?.contains(handle)) return;
   const item = findGalleryItem(itemId);
+  if (item?.scope === "shared") {
+    event.preventDefault();
+    return;
+  }
   const card = galleryCardElement(itemId) as HTMLElement | null;
   draggedGalleryItemId = itemId;
   galleryGridDropTargetId = null;

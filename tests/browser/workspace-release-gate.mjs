@@ -403,6 +403,21 @@ try {
   check((await api(pageA, "/api/gallery")).body.items.some((item) => item.id === privateAssetId && item.scope === "personal"), "personal gallery item was not returned");
   await pageA.locator("#galleryManageButton").click();
   await pageA.locator("#galleryDrawer.open").waitFor({ state: "visible" });
+  check(await pageA.locator("#gallerySharedImageUploadButton").isHidden(), "normal user saw the shared gallery upload action");
+  check(await pageA.locator("#galleryScopeSharedOption").evaluate((option) => option.disabled), "normal user could select the shared gallery save scope");
+  const sharedReadOnlyCard = pageA.locator(`[data-gallery-id="${sharedGalleryItem.id}"]`);
+  check(await sharedReadOnlyCard.locator("[data-gallery-use]").count() === 1, "normal user could not use a shared gallery image");
+  check(
+    await sharedReadOnlyCard.locator("[data-gallery-replace],[data-gallery-rename],[data-gallery-move],[data-gallery-note],[data-gallery-delete],[data-gallery-order-handle]").count() === 0,
+    "normal user saw a shared gallery mutation action",
+  );
+  const forbiddenSharedUpload = await upload(
+    pageA,
+    "/api/shared-assets",
+    { asset_kind: "image", name: "Forbidden shared upload" },
+    [{ field: "file", name: "forbidden-shared.png", mimeType: "image/png", bytes: imageBytes }],
+  );
+  check(forbiddenSharedUpload.status === 403, "normal user uploaded a shared gallery image through the API");
   check((await pageA.locator("#galleryGrid").textContent()).includes("Shared browser image"), "shared gallery was not rendered in the original drawer");
   check((await pageA.locator(`[data-gallery-id="${sharedGalleryItem.id}"] .resource-scope-badge`).textContent()).trim() === "共享", "shared gallery source badge was missing");
   await pageA.locator(`[data-gallery-use="${sharedGalleryItem.id}"]`).click();
@@ -557,6 +572,10 @@ try {
   pageB.on("response", (response) => collectServerError("user-b", response));
   await loginAndChangePassword(pageB, credentials.userB);
   await waitForWorkspace(pageB);
+  await pageB.locator("#galleryManageButton").click();
+  await pageB.locator("#galleryDrawer.open").waitFor({ state: "visible" });
+  check(await pageB.locator("#gallerySharedImageUploadButton").isHidden(), "second normal user saw the shared gallery upload action");
+  await pageB.locator("#galleryDrawerClose").click();
   const galleryB = await api(pageB, "/api/gallery");
   check(galleryB.body.items.some((item) => item.scope === "shared"), "shared gallery was not visible to second user");
   check(!galleryB.body.items.some((item) => item.id === privateAssetId), "second user saw first user's private gallery item");
@@ -576,6 +595,72 @@ try {
   adminPage.on("response", (response) => collectServerError("admin", response));
   await loginExisting(adminPage, credentials.admin);
   check((await adminPage.locator("#serverAccountName").textContent()).includes(credentials.admin.username), "administrator username was not shown in the sidebar account entry");
+  await adminPage.locator("#galleryManageButton").click();
+  await adminPage.locator("#galleryDrawer.open").waitFor({ state: "visible" });
+  check(await adminPage.locator("#gallerySharedImageUploadButton").isVisible(), "administrator did not see the shared gallery upload action");
+  let failNextGalleryRefresh = true;
+  const failGalleryRefreshOnce = async (route) => {
+    if (route.request().method() === "GET" && failNextGalleryRefresh) {
+      failNextGalleryRefresh = false;
+      await route.abort("failed");
+      return;
+    }
+    await route.continue();
+  };
+  await adminPage.route("**/api/gallery", failGalleryRefreshOnce);
+  const adminDrawerUploadResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/shared-assets" && response.request().method() === "POST"
+  ));
+  await adminPage.locator("#gallerySharedImageInput").setInputFiles({ name: "drawer-admin-image.png", mimeType: "image/png", buffer: imageBytes });
+  const adminDrawerUploadHttpResponse = await adminDrawerUploadResponse;
+  const adminDrawerUpload = await adminDrawerUploadHttpResponse.json();
+  check(adminDrawerUploadHttpResponse.status() === 201, `administrator shared upload failed: ${JSON.stringify(adminDrawerUpload)}`);
+  const adminDrawerUploadId = `shared:${adminDrawerUpload.asset.asset_id}`;
+  const adminSharedCard = adminPage.locator(`[data-gallery-id="${adminDrawerUploadId}"]`);
+  await adminSharedCard.waitFor({ state: "visible" });
+  check(!failNextGalleryRefresh, "shared upload did not exercise the response fallback after refresh failure");
+  check(await adminSharedCard.locator("[data-gallery-replace]").count() === 1, "administrator did not see shared image version management");
+  check(await adminSharedCard.locator("[data-gallery-delete]").count() === 1, "administrator did not see shared image deactivation");
+  failNextGalleryRefresh = true;
+  const replacementResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/shared-assets/${adminDrawerUpload.asset.asset_id}/versions`
+    && response.request().method() === "POST"
+  ));
+  const replacementChooser = adminPage.waitForEvent("filechooser");
+  await adminSharedCard.locator("[data-gallery-replace]").click();
+  await (await replacementChooser).setFiles({ name: "drawer-admin-image-v2.png", mimeType: "image/png", buffer: imageBytes });
+  check((await replacementResponse).status() === 201, "administrator could not create a shared image version");
+  await eventually(async () => !failNextGalleryRefresh, "shared version replacement did not attempt to refresh the gallery");
+  await adminSharedCard.waitFor({ state: "visible" });
+  await adminPage.unroute("**/api/gallery", failGalleryRefreshOnce);
+  await adminPage.locator(`[data-gallery-use="${adminDrawerUploadId}"]`).click();
+  check(await adminPage.locator(`.gallery-chip[data-gallery-id="${adminDrawerUploadId}"]`).count() === 1, "administrator could not use the shared image after replacing it");
+  await adminPage.locator("#clearImagesButton").click();
+
+  await adminPage.locator("#imageInput").setInputFiles({ name: "shared-contribution.png", mimeType: "image/png", buffer: imageBytes });
+  await adminPage.locator(".add-upload-to-gallery").click();
+  check(!await adminPage.locator("#galleryScopeSharedOption").evaluate((option) => option.disabled), "administrator could not select the shared gallery save scope");
+  await adminPage.locator("#galleryNameInput").fill("Shared gallery contribution");
+  await adminPage.locator("#galleryScopeInput").selectOption("shared");
+  check(await adminPage.locator("#galleryCategoryField").evaluate((field) => field.classList.contains("hidden")), "personal gallery category remained visible for an administrator shared image");
+  check(await adminPage.locator("#galleryPromptNoteField").evaluate((field) => field.classList.contains("hidden")), "personal gallery note remained visible for an administrator shared image");
+  const sharedContributionResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/shared-assets" && response.request().method() === "POST"
+  ));
+  await adminPage.locator("#saveToGalleryButton").click();
+  const sharedContributionHttpResponse = await sharedContributionResponse;
+  const sharedContribution = await sharedContributionHttpResponse.json();
+  check(sharedContributionHttpResponse.status() === 201, `administrator shared contribution failed: ${JSON.stringify(sharedContribution)}`);
+  const sharedContributionId = `shared:${sharedContribution.asset.asset_id}`;
+  await eventually(
+    async () => (
+      await adminPage.locator('.gallery-thumb[title="Shared gallery contribution"]').count() === 1
+      && await adminPage.locator("#addToGalleryModal").evaluate((modal) => modal.classList.contains("hidden"))
+    ),
+    "administrator shared gallery contribution did not replace the uploaded image input",
+  );
+  check((await api(pageB, "/api/gallery")).body.items.some((item) => item.id === sharedContributionId), "normal user could not read an administrator-created shared image");
+  await adminPage.locator("#clearImagesButton").click();
   await adminPage.locator("#serverAccountButton").click();
   await adminPage.locator("#serverAccountSettingsButton").click();
   await adminPage.locator("#systemSettingsModal").waitFor({ state: "visible" });
@@ -590,22 +675,42 @@ try {
     "legacy /admin entry did not redirect to user management",
   );
   await eventually(async () => (await adminPage.locator("#settingsUserList").textContent()).includes(credentials.userA.username), "unified user management did not load users");
+  const userARow = adminPage.locator("#settingsUserList .settings-list-row", { hasText: credentials.userA.username });
+  const userBRow = adminPage.locator("#settingsUserList .settings-list-row", { hasText: credentials.userB.username });
   let cancelledStatusRequests = 0;
   const countCancelledStatusRequest = (request) => {
     if (new URL(request.url()).pathname === `/api/admin/users/${userAId}/status`) cancelledStatusRequests += 1;
   };
   adminPage.on("request", countCancelledStatusRequest);
-  adminPage.once("dialog", async (dialog) => dialog.dismiss());
-  await adminPage.locator("#settingsUserList .settings-list-row", { hasText: credentials.userA.username }).getByRole("button", { name: "停用" }).click();
+  await userARow.getByRole("button", { name: "停用" }).click();
+  const deactivatePopover = adminPage.locator(".confirm-popover:not(.hidden)");
+  await deactivatePopover.waitFor({ state: "visible" });
+  check(await deactivatePopover.locator(".confirm-popover-title").textContent() === "停用用户？", "deactivation confirmation did not use the requested popover title");
+  check((await deactivatePopover.locator(".confirm-popover-message").textContent()).includes(credentials.userA.username), "deactivation confirmation did not identify the target user");
+  await deactivatePopover.locator("[data-confirm-popover-cancel]").click();
+  await deactivatePopover.waitFor({ state: "hidden" });
   await adminPage.waitForTimeout(300);
   adminPage.off("request", countCancelledStatusRequest);
   check(cancelledStatusRequests === 0, "canceling a high-impact confirmation still sent a status request");
+  let cancelledResetRequests = 0;
+  const countCancelledResetRequest = (request) => {
+    if (new URL(request.url()).pathname === `/api/admin/users/${userAId}/reset-password`) cancelledResetRequests += 1;
+  };
+  adminPage.on("request", countCancelledResetRequest);
+  await userARow.getByRole("button", { name: "重置密码" }).click();
+  const resetPopover = adminPage.locator(".confirm-popover:not(.hidden)");
+  await resetPopover.waitFor({ state: "visible" });
+  check(await resetPopover.locator(".confirm-popover-title").textContent() === "重置密码？", "password reset confirmation did not use the requested popover title");
+  check((await resetPopover.locator(".confirm-popover-message").textContent()).includes(credentials.userA.username), "password reset confirmation did not identify the target user");
+  await resetPopover.locator("[data-confirm-popover-cancel]").click();
+  await resetPopover.waitFor({ state: "hidden" });
+  await adminPage.waitForTimeout(300);
+  adminPage.off("request", countCancelledResetRequest);
+  check(cancelledResetRequests === 0, "canceling password reset still sent a reset request");
   await adminPage.locator('#settingsCreateUserForm [name="username"]').fill("unsaved-user-draft");
   const storageQuotaResponse = adminPage.waitForResponse((response) => (
     new URL(response.url()).pathname === `/api/admin/users/${userAId}/storage-quota` && response.request().method() === "PATCH"
   ));
-  const userARow = adminPage.locator("#settingsUserList .settings-list-row", { hasText: credentials.userA.username });
-  const userBRow = adminPage.locator("#settingsUserList .settings-list-row", { hasText: credentials.userB.username });
   await userBRow.locator('input[type="number"]').fill("96");
   await userARow.locator('input[type="number"]').fill("64");
   await userARow.getByRole("button", { name: "保存存储" }).click();
@@ -626,6 +731,40 @@ try {
   check((await adminPage.locator("#settingsUserQuotaList").textContent()).includes(credentials.userA.username), "per-user department quotas did not load");
   await adminPage.locator('[data-system-settings-tab="shared"]').click();
   await eventually(async () => (await adminPage.locator("#settingsSharedAssetList").textContent()).includes("Shared browser image"), "shared asset settings did not load");
+  const sharedSettingsRow = adminPage.locator("#settingsSharedAssetList .settings-list-row", { hasText: "Shared gallery contribution" });
+  await sharedSettingsRow.waitFor({ state: "visible" });
+  await sharedSettingsRow.getByRole("button", { name: "使用" }).click();
+  await adminPage.locator("#systemSettingsModal").waitFor({ state: "hidden" });
+  check(await adminPage.locator(`.gallery-chip[data-gallery-id="${sharedContributionId}"]`).count() === 1, "shared settings Use action did not add the image input");
+  await adminPage.locator("#clearImagesButton").click();
+  await adminPage.locator("#serverAccountButton").click();
+  await adminPage.locator("#serverAccountSettingsButton").click();
+  await adminPage.locator("#systemSettingsModal").waitFor({ state: "visible" });
+  await adminPage.locator('[data-system-settings-tab="shared"]').click();
+  const sharedContributionSettingsRow = adminPage.locator("#settingsSharedAssetList .settings-list-row", { hasText: "Shared gallery contribution" });
+  await sharedContributionSettingsRow.waitFor({ state: "visible" });
+  const deactivateSharedResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/shared-assets/${sharedContribution.asset.asset_id}/status`
+    && response.request().method() === "PATCH"
+  ));
+  adminPage.once("dialog", async (dialog) => dialog.accept());
+  await sharedContributionSettingsRow.getByRole("button", { name: "停用" }).click();
+  check((await deactivateSharedResponse).status() === 200, "administrator could not deactivate a shared image");
+  await eventually(
+    async () => await sharedContributionSettingsRow.getByRole("button", { name: "恢复" }).isVisible(),
+    "deactivated shared image did not expose restore",
+  );
+  const restoreSharedResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/shared-assets/${sharedContribution.asset.asset_id}/status`
+    && response.request().method() === "PATCH"
+  ));
+  adminPage.once("dialog", async (dialog) => dialog.accept());
+  await sharedContributionSettingsRow.getByRole("button", { name: "恢复" }).click();
+  check((await restoreSharedResponse).status() === 200, "administrator could not restore a shared image");
+  await eventually(
+    async () => await sharedContributionSettingsRow.getByRole("button", { name: "停用" }).isVisible(),
+    "restored shared image did not return to the active state",
+  );
   await adminPage.locator('[data-system-settings-tab="scheduler"]').click();
   await eventually(async () => Boolean((await adminPage.locator("#settingsSchedulerSummary").textContent()).trim()), "scheduler settings did not load");
   await eventually(async () => Boolean((await adminPage.locator("#settingsSchedulerBlocked").textContent()).trim()), "scheduler blocked details did not load");
@@ -660,11 +799,23 @@ try {
 
   await adminPage.locator('[data-system-settings-tab="users"]').click();
   await eventually(async () => (await adminPage.locator("#settingsUserList").textContent()).includes(credentials.userA.username), "user management did not reload for confirmation testing");
+  const resetResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/admin/users/${userAId}/reset-password` && response.request().method() === "POST"
+  ));
+  await userARow.getByRole("button", { name: "重置密码" }).click();
+  await adminPage.locator(".confirm-popover:not(.hidden)").waitFor({ state: "visible" });
+  await adminPage.locator(".confirm-popover:not(.hidden) [data-confirm-popover-confirm]").click();
+  check((await resetResponse).status() === 200, "confirming password reset did not send the reset request");
+  await eventually(
+    async () => (await adminPage.locator("#settingsTemporaryCredential").textContent()).includes(credentials.userA.username),
+    "confirmed password reset did not show the temporary password",
+  );
   const deactivateResponse = adminPage.waitForResponse((response) => (
     new URL(response.url()).pathname === `/api/admin/users/${userAId}/status` && response.request().method() === "PATCH"
   ));
-  adminPage.once("dialog", async (dialog) => dialog.accept());
-  await adminPage.locator("#settingsUserList .settings-list-row", { hasText: credentials.userA.username }).getByRole("button", { name: "停用" }).click();
+  await userARow.getByRole("button", { name: "停用" }).click();
+  await adminPage.locator(".confirm-popover:not(.hidden)").waitFor({ state: "visible" });
+  await adminPage.locator(".confirm-popover:not(.hidden) [data-confirm-popover-confirm]").click();
   check((await deactivateResponse).status() === 200, "confirming user deactivation did not send the status update");
   await eventually(
     async () => await adminPage.locator("#settingsUserList .settings-list-row", { hasText: credentials.userA.username }).getByRole("button", { name: "恢复" }).isVisible(),
@@ -673,8 +824,9 @@ try {
   const reactivateResponse = adminPage.waitForResponse((response) => (
     new URL(response.url()).pathname === `/api/admin/users/${userAId}/status` && response.request().method() === "PATCH"
   ));
-  adminPage.once("dialog", async (dialog) => dialog.accept());
-  await adminPage.locator("#settingsUserList .settings-list-row", { hasText: credentials.userA.username }).getByRole("button", { name: "恢复" }).click();
+  await userARow.getByRole("button", { name: "恢复" }).click();
+  await adminPage.locator(".confirm-popover:not(.hidden)").waitFor({ state: "visible" });
+  await adminPage.locator(".confirm-popover:not(.hidden) [data-confirm-popover-confirm]").click();
   check((await reactivateResponse).status() === 200, "confirming user reactivation did not send the status update");
 
   check(userBId && userBId !== userAId, "release gate did not use two distinct normal users");

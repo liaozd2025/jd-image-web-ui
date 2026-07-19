@@ -398,7 +398,7 @@
 
 .confirm-popover {
   position: fixed;
-  z-index: 9300;
+  z-index: 10100;
   width: min(280px, calc(100vw - 20px));
   max-width: calc(100vw - 20px);
   padding: 10px;
@@ -1057,4 +1057,3 @@ body.lightbox-open {
   background: linear-gradient(90deg, transparent, var(--primary), transparent);
   animation: waiting-bar 1.4s ease-in-out infinite;
 }
-

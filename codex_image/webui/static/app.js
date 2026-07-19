@@ -46,6 +46,7 @@
     els43.addToGalleryModal?.addEventListener("click", (event) => {
       if (event.target === els43.addToGalleryModal) call(methods, "closeAddToGallery");
     });
+    els43.galleryScopeInput?.addEventListener("change", () => call(methods, "syncGalleryScopeFields"));
     els43.saveToGalleryButton?.addEventListener("click", () => call(methods, "saveUploadToGallery"));
     els43.systemSettingsModalClose?.addEventListener("click", () => call(methods, "closeSystemSettingsModal"));
     els43.systemSettingsModal?.addEventListener("pointerdown", (event) => {
@@ -333,6 +334,8 @@
       galleryDrawerBackdrop: document.querySelector("#galleryDrawerBackdrop"),
       galleryDrawerSubtitle: document.querySelector("#galleryDrawerSubtitle"),
       galleryDrawerCategoryTabs: document.querySelector("#galleryDrawerCategoryTabs"),
+      gallerySharedImageUploadButton: document.querySelector("#gallerySharedImageUploadButton"),
+      gallerySharedImageInput: document.querySelector("#gallerySharedImageInput"),
       galleryCategoryManagePanel: document.querySelector("#galleryCategoryManagePanel"),
       galleryCategoryManageToggle: document.querySelector("#galleryCategoryManageToggle"),
       galleryCategoryList: document.querySelector("#galleryCategoryList"),
@@ -344,7 +347,11 @@
       addToGalleryClose: document.querySelector("#addToGalleryClose"),
       addToGalleryPreview: document.querySelector("#addToGalleryPreview"),
       galleryNameInput: document.querySelector("#galleryNameInput"),
+      galleryScopeInput: document.querySelector("#galleryScopeInput"),
+      galleryScopeSharedOption: document.querySelector("#galleryScopeSharedOption"),
+      galleryCategoryField: document.querySelector("#galleryCategoryField"),
       galleryCategoryInput: document.querySelector("#galleryCategoryInput"),
+      galleryPromptNoteField: document.querySelector("#galleryPromptNoteField"),
       galleryPromptNoteInput: document.querySelector("#galleryPromptNoteInput"),
       saveToGalleryButton: document.querySelector("#saveToGalleryButton"),
       clearImagesButton: document.querySelector("#clearImagesButton"),
@@ -904,6 +911,10 @@
     "gallery.deleteImageMessage": "Historical task references will show as deleted.",
     "gallery.deleteFailed": "Failed to delete gallery image",
     "gallery.deletedSuffix": " (deleted)",
+    "gallery.deactivateImageTitle": "Deactivate shared image?",
+    "gallery.deactivateImageMessage": "Normal users will no longer be able to view or use it. An administrator can restore it in System Settings.",
+    "gallery.deactivateFailed": "Failed to deactivate shared image",
+    "gallery.deactivatedSuffix": " (deactivated)",
     "gallery.editImageLabel": "Edit gallery image",
     "gallery.fieldCategory": "Category",
     "gallery.fieldPromptNote": "Reference note",
@@ -1310,7 +1321,7 @@
     "systemSettings.saveQuota": "Save quota",
     "systemSettings.providerCredentials": "Provider credentials",
     "systemSettings.userQuota": "User quotas",
-    "systemSettings.sharedDescription": "Set the shared storage quota and manage asset visibility.",
+    "systemSettings.sharedDescription": "Set the shared storage quota, use shared images, and manage asset visibility.",
     "systemSettings.sharedQuotaMb": "Shared storage (MB)",
     "systemSettings.saveStorage": "Save storage",
     "systemSettings.schedulerDescription": "Adjust global and per-user concurrency and review the current queue.",
@@ -1343,10 +1354,13 @@
     "serverSettings.saveStorage": "Save storage",
     "serverSettings.invalidStorageQuota": "Enter a valid storage quota",
     "serverSettings.resetPassword": "Reset password",
+    "serverSettings.resetPasswordConfirmTitle": "Reset password?",
     "serverSettings.confirmResetPassword": "Reset {username}'s password?",
     "serverSettings.temporaryPassword": "Temporary password for {username}: {password}",
     "serverSettings.deactivate": "Deactivate",
     "serverSettings.reactivate": "Reactivate",
+    "serverSettings.deactivateUserConfirmTitle": "Deactivate user?",
+    "serverSettings.reactivateUserConfirmTitle": "Reactivate user?",
     "serverSettings.confirmDeactivateUser": "Deactivate user {username}?",
     "serverSettings.confirmReactivateUser": "Reactivate user {username}?",
     "serverSettings.storageMeta": " \xB7 storage {used} / {limit}",
@@ -1368,6 +1382,8 @@
     "serverSettings.quotaMeta": "Used {used} \xB7 available {available}",
     "serverSettings.confirmDeactivateAsset": "Deactivate shared asset {asset}?",
     "serverSettings.confirmReactivateAsset": "Reactivate shared asset {asset}?",
+    "serverSettings.use": "Use",
+    "serverSettings.sharedImageUnavailable": "The shared image is unavailable. Refresh and try again.",
     "serverSettings.sharedAssetMeta": "Publisher {publisher} \xB7 {status}",
     "serverSettings.queuedTasks": "Queued tasks",
     "serverSettings.runningTasks": "Running tasks",
@@ -1532,16 +1548,25 @@
     "gallery.dragSortImage": "Drag-sort image {name}",
     "gallery.dragSortCategory": "Drag-sort category {name}",
     "gallery.use": "Use",
+    "gallery.addSharedImage": "Add image",
+    "gallery.sharedImageFallbackName": "Shared image",
+    "gallery.sharedImageOnly": "Only images can be added to the shared gallery",
+    "gallery.sharedImageUploadFailed": "Failed to upload the shared image",
+    "gallery.sharedImageUploaded": "Image added to the shared gallery. Click Use to add it as an image input.",
     "gallery.replace": "Replace",
     "gallery.rename": "Rename",
     "gallery.moveCategory": "Category",
     "gallery.note": "Note",
     "gallery.delete": "Delete",
+    "gallery.deactivate": "Deactivate",
     "gallery.uncategorized": "Uncategorized",
     "addGallery.title": "Add to Gallery",
     "addGallery.copy": "Names are globally unique and can be referenced with @name later",
     "addGallery.name": "Name",
     "addGallery.namePlaceholder": "Example: Mia",
+    "addGallery.scope": "Save to",
+    "addGallery.scopePersonal": "Personal gallery",
+    "addGallery.scopeShared": "Shared gallery",
     "addGallery.category": "Category",
     "addGallery.note": "Reference note",
     "addGallery.notePlaceholder": "Example: reference face and hair only, not clothing or background",
@@ -10793,6 +10818,10 @@
     "gallery.deleteImageMessage": "\u5386\u53F2\u4EFB\u52A1\u91CC\u7684\u5F15\u7528\u4F1A\u663E\u793A\u4E3A\u5DF2\u5220\u9664\u3002",
     "gallery.deleteFailed": "\u5220\u9664\u56FE\u5E93\u5931\u8D25",
     "gallery.deletedSuffix": "\uFF08\u5DF2\u5220\u9664\uFF09",
+    "gallery.deactivateImageTitle": "\u505C\u7528\u5171\u4EAB\u56FE\u7247\uFF1F",
+    "gallery.deactivateImageMessage": "\u505C\u7528\u540E\u666E\u901A\u7528\u6237\u5C06\u65E0\u6CD5\u67E5\u770B\u6216\u4F7F\u7528\uFF0C\u53EF\u7531\u7BA1\u7406\u5458\u5728\u7CFB\u7EDF\u8BBE\u7F6E\u4E2D\u6062\u590D\u3002",
+    "gallery.deactivateFailed": "\u505C\u7528\u5171\u4EAB\u56FE\u7247\u5931\u8D25",
+    "gallery.deactivatedSuffix": "\uFF08\u5DF2\u505C\u7528\uFF09",
     "gallery.editImageLabel": "\u7F16\u8F91\u56FE\u5E93\u56FE\u7247",
     "gallery.fieldCategory": "\u5206\u7C7B",
     "gallery.fieldPromptNote": "\u5F15\u7528\u5907\u6CE8",
@@ -11199,7 +11228,7 @@
     "systemSettings.saveQuota": "\u4FDD\u5B58\u989D\u5EA6",
     "systemSettings.providerCredentials": "\u4F9B\u5E94\u5546\u51ED\u636E",
     "systemSettings.userQuota": "\u7528\u6237\u989D\u5EA6",
-    "systemSettings.sharedDescription": "\u8BBE\u7F6E\u5171\u4EAB\u7A7A\u95F4\u914D\u989D\u5E76\u7BA1\u7406\u8D44\u4EA7\u53EF\u89C1\u72B6\u6001\u3002",
+    "systemSettings.sharedDescription": "\u8BBE\u7F6E\u5171\u4EAB\u7A7A\u95F4\u914D\u989D\u3001\u4F7F\u7528\u5171\u4EAB\u56FE\u7247\u5E76\u7BA1\u7406\u8D44\u4EA7\u53EF\u89C1\u72B6\u6001\u3002",
     "systemSettings.sharedQuotaMb": "\u5171\u4EAB\u7A7A\u95F4\uFF08MB\uFF09",
     "systemSettings.saveStorage": "\u4FDD\u5B58\u7A7A\u95F4",
     "systemSettings.schedulerDescription": "\u8C03\u6574\u5168\u5C40\u4E0E\u5355\u7528\u6237\u5E76\u53D1\u4E0A\u9650\uFF0C\u67E5\u770B\u5F53\u524D\u961F\u5217\u3002",
@@ -11232,10 +11261,13 @@
     "serverSettings.saveStorage": "\u4FDD\u5B58\u5B58\u50A8",
     "serverSettings.invalidStorageQuota": "\u8BF7\u8F93\u5165\u6709\u6548\u7684\u5B58\u50A8\u989D\u5EA6",
     "serverSettings.resetPassword": "\u91CD\u7F6E\u5BC6\u7801",
+    "serverSettings.resetPasswordConfirmTitle": "\u91CD\u7F6E\u5BC6\u7801\uFF1F",
     "serverSettings.confirmResetPassword": "\u786E\u5B9A\u91CD\u7F6E {username} \u7684\u5BC6\u7801\u5417\uFF1F",
     "serverSettings.temporaryPassword": "{username} \u7684\u4E34\u65F6\u5BC6\u7801\uFF1A{password}",
     "serverSettings.deactivate": "\u505C\u7528",
     "serverSettings.reactivate": "\u6062\u590D",
+    "serverSettings.deactivateUserConfirmTitle": "\u505C\u7528\u7528\u6237\uFF1F",
+    "serverSettings.reactivateUserConfirmTitle": "\u6062\u590D\u7528\u6237\uFF1F",
     "serverSettings.confirmDeactivateUser": "\u786E\u5B9A\u505C\u7528\u7528\u6237 {username} \u5417\uFF1F",
     "serverSettings.confirmReactivateUser": "\u786E\u5B9A\u6062\u590D\u7528\u6237 {username} \u5417\uFF1F",
     "serverSettings.storageMeta": " \xB7 \u5B58\u50A8 {used} / {limit}",
@@ -11257,6 +11289,8 @@
     "serverSettings.quotaMeta": "\u5DF2\u7528 {used} \xB7 \u53EF\u7528 {available}",
     "serverSettings.confirmDeactivateAsset": "\u786E\u5B9A\u505C\u7528\u5171\u4EAB\u8D44\u4EA7 {asset} \u5417\uFF1F",
     "serverSettings.confirmReactivateAsset": "\u786E\u5B9A\u6062\u590D\u5171\u4EAB\u8D44\u4EA7 {asset} \u5417\uFF1F",
+    "serverSettings.use": "\u4F7F\u7528",
+    "serverSettings.sharedImageUnavailable": "\u5171\u4EAB\u56FE\u7247\u5F53\u524D\u4E0D\u53EF\u7528\uFF0C\u8BF7\u5237\u65B0\u540E\u91CD\u8BD5",
     "serverSettings.sharedAssetMeta": "\u53D1\u5E03\u8005 {publisher} \xB7 {status}",
     "serverSettings.queuedTasks": "\u7B49\u5F85\u4EFB\u52A1",
     "serverSettings.runningTasks": "\u8FD0\u884C\u4EFB\u52A1",
@@ -11421,16 +11455,25 @@
     "gallery.dragSortImage": "\u62D6\u62FD\u6392\u5E8F\u56FE\u7247 {name}",
     "gallery.dragSortCategory": "\u62D6\u62FD\u6392\u5E8F\u5206\u7C7B {name}",
     "gallery.use": "\u4F7F\u7528",
+    "gallery.addSharedImage": "\u6DFB\u52A0\u56FE\u7247",
+    "gallery.sharedImageFallbackName": "\u5171\u4EAB\u56FE\u7247",
+    "gallery.sharedImageOnly": "\u5171\u4EAB\u56FE\u5E93\u53EA\u80FD\u6DFB\u52A0\u56FE\u7247",
+    "gallery.sharedImageUploadFailed": "\u5171\u4EAB\u56FE\u7247\u4E0A\u4F20\u5931\u8D25",
+    "gallery.sharedImageUploaded": "\u56FE\u7247\u5DF2\u52A0\u5165\u5171\u4EAB\u56FE\u5E93\uFF0C\u53EF\u70B9\u51FB\u201C\u4F7F\u7528\u201D\u52A0\u5165\u56FE\u50CF\u8F93\u5165",
     "gallery.replace": "\u66FF\u6362",
     "gallery.rename": "\u91CD\u547D\u540D",
     "gallery.moveCategory": "\u5206\u7C7B",
     "gallery.note": "\u5907\u6CE8",
     "gallery.delete": "\u5220\u9664",
+    "gallery.deactivate": "\u505C\u7528",
     "gallery.uncategorized": "\u672A\u5206\u7C7B",
     "addGallery.title": "\u6DFB\u52A0\u5230\u56FE\u5E93",
     "addGallery.copy": "\u540D\u79F0\u5168\u5C40\u552F\u4E00\uFF0C\u540E\u7EED\u53EF\u7528 @\u540D\u79F0 \u8C03\u53D6",
     "addGallery.name": "\u540D\u79F0",
     "addGallery.namePlaceholder": "\u4F8B\u5982\uFF1A\u5C0F\u7F8E",
+    "addGallery.scope": "\u4FDD\u5B58\u4F4D\u7F6E",
+    "addGallery.scopePersonal": "\u4E2A\u4EBA\u56FE\u5E93",
+    "addGallery.scopeShared": "\u5171\u4EAB\u56FE\u5E93",
     "addGallery.category": "\u5206\u7C7B",
     "addGallery.note": "\u5F15\u7528\u5907\u6CE8",
     "addGallery.notePlaceholder": "\u4F8B\u5982\uFF1A\u53EA\u53C2\u8003\u8138\u578B\u548C\u53D1\u578B\uFF0C\u4E0D\u53C2\u8003\u8863\u670D\u548C\u80CC\u666F",
@@ -14149,6 +14192,7 @@
     saveFavoriteColor: proxy("saveFavoriteColor"),
     saveSettings: proxy("saveSettings"),
     saveUploadToGallery: proxy("saveUploadToGallery"),
+    syncGalleryScopeFields: proxy("syncGalleryScopeFields"),
     scheduleQuickGalleryFocusUpdate: proxy("scheduleQuickGalleryFocusUpdate"),
     queueApiSettingsAutosave: proxy("queueApiSettingsAutosave"),
     selectCodexMode: proxy("selectCodexMode"),
@@ -29586,6 +29630,107 @@ ${hint}` : hint;
     return `<span class="resource-scope-badge resource-scope-${scope}">${translate(key)}</span>`;
   }
 
+  // codex_image/webui/frontend/src/server-account.ts
+  var serverAccountInitialized = false;
+  var csrfToken = "";
+  var currentUser = null;
+  function getCurrentServerUser() {
+    return currentUser;
+  }
+  function cookieValue(name) {
+    const prefix = `${name}=`;
+    const match = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(prefix));
+    return match ? decodeURIComponent(match.slice(prefix.length)) : "";
+  }
+  function getCsrfToken() {
+    return cookieValue("jd_image_csrf") || csrfToken;
+  }
+  function initials(username) {
+    const chars = Array.from(username.trim());
+    return (chars.slice(0, 2).join("") || "--").toLocaleUpperCase();
+  }
+  function roleLabel(role) {
+    return translate(role === "admin" ? "serverAccount.roleAdmin" : "serverAccount.roleUser");
+  }
+  function setText(selector, value) {
+    const element2 = document.querySelector(selector);
+    if (element2) element2.textContent = value;
+  }
+  function closeMenu() {
+    const menu = document.querySelector("#serverAccountMenu");
+    const trigger = document.querySelector("#serverAccountButton");
+    menu?.classList.add("hidden");
+    menu?.setAttribute("aria-hidden", "true");
+    trigger?.setAttribute("aria-expanded", "false");
+  }
+  function toggleMenu() {
+    const menu = document.querySelector("#serverAccountMenu");
+    const trigger = document.querySelector("#serverAccountButton");
+    const open = Boolean(menu?.classList.contains("hidden"));
+    menu?.classList.toggle("hidden", !open);
+    menu?.setAttribute("aria-hidden", open ? "false" : "true");
+    trigger?.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  function renderCurrentUser() {
+    if (!currentUser) return;
+    const avatar = initials(currentUser.username);
+    const role = roleLabel(currentUser.role);
+    setText("#serverAccountName", currentUser.username);
+    setText("#serverAccountMenuName", currentUser.username);
+    setText("#systemSettingsAccountName", currentUser.username);
+    setText("#settingsAccountUsername", currentUser.username);
+    setText("#serverAccountRole", role);
+    setText("#serverAccountMenuRole", role);
+    setText("#systemSettingsAccountRole", role);
+    setText("#settingsAccountRole", role);
+    setText("#serverAccountAvatar", avatar);
+    setText("#serverAccountMenuAvatar", avatar);
+    setText("#systemSettingsAccountAvatar", avatar);
+  }
+  async function loadServerAccount() {
+    const response = await fetch("/api/auth/me");
+    if (!response.ok) return;
+    const context = await response.json();
+    currentUser = context.user;
+    csrfToken = context.csrf_token;
+    document.documentElement.dataset.userRole = context.user.role;
+    renderCurrentUser();
+    document.querySelector("#serverAccount")?.classList.remove("hidden");
+    const logoutButton = document.querySelector("#serverLogoutButton");
+    if (logoutButton) logoutButton.disabled = !csrfToken;
+    document.dispatchEvent(new CustomEvent("codex-image-user-context", { detail: context }));
+  }
+  async function logout() {
+    const button = document.querySelector("#serverLogoutButton");
+    if (button) button.disabled = true;
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "X-CSRF-Token": getCsrfToken() }
+      });
+      if (response.ok) window.location.assign("/login");
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+  function initServerAccountFeature() {
+    if (serverAccountInitialized) return;
+    serverAccountInitialized = true;
+    document.querySelector("#serverAccountButton")?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleMenu();
+    });
+    document.querySelector("#serverAccountMenu")?.addEventListener("click", (event) => event.stopPropagation());
+    document.querySelector("#serverAccountSettingsButton")?.addEventListener("click", closeMenu);
+    document.querySelector("#serverLogoutButton")?.addEventListener("click", () => void logout());
+    document.addEventListener(LOCALE_CHANGE_EVENT, renderCurrentUser);
+    document.addEventListener("click", closeMenu);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeMenu();
+    });
+    void loadServerAccount();
+  }
+
   // codex_image/webui/frontend/src/gallery-grid.ts
   var GALLERY_GRID_TRANSITION_MS = 220;
   var bridge4 = getLegacyBridge();
@@ -29742,8 +29887,14 @@ ${hint}` : hint;
     if (!items.length) {
       return `<div class="gallery-empty">${translate("gallery.emptyCategory")}</div>`;
     }
-    return items.map((item) => `
+    const isAdmin2 = getCurrentServerUser()?.role === "admin";
+    return items.map((item) => {
+      const canManage = item.scope !== "shared" || isAdmin2;
+      const canDeactivate = item.scope !== "shared" || isAdmin2;
+      const canEditDetails = item.scope !== "shared";
+      return `
     <article class="gallery-card" data-gallery-id="${escapeHtml6(item.id)}">
+      ${canEditDetails ? `
       <button
         class="gallery-card-drag-strip"
         type="button"
@@ -29764,7 +29915,7 @@ ${hint}` : hint;
           </svg>
         </span>
         <span>${translate("gallery.dragSort")}</span>
-      </button>
+      </button>` : ""}
       <div class="gallery-card-media">
         <img src="${escapeHtml6(item.image_url)}" alt="${escapeHtml6(item.name)}" draggable="false" loading="lazy" decoding="async">
       </div>
@@ -29777,14 +29928,16 @@ ${hint}` : hint;
       </div>
       <div class="gallery-card-actions">
         <button class="ghost-button text-sm" type="button" data-gallery-use="${escapeHtml6(item.id)}">${translate("gallery.use")}</button>
-        <button class="ghost-button text-sm" type="button" data-gallery-replace="${escapeHtml6(item.id)}">${translate("gallery.replace")}</button>
+        ${canManage ? `<button class="ghost-button text-sm" type="button" data-gallery-replace="${escapeHtml6(item.id)}">${translate("gallery.replace")}</button>` : ""}
+        ${canEditDetails ? `
         <button class="ghost-button text-sm" type="button" data-gallery-rename="${escapeHtml6(item.id)}">${translate("gallery.rename")}</button>
         <button class="ghost-button text-sm" type="button" data-gallery-move="${escapeHtml6(item.id)}">${translate("gallery.moveCategory")}</button>
-        <button class="ghost-button text-sm" type="button" data-gallery-note="${escapeHtml6(item.id)}">${translate("gallery.note")}</button>
-        <button class="ghost-button text-sm danger-button" type="button" data-gallery-delete="${escapeHtml6(item.id)}">${translate("gallery.delete")}</button>
+        <button class="ghost-button text-sm" type="button" data-gallery-note="${escapeHtml6(item.id)}">${translate("gallery.note")}</button>` : ""}
+        ${canDeactivate ? `<button class="ghost-button text-sm danger-button" type="button" data-gallery-delete="${escapeHtml6(item.id)}">${translate(item.scope === "shared" ? "gallery.deactivate" : "gallery.delete")}</button>` : ""}
       </div>
     </article>
-  `).join("");
+  `;
+    }).join("");
   }
   function bindGalleryGridActions(root = els5.galleryGrid) {
     return root;
@@ -29793,11 +29946,14 @@ ${hint}` : hint;
     const button = event.target.closest?.("[data-gallery-use],[data-gallery-rename],[data-gallery-replace],[data-gallery-move],[data-gallery-note],[data-gallery-delete]");
     if (!button || !els5.galleryGrid?.contains(button)) return;
     if (button.dataset.galleryUse) {
-      const item = findGalleryItem2(button.dataset.galleryUse);
-      if (item) addGalleryInput3(item);
+      const item2 = findGalleryItem2(button.dataset.galleryUse);
+      if (item2) addGalleryInput3(item2);
       closeGallery();
       return;
     }
+    const itemId = button.dataset.galleryRename || button.dataset.galleryReplace || button.dataset.galleryMove || button.dataset.galleryNote || button.dataset.galleryDelete;
+    const item = findGalleryItem2(itemId);
+    if (item?.scope === "shared" && getCurrentServerUser()?.role !== "admin") return;
     if (button.dataset.galleryRename) {
       renameGalleryItem(button, button.dataset.galleryRename);
       return;
@@ -29891,6 +30047,10 @@ ${hint}` : hint;
     const itemId = String(handle?.dataset.galleryId || "");
     if (!handle || !itemId || !els5.galleryGrid?.contains(handle)) return;
     const item = findGalleryItem2(itemId);
+    if (item?.scope === "shared") {
+      event.preventDefault();
+      return;
+    }
     const card = galleryCardElement(itemId);
     draggedGalleryItemId = itemId;
     galleryGridDropTargetId = null;
@@ -30092,6 +30252,9 @@ ${hint}` : hint;
     if (els6.galleryNameInput) {
       els6.galleryNameInput.value = sourceName2(source).replace(/\.[^.]+$/, "");
     }
+    if (els6.galleryScopeInput) {
+      els6.galleryScopeInput.value = "personal";
+    }
     if (els6.galleryCategoryInput) {
       renderGalleryCategoryControls3();
       els6.galleryCategoryInput.value = findGalleryCategory2(state6.activeGalleryCategory) ? state6.activeGalleryCategory : state6.galleryCategories[0]?.id || "portrait";
@@ -30099,8 +30262,34 @@ ${hint}` : hint;
     if (els6.galleryPromptNoteInput) {
       els6.galleryPromptNoteInput.value = "";
     }
+    syncGalleryScopeFields();
     els6.addToGalleryModal?.classList.remove("hidden");
     els6.galleryNameInput?.focus();
+  }
+  function syncGalleryScopeFields() {
+    const requestedShared = els6.galleryScopeInput?.value === "shared";
+    const personal = !requestedShared || getCurrentServerUser()?.role !== "admin";
+    if (personal && requestedShared && els6.galleryScopeInput) els6.galleryScopeInput.value = "personal";
+    els6.galleryCategoryField?.classList.toggle("hidden", !personal);
+    els6.galleryPromptNoteField?.classList.toggle("hidden", !personal);
+  }
+  function sharedGalleryItemFromAsset(asset, fallbackName) {
+    const assetId = String(asset?.asset_id || "");
+    if (!assetId || !asset?.download_url) return null;
+    return {
+      id: `shared:${assetId}`,
+      name: String(asset.name || fallbackName),
+      category: "portrait",
+      category_name: translate("gallery.categoryPortrait"),
+      category_prompt_role: "",
+      prompt_note: "",
+      order: 0,
+      image_url: asset.download_url,
+      scope: "shared",
+      read_only: true,
+      created_at: asset.created_at,
+      updated_at: asset.updated_at
+    };
   }
   function closeAddToGallery() {
     state6.addToGalleryIndex = null;
@@ -30120,8 +30309,7 @@ ${hint}` : hint;
     const source = state6.images[state6.addToGalleryIndex];
     if (!canAddSourceToGallery(source)) return;
     const name = els6.galleryNameInput.value.trim();
-    const category = els6.galleryCategoryInput.value;
-    const promptNote = els6.galleryPromptNoteInput?.value.trim() || "";
+    const scope = els6.galleryScopeInput?.value === "shared" && getCurrentServerUser()?.role === "admin" ? "shared" : "personal";
     if (!name) {
       setStatus5(translate("gallery.nameRequired"), "error");
       return;
@@ -30130,17 +30318,29 @@ ${hint}` : hint;
       const form = new FormData();
       const imageFile = await galleryImageFileForSource(source);
       form.append("name", name);
-      form.append("category", category);
-      form.append("prompt_note", promptNote);
-      form.append("image", imageFile);
-      const response = await fetch("/api/gallery", { method: "POST", body: form });
+      if (scope === "shared") {
+        form.append("asset_kind", "image");
+        form.append("file", imageFile);
+      } else {
+        form.append("category", els6.galleryCategoryInput.value);
+        form.append("prompt_note", els6.galleryPromptNoteInput?.value.trim() || "");
+        form.append("image", imageFile);
+      }
+      const response = await fetch(scope === "shared" ? "/api/shared-assets" : "/api/gallery", { method: "POST", body: form });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.detail || translate("gallery.saveFailed"));
       }
-      state6.images[state6.addToGalleryIndex] = gallerySource2(data.item);
-      if (source.kind === "upload") revokeUploadPreviewUrl2(source);
       await refreshGallery2();
+      const item = scope === "shared" ? findGalleryItem3(`shared:${data.asset?.asset_id || ""}`) || sharedGalleryItemFromAsset(data.asset, name) : data.item;
+      if (!item) throw new Error(translate("gallery.saveFailed"));
+      if (scope === "shared" && !findGalleryItem3(item.id)) {
+        state6.galleryItems = [...state6.galleryItems, item];
+        renderQuickGalleryDock3();
+        renderGalleryGrid3();
+      }
+      state6.images[state6.addToGalleryIndex] = gallerySource2(item);
+      if (source.kind === "upload") revokeUploadPreviewUrl2(source);
       closeAddToGallery();
       setMode2("edit");
       renderImageStrip4();
@@ -30239,6 +30439,8 @@ ${hint}` : hint;
   async function replaceGalleryItemImage2(itemId) {
     const item = findGalleryItem3(itemId);
     if (!item) return;
+    const shared = item.scope === "shared";
+    if (shared && getCurrentServerUser()?.role !== "admin") return;
     const file = await selectGalleryReplacementFile();
     if (!file) return;
     if (file.type && !file.type.startsWith("image/")) {
@@ -30246,16 +30448,19 @@ ${hint}` : hint;
       return;
     }
     const form = new FormData();
-    form.append("image", file);
+    form.append(shared ? "file" : "image", file);
     try {
-      const response = await fetch(`/api/gallery/${encodeURIComponent(itemId)}/image`, {
-        method: "PUT",
+      const endpoint = shared ? `/api/shared-assets/${encodeURIComponent(String(itemId).split(":", 2)[1] || "")}/versions` : `/api/gallery/${encodeURIComponent(itemId)}/image`;
+      const response = await fetch(endpoint, {
+        method: shared ? "POST" : "PUT",
         body: form
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || translate("gallery.replaceImageFailed"));
-      const updated = data.item;
-      state6.galleryItems = state6.galleryItems.map((candidate) => candidate.id === itemId ? updated : candidate);
+      if (shared) await refreshGallery2();
+      const updated = shared ? findGalleryItem3(itemId) || sharedGalleryItemFromAsset(data.asset, item.name) || item : data.item;
+      if (!updated) throw new Error(translate("gallery.replaceImageFailed"));
+      state6.galleryItems = state6.galleryItems.some((candidate) => candidate.id === itemId) ? state6.galleryItems.map((candidate) => candidate.id === itemId ? updated : candidate) : [...state6.galleryItems, updated];
       state6.images = state6.images.map((source) => source.kind === "gallery" && source.id === itemId ? gallerySource2(updated) : source);
       renderQuickGalleryDock3();
       renderGalleryGrid3();
@@ -30269,17 +30474,19 @@ ${hint}` : hint;
   function deleteGalleryItem2(button, itemId) {
     const item = findGalleryItem3(itemId);
     if (!item) return;
+    const shared = item.scope === "shared";
     openConfirmPopover3(button, {
-      title: translate("gallery.deleteImageTitle"),
-      message: translate("gallery.deleteImageMessage"),
+      title: translate(shared ? "gallery.deactivateImageTitle" : "gallery.deleteImageTitle"),
+      message: translate(shared ? "gallery.deactivateImageMessage" : "gallery.deleteImageMessage"),
       detail: item.name,
-      confirmText: translate("action.delete"),
+      confirmText: translate(shared ? "gallery.deactivate" : "action.delete"),
       onConfirm: async () => {
         await performDeleteGalleryItem(itemId);
       }
     });
   }
   async function performDeleteGalleryItem(itemId) {
+    const shared = findGalleryItem3(itemId)?.scope === "shared";
     try {
       const response = await fetch(`/api/gallery/${encodeURIComponent(itemId)}`, { method: "DELETE" });
       const data = await response.json().catch(() => ({}));
@@ -30287,12 +30494,18 @@ ${hint}` : hint;
       await refreshGallery2();
       state6.images = state6.images.map((source) => {
         if (source.kind !== "gallery" || source.id !== itemId) return source;
-        return { ...source, missing: true, image_url: "", previewUrl: "", name: `${source.name}${translate("gallery.deletedSuffix")}` };
+        return {
+          ...source,
+          missing: true,
+          image_url: "",
+          previewUrl: "",
+          name: `${source.name}${translate(shared ? "gallery.deactivatedSuffix" : "gallery.deletedSuffix")}`
+        };
       });
       renderImageStrip4();
       updateRequestPreview3();
     } catch (error) {
-      setStatus5(error.message || translate("gallery.deleteFailed"), "error");
+      setStatus5(error.message || translate(shared ? "gallery.deactivateFailed" : "gallery.deleteFailed"), "error");
     }
   }
   function ensureGalleryEditPopover() {
@@ -30404,6 +30617,7 @@ ${hint}` : hint;
     galleryItemActionsFeatureInitialized = true;
     Object.assign(getLegacyBridge().methods, {
       openAddToGallery,
+      syncGalleryScopeFields,
       closeAddToGallery,
       canAddSourceToGallery,
       galleryImageFileForSource,
@@ -30580,10 +30794,93 @@ ${hint}` : hint;
   function handleGalleryManageButtonClick() {
     void openGallery(state7.activeGalleryCategory);
   }
+  function syncGalleryRoleVisibility() {
+    const isAdmin2 = getCurrentServerUser()?.role === "admin";
+    if (els7.gallerySharedImageUploadButton) {
+      els7.gallerySharedImageUploadButton.hidden = !isAdmin2;
+      els7.gallerySharedImageUploadButton.classList.toggle("hidden", !isAdmin2);
+      els7.gallerySharedImageUploadButton.disabled = !isAdmin2;
+    }
+    if (els7.gallerySharedImageInput) els7.gallerySharedImageInput.disabled = !isAdmin2;
+    if (els7.galleryScopeSharedOption) {
+      els7.galleryScopeSharedOption.hidden = !isAdmin2;
+      els7.galleryScopeSharedOption.disabled = !isAdmin2;
+    }
+    if (!isAdmin2 && els7.galleryScopeInput?.value === "shared") {
+      els7.galleryScopeInput.value = "personal";
+      els7.galleryScopeInput.dispatchEvent(new Event("change"));
+    }
+    if (els7.galleryDrawer?.classList.contains("open")) renderGalleryGrid4();
+  }
+  function sharedGalleryImageName(file) {
+    return String(file.name || translate("gallery.sharedImageFallbackName")).replace(/\.[^.]+$/, "").trim().slice(0, 160) || translate("gallery.sharedImageFallbackName");
+  }
+  function sharedGalleryItemFromAsset2(asset) {
+    const assetId = String(asset?.asset_id || "");
+    if (!assetId || !asset?.download_url) return null;
+    return {
+      id: `shared:${assetId}`,
+      name: String(asset.name || translate("gallery.sharedImageFallbackName")),
+      category: "portrait",
+      category_name: translate("gallery.categoryPortrait"),
+      category_prompt_role: "",
+      prompt_note: "",
+      order: 0,
+      image_url: asset.download_url,
+      scope: "shared",
+      read_only: true,
+      created_at: asset.created_at,
+      updated_at: asset.updated_at
+    };
+  }
+  async function uploadSharedGalleryImage(file) {
+    if (getCurrentServerUser()?.role !== "admin") return;
+    if (!String(file.type || "").startsWith("image/")) {
+      setStatus6(translate("gallery.sharedImageOnly"), "error");
+      return;
+    }
+    if (els7.gallerySharedImageUploadButton) els7.gallerySharedImageUploadButton.disabled = true;
+    try {
+      const form = new FormData();
+      form.append("name", sharedGalleryImageName(file));
+      form.append("asset_kind", "image");
+      form.append("file", file);
+      const response = await fetch("/api/shared-assets", { method: "POST", body: form });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || translate("gallery.sharedImageUploadFailed"));
+      state7.activeGalleryCategory = "portrait";
+      await refreshGallery3();
+      const itemId = `shared:${data.asset?.asset_id || ""}`;
+      const fallbackItem = findGalleryItem4(itemId) ? null : sharedGalleryItemFromAsset2(data.asset);
+      if (fallbackItem) {
+        state7.galleryItems = sortGalleryItems([
+          ...state7.galleryItems.filter((item) => item.id !== fallbackItem.id),
+          fallbackItem
+        ]);
+        renderQuickGalleryDock4();
+        if (els7.galleryDrawer?.classList.contains("open")) renderGalleryGrid4();
+      }
+      setStatus6(translate("gallery.sharedImageUploaded"), "ok");
+    } catch (error) {
+      setStatus6(error.message || translate("gallery.sharedImageUploadFailed"), "error");
+    } finally {
+      if (els7.gallerySharedImageInput) els7.gallerySharedImageInput.value = "";
+      if (els7.gallerySharedImageUploadButton) {
+        els7.gallerySharedImageUploadButton.disabled = getCurrentServerUser()?.role !== "admin";
+      }
+    }
+  }
+  function handleSharedGalleryImageSelection(event) {
+    const input = event.target;
+    const file = input.files?.[0];
+    if (file) void uploadSharedGalleryImage(file);
+  }
   function bindGalleryFeatureEvents() {
     if (galleryFeatureEventsBound) return;
     galleryFeatureEventsBound = true;
     els7.galleryManageButton?.addEventListener("click", handleGalleryManageButtonClick);
+    els7.gallerySharedImageUploadButton?.addEventListener("click", () => els7.gallerySharedImageInput?.click());
+    els7.gallerySharedImageInput?.addEventListener("change", handleSharedGalleryImageSelection);
     els7.galleryDrawerClose?.addEventListener("click", () => closeGallery2());
     els7.galleryDrawerBackdrop?.addEventListener("click", () => closeGallery2());
   }
@@ -30591,6 +30888,8 @@ ${hint}` : hint;
     if (galleryFeatureInitialized) return;
     galleryFeatureInitialized = true;
     bindGalleryFeatureEvents();
+    syncGalleryRoleVisibility();
+    document.addEventListener("codex-image-user-context", syncGalleryRoleVisibility);
     Object.assign(getLegacyBridge().methods, {
       sortGalleryItems,
       filterGalleryItems: filterGalleryItems3,
@@ -30599,7 +30898,9 @@ ${hint}` : hint;
       closeGallery: closeGallery2,
       findGalleryItem: findGalleryItem4,
       applyGalleryItemOrder: applyGalleryItemOrder2,
-      persistGalleryItemOrder: persistGalleryItemOrder2
+      persistGalleryItemOrder: persistGalleryItemOrder2,
+      syncGalleryRoleVisibility,
+      uploadSharedGalleryImage
     });
   }
 
@@ -31115,104 +31416,6 @@ ${hint}` : hint;
   }
   function isDirectApiMode(authSource = currentAuthSource2()) {
     return authSource === "api" && currentApiMode2() !== "responses" || authSource === "codex" && currentCodexMode2() !== "responses";
-  }
-
-  // codex_image/webui/frontend/src/server-account.ts
-  var serverAccountInitialized = false;
-  var csrfToken = "";
-  var currentUser = null;
-  function cookieValue(name) {
-    const prefix = `${name}=`;
-    const match = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(prefix));
-    return match ? decodeURIComponent(match.slice(prefix.length)) : "";
-  }
-  function getCsrfToken() {
-    return cookieValue("jd_image_csrf") || csrfToken;
-  }
-  function initials(username) {
-    const chars = Array.from(username.trim());
-    return (chars.slice(0, 2).join("") || "--").toLocaleUpperCase();
-  }
-  function roleLabel(role) {
-    return translate(role === "admin" ? "serverAccount.roleAdmin" : "serverAccount.roleUser");
-  }
-  function setText(selector, value) {
-    const element2 = document.querySelector(selector);
-    if (element2) element2.textContent = value;
-  }
-  function closeMenu() {
-    const menu = document.querySelector("#serverAccountMenu");
-    const trigger = document.querySelector("#serverAccountButton");
-    menu?.classList.add("hidden");
-    menu?.setAttribute("aria-hidden", "true");
-    trigger?.setAttribute("aria-expanded", "false");
-  }
-  function toggleMenu() {
-    const menu = document.querySelector("#serverAccountMenu");
-    const trigger = document.querySelector("#serverAccountButton");
-    const open = Boolean(menu?.classList.contains("hidden"));
-    menu?.classList.toggle("hidden", !open);
-    menu?.setAttribute("aria-hidden", open ? "false" : "true");
-    trigger?.setAttribute("aria-expanded", open ? "true" : "false");
-  }
-  function renderCurrentUser() {
-    if (!currentUser) return;
-    const avatar = initials(currentUser.username);
-    const role = roleLabel(currentUser.role);
-    setText("#serverAccountName", currentUser.username);
-    setText("#serverAccountMenuName", currentUser.username);
-    setText("#systemSettingsAccountName", currentUser.username);
-    setText("#settingsAccountUsername", currentUser.username);
-    setText("#serverAccountRole", role);
-    setText("#serverAccountMenuRole", role);
-    setText("#systemSettingsAccountRole", role);
-    setText("#settingsAccountRole", role);
-    setText("#serverAccountAvatar", avatar);
-    setText("#serverAccountMenuAvatar", avatar);
-    setText("#systemSettingsAccountAvatar", avatar);
-  }
-  async function loadServerAccount() {
-    const response = await fetch("/api/auth/me");
-    if (!response.ok) return;
-    const context = await response.json();
-    currentUser = context.user;
-    csrfToken = context.csrf_token;
-    document.documentElement.dataset.userRole = context.user.role;
-    renderCurrentUser();
-    document.querySelector("#serverAccount")?.classList.remove("hidden");
-    const logoutButton = document.querySelector("#serverLogoutButton");
-    if (logoutButton) logoutButton.disabled = !csrfToken;
-    document.dispatchEvent(new CustomEvent("codex-image-user-context", { detail: context }));
-  }
-  async function logout() {
-    const button = document.querySelector("#serverLogoutButton");
-    if (button) button.disabled = true;
-    try {
-      const response = await fetch("/api/auth/logout", {
-        method: "POST",
-        headers: { "X-CSRF-Token": getCsrfToken() }
-      });
-      if (response.ok) window.location.assign("/login");
-    } finally {
-      if (button) button.disabled = false;
-    }
-  }
-  function initServerAccountFeature() {
-    if (serverAccountInitialized) return;
-    serverAccountInitialized = true;
-    document.querySelector("#serverAccountButton")?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      toggleMenu();
-    });
-    document.querySelector("#serverAccountMenu")?.addEventListener("click", (event) => event.stopPropagation());
-    document.querySelector("#serverAccountSettingsButton")?.addEventListener("click", closeMenu);
-    document.querySelector("#serverLogoutButton")?.addEventListener("click", () => void logout());
-    document.addEventListener(LOCALE_CHANGE_EVENT, renderCurrentUser);
-    document.addEventListener("click", closeMenu);
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") closeMenu();
-    });
-    void loadServerAccount();
   }
 
   // codex_image/webui/frontend/src/api-advanced-settings.ts
@@ -45189,7 +45392,7 @@ ${galleryText}`;
     button.addEventListener("click", async () => {
       button.disabled = true;
       try {
-        await action();
+        await action(button);
       } catch (error) {
         reportError(error);
       } finally {
@@ -45197,6 +45400,13 @@ ${galleryText}`;
       }
     });
     return button;
+  }
+  async function runConfirmedAction(action) {
+    try {
+      await action();
+    } catch (error) {
+      reportError(error);
+    }
   }
   function listRow(title, meta, actions2) {
     const row = document.createElement("article");
@@ -45330,19 +45540,31 @@ ${galleryText}`;
           clearSystemSettingsDirty(storageInput);
           await loadUsers();
         }));
-        rowActions.append(actionButton(translate("serverSettings.resetPassword"), async () => {
-          if (!window.confirm(formatTranslation("serverSettings.confirmResetPassword", { username: user.username }))) return;
-          const reset = await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/reset-password`, { method: "POST" });
-          showCredential(formatTranslation("serverSettings.temporaryPassword", { username: user.username, password: reset.temporary_password }));
-          await loadUsers();
-        }, true));
-        rowActions.append(actionButton(translate(user.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
-          if (!window.confirm(formatTranslation(user.is_active ? "serverSettings.confirmDeactivateUser" : "serverSettings.confirmReactivateUser", { username: user.username }))) return;
-          await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/status`, {
-            method: "PATCH",
-            ...jsonOptions({ is_active: !user.is_active })
+        rowActions.append(actionButton(translate("serverSettings.resetPassword"), (button) => {
+          getLegacyBridge().methods.openConfirmPopover(button, {
+            title: translate("serverSettings.resetPasswordConfirmTitle"),
+            message: formatTranslation("serverSettings.confirmResetPassword", { username: user.username }),
+            confirmText: translate("serverSettings.resetPassword"),
+            onConfirm: () => runConfirmedAction(async () => {
+              const reset = await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/reset-password`, { method: "POST" });
+              showCredential(formatTranslation("serverSettings.temporaryPassword", { username: user.username, password: reset.temporary_password }));
+              await loadUsers();
+            })
           });
-          await loadUsers();
+        }, true));
+        rowActions.append(actionButton(translate(user.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), (button) => {
+          getLegacyBridge().methods.openConfirmPopover(button, {
+            title: translate(user.is_active ? "serverSettings.deactivateUserConfirmTitle" : "serverSettings.reactivateUserConfirmTitle"),
+            message: formatTranslation(user.is_active ? "serverSettings.confirmDeactivateUser" : "serverSettings.confirmReactivateUser", { username: user.username }),
+            confirmText: translate(user.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"),
+            onConfirm: () => runConfirmedAction(async () => {
+              await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/status`, {
+                method: "PATCH",
+                ...jsonOptions({ is_active: !user.is_active })
+              });
+              await loadUsers();
+            })
+          });
         }, user.is_active));
       }
       const storageMeta = usage ? formatTranslation("serverSettings.storageMeta", { used: fmtBytes(usage.used_bytes), limit: fmtBytes(usage.quota_bytes) }) : "";
@@ -45451,6 +45673,15 @@ ${galleryText}`;
     if (quotaInput) quotaInput.value = String(Math.max(1, Math.round(Number(quotaResult.quota?.quota_bytes || 0) / 1024 / 1024)));
     const rows = (assetResult.assets || []).map((asset) => {
       const rowActions = actions();
+      if (asset.is_active && ["image", "reference"].includes(asset.asset_kind)) {
+        rowActions.append(actionButton(translate("serverSettings.use"), async () => {
+          const gallery = await api("/api/gallery");
+          const item = (gallery.items || []).find((candidate) => candidate.id === `shared:${asset.asset_id}`);
+          if (!item) throw new Error(translate("serverSettings.sharedImageUnavailable"));
+          getLegacyBridge().methods.addGalleryInput(item);
+          closeSystemSettingsModal();
+        }));
+      }
       rowActions.append(actionButton(translate(asset.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
         if (!window.confirm(formatTranslation(asset.is_active ? "serverSettings.confirmDeactivateAsset" : "serverSettings.confirmReactivateAsset", { asset: asset.name }))) return;
         await api(`/api/shared-assets/${encodeURIComponent(asset.asset_id)}/status`, {

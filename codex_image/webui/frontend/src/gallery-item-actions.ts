@@ -1,5 +1,6 @@
 import { getLegacyBridge } from "./state";
 import { formatTranslation, translate } from "./i18n";
+import { getCurrentServerUser } from "./server-account";
 
 const bridge = getLegacyBridge();
 const state = bridge.state;
@@ -68,6 +69,9 @@ function openAddToGallery(index: any) {
   if (els.galleryNameInput) {
     els.galleryNameInput.value = sourceName(source).replace(/\.[^.]+$/, "");
   }
+  if (els.galleryScopeInput) {
+    els.galleryScopeInput.value = "personal";
+  }
   if (els.galleryCategoryInput) {
     renderGalleryCategoryControls();
     els.galleryCategoryInput.value = findGalleryCategory(state.activeGalleryCategory) ? state.activeGalleryCategory : (state.galleryCategories[0]?.id || "portrait");
@@ -75,8 +79,36 @@ function openAddToGallery(index: any) {
   if (els.galleryPromptNoteInput) {
     els.galleryPromptNoteInput.value = "";
   }
+  syncGalleryScopeFields();
   els.addToGalleryModal?.classList.remove("hidden");
   els.galleryNameInput?.focus();
+}
+
+function syncGalleryScopeFields() {
+  const requestedShared = els.galleryScopeInput?.value === "shared";
+  const personal = !requestedShared || getCurrentServerUser()?.role !== "admin";
+  if (personal && requestedShared && els.galleryScopeInput) els.galleryScopeInput.value = "personal";
+  els.galleryCategoryField?.classList.toggle("hidden", !personal);
+  els.galleryPromptNoteField?.classList.toggle("hidden", !personal);
+}
+
+function sharedGalleryItemFromAsset(asset: any, fallbackName: string) {
+  const assetId = String(asset?.asset_id || "");
+  if (!assetId || !asset?.download_url) return null;
+  return {
+    id: `shared:${assetId}`,
+    name: String(asset.name || fallbackName),
+    category: "portrait",
+    category_name: translate("gallery.categoryPortrait"),
+    category_prompt_role: "",
+    prompt_note: "",
+    order: 0,
+    image_url: asset.download_url,
+    scope: "shared",
+    read_only: true,
+    created_at: asset.created_at,
+    updated_at: asset.updated_at,
+  };
 }
 
 function closeAddToGallery() {
@@ -100,8 +132,7 @@ async function saveUploadToGallery() {
   const source = state.images[state.addToGalleryIndex];
   if (!canAddSourceToGallery(source)) return;
   const name = els.galleryNameInput.value.trim();
-  const category = els.galleryCategoryInput.value;
-  const promptNote = els.galleryPromptNoteInput?.value.trim() || "";
+  const scope = els.galleryScopeInput?.value === "shared" && getCurrentServerUser()?.role === "admin" ? "shared" : "personal";
   if (!name) {
     setStatus(translate("gallery.nameRequired"), "error");
     return;
@@ -110,17 +141,31 @@ async function saveUploadToGallery() {
     const form = new FormData();
     const imageFile = await galleryImageFileForSource(source);
     form.append("name", name);
-    form.append("category", category);
-    form.append("prompt_note", promptNote);
-    form.append("image", imageFile);
-    const response = await fetch("/api/gallery", { method: "POST", body: form });
+    if (scope === "shared") {
+      form.append("asset_kind", "image");
+      form.append("file", imageFile);
+    } else {
+      form.append("category", els.galleryCategoryInput.value);
+      form.append("prompt_note", els.galleryPromptNoteInput?.value.trim() || "");
+      form.append("image", imageFile);
+    }
+    const response = await fetch(scope === "shared" ? "/api/shared-assets" : "/api/gallery", { method: "POST", body: form });
     const data = await response.json();
     if (!response.ok) {
       throw new Error(data.detail || translate("gallery.saveFailed"));
     }
-    state.images[state.addToGalleryIndex] = gallerySource(data.item);
-    if (source.kind === "upload") revokeUploadPreviewUrl(source);
     await refreshGallery();
+    const item = scope === "shared"
+      ? findGalleryItem(`shared:${data.asset?.asset_id || ""}`) || sharedGalleryItemFromAsset(data.asset, name)
+      : data.item;
+    if (!item) throw new Error(translate("gallery.saveFailed"));
+    if (scope === "shared" && !findGalleryItem(item.id)) {
+      state.galleryItems = [...state.galleryItems, item];
+      renderQuickGalleryDock();
+      renderGalleryGrid();
+    }
+    state.images[state.addToGalleryIndex] = gallerySource(item);
+    if (source.kind === "upload") revokeUploadPreviewUrl(source);
     closeAddToGallery();
     setMode("edit");
     renderImageStrip();
@@ -225,6 +270,8 @@ function selectGalleryReplacementFile(): Promise<File | null> {
 async function replaceGalleryItemImage(itemId: any) {
   const item = findGalleryItem(itemId);
   if (!item) return;
+  const shared = item.scope === "shared";
+  if (shared && getCurrentServerUser()?.role !== "admin") return;
   const file = await selectGalleryReplacementFile();
   if (!file) return;
   if (file.type && !file.type.startsWith("image/")) {
@@ -232,16 +279,25 @@ async function replaceGalleryItemImage(itemId: any) {
     return;
   }
   const form = new FormData();
-  form.append("image", file);
+  form.append(shared ? "file" : "image", file);
   try {
-    const response = await fetch(`/api/gallery/${encodeURIComponent(itemId)}/image`, {
-      method: "PUT",
+    const endpoint = shared
+      ? `/api/shared-assets/${encodeURIComponent(String(itemId).split(":", 2)[1] || "")}/versions`
+      : `/api/gallery/${encodeURIComponent(itemId)}/image`;
+    const response = await fetch(endpoint, {
+      method: shared ? "POST" : "PUT",
       body: form,
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || translate("gallery.replaceImageFailed"));
-    const updated = data.item;
-    state.galleryItems = state.galleryItems.map((candidate: any) => (candidate.id === itemId ? updated : candidate));
+    if (shared) await refreshGallery();
+    const updated = shared
+      ? findGalleryItem(itemId) || sharedGalleryItemFromAsset(data.asset, item.name) || item
+      : data.item;
+    if (!updated) throw new Error(translate("gallery.replaceImageFailed"));
+    state.galleryItems = state.galleryItems.some((candidate: any) => candidate.id === itemId)
+      ? state.galleryItems.map((candidate: any) => (candidate.id === itemId ? updated : candidate))
+      : [...state.galleryItems, updated];
     state.images = state.images.map((source: any) => (source.kind === "gallery" && source.id === itemId ? gallerySource(updated) : source));
     renderQuickGalleryDock();
     renderGalleryGrid();
@@ -256,11 +312,12 @@ async function replaceGalleryItemImage(itemId: any) {
 function deleteGalleryItem(button: any, itemId: any) {
   const item = findGalleryItem(itemId);
   if (!item) return;
+  const shared = item.scope === "shared";
   openConfirmPopover(button, {
-    title: translate("gallery.deleteImageTitle"),
-    message: translate("gallery.deleteImageMessage"),
+    title: translate(shared ? "gallery.deactivateImageTitle" : "gallery.deleteImageTitle"),
+    message: translate(shared ? "gallery.deactivateImageMessage" : "gallery.deleteImageMessage"),
     detail: item.name,
-    confirmText: translate("action.delete"),
+    confirmText: translate(shared ? "gallery.deactivate" : "action.delete"),
     onConfirm: async () => {
       await performDeleteGalleryItem(itemId);
     },
@@ -268,6 +325,7 @@ function deleteGalleryItem(button: any, itemId: any) {
 }
 
 async function performDeleteGalleryItem(itemId: any) {
+  const shared = findGalleryItem(itemId)?.scope === "shared";
   try {
     const response = await fetch(`/api/gallery/${encodeURIComponent(itemId)}`, { method: "DELETE" });
     const data = await response.json().catch(() => ({}));
@@ -275,12 +333,18 @@ async function performDeleteGalleryItem(itemId: any) {
     await refreshGallery();
     state.images = state.images.map((source: any) => {
       if (source.kind !== "gallery" || source.id !== itemId) return source;
-      return { ...source, missing: true, image_url: "", previewUrl: "", name: `${source.name}${translate("gallery.deletedSuffix")}` };
+      return {
+        ...source,
+        missing: true,
+        image_url: "",
+        previewUrl: "",
+        name: `${source.name}${translate(shared ? "gallery.deactivatedSuffix" : "gallery.deletedSuffix")}`,
+      };
     });
     renderImageStrip();
     updateRequestPreview();
   } catch (error: any) {
-    setStatus(error.message || translate("gallery.deleteFailed"), "error");
+    setStatus(error.message || translate(shared ? "gallery.deactivateFailed" : "gallery.deleteFailed"), "error");
   }
 }
 
@@ -402,6 +466,7 @@ export function initGalleryItemActionsFeature() {
   galleryItemActionsFeatureInitialized = true;
   Object.assign(getLegacyBridge().methods, {
     openAddToGallery,
+    syncGalleryScopeFields,
     closeAddToGallery,
     canAddSourceToGallery,
     galleryImageFileForSource,

@@ -1,6 +1,7 @@
-import { clearSystemSettingsDirty, markSystemSettingsDirty, setSystemSettingsTab } from "./system-settings";
+import { clearSystemSettingsDirty, closeSystemSettingsModal, markSystemSettingsDirty, setSystemSettingsTab } from "./system-settings";
 import { getCsrfToken } from "./server-account";
 import { formatTranslation, LOCALE_CHANGE_EVENT, translate } from "./i18n";
+import { getLegacyBridge } from "./state";
 
 type ApiResponse = Record<string, any>;
 
@@ -102,16 +103,24 @@ function textElement(tag: keyof HTMLElementTagNameMap, value: string, className 
   return node;
 }
 
-function actionButton(label: string, action: () => Promise<void>, danger = false): HTMLButtonElement {
+function actionButton(
+  label: string,
+  action: (button: HTMLButtonElement) => Promise<void> | void,
+  danger = false,
+): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
   button.className = `ghost-button text-sm${danger ? " danger-button" : ""}`;
   button.textContent = label;
   button.addEventListener("click", async () => {
     button.disabled = true;
-    try { await action(); } catch (error) { reportError(error); } finally { button.disabled = false; }
+    try { await action(button); } catch (error) { reportError(error); } finally { button.disabled = false; }
   });
   return button;
+}
+
+async function runConfirmedAction(action: () => Promise<void>): Promise<void> {
+  try { await action(); } catch (error) { reportError(error); }
 }
 
 function listRow(title: string, meta: string, actions?: HTMLElement): HTMLElement {
@@ -260,18 +269,30 @@ async function loadUsers(): Promise<void> {
         clearSystemSettingsDirty(storageInput);
         await loadUsers();
       }));
-      rowActions.append(actionButton(translate("serverSettings.resetPassword"), async () => {
-        if (!window.confirm(formatTranslation("serverSettings.confirmResetPassword", { username: user.username }))) return;
-        const reset = await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/reset-password`, { method: "POST" });
-        showCredential(formatTranslation("serverSettings.temporaryPassword", { username: user.username, password: reset.temporary_password }));
-        await loadUsers();
-      }, true));
-      rowActions.append(actionButton(translate(user.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
-        if (!window.confirm(formatTranslation(user.is_active ? "serverSettings.confirmDeactivateUser" : "serverSettings.confirmReactivateUser", { username: user.username }))) return;
-        await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/status`, {
-          method: "PATCH", ...jsonOptions({ is_active: !user.is_active }),
+      rowActions.append(actionButton(translate("serverSettings.resetPassword"), (button) => {
+        getLegacyBridge().methods.openConfirmPopover(button, {
+          title: translate("serverSettings.resetPasswordConfirmTitle"),
+          message: formatTranslation("serverSettings.confirmResetPassword", { username: user.username }),
+          confirmText: translate("serverSettings.resetPassword"),
+          onConfirm: () => runConfirmedAction(async () => {
+            const reset = await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/reset-password`, { method: "POST" });
+            showCredential(formatTranslation("serverSettings.temporaryPassword", { username: user.username, password: reset.temporary_password }));
+            await loadUsers();
+          }),
         });
-        await loadUsers();
+      }, true));
+      rowActions.append(actionButton(translate(user.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), (button) => {
+        getLegacyBridge().methods.openConfirmPopover(button, {
+          title: translate(user.is_active ? "serverSettings.deactivateUserConfirmTitle" : "serverSettings.reactivateUserConfirmTitle"),
+          message: formatTranslation(user.is_active ? "serverSettings.confirmDeactivateUser" : "serverSettings.confirmReactivateUser", { username: user.username }),
+          confirmText: translate(user.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"),
+          onConfirm: () => runConfirmedAction(async () => {
+            await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/status`, {
+              method: "PATCH", ...jsonOptions({ is_active: !user.is_active }),
+            });
+            await loadUsers();
+          }),
+        });
       }, user.is_active));
     }
     const storageMeta = usage ? formatTranslation("serverSettings.storageMeta", { used: fmtBytes(usage.used_bytes), limit: fmtBytes(usage.quota_bytes) }) : "";
@@ -381,6 +402,15 @@ async function loadShared(): Promise<void> {
   if (quotaInput) quotaInput.value = String(Math.max(1, Math.round(Number(quotaResult.quota?.quota_bytes || 0) / 1024 / 1024)));
   const rows = (assetResult.assets || []).map((asset: SharedAsset) => {
     const rowActions = actions();
+    if (asset.is_active && ["image", "reference"].includes(asset.asset_kind)) {
+      rowActions.append(actionButton(translate("serverSettings.use"), async () => {
+        const gallery = await api("/api/gallery");
+        const item = (gallery.items || []).find((candidate: ApiResponse) => candidate.id === `shared:${asset.asset_id}`);
+        if (!item) throw new Error(translate("serverSettings.sharedImageUnavailable"));
+        getLegacyBridge().methods.addGalleryInput(item);
+        closeSystemSettingsModal();
+      }));
+    }
     rowActions.append(actionButton(translate(asset.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
       if (!window.confirm(formatTranslation(asset.is_active ? "serverSettings.confirmDeactivateAsset" : "serverSettings.confirmReactivateAsset", { asset: asset.name }))) return;
       await api(`/api/shared-assets/${encodeURIComponent(asset.asset_id)}/status`, {

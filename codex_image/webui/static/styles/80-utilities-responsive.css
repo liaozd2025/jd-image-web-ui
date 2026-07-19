@@ -683,6 +683,10 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .gallery-drawer-actions {
+    justify-content: flex-start;
+  }
+
   .gallery-category-manage-panel {
     grid-template-columns: 1fr;
     width: 100%;

@@ -44,6 +44,49 @@ class ServerVersionWorkspaceUiTests(unittest.TestCase):
         self.assertIn("共享图库", zh_cn)
         self.assertIn("共享图库", html)
 
+    def test_gallery_shared_image_publish_controls_are_admin_only(self) -> None:
+        html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
+        gallery_actions = Path("codex_image/webui/frontend/src/gallery-item-actions.ts").read_text(encoding="utf-8")
+        gallery = Path("codex_image/webui/frontend/src/gallery.ts").read_text(encoding="utf-8")
+        gallery_grid = Path("codex_image/webui/frontend/src/gallery-grid.ts").read_text(encoding="utf-8")
+        settings = Path("codex_image/webui/frontend/src/server-settings.ts").read_text(encoding="utf-8")
+
+        self.assertIn('id="galleryScopeInput"', html)
+        self.assertRegex(
+            html,
+            r'id="galleryScopeInput"[\s\S]*value="personal"[\s\S]*id="galleryScopeSharedOption"[^>]*value="shared"[^>]*hidden[^>]*disabled',
+        )
+        self.assertRegex(html, r'id="gallerySharedImageUploadButton"[^>]*hidden')
+        self.assertIn('id="galleryCategoryField"', html)
+        self.assertIn('id="galleryPromptNoteField"', html)
+        self.assertIn('form.append("asset_kind", "image")', gallery_actions)
+        self.assertIn('form.append("file", imageFile)', gallery_actions)
+        self.assertIn('scope === "shared" ? "/api/shared-assets" : "/api/gallery"', gallery_actions)
+        self.assertIn('getCurrentServerUser()?.role === "admin"', gallery_actions)
+        self.assertIn('findGalleryItem(`shared:${data.asset?.asset_id || ""}`)', gallery_actions)
+        self.assertIn('classList.toggle("hidden", !personal)', gallery_actions)
+        self.assertIn('function syncGalleryRoleVisibility()', gallery)
+        self.assertIn('getCurrentServerUser()?.role === "admin"', gallery)
+        self.assertIn('document.addEventListener("codex-image-user-context", syncGalleryRoleVisibility)', gallery)
+        self.assertIn('const canManage = item.scope !== "shared" || isAdmin;', gallery_grid)
+        self.assertIn('const canDeactivate = item.scope !== "shared" || isAdmin;', gallery_grid)
+        self.assertIn('api("/api/gallery")', settings)
+        self.assertIn("getLegacyBridge().methods.addGalleryInput(item)", settings)
+        self.assertIn("closeSystemSettingsModal()", settings)
+
+    def test_shared_gallery_drawer_upload_is_revealed_only_for_an_administrator(self) -> None:
+        html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
+        gallery = Path("codex_image/webui/frontend/src/gallery.ts").read_text(encoding="utf-8")
+
+        self.assertIn('id="gallerySharedImageUploadButton"', html)
+        self.assertIn('id="gallerySharedImageInput"', html)
+        self.assertIn('accept="image/*"', html)
+        self.assertIn('gallerySharedImageUploadButton.hidden = !isAdmin', gallery)
+        self.assertIn('if (getCurrentServerUser()?.role !== "admin") return;', gallery)
+        self.assertIn('form.append("asset_kind", "image")', gallery)
+        self.assertIn('fetch("/api/shared-assets", { method: "POST", body: form })', gallery)
+        self.assertIn("await refreshGallery()", gallery)
+
     def test_admin_read_only_view_renders_every_task_output(self) -> None:
         script = Path("codex_image/server/static/home.js").read_text(encoding="utf-8")
         styles = Path("codex_image/server/static/auth.css").read_text(encoding="utf-8")

@@ -7515,7 +7515,7 @@ input[type=range].slider:disabled::-moz-range-thumb {
 
 .confirm-popover {
   position: fixed;
-  z-index: 9300;
+  z-index: 10100;
   width: min(280px, calc(100vw - 20px));
   max-width: calc(100vw - 20px);
   padding: 10px;
@@ -8708,6 +8708,13 @@ body.lightbox-open {
 .gallery-drawer-category-tabs {
   display: flex;
   flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gallery-drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
 }
 
@@ -11667,6 +11674,10 @@ button:disabled {
 
   .gallery-drawer-toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .gallery-drawer-actions {
+    justify-content: flex-start;
   }
 
   .gallery-category-manage-panel {

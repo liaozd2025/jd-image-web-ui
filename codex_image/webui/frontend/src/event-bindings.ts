@@ -57,6 +57,7 @@ export function bindWebUIEvents(state: WebUIState, els: WebUIElements, methods: 
   els.addToGalleryModal?.addEventListener("click", (event: Event) => {
     if (event.target === els.addToGalleryModal) call(methods, "closeAddToGallery");
   });
+  els.galleryScopeInput?.addEventListener("change", () => call(methods, "syncGalleryScopeFields"));
   els.saveToGalleryButton?.addEventListener("click", () => call(methods, "saveUploadToGallery"));
   els.systemSettingsModalClose?.addEventListener("click", () => call(methods, "closeSystemSettingsModal"));
   els.systemSettingsModal?.addEventListener("pointerdown", (event: Event) => {

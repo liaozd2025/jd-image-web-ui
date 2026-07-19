@@ -28,6 +28,9 @@ class SharedAssetForbidden(RuntimeError):
     pass
 
 
+SHARED_GALLERY_ASSET_KINDS = frozenset({"image", "reference"})
+
+
 @dataclass(frozen=True)
 class SharedAssetVersion:
     asset_version_id: str
@@ -71,6 +74,7 @@ class SharedAssetRepository:
         self,
         publisher_user_id: str,
         *,
+        actor_role: str,
         asset_kind: str,
         name: str,
         original_filename: str,
@@ -78,6 +82,8 @@ class SharedAssetRepository:
         content: bytes,
     ) -> SharedAsset:
         kind = _validate_shared_kind(asset_kind)
+        if kind in SHARED_GALLERY_ASSET_KINDS and actor_role != "admin":
+            raise SharedAssetForbidden("only an administrator can create shared gallery images")
         clean_name = _clean_name(name or original_filename)
         filename = _clean_filename(original_filename)
         normalized_mime = _normalize_mime(mime_type)
@@ -153,11 +159,13 @@ class SharedAssetRepository:
             asset = cursor.fetchone()
             if asset is None:
                 raise AssetNotFound("shared asset was not found")
-            if asset[0] != actor_user_id and actor_role != "admin":
+            kind = cast(AssetKind, asset[1])
+            if kind in SHARED_GALLERY_ASSET_KINDS and actor_role != "admin":
+                raise SharedAssetForbidden("only an administrator can update shared gallery images")
+            if kind not in SHARED_GALLERY_ASSET_KINDS and asset[0] != actor_user_id and actor_role != "admin":
                 raise SharedAssetForbidden("only the publisher or administrator can update this asset")
             if not asset[2]:
                 raise AssetValidationError("shared asset is inactive")
-            kind = cast(AssetKind, asset[1])
             _validate_content(kind, normalized_mime, content)
             cursor.execute(
                 "SELECT COALESCE(MAX(version_number), 0) FROM server_shared_asset_versions WHERE asset_id = %s",
@@ -266,13 +274,15 @@ class SharedAssetRepository:
             with connection.cursor() as cursor:
                 assert_writes_allowed(cursor)
                 cursor.execute(
-                    "SELECT publisher_user_id FROM server_shared_assets WHERE asset_id = %s FOR UPDATE",
+                    "SELECT publisher_user_id, asset_kind FROM server_shared_assets WHERE asset_id = %s FOR UPDATE",
                     (asset_id,),
                 )
                 row = cursor.fetchone()
                 if row is None:
                     raise AssetNotFound("shared asset was not found")
-                if row[0] != actor_user_id and actor_role != "admin":
+                if row[1] in SHARED_GALLERY_ASSET_KINDS and actor_role != "admin":
+                    raise SharedAssetForbidden("only an administrator can change shared gallery image status")
+                if row[1] not in SHARED_GALLERY_ASSET_KINDS and row[0] != actor_user_id and actor_role != "admin":
                     raise SharedAssetForbidden("only the publisher or administrator can change shared asset status")
                 cursor.execute(
                     "UPDATE server_shared_assets SET is_active = %s, updated_at = CURRENT_TIMESTAMP WHERE asset_id = %s",

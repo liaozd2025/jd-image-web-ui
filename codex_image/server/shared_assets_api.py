@@ -11,6 +11,7 @@ from .assets_api import _kind, _limit, _parse_asset_request, _version_payload
 from .auth import require_admin
 from .identity import AuthenticatedSession
 from .shared_assets import (
+    SHARED_GALLERY_ASSET_KINDS,
     SharedAsset,
     SharedAssetForbidden,
     SharedAssetRepository,
@@ -82,15 +83,20 @@ def install_shared_asset_routes(app: FastAPI, *, shared_assets: SharedAssetRepos
         if parsed is None:
             return JSONResponse(status_code=422, content={"detail": "invalid_shared_asset_request"})
         kind, name, filename, mime_type, content = parsed
+        if kind in SHARED_GALLERY_ASSET_KINDS and session.user.role != "admin":
+            return JSONResponse(status_code=403, content={"detail": "administrator_required"})
         try:
             asset = shared_assets.create_asset(
                 session.user.user_id,
+                actor_role=session.user.role,
                 asset_kind=kind,
                 name=name,
                 original_filename=filename,
                 mime_type=mime_type,
                 content=content,
             )
+        except SharedAssetForbidden as error:
+            return JSONResponse(status_code=403, content={"detail": str(error)})
         except AssetQuotaExceeded as error:
             return JSONResponse(status_code=413, content={"detail": str(error)})
         except AssetValidationError as error:

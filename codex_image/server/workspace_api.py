@@ -32,7 +32,7 @@ from .tasks import (
     task_output_records,
 )
 from .tasks_api import MAX_TASK_INPUT_BYTES, _task_payload
-from .shared_assets import SharedAssetRepository
+from .shared_assets import SharedAssetForbidden, SharedAssetRepository
 
 
 WORKSPACE_UPLOAD_LIMIT = 16
@@ -272,6 +272,8 @@ def install_workspace_routes(
         if asset_id == "reorder":
             payload = await _json_object(request)
             item_ids = [str(item) for item in payload.get("item_ids", []) if str(item)]
+            if any(item_id.startswith("shared:") for item_id in item_ids):
+                return JSONResponse(status_code=403, content={"detail": "共享素材只读"})
             metadata_by_id = _gallery_metadata(session.user.user_id, assets)
             for index, item_id in enumerate(item_ids, start=1):
                 existing = metadata_by_id.get(item_id, {})
@@ -337,7 +339,18 @@ def install_workspace_routes(
     def delete_gallery_item(request: Request, asset_id: str) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
         if asset_id.startswith("shared:"):
-            return JSONResponse(status_code=403, content={"detail": "共享素材只读"})
+            try:
+                shared_assets.set_active(
+                    session.user.user_id,
+                    session.user.role,
+                    asset_id.split(":", 1)[1],
+                    is_active=False,
+                )
+            except AssetNotFound as error:
+                return JSONResponse(status_code=404, content={"detail": str(error)})
+            except SharedAssetForbidden as error:
+                return JSONResponse(status_code=403, content={"detail": str(error)})
+            return JSONResponse(content={"ok": True})
         try:
             assets.soft_delete(session.user.user_id, asset_id)
         except AssetNotFound as error:

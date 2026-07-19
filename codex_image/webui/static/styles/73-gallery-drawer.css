@@ -30,6 +30,13 @@
   gap: 8px;
 }
 
+.gallery-drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .gallery-drawer-category-tabs .quick-gallery-category {
   flex: 0 0 auto;
   width: auto;
@@ -343,4 +350,3 @@
   width: fit-content;
   max-width: 100%;
 }
-
