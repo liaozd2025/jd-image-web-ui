@@ -10,6 +10,32 @@ function check(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+async function settingsVisualTokens(page) {
+  return await page.evaluate(() => {
+    const style = (selector) => getComputedStyle(document.querySelector(selector));
+    const main = style(".system-settings-main");
+    const heading = style(".system-settings-page-heading h2");
+    const card = style(".settings-card");
+    const control = style("#languageSelect");
+    const danger = style("#settingsLogoutOtherSessions");
+    return {
+      mainBackground: main.backgroundColor,
+      headingColor: heading.color,
+      cardBorder: card.borderTopColor,
+      controlBorder: control.borderTopColor,
+      dangerColor: danger.color,
+    };
+  });
+}
+
+function checkSettingsVisualTokens(tokens, theme) {
+  const invisible = new Set(["", "transparent", "rgba(0, 0, 0, 0)"]);
+  check(tokens.headingColor !== tokens.mainBackground, `${theme} theme settings heading was not distinguishable`);
+  check(!invisible.has(tokens.cardBorder), `${theme} theme settings card border was not distinguishable`);
+  check(!invisible.has(tokens.controlBorder), `${theme} theme settings form border was not distinguishable`);
+  check(tokens.dangerColor !== tokens.mainBackground, `${theme} theme danger action was not distinguishable`);
+}
+
 async function eventually(callback, message, timeoutMs = 20_000) {
   const deadline = Date.now() + timeoutMs;
   let lastError;
@@ -203,12 +229,62 @@ try {
   await eventually(async () => await pageA.locator('[data-system-settings-panel="account"]').isVisible(), "browser history did not restore the previous settings page");
   await pageA.goForward();
   await eventually(async () => await pageA.locator('[data-system-settings-panel="language"]').isVisible(), "browser history did not restore the next settings page");
+  await pageA.goBack();
+  await eventually(async () => await pageA.locator('[data-system-settings-panel="account"]').isVisible(), "browser history did not return to account for discard testing");
+  await pageA.locator('#settingsPasswordForm [name="current_password"]').fill("history-cancel-draft");
+  pageA.once("dialog", async (dialog) => dialog.dismiss());
+  await pageA.goForward();
+  check(await pageA.locator('[data-system-settings-panel="account"]').isVisible(), "canceling forward navigation left the current settings page");
+  check(new URL(pageA.url()).searchParams.get("settingsTab") === "account", "canceling forward navigation separated the URL from the visible settings page");
+  pageA.once("dialog", async (dialog) => dialog.accept());
+  await pageA.locator('[data-system-settings-tab="language"]').click();
   await pageA.locator("#languageSelect").selectOption("en");
   check((await pageA.locator('[data-system-settings-tab="account"]').textContent()).trim().endsWith("Account & security"), "settings navigation did not follow the language preference");
   check((await pageA.locator("#serverAccountRole").textContent()).trim() === "Standard user", "account role did not follow the language preference");
+  await pageA.locator('[data-system-settings-tab="account"]').click();
+  check((await pageA.locator('[data-system-settings-panel="account"] h2').textContent()).trim() === "Account & security", "settings page content did not follow the language preference");
+  await eventually(
+    async () => (await pageA.locator("#settingsSessionList").textContent()).includes("current device"),
+    "dynamic settings content did not follow the language preference",
+  );
+  await pageA.locator('[data-system-settings-tab="language"]').click();
   await pageA.locator("#languageSelect").selectOption("zh-CN");
   await pageA.locator('[data-theme-option="dark"]').click();
   check(await pageA.locator("html").getAttribute("data-theme") === "dark", "theme preference did not apply immediately");
+  checkSettingsVisualTokens(await settingsVisualTokens(pageA), "dark");
+  await pageA.locator('[data-theme-option="light"]').click();
+  checkSettingsVisualTokens(await settingsVisualTokens(pageA), "light");
+  await pageA.locator('[data-theme-option="dark"]').click();
+  await pageA.setViewportSize({ width: 720, height: 900 });
+  const narrowLayout = await pageA.evaluate(() => {
+    const shell = document.querySelector("#systemSettingsModal").getBoundingClientRect();
+    const sidebar = document.querySelector(".system-settings-sidebar").getBoundingClientRect();
+    const main = document.querySelector(".system-settings-main").getBoundingClientRect();
+    const root = document.querySelector("#systemSettingsModal");
+    return {
+      shellLeft: shell.left,
+      shellRight: shell.right,
+      sidebarRight: sidebar.right,
+      mainLeft: main.left,
+      mainRight: main.right,
+      scrollWidth: root.scrollWidth,
+      clientWidth: root.clientWidth,
+    };
+  });
+  check(narrowLayout.shellLeft >= 0 && narrowLayout.shellRight <= 721, "narrow settings shell overflowed the viewport");
+  check(narrowLayout.mainLeft >= narrowLayout.sidebarRight - 1 && narrowLayout.mainRight <= 721, "narrow settings columns overlapped or overflowed");
+  check(narrowLayout.scrollWidth <= narrowLayout.clientWidth + 1, "narrow settings layout introduced horizontal scrolling");
+  await pageA.setViewportSize({ width: 1440, height: 900 });
+  await pageA.locator('[data-system-settings-tab="account"]').click();
+  await pageA.locator('#settingsPasswordForm [name="current_password"]').fill(credentials.userA.password);
+  const rotatedUserAPassword = `${credentials.userA.password}-rotated`;
+  await pageA.locator('#settingsPasswordForm [name="new_password"]').fill(rotatedUserAPassword);
+  const passwordChangeResponse = pageA.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/auth/password" && response.request().method() === "POST"
+  ));
+  await pageA.locator("#settingsPasswordForm").getByRole("button", { name: "更新密码" }).click();
+  check((await passwordChangeResponse).status() === 200, "password change from system settings failed");
+  credentials.userA.password = rotatedUserAPassword;
   await pageA.locator("#systemSettingsModalClose").click();
   await pageA.locator("#systemSettingsModal").waitFor({ state: "hidden" });
   check(await pageA.locator(".layout-container").isVisible(), "returning from settings did not restore the image workspace");
@@ -432,6 +508,8 @@ try {
   await adminPage.locator("#systemSettingsModal").waitFor({ state: "visible" });
   check(await adminPage.locator("[data-settings-nav-group][data-admin-only]").isVisible(), "administrator system-management navigation was not shown");
   check(await adminPage.locator('[data-settings-nav-group][data-admin-only] [data-system-settings-tab]:visible').count() === 7, "administrator did not receive all seven management pages");
+  await adminPage.locator('[data-system-settings-tab="api"]').click();
+  check(await adminPage.locator("#deleteApiProviderButton").isHidden(), "server system settings exposed a physical provider delete action");
   await adminPage.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
   await adminPage.locator("#systemSettingsModal").waitFor({ state: "visible" });
   await eventually(
@@ -449,7 +527,25 @@ try {
   await adminPage.waitForTimeout(300);
   adminPage.off("request", countCancelledStatusRequest);
   check(cancelledStatusRequests === 0, "canceling a high-impact confirmation still sent a status request");
-
+  await adminPage.locator('#settingsCreateUserForm [name="username"]').fill("unsaved-user-draft");
+  const storageQuotaResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/admin/users/${userAId}/storage-quota` && response.request().method() === "PATCH"
+  ));
+  const userARow = adminPage.locator("#settingsUserList .settings-list-row", { hasText: credentials.userA.username });
+  const userBRow = adminPage.locator("#settingsUserList .settings-list-row", { hasText: credentials.userB.username });
+  await userBRow.locator('input[type="number"]').fill("96");
+  await userARow.locator('input[type="number"]').fill("64");
+  await userARow.getByRole("button", { name: "保存存储" }).click();
+  check((await storageQuotaResponse).status() === 200, "saving one dynamic settings draft failed");
+  check(
+    await adminPage.locator("#settingsUserList .settings-list-row", { hasText: credentials.userB.username }).locator('input[type="number"]').inputValue() === "96",
+    "saving one dynamic draft discarded another dynamic draft",
+  );
+  adminPage.once("dialog", async (dialog) => dialog.dismiss());
+  await adminPage.locator('[data-system-settings-tab="catalog"]').click();
+  check(await adminPage.locator('[data-system-settings-panel="users"]').isVisible(), "saving one draft cleared another unsaved settings guard");
+  check(await adminPage.locator('#settingsCreateUserForm [name="username"]').inputValue() === "unsaved-user-draft", "saving one draft discarded another draft");
+  adminPage.once("dialog", async (dialog) => dialog.accept());
   await adminPage.locator('[data-system-settings-tab="catalog"]').click();
   await eventually(async () => (await adminPage.locator("#settingsCatalogList").textContent()).includes("Browser Fake Provider"), "provider catalog settings did not load");
   await adminPage.locator('[data-system-settings-tab="department"]').click();
@@ -459,6 +555,8 @@ try {
   await eventually(async () => (await adminPage.locator("#settingsSharedAssetList").textContent()).includes("Shared browser image"), "shared asset settings did not load");
   await adminPage.locator('[data-system-settings-tab="scheduler"]').click();
   await eventually(async () => Boolean((await adminPage.locator("#settingsSchedulerSummary").textContent()).trim()), "scheduler settings did not load");
+  await eventually(async () => Boolean((await adminPage.locator("#settingsSchedulerBlocked").textContent()).trim()), "scheduler blocked details did not load");
+  check((await adminPage.locator('[data-system-settings-panel="scheduler"]').textContent()).includes("用户队列"), "scheduler user queue details were missing");
   const schedulerSaveResponse = adminPage.waitForResponse((response) => (
     new URL(response.url()).pathname === "/api/admin/scheduler" && response.request().method() === "PATCH"
   ));
@@ -486,6 +584,25 @@ try {
   const rejected = await submitTask(pageA, "browser quota rejection");
   check(rejected.status === 409 && String(rejected.body.detail).includes("额度"), `quota rejection was not user-readable: ${JSON.stringify(rejected.body)}`);
   check((await api(adminPage, `/api/admin/quotas/department/users/${userAId}`, { method: "PATCH", json: { quota_units: 100 } })).status === 200, "admin could not restore user quota");
+
+  await adminPage.locator('[data-system-settings-tab="users"]').click();
+  await eventually(async () => (await adminPage.locator("#settingsUserList").textContent()).includes(credentials.userA.username), "user management did not reload for confirmation testing");
+  const deactivateResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/admin/users/${userAId}/status` && response.request().method() === "PATCH"
+  ));
+  adminPage.once("dialog", async (dialog) => dialog.accept());
+  await adminPage.locator("#settingsUserList .settings-list-row", { hasText: credentials.userA.username }).getByRole("button", { name: "停用" }).click();
+  check((await deactivateResponse).status() === 200, "confirming user deactivation did not send the status update");
+  await eventually(
+    async () => await adminPage.locator("#settingsUserList .settings-list-row", { hasText: credentials.userA.username }).getByRole("button", { name: "恢复" }).isVisible(),
+    "confirmed user deactivation did not update the settings feedback",
+  );
+  const reactivateResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/admin/users/${userAId}/status` && response.request().method() === "PATCH"
+  ));
+  adminPage.once("dialog", async (dialog) => dialog.accept());
+  await adminPage.locator("#settingsUserList .settings-list-row", { hasText: credentials.userA.username }).getByRole("button", { name: "恢复" }).click();
+  check((await reactivateResponse).status() === 200, "confirming user reactivation did not send the status update");
 
   check(userBId && userBId !== userAId, "release gate did not use two distinct normal users");
   check(consoleErrors.length === 0, `browser console errors:\n${consoleErrors.join("\n")}`);

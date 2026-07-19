@@ -65,7 +65,8 @@ export function detectPreferredLocale(languages?: readonly string[]): Locale {
 }
 
 export function translate(key: string, locale: Locale = currentLocale): string {
-  return DICTIONARIES[locale]?.[key] ?? DICTIONARIES[DEFAULT_LOCALE][key] ?? key;
+  const languageFallback = locale.startsWith("zh") ? DEFAULT_LOCALE : "en";
+  return DICTIONARIES[locale]?.[key] ?? DICTIONARIES[languageFallback][key] ?? DICTIONARIES[DEFAULT_LOCALE][key] ?? key;
 }
 
 export function formatTranslation(key: string, values: TranslationValues = {}, locale: Locale = currentLocale): string {

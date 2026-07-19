@@ -71,7 +71,8 @@ let apiSettingsFeatureInitialized = false;
 export function initApiSettingsFeature(): void {
   if (apiSettingsFeatureInitialized) return;
   apiSettingsFeatureInitialized = true;
-  document.querySelector("#apiProviderEditor")?.addEventListener("input", () => markSystemSettingsDirty());
+  const apiProviderEditor = document.querySelector<HTMLElement>("#apiProviderEditor");
+  apiProviderEditor?.addEventListener("input", () => markSystemSettingsDirty(apiProviderEditor));
   document.addEventListener(LOCALE_CHANGE_EVENT, () => {
     const bridge = getLegacyBridge();
     renderAuthSource(bridge.state.authStatus);

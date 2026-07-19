@@ -1,34 +1,98 @@
 import { clearSystemSettingsDirty, markSystemSettingsDirty, setSystemSettingsTab } from "./system-settings";
+import { getCsrfToken } from "./server-account";
+import { formatTranslation, LOCALE_CHANGE_EVENT, translate } from "./i18n";
 
-type Json = Record<string, any>;
+type ApiResponse = Record<string, any>;
 
-let initialized = false;
-let managedUsers: Json[] = [];
-
-function cookieValue(name: string): string {
-  const prefix = `${name}=`;
-  const match = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(prefix));
-  return match ? decodeURIComponent(match.slice(prefix.length)) : "";
+interface ManagedUser {
+  user_id: string;
+  username: string;
+  role: "admin" | "user";
+  is_active: boolean;
 }
 
-async function api(path: string, options: RequestInit = {}): Promise<Json> {
+interface BrowserSession {
+  session_id: string;
+  user_agent: string;
+  current: boolean;
+  last_seen_at: string;
+  expires_at: string;
+}
+
+interface ProviderVersion {
+  provider_version_id: string;
+  provider_key: string;
+  display_name: string;
+  version_number: number;
+  base_url: string;
+  api_mode: string;
+  models: Array<{ model_id: string }>;
+  is_active: boolean;
+}
+
+interface DepartmentCredential {
+  provider_version_id: string;
+  api_key_mask?: string;
+  has_credential: boolean;
+  is_active: boolean;
+}
+
+interface SharedAsset {
+  asset_id: string;
+  asset_kind: string;
+  name: string;
+  publisher_user_id: string;
+  is_active: boolean;
+  created_at?: string;
+}
+
+interface SchedulerUser {
+  user_id: string;
+  queued: number;
+  running: number;
+}
+
+interface SchedulerBlocked {
+  reason: string;
+  count: number;
+}
+
+interface ContentTask {
+  model_id: string;
+  status: string;
+  created_at: string;
+  prompt?: string;
+}
+
+interface AuditEvent {
+  action: string;
+  outcome: string;
+  occurred_at: string;
+  actor_user_id: string;
+  subject_user_id?: string;
+}
+
+let initialized = false;
+let managedUsers: ManagedUser[] = [];
+
+async function api<T extends ApiResponse = ApiResponse>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers || {});
   const method = String(options.method || "GET").toUpperCase();
-  if (!["GET", "HEAD"].includes(method)) headers.set("X-CSRF-Token", cookieValue("jd_image_csrf"));
+  if (!["GET", "HEAD"].includes(method)) headers.set("X-CSRF-Token", getCsrfToken());
   const response = await fetch(path, { ...options, headers });
   if (response.status === 401) {
     window.location.assign("/login");
-    throw new Error("登录已失效");
+    throw new Error(translate("serverSettings.sessionExpired"));
   }
   if (!response.ok) {
-    let message = `请求失败（${response.status}）`;
+    let message = formatTranslation("serverSettings.requestFailed", { status: response.status });
     try {
       const payload = await response.json();
       if (payload?.detail) message = String(payload.detail);
     } catch { /* response is not JSON */ }
     throw new Error(message);
   }
-  return await response.json() as Json;
+  return await response.json() as T;
 }
 
 function textElement(tag: keyof HTMLElementTagNameMap, value: string, className = ""): HTMLElement {
@@ -70,16 +134,43 @@ function replace(selector: string, ...nodes: Node[]): void {
   document.querySelector(selector)?.replaceChildren(...nodes);
 }
 
+interface DynamicDraft {
+  key: string;
+  value: string;
+  owner: HTMLInputElement;
+}
+
+function replacePreservingDynamicDrafts(selector: string, ...nodes: Node[]): void {
+  const container = document.querySelector<HTMLElement>(selector);
+  if (!container) return;
+  const drafts = [...container.querySelectorAll<HTMLInputElement>("input[data-settings-draft-key]")]
+    .filter((input) => input.dataset.dirty === "true")
+    .map((input) => ({ key: input.dataset.settingsDraftKey || "", value: input.value, owner: input }))
+    .filter((draft): draft is DynamicDraft => Boolean(draft.key));
+  drafts.forEach((draft) => clearSystemSettingsDirty(draft.owner));
+  container.replaceChildren(...nodes);
+  const replacements = new Map(
+    [...container.querySelectorAll<HTMLInputElement>("input[data-settings-draft-key]")]
+      .map((input) => [input.dataset.settingsDraftKey || "", input]),
+  );
+  drafts.forEach((draft) => {
+    const input = replacements.get(draft.key);
+    if (!input) return;
+    input.value = draft.value;
+    markSystemSettingsDirty(input);
+  });
+}
+
 function reportError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   const status = document.querySelector<HTMLElement>("#systemSettingsGlobalStatus");
-  if (status) status.textContent = `系统设置：${message}`;
+  if (status) status.textContent = formatTranslation("serverSettings.error", { message });
 }
 
 function fmtDate(value: unknown): string {
   if (!value) return "--";
   const date = new Date(String(value));
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString(document.documentElement.lang || undefined);
 }
 
 function fmtBytes(value: unknown): string {
@@ -97,24 +188,24 @@ function metric(label: string, value: string): HTMLElement {
   return node;
 }
 
-function jsonOptions(body: Json): RequestInit {
+function jsonOptions(body: ApiResponse): RequestInit {
   return { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
 }
 
 async function loadSessions(): Promise<void> {
   const result = await api("/api/auth/sessions");
-  const rows = (result.sessions || []).map((session: Json) => {
+  const rows = (result.sessions || []).map((session: BrowserSession) => {
     const rowActions = actions();
     if (!session.current) {
-      rowActions.append(actionButton("退出会话", async () => {
-        if (!window.confirm("确定退出这个登录会话吗？")) return;
+      rowActions.append(actionButton(translate("serverSettings.logoutSession"), async () => {
+        if (!window.confirm(translate("serverSettings.confirmLogoutSession"))) return;
         await api(`/api/auth/sessions/${encodeURIComponent(session.session_id)}`, { method: "DELETE" });
         await loadSessions();
       }, true));
     }
     return listRow(
-      session.current ? `${session.user_agent}（当前设备）` : String(session.user_agent),
-      `最近活动 ${fmtDate(session.last_seen_at)} · 到期 ${fmtDate(session.expires_at)}`,
+      session.current ? formatTranslation("serverSettings.currentDevice", { device: session.user_agent }) : String(session.user_agent),
+      formatTranslation("serverSettings.sessionMeta", { lastSeen: fmtDate(session.last_seen_at), expires: fmtDate(session.expires_at) }),
       rowActions.childElementCount ? rowActions : undefined,
     );
   });
@@ -130,16 +221,16 @@ async function loadUsage(): Promise<void> {
   const quota = quotaResult.quota || {};
   replace(
     "#settingsUsageSummary",
-    metric("个人存储已用", fmtBytes(storage.used_bytes)),
-    metric("个人存储上限", fmtBytes(storage.quota_bytes)),
-    metric("部门额度可用", String(quota.available_units ?? 0)),
-    metric("部门额度已用", String(quota.consumed_units ?? 0)),
-    metric("部门周期总额", String(quota.global_quota_units ?? 0)),
-    metric("周期结束", fmtDate(quota.period_end)),
+    metric(translate("serverSettings.personalStorageUsed"), fmtBytes(storage.used_bytes)),
+    metric(translate("serverSettings.personalStorageLimit"), fmtBytes(storage.quota_bytes)),
+    metric(translate("serverSettings.departmentQuotaAvailable"), String(quota.available_units ?? 0)),
+    metric(translate("serverSettings.departmentQuotaUsed"), String(quota.consumed_units ?? 0)),
+    metric(translate("serverSettings.departmentQuotaTotal"), String(quota.global_quota_units ?? 0)),
+    metric(translate("serverSettings.periodEnds"), fmtDate(quota.period_end)),
   );
 }
 
-async function userUsage(userId: string): Promise<Json | null> {
+async function userUsage(userId: string): Promise<ApiResponse | null> {
   try { return await api(`/api/admin/users/${encodeURIComponent(userId)}/usage`); } catch { return null; }
 }
 
@@ -155,37 +246,39 @@ async function loadUsers(): Promise<void> {
       storageInput.className = "control";
       storageInput.type = "number";
       storageInput.min = "1";
-      storageInput.placeholder = usage ? String(Math.round(Number(usage.quota_bytes) / 1024 / 1024)) : "存储 MB";
-      storageInput.title = "个人存储上限（MB）";
-      storageInput.addEventListener("input", () => markSystemSettingsDirty());
+      storageInput.dataset.settingsDraftKey = `user-storage:${user.user_id}`;
+      storageInput.placeholder = usage ? String(Math.round(Number(usage.quota_bytes) / 1024 / 1024)) : translate("serverSettings.storageMb");
+      storageInput.title = translate("serverSettings.personalStorageLimitMb");
+      storageInput.addEventListener("input", () => markSystemSettingsDirty(storageInput));
       rowActions.append(storageInput);
-      rowActions.append(actionButton("保存存储", async () => {
+      rowActions.append(actionButton(translate("serverSettings.saveStorage"), async () => {
         const quotaMb = Number(storageInput.value);
-        if (!Number.isFinite(quotaMb) || quotaMb < 1) throw new Error("请输入有效的存储额度");
+        if (!Number.isFinite(quotaMb) || quotaMb < 1) throw new Error(translate("serverSettings.invalidStorageQuota"));
         await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/storage-quota`, {
           method: "PATCH", ...jsonOptions({ quota_bytes: Math.round(quotaMb * 1024 * 1024) }),
         });
-        clearSystemSettingsDirty();
+        clearSystemSettingsDirty(storageInput);
         await loadUsers();
       }));
-      rowActions.append(actionButton("重置密码", async () => {
-        if (!window.confirm(`确定重置 ${user.username} 的密码吗？`)) return;
+      rowActions.append(actionButton(translate("serverSettings.resetPassword"), async () => {
+        if (!window.confirm(formatTranslation("serverSettings.confirmResetPassword", { username: user.username }))) return;
         const reset = await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/reset-password`, { method: "POST" });
-        showCredential(`${user.username} 的临时密码：${reset.temporary_password}`);
+        showCredential(formatTranslation("serverSettings.temporaryPassword", { username: user.username, password: reset.temporary_password }));
         await loadUsers();
       }, true));
-      rowActions.append(actionButton(user.is_active ? "停用" : "恢复", async () => {
-        if (!window.confirm(`确定${user.is_active ? "停用" : "恢复"}用户 ${user.username} 吗？`)) return;
+      rowActions.append(actionButton(translate(user.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
+        if (!window.confirm(formatTranslation(user.is_active ? "serverSettings.confirmDeactivateUser" : "serverSettings.confirmReactivateUser", { username: user.username }))) return;
         await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/status`, {
           method: "PATCH", ...jsonOptions({ is_active: !user.is_active }),
         });
         await loadUsers();
       }, user.is_active));
     }
-    const storageMeta = usage ? ` · 存储 ${fmtBytes(usage.used_bytes)} / ${fmtBytes(usage.quota_bytes)}` : "";
-    return listRow(`${user.username} · ${user.role === "admin" ? "系统管理员" : "普通用户"}`, `${user.is_active ? "正常" : "已停用"}${storageMeta}`, rowActions.childElementCount ? rowActions : undefined);
+    const storageMeta = usage ? formatTranslation("serverSettings.storageMeta", { used: fmtBytes(usage.used_bytes), limit: fmtBytes(usage.quota_bytes) }) : "";
+    const role = translate(user.role === "admin" ? "serverAccount.roleAdmin" : "serverAccount.roleUser");
+    return listRow(`${user.username} · ${role}`, `${translate(user.is_active ? "serverSettings.active" : "serverSettings.inactive")}${storageMeta}`, rowActions.childElementCount ? rowActions : undefined);
   });
-  replace("#settingsUserList", ...rows);
+  replacePreservingDynamicDrafts("#settingsUserList", ...rows);
   populateContentUsers();
 }
 
@@ -196,26 +289,26 @@ function showCredential(value: string): void {
   node.classList.remove("hidden");
 }
 
-function providerTitle(provider: Json): string {
+function providerTitle(provider: ProviderVersion): string {
   return `${provider.display_name} · v${provider.version_number}`;
 }
 
-function providerModels(provider: Json): string {
-  return (provider.models || []).map((model: Json) => model.model_id).join("、") || "无模型";
+function providerModels(provider: ProviderVersion): string {
+  return (provider.models || []).map((model) => model.model_id).join("、") || translate("serverSettings.noModels");
 }
 
 async function loadCatalog(): Promise<void> {
   const result = await api("/api/admin/provider-catalog");
-  const rows = (result.providers || []).map((provider: Json) => {
+  const rows = (result.providers || []).map((provider: ProviderVersion) => {
     const rowActions = actions();
-    rowActions.append(actionButton(provider.is_active ? "停用" : "恢复", async () => {
-      if (!window.confirm(`确定${provider.is_active ? "停用" : "恢复"} ${providerTitle(provider)} 吗？`)) return;
+    rowActions.append(actionButton(translate(provider.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
+      if (!window.confirm(formatTranslation(provider.is_active ? "serverSettings.confirmDeactivateProvider" : "serverSettings.confirmReactivateProvider", { provider: providerTitle(provider) }))) return;
       await api(`/api/admin/provider-catalog/${encodeURIComponent(provider.provider_version_id)}/status`, {
         method: "PATCH", ...jsonOptions({ is_active: !provider.is_active }),
       });
       await loadCatalog();
     }, provider.is_active));
-    return listRow(providerTitle(provider), `${provider.provider_key} · ${provider.api_mode} · ${provider.is_active ? "可用" : "已停用"} · ${providerModels(provider)}`, rowActions);
+    return listRow(providerTitle(provider), `${provider.provider_key} · ${provider.api_mode} · ${translate(provider.is_active ? "serverSettings.available" : "serverSettings.inactive")} · ${providerModels(provider)}`, rowActions);
   });
   replace("#settingsCatalogList", ...rows);
 }
@@ -227,35 +320,36 @@ async function loadDepartment(): Promise<void> {
   ]);
   const quotaInput = document.querySelector<HTMLInputElement>("#settingsDepartmentQuotaForm [name=quota_units]");
   if (quotaInput) quotaInput.value = String(quotaResult.quota?.global_quota_units ?? 0);
-  const configured = new Map((configuredResult.providers || []).map((item: Json) => [item.provider_version_id, item]));
-  const providerRows = (catalogResult.providers || []).map((provider: Json) => {
-    const credential = configured.get(provider.provider_version_id) as Json | undefined;
+  const configured = new Map<string, DepartmentCredential>((configuredResult.providers || []).map((item: DepartmentCredential) => [item.provider_version_id, item]));
+  const providerRows = (catalogResult.providers || []).map((provider: ProviderVersion) => {
+    const credential = configured.get(provider.provider_version_id);
     const rowActions = actions();
     const key = document.createElement("input");
     key.className = "control";
     key.type = "password";
     key.autocomplete = "new-password";
-    key.placeholder = credential?.api_key_mask || "输入部门 API Key";
-    key.addEventListener("input", () => markSystemSettingsDirty());
-    rowActions.append(key, actionButton("保存凭据", async () => {
-      if (!key.value) throw new Error("请输入 API Key");
+    key.dataset.settingsDraftKey = `department-credential:${provider.provider_version_id}`;
+    key.placeholder = credential?.api_key_mask || translate("serverSettings.departmentApiKeyPlaceholder");
+    key.addEventListener("input", () => markSystemSettingsDirty(key));
+    rowActions.append(key, actionButton(translate("serverSettings.saveCredential"), async () => {
+      if (!key.value) throw new Error(translate("serverSettings.enterApiKey"));
       await api(`/api/admin/providers/department/${encodeURIComponent(provider.provider_version_id)}`, {
         method: "PUT", ...jsonOptions({ api_key: key.value }),
       });
       key.value = "";
-      clearSystemSettingsDirty();
+      clearSystemSettingsDirty(key);
       await loadDepartment();
     }));
-    if (credential?.has_credential) rowActions.append(actionButton(credential.is_active ? "停用" : "恢复", async () => {
-      if (!window.confirm(`确定${credential.is_active ? "停用" : "恢复"}该部门凭据吗？`)) return;
+    if (credential?.has_credential) rowActions.append(actionButton(translate(credential.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
+      if (!window.confirm(translate(credential.is_active ? "serverSettings.confirmDeactivateCredential" : "serverSettings.confirmReactivateCredential"))) return;
       await api(`/api/admin/providers/department/${encodeURIComponent(provider.provider_version_id)}/status`, {
         method: "PATCH", ...jsonOptions({ is_active: !credential.is_active }),
       });
       await loadDepartment();
     }, credential.is_active));
-    return listRow(providerTitle(provider), `${credential?.has_credential ? "已配置" : "未配置"} · ${provider.is_active ? "目录可用" : "目录已停用"}`, rowActions);
+    return listRow(providerTitle(provider), `${translate(credential?.has_credential ? "serverSettings.configured" : "serverSettings.notConfigured")} · ${translate(provider.is_active ? "serverSettings.catalogAvailable" : "serverSettings.catalogInactive")}`, rowActions);
   });
-  replace("#settingsDepartmentProviderList", ...providerRows);
+  replacePreservingDynamicDrafts("#settingsDepartmentProviderList", ...providerRows);
 
   const ordinaryUsers = managedUsers.filter((user) => user.role === "user");
   const usageResults = await Promise.all(ordinaryUsers.map((user) => userUsage(user.user_id)));
@@ -266,34 +360,35 @@ async function loadDepartment(): Promise<void> {
     input.className = "control";
     input.type = "number";
     input.min = "0";
+    input.dataset.settingsDraftKey = `department-user-quota:${user.user_id}`;
     input.value = String(current?.user_quota_units ?? 0);
-    input.addEventListener("input", () => markSystemSettingsDirty());
-    rowActions.append(input, actionButton("保存额度", async () => {
+    input.addEventListener("input", () => markSystemSettingsDirty(input));
+    rowActions.append(input, actionButton(translate("systemSettings.saveQuota"), async () => {
       await api(`/api/admin/quotas/department/users/${encodeURIComponent(user.user_id)}`, {
         method: "PATCH", ...jsonOptions({ quota_units: Number(input.value) }),
       });
-      clearSystemSettingsDirty();
+      clearSystemSettingsDirty(input);
       await loadDepartment();
     }));
-    return listRow(user.username, `已用 ${current?.consumed_units ?? 0} · 可用 ${current?.available_units ?? 0}`, rowActions);
+    return listRow(user.username, formatTranslation("serverSettings.quotaMeta", { used: current?.consumed_units ?? 0, available: current?.available_units ?? 0 }), rowActions);
   });
-  replace("#settingsUserQuotaList", ...quotaRows);
+  replacePreservingDynamicDrafts("#settingsUserQuotaList", ...quotaRows);
 }
 
 async function loadShared(): Promise<void> {
   const [quotaResult, assetResult] = await Promise.all([api("/api/admin/shared-storage-quota"), api("/api/admin/shared-assets")]);
   const quotaInput = document.querySelector<HTMLInputElement>("#settingsSharedQuotaForm [name=quota_mb]");
   if (quotaInput) quotaInput.value = String(Math.max(1, Math.round(Number(quotaResult.quota?.quota_bytes || 0) / 1024 / 1024)));
-  const rows = (assetResult.assets || []).map((asset: Json) => {
+  const rows = (assetResult.assets || []).map((asset: SharedAsset) => {
     const rowActions = actions();
-    rowActions.append(actionButton(asset.is_active ? "停用" : "恢复", async () => {
-      if (!window.confirm(`确定${asset.is_active ? "停用" : "恢复"}共享资产 ${asset.name} 吗？`)) return;
+    rowActions.append(actionButton(translate(asset.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
+      if (!window.confirm(formatTranslation(asset.is_active ? "serverSettings.confirmDeactivateAsset" : "serverSettings.confirmReactivateAsset", { asset: asset.name }))) return;
       await api(`/api/shared-assets/${encodeURIComponent(asset.asset_id)}/status`, {
         method: "PATCH", ...jsonOptions({ is_active: !asset.is_active }),
       });
       await loadShared();
     }, asset.is_active));
-    return listRow(`${asset.name} · ${asset.asset_kind}`, `发布者 ${asset.publisher_user_id} · ${asset.is_active ? "可用" : "已停用"}`, rowActions);
+    return listRow(`${asset.name} · ${asset.asset_kind}`, formatTranslation("serverSettings.sharedAssetMeta", { publisher: asset.publisher_user_id, status: translate(asset.is_active ? "serverSettings.available" : "serverSettings.inactive") }), rowActions);
   });
   replace("#settingsSharedAssetList", ...rows);
 }
@@ -306,8 +401,15 @@ async function loadScheduler(): Promise<void> {
   const userInput = form?.elements.namedItem("per_user_concurrency") as HTMLInputElement | null;
   if (globalInput) globalInput.value = String(scheduler.global_concurrency ?? 1);
   if (userInput) userInput.value = String(scheduler.per_user_concurrency ?? 1);
-  replace("#settingsSchedulerSummary", metric("等待任务", String(scheduler.queue?.queued ?? 0)), metric("运行任务", String(scheduler.queue?.running ?? 0)), metric("阻塞类型", String(scheduler.queue?.blocked?.length ?? 0)));
-  const rows = (scheduler.queue?.users || []).map((user: Json) => listRow(String(user.user_id), `等待 ${user.queued} · 运行 ${user.running}`));
+  const blocked = (scheduler.queue?.blocked || []) as SchedulerBlocked[];
+  const blockedCount = blocked.reduce((total, item) => total + Number(item.count || 0), 0);
+  replace("#settingsSchedulerSummary", metric(translate("serverSettings.queuedTasks"), String(scheduler.queue?.queued ?? 0)), metric(translate("serverSettings.runningTasks"), String(scheduler.queue?.running ?? 0)), metric(translate("serverSettings.blockedTasks"), String(blockedCount)));
+  const blockedRows = blocked.map((item) => listRow(
+    translate(`serverSettings.blockedReason.${item.reason}`),
+    formatTranslation("serverSettings.blockedCount", { count: item.count }),
+  ));
+  replace("#settingsSchedulerBlocked", ...(blockedRows.length ? blockedRows : [textElement("p", translate("serverSettings.noBlockedTasks"), "settings-empty-state")]));
+  const rows = (scheduler.queue?.users || []).map((user: SchedulerUser) => listRow(String(user.user_id), formatTranslation("serverSettings.schedulerUserMeta", { queued: user.queued, running: user.running })));
   replace("#settingsSchedulerUsers", ...rows);
 }
 
@@ -337,15 +439,15 @@ async function loadContent(): Promise<void> {
   ]);
   const usage = usageResult.usage || {};
   const taskCount = Object.values(usage.tasks || {}).reduce((sum: number, value) => sum + Number(value || 0), 0);
-  replace("#settingsContentSummary", metric("任务总数", String(taskCount)), metric("存储已用", fmtBytes(usage.storage?.used_bytes)), metric("部门额度已用", String(usage.department_quota?.consumed_units ?? 0)));
-  replace("#settingsContentTasks", ...(tasksResult.tasks || []).map((task: Json) => listRow(`${task.model_id} · ${task.status}`, `${fmtDate(task.created_at)} · ${task.prompt || ""}`)));
-  replace("#settingsContentAssets", ...(assetsResult.assets || []).map((asset: Json) => listRow(`${asset.name} · ${asset.asset_kind}`, `创建于 ${fmtDate(asset.created_at)}`)));
+  replace("#settingsContentSummary", metric(translate("serverSettings.totalTasks"), String(taskCount)), metric(translate("serverSettings.storageUsed"), fmtBytes(usage.storage?.used_bytes)), metric(translate("serverSettings.departmentQuotaUsed"), String(usage.department_quota?.consumed_units ?? 0)));
+  replace("#settingsContentTasks", ...(tasksResult.tasks || []).map((task: ContentTask) => listRow(`${task.model_id} · ${task.status}`, `${fmtDate(task.created_at)} · ${task.prompt || ""}`)));
+  replace("#settingsContentAssets", ...(assetsResult.assets || []).map((asset: SharedAsset) => listRow(`${asset.name} · ${asset.asset_kind}`, formatTranslation("serverSettings.createdAt", { date: fmtDate(asset.created_at) }))));
 }
 
 async function loadAudit(action = ""): Promise<void> {
   const query = action ? `&action=${encodeURIComponent(action)}` : "";
   const result = await api(`/api/admin/audit?limit=100${query}`);
-  const rows = (result.events || []).map((event: Json) => listRow(`${event.action} · ${event.outcome}`, `${fmtDate(event.occurred_at)} · 操作者 ${event.actor_user_id}${event.subject_user_id ? ` · 对象 ${event.subject_user_id}` : ""}`));
+  const rows = (result.events || []).map((event: AuditEvent) => listRow(`${event.action} · ${event.outcome}`, formatTranslation("serverSettings.auditMeta", { date: fmtDate(event.occurred_at), actor: event.actor_user_id, subject: event.subject_user_id ? formatTranslation("serverSettings.auditSubject", { subject: event.subject_user_id }) : "" })));
   replace("#settingsAuditList", ...rows);
 }
 
@@ -374,17 +476,17 @@ function bindForms(): void {
     try {
       await api("/api/auth/password", { method: "POST", ...jsonOptions({ current_password: data.get("current_password"), new_password: data.get("new_password") }) });
       form.reset(); clearSystemSettingsDirty(form);
-      if (status) status.textContent = "密码已更新";
+      if (status) status.textContent = translate("serverSettings.passwordUpdated");
       await loadSessions();
     } catch (error) { if (status) status.textContent = error instanceof Error ? error.message : String(error); }
   });
   document.querySelector("#settingsLogoutOtherSessions")?.addEventListener("click", async () => {
-    if (!window.confirm("确定退出除当前设备外的全部会话吗？")) return;
+    if (!window.confirm(translate("serverSettings.confirmLogoutOthers"))) return;
     try { await api("/api/auth/sessions/logout-others", { method: "POST" }); await loadSessions(); } catch (error) { reportError(error); }
   });
   document.querySelector<HTMLFormElement>("#settingsCreateUserForm")?.addEventListener("submit", async (event) => {
     event.preventDefault(); const form = event.currentTarget as HTMLFormElement; const data = new FormData(form);
-    try { const created = await api("/api/admin/users", { method: "POST", ...jsonOptions({ username: data.get("username") }) }); showCredential(`${created.user.username} 的临时密码：${created.temporary_password}`); form.reset(); clearSystemSettingsDirty(form); await loadUsers(); } catch (error) { reportError(error); }
+    try { const created = await api("/api/admin/users", { method: "POST", ...jsonOptions({ username: data.get("username") }) }); showCredential(formatTranslation("serverSettings.temporaryPassword", { username: created.user.username, password: created.temporary_password })); form.reset(); clearSystemSettingsDirty(form); await loadUsers(); } catch (error) { reportError(error); }
   });
   document.querySelector<HTMLFormElement>("#settingsCatalogForm")?.addEventListener("submit", async (event) => {
     event.preventDefault(); const form = event.currentTarget as HTMLFormElement; const data = new FormData(form);
@@ -417,6 +519,10 @@ export function initServerSettingsFeature(): void {
   document.addEventListener("codex-image-settings-tab-change", (event) => {
     const tab = (event as CustomEvent<{ tab: string }>).detail.tab;
     void loadTab(tab).catch(reportError);
+  });
+  document.addEventListener(LOCALE_CHANGE_EVENT, () => {
+    const panel = document.querySelector<HTMLElement>("#systemSettingsModal [data-system-settings-panel]:not([hidden])");
+    if (panel?.dataset.systemSettingsPanel) void loadTab(panel.dataset.systemSettingsPanel).catch(reportError);
   });
   document.querySelectorAll<HTMLFormElement>("#systemSettingsModal form[data-sensitive-form]").forEach((form) => {
     form.addEventListener("change", () => markSystemSettingsDirty(form));

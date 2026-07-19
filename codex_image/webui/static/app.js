@@ -1278,6 +1278,117 @@
     "systemSettings.schedulerTab": "Task scheduling",
     "systemSettings.contentTab": "Read-only user content",
     "systemSettings.auditTab": "Audit log",
+    "systemSettings.accountDescription": "Review the current account, change its password, and manage login sessions.",
+    "systemSettings.username": "Username",
+    "systemSettings.usernameHelp": "Login account created by an administrator",
+    "systemSettings.role": "Role",
+    "systemSettings.roleHelp": "Controls which system settings are available",
+    "systemSettings.changePassword": "Change password",
+    "systemSettings.changePasswordHelp": "Saving signs out other devices and keeps only the new current session.",
+    "systemSettings.currentPassword": "Current password",
+    "systemSettings.newPassword": "New password",
+    "systemSettings.updatePassword": "Update password",
+    "systemSettings.sessions": "Login sessions",
+    "systemSettings.sessionsHelp": "You can sign out other devices; the current session is always kept.",
+    "systemSettings.logoutOtherSessions": "Sign out other sessions",
+    "systemSettings.apiDescription": "Configure the image providers available to this account.",
+    "systemSettings.appearanceDescription": "These preferences apply immediately and are saved in this browser.",
+    "systemSettings.themeDescription": "Choose the light or dark interface appearance",
+    "systemSettings.notificationsDescription": "Choose how to be notified when tasks complete or fail.",
+    "systemSettings.usageDescription": "Review this account's actual storage and department quota usage.",
+    "systemSettings.usersDescription": "Create accounts, reset passwords, and activate or deactivate users.",
+    "systemSettings.newUsername": "New username",
+    "systemSettings.createUser": "Create user",
+    "systemSettings.catalogDescription": "Manage provider versions, models, and availability for the department.",
+    "systemSettings.identifier": "Identifier",
+    "systemSettings.name": "Name",
+    "systemSettings.apiMode": "API mode",
+    "systemSettings.modelsCsv": "Models (comma-separated)",
+    "systemSettings.addVersion": "Add version",
+    "systemSettings.departmentDescription": "Configure department credentials, the default quota, and per-user quotas.",
+    "systemSettings.departmentQuota": "Department period quota",
+    "systemSettings.saveQuota": "Save quota",
+    "systemSettings.providerCredentials": "Provider credentials",
+    "systemSettings.userQuota": "User quotas",
+    "systemSettings.sharedDescription": "Set the shared storage quota and manage asset visibility.",
+    "systemSettings.sharedQuotaMb": "Shared storage (MB)",
+    "systemSettings.saveStorage": "Save storage",
+    "systemSettings.schedulerDescription": "Adjust global and per-user concurrency and review the current queue.",
+    "systemSettings.globalConcurrency": "Global concurrency",
+    "systemSettings.perUserConcurrency": "Per-user concurrency",
+    "systemSettings.saveScheduler": "Save scheduler settings",
+    "systemSettings.blockedDetails": "Blocked details",
+    "systemSettings.userQueues": "User queues",
+    "systemSettings.contentDescription": "Review tasks, assets, and usage by user; editing and deletion are unavailable here.",
+    "systemSettings.selectUser": "Select user",
+    "systemSettings.recentTasks": "Recent tasks",
+    "systemSettings.recentAssets": "Recent assets",
+    "systemSettings.auditDescription": "Review administrator actions and their outcomes.",
+    "systemSettings.action": "Action",
+    "systemSettings.actionPlaceholder": "For example: user.create",
+    "systemSettings.filter": "Filter",
+    "serverSettings.error": "System settings: {message}",
+    "serverSettings.logoutSession": "Sign out session",
+    "serverSettings.confirmLogoutSession": "Sign out this login session?",
+    "serverSettings.currentDevice": "{device} (current device)",
+    "serverSettings.sessionMeta": "Last active {lastSeen} \xB7 expires {expires}",
+    "serverSettings.personalStorageUsed": "Personal storage used",
+    "serverSettings.personalStorageLimit": "Personal storage limit",
+    "serverSettings.departmentQuotaAvailable": "Department quota available",
+    "serverSettings.departmentQuotaUsed": "Department quota used",
+    "serverSettings.departmentQuotaTotal": "Department period total",
+    "serverSettings.periodEnds": "Period ends",
+    "serverSettings.storageMb": "Storage MB",
+    "serverSettings.personalStorageLimitMb": "Personal storage limit (MB)",
+    "serverSettings.saveStorage": "Save storage",
+    "serverSettings.invalidStorageQuota": "Enter a valid storage quota",
+    "serverSettings.resetPassword": "Reset password",
+    "serverSettings.confirmResetPassword": "Reset {username}'s password?",
+    "serverSettings.temporaryPassword": "Temporary password for {username}: {password}",
+    "serverSettings.deactivate": "Deactivate",
+    "serverSettings.reactivate": "Reactivate",
+    "serverSettings.confirmDeactivateUser": "Deactivate user {username}?",
+    "serverSettings.confirmReactivateUser": "Reactivate user {username}?",
+    "serverSettings.storageMeta": " \xB7 storage {used} / {limit}",
+    "serverSettings.active": "Active",
+    "serverSettings.inactive": "Inactive",
+    "serverSettings.noModels": "No models",
+    "serverSettings.confirmDeactivateProvider": "Deactivate {provider}?",
+    "serverSettings.confirmReactivateProvider": "Reactivate {provider}?",
+    "serverSettings.available": "Available",
+    "serverSettings.departmentApiKeyPlaceholder": "Enter department API Key",
+    "serverSettings.saveCredential": "Save credential",
+    "serverSettings.enterApiKey": "Enter an API Key",
+    "serverSettings.confirmDeactivateCredential": "Deactivate this department credential?",
+    "serverSettings.confirmReactivateCredential": "Reactivate this department credential?",
+    "serverSettings.configured": "Configured",
+    "serverSettings.notConfigured": "Not configured",
+    "serverSettings.catalogAvailable": "Catalog available",
+    "serverSettings.catalogInactive": "Catalog inactive",
+    "serverSettings.quotaMeta": "Used {used} \xB7 available {available}",
+    "serverSettings.confirmDeactivateAsset": "Deactivate shared asset {asset}?",
+    "serverSettings.confirmReactivateAsset": "Reactivate shared asset {asset}?",
+    "serverSettings.sharedAssetMeta": "Publisher {publisher} \xB7 {status}",
+    "serverSettings.queuedTasks": "Queued tasks",
+    "serverSettings.runningTasks": "Running tasks",
+    "serverSettings.blockedTasks": "Blocked tasks",
+    "serverSettings.blockedCount": "{count} blocked tasks",
+    "serverSettings.noBlockedTasks": "No blocked tasks",
+    "serverSettings.blockedReason.inactive_user": "Inactive user",
+    "serverSettings.blockedReason.inactive_provider_version": "Inactive provider version",
+    "serverSettings.blockedReason.missing_personal_credential": "Missing personal credential",
+    "serverSettings.blockedReason.missing_department_credential": "Missing department credential",
+    "serverSettings.schedulerUserMeta": "Queued {queued} \xB7 running {running}",
+    "serverSettings.totalTasks": "Total tasks",
+    "serverSettings.storageUsed": "Storage used",
+    "serverSettings.createdAt": "Created {date}",
+    "serverSettings.auditMeta": "{date} \xB7 actor {actor}{subject}",
+    "serverSettings.auditSubject": " \xB7 subject {subject}",
+    "serverSettings.passwordUpdated": "Password updated",
+    "serverSettings.confirmLogoutOthers": "Sign out every session except the current device?",
+    "serverSettings.sessionExpired": "Your login session has expired",
+    "serverSettings.requestFailed": "Request failed ({status})",
+    "systemSettings.confirmDiscard": "This page has unsaved changes. Discard them?",
     "systemSettings.tabsLabel": "System settings sections",
     "systemSettings.apiTab": "API Settings",
     "systemSettings.codexTab": "Codex Channel",
@@ -11056,6 +11167,117 @@
     "systemSettings.schedulerTab": "\u4EFB\u52A1\u8C03\u5EA6",
     "systemSettings.contentTab": "\u7528\u6237\u5185\u5BB9\u53EA\u8BFB\u67E5\u770B",
     "systemSettings.auditTab": "\u5BA1\u8BA1\u65E5\u5FD7",
+    "systemSettings.accountDescription": "\u67E5\u770B\u5F53\u524D\u8D26\u6237\u3001\u4FEE\u6539\u5BC6\u7801\u5E76\u7BA1\u7406\u767B\u5F55\u4F1A\u8BDD\u3002",
+    "systemSettings.username": "\u7528\u6237\u540D",
+    "systemSettings.usernameHelp": "\u7BA1\u7406\u5458\u521B\u5EFA\u7684\u767B\u5F55\u8D26\u53F7",
+    "systemSettings.role": "\u89D2\u8272",
+    "systemSettings.roleHelp": "\u51B3\u5B9A\u53EF\u8BBF\u95EE\u7684\u7CFB\u7EDF\u8BBE\u7F6E\u8303\u56F4",
+    "systemSettings.changePassword": "\u4FEE\u6539\u5BC6\u7801",
+    "systemSettings.changePasswordHelp": "\u4FDD\u5B58\u540E\u5C06\u9000\u51FA\u5176\u4ED6\u8BBE\u5907\uFF0C\u4EC5\u4FDD\u7559\u65B0\u7684\u5F53\u524D\u4F1A\u8BDD\u3002",
+    "systemSettings.currentPassword": "\u5F53\u524D\u5BC6\u7801",
+    "systemSettings.newPassword": "\u65B0\u5BC6\u7801",
+    "systemSettings.updatePassword": "\u66F4\u65B0\u5BC6\u7801",
+    "systemSettings.sessions": "\u767B\u5F55\u4F1A\u8BDD",
+    "systemSettings.sessionsHelp": "\u53EF\u4EE5\u9000\u51FA\u5176\u4ED6\u8BBE\u5907\u4E0A\u7684\u4F1A\u8BDD\uFF1B\u5F53\u524D\u4F1A\u8BDD\u59CB\u7EC8\u4FDD\u7559\u3002",
+    "systemSettings.logoutOtherSessions": "\u9000\u51FA\u5176\u4ED6\u4F1A\u8BDD",
+    "systemSettings.apiDescription": "\u914D\u7F6E\u5F53\u524D\u8D26\u6237\u53EF\u4F7F\u7528\u7684\u56FE\u50CF\u751F\u6210\u4F9B\u5E94\u5546\u3002",
+    "systemSettings.appearanceDescription": "\u8FD9\u4E9B\u504F\u597D\u4F1A\u7ACB\u5373\u751F\u6548\u5E76\u4FDD\u5B58\u5728\u5F53\u524D\u6D4F\u89C8\u5668\u3002",
+    "systemSettings.themeDescription": "\u9009\u62E9\u754C\u9762\u7684\u660E\u6697\u5916\u89C2",
+    "systemSettings.notificationsDescription": "\u9009\u62E9\u4EFB\u52A1\u5B8C\u6210\u6216\u5931\u8D25\u65F6\u63A5\u6536\u63D0\u9192\u7684\u65B9\u5F0F\u3002",
+    "systemSettings.usageDescription": "\u67E5\u770B\u5F53\u524D\u8D26\u6237\u7684\u771F\u5B9E\u5B58\u50A8\u7A7A\u95F4\u4E0E\u90E8\u95E8\u989D\u5EA6\u4F7F\u7528\u60C5\u51B5\u3002",
+    "systemSettings.usersDescription": "\u521B\u5EFA\u8D26\u53F7\u3001\u91CD\u7F6E\u5BC6\u7801\u4EE5\u53CA\u542F\u7528\u6216\u505C\u7528\u7528\u6237\u3002",
+    "systemSettings.newUsername": "\u65B0\u7528\u6237\u540D",
+    "systemSettings.createUser": "\u521B\u5EFA\u7528\u6237",
+    "systemSettings.catalogDescription": "\u7EF4\u62A4\u90E8\u95E8\u53EF\u914D\u7F6E\u7684\u4F9B\u5E94\u5546\u7248\u672C\u3001\u6A21\u578B\u548C\u542F\u7528\u72B6\u6001\u3002",
+    "systemSettings.identifier": "\u6807\u8BC6",
+    "systemSettings.name": "\u540D\u79F0",
+    "systemSettings.apiMode": "API \u6A21\u5F0F",
+    "systemSettings.modelsCsv": "\u6A21\u578B\uFF08\u9017\u53F7\u5206\u9694\uFF09",
+    "systemSettings.addVersion": "\u65B0\u589E\u7248\u672C",
+    "systemSettings.departmentDescription": "\u914D\u7F6E\u90E8\u95E8\u7EA7\u51ED\u636E\u3001\u9ED8\u8BA4\u989D\u5EA6\u548C\u7528\u6237\u989D\u5EA6\u3002",
+    "systemSettings.departmentQuota": "\u90E8\u95E8\u5468\u671F\u603B\u989D\u5EA6",
+    "systemSettings.saveQuota": "\u4FDD\u5B58\u989D\u5EA6",
+    "systemSettings.providerCredentials": "\u4F9B\u5E94\u5546\u51ED\u636E",
+    "systemSettings.userQuota": "\u7528\u6237\u989D\u5EA6",
+    "systemSettings.sharedDescription": "\u8BBE\u7F6E\u5171\u4EAB\u7A7A\u95F4\u914D\u989D\u5E76\u7BA1\u7406\u8D44\u4EA7\u53EF\u89C1\u72B6\u6001\u3002",
+    "systemSettings.sharedQuotaMb": "\u5171\u4EAB\u7A7A\u95F4\uFF08MB\uFF09",
+    "systemSettings.saveStorage": "\u4FDD\u5B58\u7A7A\u95F4",
+    "systemSettings.schedulerDescription": "\u8C03\u6574\u5168\u5C40\u4E0E\u5355\u7528\u6237\u5E76\u53D1\u4E0A\u9650\uFF0C\u67E5\u770B\u5F53\u524D\u961F\u5217\u3002",
+    "systemSettings.globalConcurrency": "\u5168\u5C40\u5E76\u53D1",
+    "systemSettings.perUserConcurrency": "\u5355\u7528\u6237\u5E76\u53D1",
+    "systemSettings.saveScheduler": "\u4FDD\u5B58\u8C03\u5EA6\u8BBE\u7F6E",
+    "systemSettings.blockedDetails": "\u963B\u585E\u8BE6\u60C5",
+    "systemSettings.userQueues": "\u7528\u6237\u961F\u5217",
+    "systemSettings.contentDescription": "\u6309\u7528\u6237\u67E5\u770B\u4EFB\u52A1\u3001\u8D44\u4EA7\u4E0E\u7528\u91CF\uFF1B\u6B64\u5904\u4E0D\u63D0\u4F9B\u7F16\u8F91\u6216\u5220\u9664\u3002",
+    "systemSettings.selectUser": "\u9009\u62E9\u7528\u6237",
+    "systemSettings.recentTasks": "\u6700\u8FD1\u4EFB\u52A1",
+    "systemSettings.recentAssets": "\u6700\u8FD1\u8D44\u4EA7",
+    "systemSettings.auditDescription": "\u67E5\u770B\u7BA1\u7406\u5458\u64CD\u4F5C\u53CA\u5176\u7ED3\u679C\u3002",
+    "systemSettings.action": "\u64CD\u4F5C",
+    "systemSettings.actionPlaceholder": "\u4F8B\u5982 user.create",
+    "systemSettings.filter": "\u7B5B\u9009",
+    "serverSettings.error": "\u7CFB\u7EDF\u8BBE\u7F6E\uFF1A{message}",
+    "serverSettings.logoutSession": "\u9000\u51FA\u4F1A\u8BDD",
+    "serverSettings.confirmLogoutSession": "\u786E\u5B9A\u9000\u51FA\u8FD9\u4E2A\u767B\u5F55\u4F1A\u8BDD\u5417\uFF1F",
+    "serverSettings.currentDevice": "{device}\uFF08\u5F53\u524D\u8BBE\u5907\uFF09",
+    "serverSettings.sessionMeta": "\u6700\u8FD1\u6D3B\u52A8 {lastSeen} \xB7 \u5230\u671F {expires}",
+    "serverSettings.personalStorageUsed": "\u4E2A\u4EBA\u5B58\u50A8\u5DF2\u7528",
+    "serverSettings.personalStorageLimit": "\u4E2A\u4EBA\u5B58\u50A8\u4E0A\u9650",
+    "serverSettings.departmentQuotaAvailable": "\u90E8\u95E8\u989D\u5EA6\u53EF\u7528",
+    "serverSettings.departmentQuotaUsed": "\u90E8\u95E8\u989D\u5EA6\u5DF2\u7528",
+    "serverSettings.departmentQuotaTotal": "\u90E8\u95E8\u5468\u671F\u603B\u989D",
+    "serverSettings.periodEnds": "\u5468\u671F\u7ED3\u675F",
+    "serverSettings.storageMb": "\u5B58\u50A8 MB",
+    "serverSettings.personalStorageLimitMb": "\u4E2A\u4EBA\u5B58\u50A8\u4E0A\u9650\uFF08MB\uFF09",
+    "serverSettings.saveStorage": "\u4FDD\u5B58\u5B58\u50A8",
+    "serverSettings.invalidStorageQuota": "\u8BF7\u8F93\u5165\u6709\u6548\u7684\u5B58\u50A8\u989D\u5EA6",
+    "serverSettings.resetPassword": "\u91CD\u7F6E\u5BC6\u7801",
+    "serverSettings.confirmResetPassword": "\u786E\u5B9A\u91CD\u7F6E {username} \u7684\u5BC6\u7801\u5417\uFF1F",
+    "serverSettings.temporaryPassword": "{username} \u7684\u4E34\u65F6\u5BC6\u7801\uFF1A{password}",
+    "serverSettings.deactivate": "\u505C\u7528",
+    "serverSettings.reactivate": "\u6062\u590D",
+    "serverSettings.confirmDeactivateUser": "\u786E\u5B9A\u505C\u7528\u7528\u6237 {username} \u5417\uFF1F",
+    "serverSettings.confirmReactivateUser": "\u786E\u5B9A\u6062\u590D\u7528\u6237 {username} \u5417\uFF1F",
+    "serverSettings.storageMeta": " \xB7 \u5B58\u50A8 {used} / {limit}",
+    "serverSettings.active": "\u6B63\u5E38",
+    "serverSettings.inactive": "\u5DF2\u505C\u7528",
+    "serverSettings.noModels": "\u65E0\u6A21\u578B",
+    "serverSettings.confirmDeactivateProvider": "\u786E\u5B9A\u505C\u7528 {provider} \u5417\uFF1F",
+    "serverSettings.confirmReactivateProvider": "\u786E\u5B9A\u6062\u590D {provider} \u5417\uFF1F",
+    "serverSettings.available": "\u53EF\u7528",
+    "serverSettings.departmentApiKeyPlaceholder": "\u8F93\u5165\u90E8\u95E8 API Key",
+    "serverSettings.saveCredential": "\u4FDD\u5B58\u51ED\u636E",
+    "serverSettings.enterApiKey": "\u8BF7\u8F93\u5165 API Key",
+    "serverSettings.confirmDeactivateCredential": "\u786E\u5B9A\u505C\u7528\u8BE5\u90E8\u95E8\u51ED\u636E\u5417\uFF1F",
+    "serverSettings.confirmReactivateCredential": "\u786E\u5B9A\u6062\u590D\u8BE5\u90E8\u95E8\u51ED\u636E\u5417\uFF1F",
+    "serverSettings.configured": "\u5DF2\u914D\u7F6E",
+    "serverSettings.notConfigured": "\u672A\u914D\u7F6E",
+    "serverSettings.catalogAvailable": "\u76EE\u5F55\u53EF\u7528",
+    "serverSettings.catalogInactive": "\u76EE\u5F55\u5DF2\u505C\u7528",
+    "serverSettings.quotaMeta": "\u5DF2\u7528 {used} \xB7 \u53EF\u7528 {available}",
+    "serverSettings.confirmDeactivateAsset": "\u786E\u5B9A\u505C\u7528\u5171\u4EAB\u8D44\u4EA7 {asset} \u5417\uFF1F",
+    "serverSettings.confirmReactivateAsset": "\u786E\u5B9A\u6062\u590D\u5171\u4EAB\u8D44\u4EA7 {asset} \u5417\uFF1F",
+    "serverSettings.sharedAssetMeta": "\u53D1\u5E03\u8005 {publisher} \xB7 {status}",
+    "serverSettings.queuedTasks": "\u7B49\u5F85\u4EFB\u52A1",
+    "serverSettings.runningTasks": "\u8FD0\u884C\u4EFB\u52A1",
+    "serverSettings.blockedTasks": "\u963B\u585E\u4EFB\u52A1",
+    "serverSettings.blockedCount": "{count} \u4E2A\u963B\u585E\u4EFB\u52A1",
+    "serverSettings.noBlockedTasks": "\u6682\u65E0\u963B\u585E\u4EFB\u52A1",
+    "serverSettings.blockedReason.inactive_user": "\u7528\u6237\u5DF2\u505C\u7528",
+    "serverSettings.blockedReason.inactive_provider_version": "\u4F9B\u5E94\u5546\u7248\u672C\u5DF2\u505C\u7528",
+    "serverSettings.blockedReason.missing_personal_credential": "\u7F3A\u5C11\u4E2A\u4EBA\u51ED\u636E",
+    "serverSettings.blockedReason.missing_department_credential": "\u7F3A\u5C11\u90E8\u95E8\u51ED\u636E",
+    "serverSettings.schedulerUserMeta": "\u7B49\u5F85 {queued} \xB7 \u8FD0\u884C {running}",
+    "serverSettings.totalTasks": "\u4EFB\u52A1\u603B\u6570",
+    "serverSettings.storageUsed": "\u5B58\u50A8\u5DF2\u7528",
+    "serverSettings.createdAt": "\u521B\u5EFA\u4E8E {date}",
+    "serverSettings.auditMeta": "{date} \xB7 \u64CD\u4F5C\u8005 {actor}{subject}",
+    "serverSettings.auditSubject": " \xB7 \u5BF9\u8C61 {subject}",
+    "serverSettings.passwordUpdated": "\u5BC6\u7801\u5DF2\u66F4\u65B0",
+    "serverSettings.confirmLogoutOthers": "\u786E\u5B9A\u9000\u51FA\u9664\u5F53\u524D\u8BBE\u5907\u5916\u7684\u5168\u90E8\u4F1A\u8BDD\u5417\uFF1F",
+    "serverSettings.sessionExpired": "\u767B\u5F55\u5DF2\u5931\u6548",
+    "serverSettings.requestFailed": "\u8BF7\u6C42\u5931\u8D25\uFF08{status}\uFF09",
+    "systemSettings.confirmDiscard": "\u5F53\u524D\u9875\u9762\u6709\u672A\u4FDD\u5B58\u7684\u66F4\u6539\uFF0C\u786E\u5B9A\u653E\u5F03\u5417\uFF1F",
     "systemSettings.tabsLabel": "\u7CFB\u7EDF\u8BBE\u7F6E\u9009\u9879",
     "systemSettings.apiTab": "API \u8BBE\u7F6E",
     "systemSettings.codexTab": "Codex \u901A\u9053",
@@ -13298,7 +13520,8 @@
     return DEFAULT_LOCALE;
   }
   function translate(key, locale = currentLocale) {
-    return DICTIONARIES[locale]?.[key] ?? DICTIONARIES[DEFAULT_LOCALE][key] ?? key;
+    const languageFallback = locale.startsWith("zh") ? DEFAULT_LOCALE : "en";
+    return DICTIONARIES[locale]?.[key] ?? DICTIONARIES[languageFallback][key] ?? DICTIONARIES[DEFAULT_LOCALE][key] ?? key;
   }
   function formatTranslation(key, values = {}, locale = currentLocale) {
     return translate(key, locale).replace(/\{(\w+)\}/g, (match, name) => {
@@ -30468,7 +30691,7 @@ ${hint}` : hint;
   var systemSettingsFeatureInitialized = false;
   var activeTab = "account";
   var pendingUrlTab = "";
-  var dirtyForm = null;
+  var dirtyOwners = /* @__PURE__ */ new Set();
   var hasLooseDirtyInput = false;
   var PERSONAL_TABS = /* @__PURE__ */ new Set(["account", "language", "api", "notifications", "usage"]);
   var ADMIN_TABS = /* @__PURE__ */ new Set(["users", "catalog", "department", "shared", "scheduler", "content", "audit"]);
@@ -30514,30 +30737,31 @@ ${hint}` : hint;
     else window.history.replaceState(window.history.state, "", nextUrl);
   }
   function confirmDiscard() {
-    if (!dirtyForm && !hasLooseDirtyInput) return true;
-    const confirmed = window.confirm("\u5F53\u524D\u9875\u9762\u6709\u672A\u4FDD\u5B58\u7684\u66F4\u6539\uFF0C\u786E\u5B9A\u653E\u5F03\u5417\uFF1F");
+    if (!dirtyOwners.size && !hasLooseDirtyInput) return true;
+    const confirmed = window.confirm(translate("systemSettings.confirmDiscard"));
     if (confirmed) {
-      dirtyForm?.setAttribute("data-dirty", "false");
-      dirtyForm = null;
+      dirtyOwners.forEach((owner) => owner.setAttribute("data-dirty", "false"));
+      dirtyOwners.clear();
       hasLooseDirtyInput = false;
     }
     return confirmed;
   }
-  function markSystemSettingsDirty(form) {
-    const target = form || document.querySelector("[data-sensitive-form]:focus-within");
+  function markSystemSettingsDirty(owner) {
+    const target = owner || document.querySelector("[data-sensitive-form]:focus-within");
     if (!target) {
       hasLooseDirtyInput = true;
       return;
     }
-    if (dirtyForm && dirtyForm !== target) dirtyForm.dataset.dirty = "false";
-    dirtyForm = target;
+    dirtyOwners.add(target);
     target.dataset.dirty = "true";
   }
-  function clearSystemSettingsDirty(form) {
-    if (form && dirtyForm !== form) return;
-    dirtyForm?.setAttribute("data-dirty", "false");
-    dirtyForm = null;
-    if (!form) hasLooseDirtyInput = false;
+  function clearSystemSettingsDirty(owner) {
+    if (!owner) {
+      hasLooseDirtyInput = false;
+      return;
+    }
+    owner.setAttribute("data-dirty", "false");
+    dirtyOwners.delete(owner);
   }
   function applyRoleVisibility() {
     const admin = isAdmin();
@@ -30613,7 +30837,7 @@ ${hint}` : hint;
     const modal = shell();
     if (params.get("settings") !== "1") {
       if (!modal?.classList.contains("hidden") && !confirmDiscard()) {
-        window.history.forward();
+        updateSettingsUrl(true, "replace");
         return;
       }
       modal?.classList.add("hidden");
@@ -30623,7 +30847,7 @@ ${hint}` : hint;
     }
     const requested = normalizeTab(params.get("settingsTab") || params.get("tab") || "account");
     if (!modal?.classList.contains("hidden") && requested !== activeTab && !confirmDiscard()) {
-      window.history.forward();
+      updateSettingsUrl(true, "replace");
       return;
     }
     applyRoleVisibility();
@@ -30672,7 +30896,7 @@ ${hint}` : hint;
     });
     window.addEventListener("popstate", restoreSettingsFromHistory);
     window.addEventListener("beforeunload", (event) => {
-      if (!dirtyForm && !hasLooseDirtyInput) return;
+      if (!dirtyOwners.size && !hasLooseDirtyInput) return;
       event.preventDefault();
       event.returnValue = "";
     });
@@ -30897,8 +31121,13 @@ ${hint}` : hint;
   var serverAccountInitialized = false;
   var csrfToken = "";
   var currentUser = null;
+  function cookieValue(name) {
+    const prefix = `${name}=`;
+    const match = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(prefix));
+    return match ? decodeURIComponent(match.slice(prefix.length)) : "";
+  }
   function getCsrfToken() {
-    return csrfToken;
+    return cookieValue("jd_image_csrf") || csrfToken;
   }
   function initials(username) {
     const chars = Array.from(username.trim());
@@ -30961,11 +31190,7 @@ ${hint}` : hint;
     try {
       const response = await fetch("/api/auth/logout", {
         method: "POST",
-        headers: {
-          "X-CSRF-Token": decodeURIComponent(
-            document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("jd_image_csrf="))?.slice("jd_image_csrf=".length) || csrfToken
-          )
-        }
+        headers: { "X-CSRF-Token": getCsrfToken() }
       });
       if (response.ok) window.location.assign("/login");
     } finally {
@@ -31386,7 +31611,8 @@ ${hint}` : hint;
     setElementText(els10.apiProviderDetailConcurrency, normalizeApiImagesConcurrency(provider.images_concurrency));
     if (els10.editApiProviderButton) els10.editApiProviderButton.disabled = Boolean(provider.read_only);
     els10.copyApiProviderButton?.classList.toggle("hidden", !state9.apiSettings.allow_new_provider);
-    els10.deleteApiProviderButton?.classList.toggle("hidden", !state9.apiSettings.allow_new_provider);
+    const isServerWorkspace = Boolean(document.documentElement.dataset.userRole);
+    els10.deleteApiProviderButton?.classList.toggle("hidden", isServerWorkspace || !state9.apiSettings.allow_new_provider);
   }
   function renderApiProviderEditor() {
     const editing = apiProviderEditorActive();
@@ -31673,7 +31899,7 @@ ${hint}` : hint;
     state9.apiProviderEditingId = null;
     state9.apiProviderDraft = null;
     state9.apiProviderDraftIsNew = false;
-    clearSystemSettingsDirty();
+    clearSystemSettingsDirty(els10.apiProviderEditor);
     populateApiSettingsForm();
     setApiSettingsFeedback("", "");
     scrollActiveApiProviderCardIntoView(activeApiProvider().id, "center");
@@ -31896,7 +32122,7 @@ ${hint}` : hint;
       state9.apiProviderEditingId = null;
       state9.apiProviderDraft = null;
       state9.apiProviderDraftIsNew = false;
-      if (!autoSave) clearSystemSettingsDirty();
+      if (!autoSave) clearSystemSettingsDirty(els10.apiProviderEditor);
       persistApiSettings();
       populateApiSettingsForm();
       setApiSettingsFeedback(autoSave ? translate("apiSettings.autoSaved") : formatTranslation("apiSettings.savedSummary", {
@@ -31942,7 +32168,8 @@ ${hint}` : hint;
   function initApiSettingsFeature() {
     if (apiSettingsFeatureInitialized) return;
     apiSettingsFeatureInitialized = true;
-    document.querySelector("#apiProviderEditor")?.addEventListener("input", () => markSystemSettingsDirty());
+    const apiProviderEditor = document.querySelector("#apiProviderEditor");
+    apiProviderEditor?.addEventListener("input", () => markSystemSettingsDirty(apiProviderEditor));
     document.addEventListener(LOCALE_CHANGE_EVENT, () => {
       const bridge39 = getLegacyBridge();
       renderAuthSource(bridge39.state.authStatus);
@@ -44928,22 +45155,17 @@ ${galleryText}`;
   // codex_image/webui/frontend/src/server-settings.ts
   var initialized3 = false;
   var managedUsers = [];
-  function cookieValue(name) {
-    const prefix = `${name}=`;
-    const match = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(prefix));
-    return match ? decodeURIComponent(match.slice(prefix.length)) : "";
-  }
   async function api(path, options = {}) {
     const headers = new Headers(options.headers || {});
     const method = String(options.method || "GET").toUpperCase();
-    if (!["GET", "HEAD"].includes(method)) headers.set("X-CSRF-Token", cookieValue("jd_image_csrf"));
+    if (!["GET", "HEAD"].includes(method)) headers.set("X-CSRF-Token", getCsrfToken());
     const response = await fetch(path, { ...options, headers });
     if (response.status === 401) {
       window.location.assign("/login");
-      throw new Error("\u767B\u5F55\u5DF2\u5931\u6548");
+      throw new Error(translate("serverSettings.sessionExpired"));
     }
     if (!response.ok) {
-      let message = `\u8BF7\u6C42\u5931\u8D25\uFF08${response.status}\uFF09`;
+      let message = formatTranslation("serverSettings.requestFailed", { status: response.status });
       try {
         const payload2 = await response.json();
         if (payload2?.detail) message = String(payload2.detail);
@@ -44993,15 +45215,31 @@ ${galleryText}`;
   function replace(selector, ...nodes) {
     document.querySelector(selector)?.replaceChildren(...nodes);
   }
+  function replacePreservingDynamicDrafts(selector, ...nodes) {
+    const container = document.querySelector(selector);
+    if (!container) return;
+    const drafts = [...container.querySelectorAll("input[data-settings-draft-key]")].filter((input) => input.dataset.dirty === "true").map((input) => ({ key: input.dataset.settingsDraftKey || "", value: input.value, owner: input })).filter((draft) => Boolean(draft.key));
+    drafts.forEach((draft) => clearSystemSettingsDirty(draft.owner));
+    container.replaceChildren(...nodes);
+    const replacements = new Map(
+      [...container.querySelectorAll("input[data-settings-draft-key]")].map((input) => [input.dataset.settingsDraftKey || "", input])
+    );
+    drafts.forEach((draft) => {
+      const input = replacements.get(draft.key);
+      if (!input) return;
+      input.value = draft.value;
+      markSystemSettingsDirty(input);
+    });
+  }
   function reportError(error) {
     const message = error instanceof Error ? error.message : String(error);
     const status = document.querySelector("#systemSettingsGlobalStatus");
-    if (status) status.textContent = `\u7CFB\u7EDF\u8BBE\u7F6E\uFF1A${message}`;
+    if (status) status.textContent = formatTranslation("serverSettings.error", { message });
   }
   function fmtDate(value) {
     if (!value) return "--";
     const date = new Date(String(value));
-    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString(document.documentElement.lang || void 0);
   }
   function fmtBytes(value) {
     let bytes = Number(value || 0);
@@ -45027,15 +45265,15 @@ ${galleryText}`;
     const rows = (result.sessions || []).map((session) => {
       const rowActions = actions();
       if (!session.current) {
-        rowActions.append(actionButton("\u9000\u51FA\u4F1A\u8BDD", async () => {
-          if (!window.confirm("\u786E\u5B9A\u9000\u51FA\u8FD9\u4E2A\u767B\u5F55\u4F1A\u8BDD\u5417\uFF1F")) return;
+        rowActions.append(actionButton(translate("serverSettings.logoutSession"), async () => {
+          if (!window.confirm(translate("serverSettings.confirmLogoutSession"))) return;
           await api(`/api/auth/sessions/${encodeURIComponent(session.session_id)}`, { method: "DELETE" });
           await loadSessions();
         }, true));
       }
       return listRow(
-        session.current ? `${session.user_agent}\uFF08\u5F53\u524D\u8BBE\u5907\uFF09` : String(session.user_agent),
-        `\u6700\u8FD1\u6D3B\u52A8 ${fmtDate(session.last_seen_at)} \xB7 \u5230\u671F ${fmtDate(session.expires_at)}`,
+        session.current ? formatTranslation("serverSettings.currentDevice", { device: session.user_agent }) : String(session.user_agent),
+        formatTranslation("serverSettings.sessionMeta", { lastSeen: fmtDate(session.last_seen_at), expires: fmtDate(session.expires_at) }),
         rowActions.childElementCount ? rowActions : void 0
       );
     });
@@ -45050,12 +45288,12 @@ ${galleryText}`;
     const quota = quotaResult.quota || {};
     replace(
       "#settingsUsageSummary",
-      metric("\u4E2A\u4EBA\u5B58\u50A8\u5DF2\u7528", fmtBytes(storage.used_bytes)),
-      metric("\u4E2A\u4EBA\u5B58\u50A8\u4E0A\u9650", fmtBytes(storage.quota_bytes)),
-      metric("\u90E8\u95E8\u989D\u5EA6\u53EF\u7528", String(quota.available_units ?? 0)),
-      metric("\u90E8\u95E8\u989D\u5EA6\u5DF2\u7528", String(quota.consumed_units ?? 0)),
-      metric("\u90E8\u95E8\u5468\u671F\u603B\u989D", String(quota.global_quota_units ?? 0)),
-      metric("\u5468\u671F\u7ED3\u675F", fmtDate(quota.period_end))
+      metric(translate("serverSettings.personalStorageUsed"), fmtBytes(storage.used_bytes)),
+      metric(translate("serverSettings.personalStorageLimit"), fmtBytes(storage.quota_bytes)),
+      metric(translate("serverSettings.departmentQuotaAvailable"), String(quota.available_units ?? 0)),
+      metric(translate("serverSettings.departmentQuotaUsed"), String(quota.consumed_units ?? 0)),
+      metric(translate("serverSettings.departmentQuotaTotal"), String(quota.global_quota_units ?? 0)),
+      metric(translate("serverSettings.periodEnds"), fmtDate(quota.period_end))
     );
   }
   async function userUsage(userId) {
@@ -45077,28 +45315,29 @@ ${galleryText}`;
         storageInput.className = "control";
         storageInput.type = "number";
         storageInput.min = "1";
-        storageInput.placeholder = usage ? String(Math.round(Number(usage.quota_bytes) / 1024 / 1024)) : "\u5B58\u50A8 MB";
-        storageInput.title = "\u4E2A\u4EBA\u5B58\u50A8\u4E0A\u9650\uFF08MB\uFF09";
-        storageInput.addEventListener("input", () => markSystemSettingsDirty());
+        storageInput.dataset.settingsDraftKey = `user-storage:${user.user_id}`;
+        storageInput.placeholder = usage ? String(Math.round(Number(usage.quota_bytes) / 1024 / 1024)) : translate("serverSettings.storageMb");
+        storageInput.title = translate("serverSettings.personalStorageLimitMb");
+        storageInput.addEventListener("input", () => markSystemSettingsDirty(storageInput));
         rowActions.append(storageInput);
-        rowActions.append(actionButton("\u4FDD\u5B58\u5B58\u50A8", async () => {
+        rowActions.append(actionButton(translate("serverSettings.saveStorage"), async () => {
           const quotaMb = Number(storageInput.value);
-          if (!Number.isFinite(quotaMb) || quotaMb < 1) throw new Error("\u8BF7\u8F93\u5165\u6709\u6548\u7684\u5B58\u50A8\u989D\u5EA6");
+          if (!Number.isFinite(quotaMb) || quotaMb < 1) throw new Error(translate("serverSettings.invalidStorageQuota"));
           await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/storage-quota`, {
             method: "PATCH",
             ...jsonOptions({ quota_bytes: Math.round(quotaMb * 1024 * 1024) })
           });
-          clearSystemSettingsDirty();
+          clearSystemSettingsDirty(storageInput);
           await loadUsers();
         }));
-        rowActions.append(actionButton("\u91CD\u7F6E\u5BC6\u7801", async () => {
-          if (!window.confirm(`\u786E\u5B9A\u91CD\u7F6E ${user.username} \u7684\u5BC6\u7801\u5417\uFF1F`)) return;
+        rowActions.append(actionButton(translate("serverSettings.resetPassword"), async () => {
+          if (!window.confirm(formatTranslation("serverSettings.confirmResetPassword", { username: user.username }))) return;
           const reset = await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/reset-password`, { method: "POST" });
-          showCredential(`${user.username} \u7684\u4E34\u65F6\u5BC6\u7801\uFF1A${reset.temporary_password}`);
+          showCredential(formatTranslation("serverSettings.temporaryPassword", { username: user.username, password: reset.temporary_password }));
           await loadUsers();
         }, true));
-        rowActions.append(actionButton(user.is_active ? "\u505C\u7528" : "\u6062\u590D", async () => {
-          if (!window.confirm(`\u786E\u5B9A${user.is_active ? "\u505C\u7528" : "\u6062\u590D"}\u7528\u6237 ${user.username} \u5417\uFF1F`)) return;
+        rowActions.append(actionButton(translate(user.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
+          if (!window.confirm(formatTranslation(user.is_active ? "serverSettings.confirmDeactivateUser" : "serverSettings.confirmReactivateUser", { username: user.username }))) return;
           await api(`/api/admin/users/${encodeURIComponent(user.user_id)}/status`, {
             method: "PATCH",
             ...jsonOptions({ is_active: !user.is_active })
@@ -45106,10 +45345,11 @@ ${galleryText}`;
           await loadUsers();
         }, user.is_active));
       }
-      const storageMeta = usage ? ` \xB7 \u5B58\u50A8 ${fmtBytes(usage.used_bytes)} / ${fmtBytes(usage.quota_bytes)}` : "";
-      return listRow(`${user.username} \xB7 ${user.role === "admin" ? "\u7CFB\u7EDF\u7BA1\u7406\u5458" : "\u666E\u901A\u7528\u6237"}`, `${user.is_active ? "\u6B63\u5E38" : "\u5DF2\u505C\u7528"}${storageMeta}`, rowActions.childElementCount ? rowActions : void 0);
+      const storageMeta = usage ? formatTranslation("serverSettings.storageMeta", { used: fmtBytes(usage.used_bytes), limit: fmtBytes(usage.quota_bytes) }) : "";
+      const role = translate(user.role === "admin" ? "serverAccount.roleAdmin" : "serverAccount.roleUser");
+      return listRow(`${user.username} \xB7 ${role}`, `${translate(user.is_active ? "serverSettings.active" : "serverSettings.inactive")}${storageMeta}`, rowActions.childElementCount ? rowActions : void 0);
     });
-    replace("#settingsUserList", ...rows);
+    replacePreservingDynamicDrafts("#settingsUserList", ...rows);
     populateContentUsers();
   }
   function showCredential(value) {
@@ -45122,21 +45362,21 @@ ${galleryText}`;
     return `${provider.display_name} \xB7 v${provider.version_number}`;
   }
   function providerModels(provider) {
-    return (provider.models || []).map((model) => model.model_id).join("\u3001") || "\u65E0\u6A21\u578B";
+    return (provider.models || []).map((model) => model.model_id).join("\u3001") || translate("serverSettings.noModels");
   }
   async function loadCatalog() {
     const result = await api("/api/admin/provider-catalog");
     const rows = (result.providers || []).map((provider) => {
       const rowActions = actions();
-      rowActions.append(actionButton(provider.is_active ? "\u505C\u7528" : "\u6062\u590D", async () => {
-        if (!window.confirm(`\u786E\u5B9A${provider.is_active ? "\u505C\u7528" : "\u6062\u590D"} ${providerTitle(provider)} \u5417\uFF1F`)) return;
+      rowActions.append(actionButton(translate(provider.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
+        if (!window.confirm(formatTranslation(provider.is_active ? "serverSettings.confirmDeactivateProvider" : "serverSettings.confirmReactivateProvider", { provider: providerTitle(provider) }))) return;
         await api(`/api/admin/provider-catalog/${encodeURIComponent(provider.provider_version_id)}/status`, {
           method: "PATCH",
           ...jsonOptions({ is_active: !provider.is_active })
         });
         await loadCatalog();
       }, provider.is_active));
-      return listRow(providerTitle(provider), `${provider.provider_key} \xB7 ${provider.api_mode} \xB7 ${provider.is_active ? "\u53EF\u7528" : "\u5DF2\u505C\u7528"} \xB7 ${providerModels(provider)}`, rowActions);
+      return listRow(providerTitle(provider), `${provider.provider_key} \xB7 ${provider.api_mode} \xB7 ${translate(provider.is_active ? "serverSettings.available" : "serverSettings.inactive")} \xB7 ${providerModels(provider)}`, rowActions);
     });
     replace("#settingsCatalogList", ...rows);
   }
@@ -45157,29 +45397,30 @@ ${galleryText}`;
       key.className = "control";
       key.type = "password";
       key.autocomplete = "new-password";
-      key.placeholder = credential?.api_key_mask || "\u8F93\u5165\u90E8\u95E8 API Key";
-      key.addEventListener("input", () => markSystemSettingsDirty());
-      rowActions.append(key, actionButton("\u4FDD\u5B58\u51ED\u636E", async () => {
-        if (!key.value) throw new Error("\u8BF7\u8F93\u5165 API Key");
+      key.dataset.settingsDraftKey = `department-credential:${provider.provider_version_id}`;
+      key.placeholder = credential?.api_key_mask || translate("serverSettings.departmentApiKeyPlaceholder");
+      key.addEventListener("input", () => markSystemSettingsDirty(key));
+      rowActions.append(key, actionButton(translate("serverSettings.saveCredential"), async () => {
+        if (!key.value) throw new Error(translate("serverSettings.enterApiKey"));
         await api(`/api/admin/providers/department/${encodeURIComponent(provider.provider_version_id)}`, {
           method: "PUT",
           ...jsonOptions({ api_key: key.value })
         });
         key.value = "";
-        clearSystemSettingsDirty();
+        clearSystemSettingsDirty(key);
         await loadDepartment();
       }));
-      if (credential?.has_credential) rowActions.append(actionButton(credential.is_active ? "\u505C\u7528" : "\u6062\u590D", async () => {
-        if (!window.confirm(`\u786E\u5B9A${credential.is_active ? "\u505C\u7528" : "\u6062\u590D"}\u8BE5\u90E8\u95E8\u51ED\u636E\u5417\uFF1F`)) return;
+      if (credential?.has_credential) rowActions.append(actionButton(translate(credential.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
+        if (!window.confirm(translate(credential.is_active ? "serverSettings.confirmDeactivateCredential" : "serverSettings.confirmReactivateCredential"))) return;
         await api(`/api/admin/providers/department/${encodeURIComponent(provider.provider_version_id)}/status`, {
           method: "PATCH",
           ...jsonOptions({ is_active: !credential.is_active })
         });
         await loadDepartment();
       }, credential.is_active));
-      return listRow(providerTitle(provider), `${credential?.has_credential ? "\u5DF2\u914D\u7F6E" : "\u672A\u914D\u7F6E"} \xB7 ${provider.is_active ? "\u76EE\u5F55\u53EF\u7528" : "\u76EE\u5F55\u5DF2\u505C\u7528"}`, rowActions);
+      return listRow(providerTitle(provider), `${translate(credential?.has_credential ? "serverSettings.configured" : "serverSettings.notConfigured")} \xB7 ${translate(provider.is_active ? "serverSettings.catalogAvailable" : "serverSettings.catalogInactive")}`, rowActions);
     });
-    replace("#settingsDepartmentProviderList", ...providerRows);
+    replacePreservingDynamicDrafts("#settingsDepartmentProviderList", ...providerRows);
     const ordinaryUsers = managedUsers.filter((user) => user.role === "user");
     const usageResults = await Promise.all(ordinaryUsers.map((user) => userUsage(user.user_id)));
     const quotaRows = ordinaryUsers.map((user, index) => {
@@ -45189,19 +45430,20 @@ ${galleryText}`;
       input.className = "control";
       input.type = "number";
       input.min = "0";
+      input.dataset.settingsDraftKey = `department-user-quota:${user.user_id}`;
       input.value = String(current?.user_quota_units ?? 0);
-      input.addEventListener("input", () => markSystemSettingsDirty());
-      rowActions.append(input, actionButton("\u4FDD\u5B58\u989D\u5EA6", async () => {
+      input.addEventListener("input", () => markSystemSettingsDirty(input));
+      rowActions.append(input, actionButton(translate("systemSettings.saveQuota"), async () => {
         await api(`/api/admin/quotas/department/users/${encodeURIComponent(user.user_id)}`, {
           method: "PATCH",
           ...jsonOptions({ quota_units: Number(input.value) })
         });
-        clearSystemSettingsDirty();
+        clearSystemSettingsDirty(input);
         await loadDepartment();
       }));
-      return listRow(user.username, `\u5DF2\u7528 ${current?.consumed_units ?? 0} \xB7 \u53EF\u7528 ${current?.available_units ?? 0}`, rowActions);
+      return listRow(user.username, formatTranslation("serverSettings.quotaMeta", { used: current?.consumed_units ?? 0, available: current?.available_units ?? 0 }), rowActions);
     });
-    replace("#settingsUserQuotaList", ...quotaRows);
+    replacePreservingDynamicDrafts("#settingsUserQuotaList", ...quotaRows);
   }
   async function loadShared() {
     const [quotaResult, assetResult] = await Promise.all([api("/api/admin/shared-storage-quota"), api("/api/admin/shared-assets")]);
@@ -45209,15 +45451,15 @@ ${galleryText}`;
     if (quotaInput) quotaInput.value = String(Math.max(1, Math.round(Number(quotaResult.quota?.quota_bytes || 0) / 1024 / 1024)));
     const rows = (assetResult.assets || []).map((asset) => {
       const rowActions = actions();
-      rowActions.append(actionButton(asset.is_active ? "\u505C\u7528" : "\u6062\u590D", async () => {
-        if (!window.confirm(`\u786E\u5B9A${asset.is_active ? "\u505C\u7528" : "\u6062\u590D"}\u5171\u4EAB\u8D44\u4EA7 ${asset.name} \u5417\uFF1F`)) return;
+      rowActions.append(actionButton(translate(asset.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
+        if (!window.confirm(formatTranslation(asset.is_active ? "serverSettings.confirmDeactivateAsset" : "serverSettings.confirmReactivateAsset", { asset: asset.name }))) return;
         await api(`/api/shared-assets/${encodeURIComponent(asset.asset_id)}/status`, {
           method: "PATCH",
           ...jsonOptions({ is_active: !asset.is_active })
         });
         await loadShared();
       }, asset.is_active));
-      return listRow(`${asset.name} \xB7 ${asset.asset_kind}`, `\u53D1\u5E03\u8005 ${asset.publisher_user_id} \xB7 ${asset.is_active ? "\u53EF\u7528" : "\u5DF2\u505C\u7528"}`, rowActions);
+      return listRow(`${asset.name} \xB7 ${asset.asset_kind}`, formatTranslation("serverSettings.sharedAssetMeta", { publisher: asset.publisher_user_id, status: translate(asset.is_active ? "serverSettings.available" : "serverSettings.inactive") }), rowActions);
     });
     replace("#settingsSharedAssetList", ...rows);
   }
@@ -45229,8 +45471,15 @@ ${galleryText}`;
     const userInput = form?.elements.namedItem("per_user_concurrency");
     if (globalInput) globalInput.value = String(scheduler.global_concurrency ?? 1);
     if (userInput) userInput.value = String(scheduler.per_user_concurrency ?? 1);
-    replace("#settingsSchedulerSummary", metric("\u7B49\u5F85\u4EFB\u52A1", String(scheduler.queue?.queued ?? 0)), metric("\u8FD0\u884C\u4EFB\u52A1", String(scheduler.queue?.running ?? 0)), metric("\u963B\u585E\u7C7B\u578B", String(scheduler.queue?.blocked?.length ?? 0)));
-    const rows = (scheduler.queue?.users || []).map((user) => listRow(String(user.user_id), `\u7B49\u5F85 ${user.queued} \xB7 \u8FD0\u884C ${user.running}`));
+    const blocked = scheduler.queue?.blocked || [];
+    const blockedCount = blocked.reduce((total, item) => total + Number(item.count || 0), 0);
+    replace("#settingsSchedulerSummary", metric(translate("serverSettings.queuedTasks"), String(scheduler.queue?.queued ?? 0)), metric(translate("serverSettings.runningTasks"), String(scheduler.queue?.running ?? 0)), metric(translate("serverSettings.blockedTasks"), String(blockedCount)));
+    const blockedRows = blocked.map((item) => listRow(
+      translate(`serverSettings.blockedReason.${item.reason}`),
+      formatTranslation("serverSettings.blockedCount", { count: item.count })
+    ));
+    replace("#settingsSchedulerBlocked", ...blockedRows.length ? blockedRows : [textElement("p", translate("serverSettings.noBlockedTasks"), "settings-empty-state")]);
+    const rows = (scheduler.queue?.users || []).map((user) => listRow(String(user.user_id), formatTranslation("serverSettings.schedulerUserMeta", { queued: user.queued, running: user.running })));
     replace("#settingsSchedulerUsers", ...rows);
   }
   function populateContentUsers() {
@@ -45258,14 +45507,14 @@ ${galleryText}`;
     ]);
     const usage = usageResult.usage || {};
     const taskCount = Object.values(usage.tasks || {}).reduce((sum, value) => sum + Number(value || 0), 0);
-    replace("#settingsContentSummary", metric("\u4EFB\u52A1\u603B\u6570", String(taskCount)), metric("\u5B58\u50A8\u5DF2\u7528", fmtBytes(usage.storage?.used_bytes)), metric("\u90E8\u95E8\u989D\u5EA6\u5DF2\u7528", String(usage.department_quota?.consumed_units ?? 0)));
+    replace("#settingsContentSummary", metric(translate("serverSettings.totalTasks"), String(taskCount)), metric(translate("serverSettings.storageUsed"), fmtBytes(usage.storage?.used_bytes)), metric(translate("serverSettings.departmentQuotaUsed"), String(usage.department_quota?.consumed_units ?? 0)));
     replace("#settingsContentTasks", ...(tasksResult.tasks || []).map((task) => listRow(`${task.model_id} \xB7 ${task.status}`, `${fmtDate(task.created_at)} \xB7 ${task.prompt || ""}`)));
-    replace("#settingsContentAssets", ...(assetsResult.assets || []).map((asset) => listRow(`${asset.name} \xB7 ${asset.asset_kind}`, `\u521B\u5EFA\u4E8E ${fmtDate(asset.created_at)}`)));
+    replace("#settingsContentAssets", ...(assetsResult.assets || []).map((asset) => listRow(`${asset.name} \xB7 ${asset.asset_kind}`, formatTranslation("serverSettings.createdAt", { date: fmtDate(asset.created_at) }))));
   }
   async function loadAudit(action = "") {
     const query = action ? `&action=${encodeURIComponent(action)}` : "";
     const result = await api(`/api/admin/audit?limit=100${query}`);
-    const rows = (result.events || []).map((event) => listRow(`${event.action} \xB7 ${event.outcome}`, `${fmtDate(event.occurred_at)} \xB7 \u64CD\u4F5C\u8005 ${event.actor_user_id}${event.subject_user_id ? ` \xB7 \u5BF9\u8C61 ${event.subject_user_id}` : ""}`));
+    const rows = (result.events || []).map((event) => listRow(`${event.action} \xB7 ${event.outcome}`, formatTranslation("serverSettings.auditMeta", { date: fmtDate(event.occurred_at), actor: event.actor_user_id, subject: event.subject_user_id ? formatTranslation("serverSettings.auditSubject", { subject: event.subject_user_id }) : "" })));
     replace("#settingsAuditList", ...rows);
   }
   var TAB_LOADERS = {
@@ -45292,14 +45541,14 @@ ${galleryText}`;
         await api("/api/auth/password", { method: "POST", ...jsonOptions({ current_password: data.get("current_password"), new_password: data.get("new_password") }) });
         form.reset();
         clearSystemSettingsDirty(form);
-        if (status) status.textContent = "\u5BC6\u7801\u5DF2\u66F4\u65B0";
+        if (status) status.textContent = translate("serverSettings.passwordUpdated");
         await loadSessions();
       } catch (error) {
         if (status) status.textContent = error instanceof Error ? error.message : String(error);
       }
     });
     document.querySelector("#settingsLogoutOtherSessions")?.addEventListener("click", async () => {
-      if (!window.confirm("\u786E\u5B9A\u9000\u51FA\u9664\u5F53\u524D\u8BBE\u5907\u5916\u7684\u5168\u90E8\u4F1A\u8BDD\u5417\uFF1F")) return;
+      if (!window.confirm(translate("serverSettings.confirmLogoutOthers"))) return;
       try {
         await api("/api/auth/sessions/logout-others", { method: "POST" });
         await loadSessions();
@@ -45313,7 +45562,7 @@ ${galleryText}`;
       const data = new FormData(form);
       try {
         const created = await api("/api/admin/users", { method: "POST", ...jsonOptions({ username: data.get("username") }) });
-        showCredential(`${created.user.username} \u7684\u4E34\u65F6\u5BC6\u7801\uFF1A${created.temporary_password}`);
+        showCredential(formatTranslation("serverSettings.temporaryPassword", { username: created.user.username, password: created.temporary_password }));
         form.reset();
         clearSystemSettingsDirty(form);
         await loadUsers();
@@ -45386,6 +45635,10 @@ ${galleryText}`;
     document.addEventListener("codex-image-settings-tab-change", (event) => {
       const tab = event.detail.tab;
       void loadTab(tab).catch(reportError);
+    });
+    document.addEventListener(LOCALE_CHANGE_EVENT, () => {
+      const panel = document.querySelector("#systemSettingsModal [data-system-settings-panel]:not([hidden])");
+      if (panel?.dataset.systemSettingsPanel) void loadTab(panel.dataset.systemSettingsPanel).catch(reportError);
     });
     document.querySelectorAll("#systemSettingsModal form[data-sensitive-form]").forEach((form) => {
       form.addEventListener("change", () => markSystemSettingsDirty(form));

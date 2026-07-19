@@ -359,7 +359,8 @@ function renderApiProviderDetail(): void {
   setElementText(els.apiProviderDetailConcurrency, normalizeApiImagesConcurrency(provider.images_concurrency));
   if (els.editApiProviderButton) els.editApiProviderButton.disabled = Boolean(provider.read_only);
   els.copyApiProviderButton?.classList.toggle("hidden", !state.apiSettings.allow_new_provider);
-  els.deleteApiProviderButton?.classList.toggle("hidden", !state.apiSettings.allow_new_provider);
+  const isServerWorkspace = Boolean(document.documentElement.dataset.userRole);
+  els.deleteApiProviderButton?.classList.toggle("hidden", isServerWorkspace || !state.apiSettings.allow_new_provider);
 }
 
 function renderApiProviderEditor(): void {
@@ -670,7 +671,7 @@ export function cancelApiProviderEdit(): void {
   state.apiProviderEditingId = null;
   state.apiProviderDraft = null;
   state.apiProviderDraftIsNew = false;
-  clearSystemSettingsDirty();
+  clearSystemSettingsDirty(els.apiProviderEditor);
   populateApiSettingsForm();
   setApiSettingsFeedback("", "");
   scrollActiveApiProviderCardIntoView(activeApiProvider().id, "center");
@@ -926,7 +927,7 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
     state.apiProviderEditingId = null;
     state.apiProviderDraft = null;
     state.apiProviderDraftIsNew = false;
-    if (!autoSave) clearSystemSettingsDirty();
+    if (!autoSave) clearSystemSettingsDirty(els.apiProviderEditor);
     persistApiSettings();
     populateApiSettingsForm();
     setApiSettingsFeedback(autoSave ? translate("apiSettings.autoSaved") : formatTranslation("apiSettings.savedSummary", {

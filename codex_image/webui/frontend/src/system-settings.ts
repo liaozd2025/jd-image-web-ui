@@ -1,10 +1,11 @@
 import { getLegacyBridge } from "./state";
 import { refreshSegmentedIndicators } from "./segmented-indicator";
+import { translate } from "./i18n";
 
 let systemSettingsFeatureInitialized = false;
 let activeTab = "account";
 let pendingUrlTab = "";
-let dirtyForm: HTMLFormElement | null = null;
+const dirtyOwners = new Set<HTMLElement>();
 let hasLooseDirtyInput = false;
 
 const PERSONAL_TABS = new Set(["account", "language", "api", "notifications", "usage"]);
@@ -61,32 +62,33 @@ function updateSettingsUrl(open: boolean, mode: SettingsHistoryMode = "replace")
 }
 
 function confirmDiscard(): boolean {
-  if (!dirtyForm && !hasLooseDirtyInput) return true;
-  const confirmed = window.confirm("当前页面有未保存的更改，确定放弃吗？");
+  if (!dirtyOwners.size && !hasLooseDirtyInput) return true;
+  const confirmed = window.confirm(translate("systemSettings.confirmDiscard"));
   if (confirmed) {
-    dirtyForm?.setAttribute("data-dirty", "false");
-    dirtyForm = null;
+    dirtyOwners.forEach((owner) => owner.setAttribute("data-dirty", "false"));
+    dirtyOwners.clear();
     hasLooseDirtyInput = false;
   }
   return confirmed;
 }
 
-export function markSystemSettingsDirty(form?: HTMLFormElement | null): void {
-  const target = form || document.querySelector<HTMLFormElement>("[data-sensitive-form]:focus-within");
+export function markSystemSettingsDirty(owner?: HTMLElement | null): void {
+  const target = owner || document.querySelector<HTMLElement>("[data-sensitive-form]:focus-within");
   if (!target) {
     hasLooseDirtyInput = true;
     return;
   }
-  if (dirtyForm && dirtyForm !== target) dirtyForm.dataset.dirty = "false";
-  dirtyForm = target;
+  dirtyOwners.add(target);
   target.dataset.dirty = "true";
 }
 
-export function clearSystemSettingsDirty(form?: HTMLFormElement | null): void {
-  if (form && dirtyForm !== form) return;
-  dirtyForm?.setAttribute("data-dirty", "false");
-  dirtyForm = null;
-  if (!form) hasLooseDirtyInput = false;
+export function clearSystemSettingsDirty(owner?: HTMLElement | null): void {
+  if (!owner) {
+    hasLooseDirtyInput = false;
+    return;
+  }
+  owner.setAttribute("data-dirty", "false");
+  dirtyOwners.delete(owner);
 }
 
 function applyRoleVisibility(): void {
@@ -163,7 +165,7 @@ function restoreSettingsFromHistory(): void {
   const modal = shell();
   if (params.get("settings") !== "1") {
     if (!modal?.classList.contains("hidden") && !confirmDiscard()) {
-      window.history.forward();
+      updateSettingsUrl(true, "replace");
       return;
     }
     modal?.classList.add("hidden");
@@ -173,7 +175,7 @@ function restoreSettingsFromHistory(): void {
   }
   const requested = normalizeTab(params.get("settingsTab") || params.get("tab") || "account");
   if (!modal?.classList.contains("hidden") && requested !== activeTab && !confirmDiscard()) {
-    window.history.forward();
+    updateSettingsUrl(true, "replace");
     return;
   }
   applyRoleVisibility();
@@ -226,7 +228,7 @@ export function initSystemSettingsFeature(): void {
   });
   window.addEventListener("popstate", restoreSettingsFromHistory);
   window.addEventListener("beforeunload", (event) => {
-    if (!dirtyForm && !hasLooseDirtyInput) return;
+    if (!dirtyOwners.size && !hasLooseDirtyInput) return;
     event.preventDefault();
     event.returnValue = "";
   });

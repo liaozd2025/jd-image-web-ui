@@ -905,25 +905,25 @@
       <main class="system-settings-main">
         <p id="systemSettingsGlobalStatus" class="system-settings-global-status" role="status" aria-live="polite"></p>
         <section id="systemSettingsAccountPanel" class="system-settings-section" data-system-settings-panel="account">
-          <header class="system-settings-page-heading"><p>个人</p><h2>账户与安全</h2><span>查看当前账户、修改密码并管理登录会话。</span></header>
+          <header class="system-settings-page-heading"><p data-i18n="systemSettings.personalGroup">个人</p><h2 data-i18n="systemSettings.accountTab">账户与安全</h2><span data-i18n="systemSettings.accountDescription">查看当前账户、修改密码并管理登录会话。</span></header>
           <div class="settings-card settings-account-summary">
-            <div class="settings-card-row"><span><strong>用户名</strong><small>管理员创建的登录账号</small></span><b id="settingsAccountUsername">--</b></div>
-            <div class="settings-card-row"><span><strong>角色</strong><small>决定可访问的系统设置范围</small></span><b id="settingsAccountRole">--</b></div>
+            <div class="settings-card-row"><span><strong data-i18n="systemSettings.username">用户名</strong><small data-i18n="systemSettings.usernameHelp">管理员创建的登录账号</small></span><b id="settingsAccountUsername">--</b></div>
+            <div class="settings-card-row"><span><strong data-i18n="systemSettings.role">角色</strong><small data-i18n="systemSettings.roleHelp">决定可访问的系统设置范围</small></span><b id="settingsAccountRole">--</b></div>
           </div>
           <form id="settingsPasswordForm" class="settings-card settings-form" data-sensitive-form>
-            <div class="settings-form-heading"><h3>修改密码</h3><p>保存后当前会话将更新，其他会话不会自动退出。</p></div>
-            <label><span>当前密码</span><input name="current_password" class="control" type="password" autocomplete="current-password" required /></label>
-            <label><span>新密码</span><input name="new_password" class="control" type="password" autocomplete="new-password" minlength="8" required /></label>
-            <div class="settings-form-actions"><span id="settingsPasswordStatus" class="settings-action-status" aria-live="polite"></span><button class="run-button" type="submit">更新密码</button></div>
+            <div class="settings-form-heading"><h3 data-i18n="systemSettings.changePassword">修改密码</h3><p data-i18n="systemSettings.changePasswordHelp">保存后将退出其他设备，仅保留新的当前会话。</p></div>
+            <label><span data-i18n="systemSettings.currentPassword">当前密码</span><input name="current_password" class="control" type="password" autocomplete="current-password" required /></label>
+            <label><span data-i18n="systemSettings.newPassword">新密码</span><input name="new_password" class="control" type="password" autocomplete="new-password" minlength="8" required /></label>
+            <div class="settings-form-actions"><span id="settingsPasswordStatus" class="settings-action-status" aria-live="polite"></span><button class="run-button" type="submit" data-i18n="systemSettings.updatePassword">更新密码</button></div>
           </form>
           <div class="settings-card">
-            <div class="settings-form-heading"><h3>登录会话</h3><p>可以退出其他设备上的会话；当前会话始终保留。</p></div>
+            <div class="settings-form-heading"><h3 data-i18n="systemSettings.sessions">登录会话</h3><p data-i18n="systemSettings.sessionsHelp">可以退出其他设备上的会话；当前会话始终保留。</p></div>
             <div id="settingsSessionList" class="settings-list" aria-live="polite"></div>
-            <div class="settings-form-actions"><button id="settingsLogoutOtherSessions" class="ghost-button danger-button" type="button">退出其他会话</button></div>
+            <div class="settings-form-actions"><button id="settingsLogoutOtherSessions" class="ghost-button danger-button" type="button" data-i18n="systemSettings.logoutOtherSessions">退出其他会话</button></div>
           </div>
         </section>
         <section id="systemSettingsApiPanel" class="system-settings-section" data-system-settings-panel="api" hidden aria-hidden="true">
-          <header class="system-settings-page-heading"><p>个人</p><h2>API 供应商</h2><span>配置当前账户可使用的图像生成供应商。</span></header>
+          <header class="system-settings-page-heading"><p data-i18n="systemSettings.personalGroup">个人</p><h2 data-i18n="systemSettings.apiProviderTab">API 供应商</h2><span data-i18n="systemSettings.apiDescription">配置当前账户可使用的图像生成供应商。</span></header>
           <div id="apiProviderSection" class="api-provider-section">
             <div class="api-provider-section-header">
               <div class="api-provider-section-title">
@@ -1093,10 +1093,10 @@
           </div>
         </section>
         <section id="systemSettingsLanguagePanel" class="system-settings-section" data-system-settings-panel="language" hidden aria-hidden="true">
-          <header class="system-settings-page-heading"><p>个人</p><h2>外观与语言</h2><span>这些偏好会立即生效并保存在当前浏览器。</span></header>
+          <header class="system-settings-page-heading"><p data-i18n="systemSettings.personalGroup">个人</p><h2 data-i18n="systemSettings.appearanceTab">外观与语言</h2><span data-i18n="systemSettings.appearanceDescription">这些偏好会立即生效并保存在当前浏览器。</span></header>
           <div class="settings-card">
             <div class="settings-card-row">
-              <span><strong>主题模式</strong><small>选择界面的明暗外观</small></span>
+              <span><strong data-i18n="theme.label">主题模式</strong><small data-i18n="systemSettings.themeDescription">选择界面的明暗外观</small></span>
               <div id="themeSwitcher" class="theme-switcher" aria-label="主题模式" data-i18n-attr="aria-label:theme.label">
                 <button class="theme-option" data-theme-option="system" type="button" aria-pressed="true" data-i18n="theme.system">跟随</button>
                 <button class="theme-option" data-theme-option="light" type="button" aria-pressed="false" data-i18n="theme.light">浅色</button>
@@ -1128,7 +1128,7 @@
           </div>
         </section>
         <section id="systemSettingsStoragePanel" class="system-settings-section" data-system-settings-panel="notifications" hidden aria-hidden="true">
-          <header class="system-settings-page-heading"><p>个人</p><h2>通知</h2><span>选择任务完成或失败时接收提醒的方式。</span></header>
+          <header class="system-settings-page-heading"><p data-i18n="systemSettings.personalGroup">个人</p><h2 data-i18n="systemSettings.notificationsTab">通知</h2><span data-i18n="systemSettings.notificationsDescription">选择任务完成或失败时接收提醒的方式。</span></header>
           <div class="notification-options-panel" aria-label="任务通知设置">
             <div class="notification-options-copy">
               <strong data-i18n="notifications.title">任务通知</strong>
@@ -1145,79 +1145,81 @@
           </div>
         </section>
         <section id="systemSettingsUsagePanel" class="system-settings-section" data-system-settings-panel="usage" hidden aria-hidden="true">
-          <header class="system-settings-page-heading"><p>个人</p><h2>存储与用量</h2><span>查看当前账户的真实存储空间与部门额度使用情况。</span></header>
+          <header class="system-settings-page-heading"><p data-i18n="systemSettings.personalGroup">个人</p><h2 data-i18n="systemSettings.usageTab">存储与用量</h2><span data-i18n="systemSettings.usageDescription">查看当前账户的真实存储空间与部门额度使用情况。</span></header>
           <div id="settingsUsageSummary" class="settings-metric-grid" aria-live="polite"></div>
         </section>
 
         <section class="system-settings-section" data-system-settings-panel="users" data-admin-only hidden aria-hidden="true">
-          <header class="system-settings-page-heading"><p>系统管理</p><h2>用户管理</h2><span>创建账号、重置密码以及启用或停用用户。</span></header>
+          <header class="system-settings-page-heading"><p data-i18n="systemSettings.adminGroup">系统管理</p><h2 data-i18n="systemSettings.usersTab">用户管理</h2><span data-i18n="systemSettings.usersDescription">创建账号、重置密码以及启用或停用用户。</span></header>
           <form id="settingsCreateUserForm" class="settings-card settings-inline-form" data-sensitive-form>
-            <label><span>新用户名</span><input name="username" class="control" type="text" autocomplete="off" minlength="3" required /></label>
-            <button class="run-button" type="submit">创建用户</button>
+            <label><span data-i18n="systemSettings.newUsername">新用户名</span><input name="username" class="control" type="text" autocomplete="off" minlength="3" required /></label>
+            <button class="run-button" type="submit" data-i18n="systemSettings.createUser">创建用户</button>
           </form>
           <div id="settingsTemporaryCredential" class="settings-callout hidden" aria-live="polite"></div>
           <div id="settingsUserList" class="settings-list settings-admin-list" aria-live="polite"></div>
         </section>
 
         <section class="system-settings-section" data-system-settings-panel="catalog" data-admin-only hidden aria-hidden="true">
-          <header class="system-settings-page-heading"><p>系统管理</p><h2>供应商目录</h2><span>维护部门可配置的供应商版本、模型和启用状态。</span></header>
+          <header class="system-settings-page-heading"><p data-i18n="systemSettings.adminGroup">系统管理</p><h2 data-i18n="systemSettings.catalogTab">供应商目录</h2><span data-i18n="systemSettings.catalogDescription">维护部门可配置的供应商版本、模型和启用状态。</span></header>
           <form id="settingsCatalogForm" class="settings-card settings-form" data-sensitive-form>
             <div class="settings-form-grid">
-              <label><span>标识</span><input name="provider_key" class="control" type="text" required /></label>
-              <label><span>名称</span><input name="display_name" class="control" type="text" required /></label>
+              <label><span data-i18n="systemSettings.identifier">标识</span><input name="provider_key" class="control" type="text" required /></label>
+              <label><span data-i18n="systemSettings.name">名称</span><input name="display_name" class="control" type="text" required /></label>
               <label><span>Base URL</span><input name="base_url" class="control" type="url" required /></label>
-              <label><span>API 模式</span><select name="api_mode" class="control"><option value="images">Images</option><option value="responses">Responses</option></select></label>
-              <label class="settings-form-wide"><span>模型（逗号分隔）</span><input name="models" class="control" type="text" placeholder="gpt-image-2" required /></label>
+              <label><span data-i18n="systemSettings.apiMode">API 模式</span><select name="api_mode" class="control"><option value="images">Images</option><option value="responses">Responses</option></select></label>
+              <label class="settings-form-wide"><span data-i18n="systemSettings.modelsCsv">模型（逗号分隔）</span><input name="models" class="control" type="text" placeholder="gpt-image-2" required /></label>
             </div>
-            <div class="settings-form-actions"><span id="settingsCatalogStatus" class="settings-action-status"></span><button class="run-button" type="submit">新增版本</button></div>
+            <div class="settings-form-actions"><span id="settingsCatalogStatus" class="settings-action-status"></span><button class="run-button" type="submit" data-i18n="systemSettings.addVersion">新增版本</button></div>
           </form>
           <div id="settingsCatalogList" class="settings-list settings-admin-list"></div>
         </section>
 
         <section class="system-settings-section" data-system-settings-panel="department" data-admin-only hidden aria-hidden="true">
-          <header class="system-settings-page-heading"><p>系统管理</p><h2>部门供应商与额度</h2><span>配置部门级凭据、默认额度和用户额度。</span></header>
+          <header class="system-settings-page-heading"><p data-i18n="systemSettings.adminGroup">系统管理</p><h2 data-i18n="systemSettings.departmentTab">部门供应商与额度</h2><span data-i18n="systemSettings.departmentDescription">配置部门级凭据、默认额度和用户额度。</span></header>
           <form id="settingsDepartmentQuotaForm" class="settings-card settings-inline-form" data-sensitive-form>
-            <label><span>部门周期总额度</span><input name="quota_units" class="control" type="number" min="0" step="1" required /></label>
-            <button class="run-button" type="submit">保存额度</button>
+            <label><span data-i18n="systemSettings.departmentQuota">部门周期总额度</span><input name="quota_units" class="control" type="number" min="0" step="1" required /></label>
+            <button class="run-button" type="submit" data-i18n="systemSettings.saveQuota">保存额度</button>
           </form>
-          <h3 class="settings-section-title">供应商凭据</h3><div id="settingsDepartmentProviderList" class="settings-list settings-admin-list"></div>
-          <h3 class="settings-section-title">用户额度</h3><div id="settingsUserQuotaList" class="settings-list settings-admin-list"></div>
+          <h3 class="settings-section-title" data-i18n="systemSettings.providerCredentials">供应商凭据</h3><div id="settingsDepartmentProviderList" class="settings-list settings-admin-list"></div>
+          <h3 class="settings-section-title" data-i18n="systemSettings.userQuota">用户额度</h3><div id="settingsUserQuotaList" class="settings-list settings-admin-list"></div>
         </section>
 
         <section class="system-settings-section" data-system-settings-panel="shared" data-admin-only hidden aria-hidden="true">
-          <header class="system-settings-page-heading"><p>系统管理</p><h2>共享资产与存储</h2><span>设置共享空间配额并管理资产可见状态。</span></header>
+          <header class="system-settings-page-heading"><p data-i18n="systemSettings.adminGroup">系统管理</p><h2 data-i18n="systemSettings.sharedTab">共享资产与存储</h2><span data-i18n="systemSettings.sharedDescription">设置共享空间配额并管理资产可见状态。</span></header>
           <form id="settingsSharedQuotaForm" class="settings-card settings-inline-form" data-sensitive-form>
-            <label><span>共享空间（MB）</span><input name="quota_mb" class="control" type="number" min="1" step="1" required /></label>
-            <button class="run-button" type="submit">保存空间</button>
+            <label><span data-i18n="systemSettings.sharedQuotaMb">共享空间（MB）</span><input name="quota_mb" class="control" type="number" min="1" step="1" required /></label>
+            <button class="run-button" type="submit" data-i18n="systemSettings.saveStorage">保存空间</button>
           </form>
           <div id="settingsSharedAssetList" class="settings-list settings-admin-list"></div>
         </section>
 
         <section class="system-settings-section" data-system-settings-panel="scheduler" data-admin-only hidden aria-hidden="true">
-          <header class="system-settings-page-heading"><p>系统管理</p><h2>任务调度</h2><span>调整全局与单用户并发上限，查看当前队列。</span></header>
+          <header class="system-settings-page-heading"><p data-i18n="systemSettings.adminGroup">系统管理</p><h2 data-i18n="systemSettings.schedulerTab">任务调度</h2><span data-i18n="systemSettings.schedulerDescription">调整全局与单用户并发上限，查看当前队列。</span></header>
           <form id="settingsSchedulerForm" class="settings-card settings-form" data-sensitive-form>
             <div class="settings-form-grid">
-              <label><span>全局并发</span><input name="global_concurrency" class="control" type="number" min="1" required /></label>
-              <label><span>单用户并发</span><input name="per_user_concurrency" class="control" type="number" min="1" required /></label>
+              <label><span data-i18n="systemSettings.globalConcurrency">全局并发</span><input name="global_concurrency" class="control" type="number" min="1" required /></label>
+              <label><span data-i18n="systemSettings.perUserConcurrency">单用户并发</span><input name="per_user_concurrency" class="control" type="number" min="1" required /></label>
             </div>
-            <div class="settings-form-actions"><button class="run-button" type="submit">保存调度设置</button></div>
+            <div class="settings-form-actions"><button class="run-button" type="submit" data-i18n="systemSettings.saveScheduler">保存调度设置</button></div>
           </form>
-          <div id="settingsSchedulerSummary" class="settings-metric-grid"></div><div id="settingsSchedulerUsers" class="settings-list settings-admin-list"></div>
+          <div id="settingsSchedulerSummary" class="settings-metric-grid"></div>
+          <h3 class="settings-section-title" data-i18n="systemSettings.blockedDetails">阻塞详情</h3><div id="settingsSchedulerBlocked" class="settings-list settings-admin-list"></div>
+          <h3 class="settings-section-title" data-i18n="systemSettings.userQueues">用户队列</h3><div id="settingsSchedulerUsers" class="settings-list settings-admin-list"></div>
         </section>
 
         <section class="system-settings-section" data-system-settings-panel="content" data-admin-only hidden aria-hidden="true">
-          <header class="system-settings-page-heading"><p>系统管理</p><h2>用户内容只读查看</h2><span>按用户查看任务、资产与用量；此处不提供编辑或删除。</span></header>
-          <label class="settings-card settings-content-picker"><span>选择用户</span><select id="settingsContentUser" class="control"></select></label>
+          <header class="system-settings-page-heading"><p data-i18n="systemSettings.adminGroup">系统管理</p><h2 data-i18n="systemSettings.contentTab">用户内容只读查看</h2><span data-i18n="systemSettings.contentDescription">按用户查看任务、资产与用量；此处不提供编辑或删除。</span></header>
+          <label class="settings-card settings-content-picker"><span data-i18n="systemSettings.selectUser">选择用户</span><select id="settingsContentUser" class="control"></select></label>
           <div id="settingsContentSummary" class="settings-metric-grid"></div>
-          <h3 class="settings-section-title">最近任务</h3><div id="settingsContentTasks" class="settings-list settings-admin-list"></div>
-          <h3 class="settings-section-title">最近资产</h3><div id="settingsContentAssets" class="settings-list settings-admin-list"></div>
+          <h3 class="settings-section-title" data-i18n="systemSettings.recentTasks">最近任务</h3><div id="settingsContentTasks" class="settings-list settings-admin-list"></div>
+          <h3 class="settings-section-title" data-i18n="systemSettings.recentAssets">最近资产</h3><div id="settingsContentAssets" class="settings-list settings-admin-list"></div>
         </section>
 
         <section class="system-settings-section" data-system-settings-panel="audit" data-admin-only hidden aria-hidden="true">
-          <header class="system-settings-page-heading"><p>系统管理</p><h2>审计日志</h2><span>查看管理员操作及其结果。</span></header>
+          <header class="system-settings-page-heading"><p data-i18n="systemSettings.adminGroup">系统管理</p><h2 data-i18n="systemSettings.auditTab">审计日志</h2><span data-i18n="systemSettings.auditDescription">查看管理员操作及其结果。</span></header>
           <form id="settingsAuditFilter" class="settings-card settings-inline-form">
-            <label><span>操作</span><input name="action" class="control" type="search" placeholder="例如 user.create" /></label>
-            <button class="ghost-button" type="submit">筛选</button>
+            <label><span data-i18n="systemSettings.action">操作</span><input name="action" class="control" type="search" placeholder="例如 user.create" data-i18n-attr="placeholder:systemSettings.actionPlaceholder" /></label>
+            <button class="ghost-button" type="submit" data-i18n="systemSettings.filter">筛选</button>
           </form>
           <div id="settingsAuditList" class="settings-list settings-admin-list"></div>
         </section>

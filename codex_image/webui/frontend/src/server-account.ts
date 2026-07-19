@@ -22,8 +22,16 @@ export function getCurrentServerUser(): CurrentUser | null {
   return currentUser;
 }
 
+function cookieValue(name: string): string {
+  const prefix = `${name}=`;
+  const match = document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(prefix));
+  return match ? decodeURIComponent(match.slice(prefix.length)) : "";
+}
+
 export function getCsrfToken(): string {
-  return csrfToken;
+  // Password changes rotate the CSRF cookie. Prefer the live cookie so later
+  // settings saves in the same page do not reuse the bootstrap token.
+  return cookieValue("jd_image_csrf") || csrfToken;
 }
 
 function initials(username: string): string {
@@ -94,11 +102,7 @@ async function logout(): Promise<void> {
   try {
     const response = await fetch("/api/auth/logout", {
       method: "POST",
-      headers: {
-        "X-CSRF-Token": decodeURIComponent(
-          document.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("jd_image_csrf="))?.slice("jd_image_csrf=".length) || csrfToken,
-        ),
-      },
+      headers: { "X-CSRF-Token": getCsrfToken() },
     });
     if (response.ok) window.location.assign("/login");
   } finally {
