@@ -45682,6 +45682,12 @@ ${galleryText}`;
   var assetBrowser = { page: 1, page_size: 20, query: "", status: "", kind: "", state: "active", category_id: "" };
   var currentContentView = "tasks";
   var searchTimers = /* @__PURE__ */ new Map();
+  var previewRequestId = 0;
+  var sharedListRequestId = 0;
+  var taskListRequestId = 0;
+  var assetListRequestId = 0;
+  var contentUsageRequestId = 0;
+  var previewReturnFocus = null;
   async function api(path, options = {}) {
     const headers = new Headers(options.headers || {});
     const method = String(options.method || "GET").toUpperCase();
@@ -45851,8 +45857,12 @@ ${galleryText}`;
   function makePreviewable(card, open) {
     card.role = "button";
     card.tabIndex = 0;
-    card.addEventListener("click", () => void open());
+    card.addEventListener("click", () => {
+      card.focus({ preventScroll: true });
+      void open();
+    });
     card.addEventListener("keydown", (event) => {
+      if (event.target !== card) return;
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
       void open();
@@ -45861,13 +45871,13 @@ ${galleryText}`;
   function assetMedia(asset) {
     const media = document.createElement("div");
     media.className = "settings-content-media";
-    if (asset.thumbnail_url && asset.file_available !== false) {
+    if (asset.file_available === false) {
+      media.append(contentPlaceholder(translate("serverSettings.originalFileRemoved")));
+    } else if (asset.thumbnail_url) {
       media.append(thumbnailImage(asset.thumbnail_url, asset.name));
     } else if (["prompt", "template"].includes(asset.asset_kind)) {
       const excerpt = textElement("pre", asset.content_excerpt || translate("serverSettings.noTextContent"), "settings-content-excerpt");
       media.append(excerpt);
-    } else if (asset.file_available === false) {
-      media.append(contentPlaceholder(translate("serverSettings.originalFileRemoved")));
     } else {
       const version = asset.current_version || {};
       media.append(contentPlaceholder(`${assetKindLabel(asset.asset_kind)}
@@ -45876,11 +45886,18 @@ ${fmtBytes(version.byte_size)}`));
     }
     return media;
   }
+  function taskOutputPlaceholder(task, output) {
+    if (output.storage_purged || task.status === "completed" && output.file_available === false) return translate("serverSettings.originalFileRemoved");
+    if (output.deleted) return translate("serverSettings.deletedOutput");
+    return task.error_message || taskStatusLabel(output.status || task.status);
+  }
   function sharedAssetCard(asset) {
     const card = document.createElement("article");
     card.className = "settings-content-card";
+    const previewSurface = document.createElement("div");
+    previewSurface.className = "settings-content-card-preview";
+    makePreviewable(previewSurface, () => openSharedPreview(asset));
     const media = assetMedia(asset);
-    media.addEventListener("click", () => void openSharedPreview(asset));
     const copy = document.createElement("div");
     copy.className = "settings-content-card-copy";
     const status = textElement("span", translate(asset.is_active ? "serverSettings.active" : "serverSettings.inactive"), `settings-content-status ${asset.is_active ? "active" : "inactive"}`);
@@ -45893,7 +45910,6 @@ ${fmtBytes(version.byte_size)}`));
     if (asset.prompt_note) copy.append(textElement("p", asset.prompt_note, "settings-content-card-prompt"));
     const rowActions = actions();
     rowActions.classList.add("settings-content-card-actions");
-    rowActions.addEventListener("click", (event) => event.stopPropagation());
     if (asset.is_active && ["image", "reference"].includes(asset.asset_kind)) {
       rowActions.append(actionButton(translate("serverSettings.use"), async () => {
         const gallery = await api("/api/gallery");
@@ -45911,8 +45927,8 @@ ${fmtBytes(version.byte_size)}`));
       });
       await loadShared();
     }, asset.is_active));
-    copy.append(rowActions);
-    card.append(media, copy);
+    previewSurface.append(media, copy);
+    card.append(previewSurface, rowActions);
     return card;
   }
   function taskCard(userId, task) {
@@ -45927,7 +45943,7 @@ ${fmtBytes(version.byte_size)}`));
       outputGrid.className = "settings-task-output-grid";
       outputs.forEach((output) => {
         if (output.thumbnail_url && !output.deleted) outputGrid.append(thumbnailImage(output.thumbnail_url, `${task.task_id} #${output.index}`));
-        else outputGrid.append(contentPlaceholder(output.deleted ? translate("serverSettings.deletedOutput") : translate("serverSettings.originalFileRemoved")));
+        else outputGrid.append(contentPlaceholder(taskOutputPlaceholder(task, output)));
       });
       media.append(outputGrid);
     } else {
@@ -45935,10 +45951,11 @@ ${fmtBytes(version.byte_size)}`));
     }
     const copy = document.createElement("div");
     copy.className = "settings-content-card-copy";
+    const visibleStatus = task.deleted ? `${translate("systemSettings.deletedOnly")} \xB7 ${taskStatusLabel(task.status)}` : taskStatusLabel(task.status);
     copy.append(
-      textElement("span", taskStatusLabel(task.status), `settings-content-status ${task.status}${task.deleted ? " deleted" : ""}`),
+      textElement("span", visibleStatus, `settings-content-status ${task.status}${task.deleted ? " deleted" : ""}`),
       textElement("h3", task.task_id, "settings-content-card-title"),
-      textElement("p", `${task.model_id} \xB7 ${fmtDate(task.created_at)} \xB7 ${formatTranslation("serverSettings.resultCount", { count: outputs.filter((item) => !item.deleted).length })}`, "settings-content-card-meta"),
+      textElement("p", `${task.model_id} \xB7 ${fmtDate(task.created_at)} \xB7 ${formatTranslation("serverSettings.resultCount", { count: task.generated_count ?? outputs.filter((item) => Boolean(item.thumbnail_url) && !item.deleted).length })}`, "settings-content-card-meta"),
       textElement("p", task.prompt || translate("serverSettings.noPrompt"), "settings-content-card-prompt")
     );
     card.append(media, copy);
@@ -45962,6 +45979,9 @@ ${fmtBytes(version.byte_size)}`));
   function showPreview(title, meta, ...content) {
     const preview = document.querySelector("#settingsContentPreview");
     if (!preview) return;
+    if (preview.classList.contains("hidden")) {
+      previewReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    }
     const titleNode = preview.querySelector("#settingsContentPreviewTitle");
     const metaNode = preview.querySelector("#settingsContentPreviewMeta");
     const body = preview.querySelector("#settingsContentPreviewBody");
@@ -45973,37 +45993,50 @@ ${fmtBytes(version.byte_size)}`));
     preview.querySelector("#settingsContentPreviewClose")?.focus();
   }
   function closeContentPreview() {
+    previewRequestId += 1;
     const preview = document.querySelector("#settingsContentPreview");
+    const wasOpen = Boolean(preview && !preview.classList.contains("hidden"));
     preview?.classList.add("hidden");
     preview?.setAttribute("aria-hidden", "true");
+    if (wasOpen && previewReturnFocus?.isConnected) previewReturnFocus.focus({ preventScroll: true });
+    previewReturnFocus = null;
   }
   async function openTaskPreview(userId, taskId) {
+    const requestId = ++previewRequestId;
     showPreview(taskId, translate("serverSettings.loadingPreview"), contentPlaceholder(translate("serverSettings.loadingPreview")));
     try {
       const result = await api(`/api/admin/users/${encodeURIComponent(userId)}/tasks/${encodeURIComponent(taskId)}`);
+      if (requestId !== previewRequestId) return;
       const task = result.task;
       const details = textElement("p", task.prompt || translate("serverSettings.noPrompt"), "settings-content-preview-details");
       const outputs = document.createElement("div");
       outputs.className = "settings-content-preview-images";
       (task.outputs || []).forEach((output) => {
         if (output.preview_url && !output.deleted) outputs.append(thumbnailImage(output.preview_url, `${task.task_id} #${output.index}`));
-        else outputs.append(contentPlaceholder(output.deleted ? translate("serverSettings.deletedOutput") : translate("serverSettings.originalFileRemoved")));
+        else outputs.append(contentPlaceholder(taskOutputPlaceholder(task, output)));
       });
       if (!outputs.childElementCount) outputs.append(contentPlaceholder(task.error_message || taskStatusLabel(task.status)));
-      showPreview(task.task_id, `${taskStatusLabel(task.status)} \xB7 ${task.model_id} \xB7 ${fmtDate(task.created_at)}`, details, outputs);
+      const visibleStatus = task.deleted ? `${translate("systemSettings.deletedOnly")} \xB7 ${taskStatusLabel(task.status)}` : taskStatusLabel(task.status);
+      showPreview(task.task_id, `${visibleStatus} \xB7 ${task.model_id} \xB7 ${fmtDate(task.created_at)}`, details, outputs);
     } catch (error) {
-      closeContentPreview();
-      reportError(error);
+      if (requestId === previewRequestId) {
+        closeContentPreview();
+        reportError(error);
+      }
     }
   }
   async function openAssetPreview(userId, assetId) {
+    const requestId = ++previewRequestId;
     showPreview(assetId, translate("serverSettings.loadingPreview"), contentPlaceholder(translate("serverSettings.loadingPreview")));
     try {
       const result = await api(`/api/admin/users/${encodeURIComponent(userId)}/assets/${encodeURIComponent(assetId)}`);
+      if (requestId !== previewRequestId) return;
       const asset = result.asset;
       const version = asset.current_version || {};
       let content;
-      if (asset.preview_url && asset.file_available !== false) {
+      if (asset.file_available === false) {
+        content = contentPlaceholder(translate("serverSettings.originalFileRemoved"));
+      } else if (asset.preview_url) {
         const images = document.createElement("div");
         images.className = "settings-content-preview-images";
         images.append(thumbnailImage(asset.preview_url, asset.name));
@@ -46011,22 +46044,28 @@ ${fmtBytes(version.byte_size)}`));
       } else if (["prompt", "template"].includes(asset.asset_kind)) {
         content = textElement("pre", asset.content_text || translate("serverSettings.noTextContent"), "settings-content-preview-text");
       } else {
-        content = contentPlaceholder(asset.file_available === false ? translate("serverSettings.originalFileRemoved") : translate("serverSettings.genericFilePreviewBlocked"));
+        content = contentPlaceholder(translate("serverSettings.genericFilePreviewBlocked"));
       }
-      showPreview(asset.name, `${assetKindLabel(asset.asset_kind)} \xB7 ${version.original_filename || "--"} \xB7 ${fmtBytes(version.byte_size)} \xB7 ${fmtDate(asset.updated_at)}`, content);
+      showPreview(asset.name, `${assetKindLabel(asset.asset_kind)} \xB7 ${translate(asset.deleted ? "systemSettings.deletedOnly" : "serverSettings.active")} \xB7 ${version.original_filename || "--"} \xB7 ${fmtBytes(version.byte_size)} \xB7 ${fmtDate(asset.updated_at)}`, content);
     } catch (error) {
-      closeContentPreview();
-      reportError(error);
+      if (requestId === previewRequestId) {
+        closeContentPreview();
+        reportError(error);
+      }
     }
   }
   async function openSharedPreview(asset) {
+    const requestId = ++previewRequestId;
     showPreview(asset.name, translate("serverSettings.loadingPreview"), contentPlaceholder(translate("serverSettings.loadingPreview")));
     try {
       const result = await api(`/api/admin/shared-assets/${encodeURIComponent(asset.asset_id)}`);
+      if (requestId !== previewRequestId) return;
       const detail = result.asset;
       const version = detail.current_version || {};
       let content;
-      if (detail.preview_url && detail.file_available !== false) {
+      if (detail.file_available === false) {
+        content = contentPlaceholder(translate("serverSettings.originalFileRemoved"));
+      } else if (detail.preview_url) {
         const images = document.createElement("div");
         images.className = "settings-content-preview-images";
         images.append(thumbnailImage(detail.preview_url, detail.name));
@@ -46034,12 +46073,14 @@ ${fmtBytes(version.byte_size)}`));
       } else if (["prompt", "template"].includes(detail.asset_kind)) {
         content = textElement("pre", detail.content_text || translate("serverSettings.noTextContent"), "settings-content-preview-text");
       } else {
-        content = contentPlaceholder(detail.file_available === false ? translate("serverSettings.originalFileRemoved") : translate("serverSettings.genericFilePreviewBlocked"));
+        content = contentPlaceholder(translate("serverSettings.genericFilePreviewBlocked"));
       }
-      showPreview(detail.name, `${assetKindLabel(detail.asset_kind)} \xB7 ${detail.category_name || translate("systemSettings.uncategorized")} \xB7 ${version.original_filename || "--"} \xB7 ${fmtBytes(version.byte_size)}`, content);
+      showPreview(detail.name, `${assetKindLabel(detail.asset_kind)} \xB7 ${translate(detail.is_active ? "serverSettings.active" : "serverSettings.inactive")} \xB7 ${detail.category_name || translate("systemSettings.uncategorized")} \xB7 ${version.original_filename || "--"} \xB7 ${fmtBytes(version.byte_size)} \xB7 ${fmtDate(detail.updated_at)}`, content);
     } catch (error) {
-      closeContentPreview();
-      reportError(error);
+      if (requestId === previewRequestId) {
+        closeContentPreview();
+        reportError(error);
+      }
     }
   }
   async function loadSessions() {
@@ -46240,12 +46281,14 @@ ${fmtBytes(version.byte_size)}`));
     replacePreservingDynamicDrafts("#settingsUserQuotaList", ...quotaRows);
   }
   async function loadShared() {
+    const requestId = ++sharedListRequestId;
     const query = pageQuery(sharedBrowser, ["query", "kind", "status", "category_id"]);
     const [storageResult, assetResult, categoryResult] = await Promise.all([
       api("/api/admin/shared-storage"),
       api(`/api/admin/shared-assets?${query}`),
       api("/api/shared-gallery/categories")
     ]);
+    if (requestId !== sharedListRequestId) return;
     const storage = storageResult.storage || {};
     replace(
       "#settingsSharedStorageSummary",
@@ -46307,6 +46350,7 @@ ${fmtBytes(version.byte_size)}`));
     if (previous && [...select.options].some((option) => option.value === previous)) select.value = previous;
   }
   async function loadContent() {
+    const requestId = ++contentUsageRequestId;
     if (!managedUsers.length) await loadUsers();
     populateContentUsers();
     const select = document.querySelector("#settingsContentUser");
@@ -46321,13 +46365,16 @@ ${fmtBytes(version.byte_size)}`));
     const contentPromise = currentContentView === "tasks" ? loadContentTasks(userId) : loadContentAssets(userId);
     const usageResult = await usagePromise;
     await contentPromise;
+    if (requestId !== contentUsageRequestId || select?.value !== userId) return;
     const usage = usageResult.usage || {};
     const taskCount = Object.values(usage.tasks || {}).reduce((sum, value) => sum + Number(value || 0), 0);
     replace("#settingsContentSummary", metric(translate("serverSettings.totalTasks"), String(taskCount)), metric(translate("serverSettings.storageUsed"), fmtBytes(usage.storage?.used_bytes)), metric(translate("serverSettings.departmentQuotaUsed"), String(usage.department_quota?.consumed_units ?? 0)));
   }
   async function loadContentTasks(userId) {
+    const requestId = ++taskListRequestId;
     const query = pageQuery(taskBrowser, ["query", "status", "state"]);
     const result = await api(`/api/admin/users/${encodeURIComponent(userId)}/tasks?${query}`);
+    if (requestId !== taskListRequestId || currentContentView !== "tasks" || document.querySelector("#settingsContentUser")?.value !== userId) return;
     const cards = (result.tasks || []).map((task) => taskCard(userId, task));
     replace("#settingsContentTasksGrid", ...cards.length ? cards : [textElement("p", translate("serverSettings.noTasks"), "settings-empty-state")]);
     renderPagination("#settingsContentTasksPagination", result.pagination, (page) => {
@@ -46336,8 +46383,10 @@ ${fmtBytes(version.byte_size)}`));
     });
   }
   async function loadContentAssets(userId) {
+    const requestId = ++assetListRequestId;
     const query = pageQuery(assetBrowser, ["query", "kind", "state"]);
     const result = await api(`/api/admin/users/${encodeURIComponent(userId)}/assets?${query}`);
+    if (requestId !== assetListRequestId || currentContentView !== "assets" || document.querySelector("#settingsContentUser")?.value !== userId) return;
     const cards = (result.assets || []).map((asset) => personalAssetCard(userId, asset));
     replace("#settingsContentAssetsGrid", ...cards.length ? cards : [textElement("p", translate("serverSettings.noAssets"), "settings-empty-state")]);
     renderPagination("#settingsContentAssetsPagination", result.pagination, (page) => {
@@ -46527,8 +46576,24 @@ ${fmtBytes(version.byte_size)}`));
       void loadContent().catch(reportError);
     });
     document.querySelectorAll("[data-preview-close]").forEach((button) => button.addEventListener("click", closeContentPreview));
+    document.querySelector("#settingsContentPreview")?.addEventListener("keydown", (event) => {
+      if (event.key !== "Tab") return;
+      const focusable = [...event.currentTarget.querySelectorAll(
+        'button:not([disabled]):not([tabindex="-1"]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )].filter((element2) => !element2.hidden);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") closeContentPreview();
+      if (event.key === "Escape" && !document.querySelector("#settingsContentPreview.hidden")) closeContentPreview();
     });
   }
   function initServerSettingsFeature() {

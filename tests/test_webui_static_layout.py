@@ -3100,6 +3100,18 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertIn('api("/api/admin/shared-storage")', settings_source)
         self.assertIn("page_size: 20", settings_source)
         self.assertIn('image.loading = "lazy"', settings_source)
+        self.assertIn("requestId !== sharedListRequestId", settings_source)
+        self.assertIn("requestId !== taskListRequestId", settings_source)
+        self.assertIn("requestId !== assetListRequestId", settings_source)
+        self.assertIn("select?.value !== userId", settings_source)
+        self.assertIn("requestId !== previewRequestId", settings_source)
+        self.assertIn("function taskOutputPlaceholder", settings_source)
+        self.assertIn('task.status === "completed" && output.file_available === false', settings_source)
+        self.assertLess(
+            settings_source.index("if (output.storage_purged"),
+            settings_source.index("if (output.deleted)"),
+        )
+        self.assertIn('task.deleted\n    ? `${translate("systemSettings.deletedOnly")}', settings_source)
         self.assertNotIn("shared-storage-quota", settings_source)
         self.assertNotIn("tasks?limit=100", settings_source)
         self.assertNotIn("assets?limit=100", settings_source)

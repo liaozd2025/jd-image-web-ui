@@ -62,6 +62,7 @@ class GenerationTask:
     updated_at: str
     deleted_at: str | None
     purge_after: str | None
+    storage_purged_at: str | None
     cancel_requested: bool
     cancel_requested_at: str | None
     cancelled_at: str | None
@@ -1529,6 +1530,9 @@ class GenerationTaskRepository:
             updated_at=row["updated_at"].isoformat(),
             deleted_at=row.get("deleted_at").isoformat() if row.get("deleted_at") else None,
             purge_after=row.get("purge_after").isoformat() if row.get("purge_after") else None,
+            storage_purged_at=(
+                row.get("storage_purged_at").isoformat() if row.get("storage_purged_at") else None
+            ),
             cancel_requested=bool(row.get("cancel_requested", False)),
             cancel_requested_at=(
                 row.get("cancel_requested_at").isoformat() if row.get("cancel_requested_at") else None

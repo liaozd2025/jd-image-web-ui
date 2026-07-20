@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import ExitStack
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -94,6 +95,7 @@ class ServerAdminViewTests(unittest.TestCase):
         from codex_image.server.app import create_server_app
         from codex_image.server.config import ServerSettings
         from codex_image.server.database import PostgresConnections
+        from codex_image.server.maintenance import purge_expired_trash
 
         with temporary_postgres_database(TEST_DATABASE_URL) as database_url:
             with tempfile.TemporaryDirectory() as tmp:
@@ -187,12 +189,88 @@ class ServerAdminViewTests(unittest.TestCase):
                                         None,
                                     ),
                                 )
+                            for task_status in ("cancelled", "interrupted"):
+                                cursor.execute(
+                                    """
+                                    INSERT INTO server_generation_tasks (
+                                        task_id, user_id, provider_version_id, model_id, prompt,
+                                        request_parameters, status, queue_position
+                                    ) VALUES (%s, %s, %s, %s, %s, '{"n":2}'::jsonb, %s, 40)
+                                    """,
+                                    (
+                                        f"content-page-task-{task_status}",
+                                        target_user_id,
+                                        provider_version_id,
+                                        "content-page-model",
+                                        f"{task_status} 状态占位",
+                                        task_status,
+                                    ),
+                                )
                             cursor.execute(
                                 """
                                 UPDATE server_generation_tasks
                                 SET deleted_at = CURRENT_TIMESTAMP
                                 WHERE task_id = 'content-page-task-21'
                                 """
+                            )
+                            purged_output = [{
+                                "index": 1,
+                                "relative_path": f"tasks/{target_user_id}/purged-task.png",
+                                "thumbnail_relative_path": f"tasks/{target_user_id}/purged-task.thumb.jpg",
+                                "media_type": "image/png",
+                                "output_format": "png",
+                                "byte_size": 10,
+                                "thumbnail_bytes": 5,
+                            }]
+                            cursor.execute(
+                                """
+                                INSERT INTO server_generation_tasks (
+                                    task_id, user_id, provider_version_id, model_id, prompt,
+                                    request_parameters, status, queue_position, output_files,
+                                    result_relative_path, thumbnail_relative_path, result_media_type,
+                                    result_bytes, thumbnail_bytes, completed_at, storage_purged_at
+                                ) VALUES (
+                                    %s, %s, %s, %s, %s, '{"n":1}'::jsonb, 'completed', 30,
+                                    %s::jsonb, %s, %s, 'image/png', 10, 5,
+                                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                                )
+                                """,
+                                (
+                                    "content-page-task-purged",
+                                    target_user_id,
+                                    provider_version_id,
+                                    "content-page-model",
+                                    "整任务文件已清理",
+                                    json.dumps(purged_output),
+                                    purged_output[0]["relative_path"],
+                                    purged_output[0]["thumbnail_relative_path"],
+                                ),
+                            )
+                            purged_output[0]["storage_purged_at"] = "2000-01-01T00:00:00+00:00"
+                            purged_output[0]["deleted"] = True
+                            purged_output[0]["deleted_at"] = "2000-01-01T00:00:00+00:00"
+                            cursor.execute(
+                                """
+                                INSERT INTO server_generation_tasks (
+                                    task_id, user_id, provider_version_id, model_id, prompt,
+                                    request_parameters, status, queue_position, output_files,
+                                    result_relative_path, thumbnail_relative_path, result_media_type,
+                                    result_bytes, thumbnail_bytes, completed_at
+                                ) VALUES (
+                                    %s, %s, %s, %s, %s, '{"n":1}'::jsonb, 'completed', 31,
+                                    %s::jsonb, %s, %s, 'image/png', 10, 5, CURRENT_TIMESTAMP
+                                )
+                                """,
+                                (
+                                    "content-page-output-purged",
+                                    target_user_id,
+                                    provider_version_id,
+                                    "content-page-model",
+                                    "单结果文件已清理",
+                                    json.dumps(purged_output),
+                                    purged_output[0]["relative_path"],
+                                    purged_output[0]["thumbnail_relative_path"],
+                                ),
                             )
 
                     task_page = admin.get(
@@ -215,6 +293,28 @@ class ServerAdminViewTests(unittest.TestCase):
                         f"/api/admin/users/{target_user_id}/tasks?page=1&page_size=20&state=deleted"
                     )
                     self.assertEqual(deleted_tasks.json()["pagination"]["total_items"], 1)
+                    for purged_task_id in (
+                        "content-page-task-purged",
+                        "content-page-output-purged",
+                    ):
+                        purged_task = admin.get(
+                            f"/api/admin/users/{target_user_id}/tasks?page=1&page_size=20&query={purged_task_id}"
+                        ).json()["tasks"][0]
+                        self.assertIsNone(purged_task["outputs"][0]["thumbnail_url"])
+                        self.assertIsNone(purged_task["outputs"][0]["preview_url"])
+                        self.assertFalse(purged_task["outputs"][0]["file_available"])
+                        self.assertTrue(purged_task["outputs"][0]["storage_purged"])
+
+                    for task_status in ("cancelled", "interrupted"):
+                        status_task = admin.get(
+                            f"/api/admin/users/{target_user_id}/tasks?page=1&page_size=20"
+                            f"&status={task_status}&query=content-page-task-{task_status}"
+                        ).json()["tasks"]
+                        self.assertEqual(len(status_task), 1)
+                        self.assertEqual(
+                            [output["status"] for output in status_task[0]["outputs"]],
+                            [task_status, task_status],
+                        )
 
                     asset_page = admin.get(
                         f"/api/admin/users/{target_user_id}/assets?page=2&page_size=20&state=active&kind=prompt"
@@ -238,6 +338,13 @@ class ServerAdminViewTests(unittest.TestCase):
                     self.assertEqual(thumbnail.status_code, 200, thumbnail.text)
                     self.assertEqual(thumbnail.headers["content-type"], "image/jpeg")
                     self.assertEqual(thumbnail.headers["x-content-type-options"], "nosniff")
+                    thumbnail_path = (
+                        data_root
+                        / "content-thumbnails"
+                        / "personal"
+                        / f"{image_item['current_version']['asset_version_id']}.jpg"
+                    )
+                    self.assertTrue(thumbnail_path.is_file())
 
                     before_detail = admin.get(
                         f"/api/admin/audit?subject_user_id={target_user_id}&limit=200"
@@ -260,6 +367,24 @@ class ServerAdminViewTests(unittest.TestCase):
                         f"/api/admin/users/{target_user_id}/assets?page=1&page_size=20"
                     )
                     self.assertEqual(forbidden.status_code, 403, forbidden.text)
+
+                    deleted_image = user.delete(
+                        f"/api/assets/{image_id}",
+                        headers={"X-CSRF-Token": user_csrf},
+                    )
+                    self.assertEqual(deleted_image.status_code, 200, deleted_image.text)
+                    with PostgresConnections(database_url, connect_timeout_seconds=5).connect() as connection:
+                        with connection.cursor() as cursor:
+                            cursor.execute(
+                                "UPDATE server_assets SET purge_after = '2000-01-01' WHERE asset_id = %s",
+                                (image_id,),
+                            )
+                    purged = purge_expired_trash(
+                        PostgresConnections(database_url, connect_timeout_seconds=5),
+                        data_root=data_root,
+                    )
+                    self.assertEqual(purged["assets"], 1)
+                    self.assertFalse(thumbnail_path.exists())
 
 
 if __name__ == "__main__":

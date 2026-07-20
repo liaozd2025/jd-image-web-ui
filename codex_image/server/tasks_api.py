@@ -298,33 +298,34 @@ def _task_payload(
     requested_count = max(1, min(4, int(task.request_parameters.get("n") or 1)))
     output_count = len(stored_outputs) if stored_outputs else requested_count
     output_status = (
-        "completed"
-        if task.status == "completed"
-        else "failed"
-        if task.status in {"failed", "interrupted", "cancelled"}
-        else "running"
-        if task.status == "running"
+        task.status
+        if task.status in {"queued", "running", "completed", "failed", "interrupted", "cancelled"}
         else "queued"
     )
     outputs = []
     for output_index in range(1, output_count + 1):
         record = stored_outputs[output_index - 1] if output_index <= len(stored_outputs) else {}
+        file_available = bool(
+            task.status == "completed"
+            and record.get("relative_path")
+            and not record.get("deleted")
+            and not record.get("storage_purged_at")
+            and not task.storage_purged_at
+        )
         completed_url = (
             f"{task_url}/outputs/{output_index}/download"
-            if task.status == "completed" and record.get("relative_path") and not record.get("deleted")
+            if file_available
             else None
         )
         thumbnail_url = (
             f"{task_url}/outputs/{output_index}/thumbnail"
-            if task.status == "completed" and record.get("thumbnail_relative_path") and not record.get("deleted")
+            if file_available and record.get("thumbnail_relative_path")
             else None
         )
         preview_url = (
             f"{task_url}/outputs/{output_index}/preview"
             if url_prefix.startswith("/api/admin/")
-            and task.status == "completed"
-            and record.get("relative_path")
-            and not record.get("deleted")
+            and file_available
             else None
         )
         outputs.append(
@@ -334,6 +335,8 @@ def _task_payload(
                 "url": completed_url,
                 "thumbnail_url": thumbnail_url,
                 "preview_url": preview_url,
+                "file_available": file_available,
+                "storage_purged": bool(record.get("storage_purged_at") or task.storage_purged_at),
                 "size": str(task.request_parameters.get("size") or ""),
                 "format": str(record.get("output_format") or task.request_parameters.get("output_format") or "png"),
                 "quality": str(task.request_parameters.get("quality") or "auto"),
@@ -383,6 +386,7 @@ def _task_payload(
         "deleted": task.deleted_at is not None,
         "deleted_at": task.deleted_at,
         "purge_after": task.purge_after,
+        "storage_purged_at": task.storage_purged_at,
         "cancel_requested": task.cancel_requested,
         "cancel_requested_at": task.cancel_requested_at,
         "cancelled_at": task.cancelled_at,
@@ -394,10 +398,10 @@ def _task_payload(
         "result_bytes": task.result_bytes,
         "thumbnail_url": (
             f"{task_url}/thumbnail"
-            if task.status == "completed" and task.thumbnail_relative_path
+            if task.status == "completed" and task.thumbnail_relative_path and not task.storage_purged_at
             else None
         ),
-        "input_url": f"{task_url}/input" if task.input_relative_path else None,
+        "input_url": f"{task_url}/input" if task.input_relative_path and not task.storage_purged_at else None,
         "revised_prompt": task.revised_prompt,
         "error_message": task.error_message,
         "created_at": task.created_at,
@@ -406,7 +410,7 @@ def _task_payload(
         "updated_at": task.updated_at,
         "result_url": (
             f"{task_url}/result"
-            if task.status == "completed" and task.result_relative_path
+            if task.status == "completed" and task.result_relative_path and not task.storage_purged_at
             else None
         ),
         "mode": str(task.request_parameters.get("mode") or ("edit" if task.input_relative_path else "generate")),
@@ -424,10 +428,14 @@ def _task_payload(
         },
         "queued_at": task.created_at,
         "output_size": str(task.request_parameters.get("size") or ""),
-        "output_url": f"{task_url}/result" if task.status == "completed" and task.result_relative_path else None,
+        "output_url": (
+            f"{task_url}/result"
+            if task.status == "completed" and task.result_relative_path and not task.storage_purged_at
+            else None
+        ),
         "output_urls": [item["url"] for item in outputs if item["url"]],
         "thumbnail_urls": [item["thumbnail_url"] for item in outputs if item["thumbnail_url"]],
-        "input_urls": [f"{task_url}/input"] if task.input_relative_path and (task.input_media_type or "").startswith("image/") else [],
+        "input_urls": [f"{task_url}/input"] if task.input_relative_path and not task.storage_purged_at and (task.input_media_type or "").startswith("image/") else [],
         "outputs": outputs,
         "generated_count": len(active_outputs) if task.status == "completed" else 0,
         "failed_count": requested_count if task.status == "failed" else 0,

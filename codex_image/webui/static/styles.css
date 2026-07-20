@@ -10360,8 +10360,12 @@ body.system-settings-open { overflow: hidden; }
   box-shadow: 0 1px 2px rgba(33, 43, 38, .04);
 }
 .settings-content-card[role="button"] { cursor: pointer; }
+.settings-content-card-preview { min-height: 0; display: flex; flex: 1 1 auto; flex-direction: column; cursor: pointer; }
 .settings-content-card[role="button"]:hover,
-.settings-content-card[role="button"]:focus-visible { border-color: color-mix(in srgb, var(--primary) 48%, var(--line)); outline: 0; box-shadow: 0 7px 22px rgba(33, 43, 38, .1); }
+.settings-content-card[role="button"]:focus-visible,
+.settings-content-card:has(.settings-content-card-preview:hover),
+.settings-content-card:has(.settings-content-card-preview:focus-visible) { border-color: color-mix(in srgb, var(--primary) 48%, var(--line)); outline: 0; box-shadow: 0 7px 22px rgba(33, 43, 38, .1); }
+.settings-content-card-preview:focus-visible { outline: 2px solid color-mix(in srgb, var(--primary) 62%, transparent); outline-offset: -2px; }
 .settings-content-media {
   min-height: 148px;
   display: grid;
@@ -10386,7 +10390,7 @@ body.system-settings-open { overflow: hidden; }
 .settings-content-card-title { margin: 0; overflow-wrap: anywhere; font-size: 13px; line-height: 1.35; }
 .settings-content-card-meta { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
 .settings-content-card-prompt { margin: 0; display: -webkit-box; overflow: hidden; color: var(--text-secondary); font-size: 12px; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-.settings-content-card-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 4px; }
+.settings-content-card-actions { display: flex; flex-wrap: wrap; gap: 7px; margin: 0; padding: 0 14px 14px; }
 .settings-content-status { width: fit-content; padding: 3px 7px; border-radius: 999px; background: var(--surface-soft); color: var(--text-secondary); font-size: 10px; font-weight: 700; }
 .settings-content-status.completed,
 .settings-content-status.active { background: color-mix(in srgb, var(--success) 13%, var(--surface)); color: var(--success); }
@@ -10442,17 +10446,18 @@ body.system-settings-open { overflow: hidden; }
 }
 
 @media (max-width: 560px) {
-  .system-settings-shell { grid-template-columns: 1fr; grid-template-rows: 196px minmax(0, 1fr); }
+  .system-settings-shell { grid-template-columns: 1fr; grid-template-rows: 132px minmax(0, 1fr); }
   .system-settings-sidebar { padding: 8px 10px; border-right: 0; border-bottom: 1px solid var(--line); }
   .system-settings-back { height: 32px; }
   .system-settings-search-field { height: 32px; margin: 6px 0; }
-  .system-settings-nav { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; }
-  .system-settings-nav-group { flex: 0 0 154px; margin: 0; }
-  .system-settings-nav .system-settings-tab { height: 30px; }
+  .system-settings-nav { display: flex; align-items: center; gap: 4px; overflow-x: auto; overflow-y: hidden; }
+  .system-settings-nav-group { display: contents; }
+  .system-settings-nav-group > p { display: none; }
+  .system-settings-nav .system-settings-tab { width: auto; height: 30px; flex: 0 0 auto; }
   .system-settings-sidebar-account { display: none; }
-  .system-settings-main { height: calc(100vh - 196px); }
+  .system-settings-main { height: calc(100vh - 132px); }
   .system-settings-main .system-settings-section { width: calc(100% - 24px); padding: 24px 0 54px; }
-  .system-settings-global-status { top: 202px; right: 12px; max-width: calc(100vw - 24px); }
+  .system-settings-global-status { top: 138px; right: 12px; max-width: calc(100vw - 24px); }
   .system-settings-page-heading { margin-bottom: 20px; }
   .system-settings-page-heading h2 { font-size: 22px; }
   .settings-content-grid { grid-template-columns: 1fr; }

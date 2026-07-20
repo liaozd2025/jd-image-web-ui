@@ -230,6 +230,7 @@ def restore_backup(
 
 def reconcile_storage(connections: PostgresConnections, *, data_root: Path) -> dict[str, object]:
     expected: dict[str, str] = {}
+    optional_cache_paths: set[str] = set()
     expired_outputs = 0
     now = datetime.now(timezone.utc)
     with connections.connect() as connection:
@@ -286,8 +287,25 @@ def reconcile_storage(connections: PostgresConnections, *, data_root: Path) -> d
                 """
             )
             expired_tasks = int(cursor.fetchone()[0])
+            cursor.execute(
+                """
+                SELECT versions.asset_version_id
+                FROM server_asset_versions AS versions
+                JOIN server_assets AS assets USING (asset_id)
+                WHERE assets.storage_purged_at IS NULL
+                """
+            )
+            optional_cache_paths.update(
+                f"content-thumbnails/personal/{asset_version_id}.jpg"
+                for (asset_version_id,) in cursor.fetchall()
+            )
+            cursor.execute("SELECT asset_version_id FROM server_shared_asset_versions")
+            optional_cache_paths.update(
+                f"content-thumbnails/shared/{asset_version_id}.jpg"
+                for (asset_version_id,) in cursor.fetchall()
+            )
     missing = [path for path in sorted(expected) if not (data_root / path).is_file()]
-    known_roots = {"assets", "shared-assets", "tasks"}
+    known_roots = {"assets", "shared-assets", "tasks", "content-thumbnails"}
     files = {
         path.relative_to(data_root).as_posix()
         for path in data_root.rglob("*")
@@ -295,7 +313,7 @@ def reconcile_storage(connections: PostgresConnections, *, data_root: Path) -> d
         and path.relative_to(data_root).parts
         and path.relative_to(data_root).parts[0] in known_roots
     }
-    orphaned = sorted(files - set(expected))
+    orphaned = sorted(files - set(expected) - optional_cache_paths)
     return {
         "missing": [{"path": path, "table": expected[path]} for path in missing],
         "orphaned": orphaned,
@@ -315,7 +333,7 @@ def purge_expired_trash(connections: PostgresConnections, *, data_root: Path) ->
         with connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
                 """
-                SELECT asset_id, stored_relative_path
+                SELECT asset_id, asset_version_id, stored_relative_path
                 FROM server_asset_versions
                 JOIN server_assets USING (asset_id)
                 WHERE server_assets.deleted_at IS NOT NULL
@@ -325,8 +343,9 @@ def purge_expired_trash(connections: PostgresConnections, *, data_root: Path) ->
             )
             for row in cursor.fetchall():
                 relative = row["stored_relative_path"]
-                paths.append(relative)
-                asset_paths.setdefault(row["asset_id"], []).append(relative)
+                thumbnail = f"content-thumbnails/personal/{row['asset_version_id']}.jpg"
+                paths.extend((relative, thumbnail))
+                asset_paths.setdefault(row["asset_id"], []).extend((relative, thumbnail))
             cursor.execute(
                 """
                 SELECT task_id, input_relative_path, result_relative_path, thumbnail_relative_path, output_files

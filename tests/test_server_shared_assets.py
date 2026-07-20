@@ -22,6 +22,54 @@ OTHER_PASSWORD = "shared-asset-other-password"
 
 @unittest.skipUnless(TEST_DATABASE_URL, "set JD_IMAGE_TEST_DATABASE_URL to a real PostgreSQL database")
 class ServerSharedAssetTests(unittest.TestCase):
+    def test_shared_asset_commit_failure_removes_the_final_file(self) -> None:
+        from codex_image.server.shared_assets import SharedAssetRepository
+
+        class FakeCursor:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                return False
+
+            def execute(self, statement, parameters=None):
+                return None
+
+            def fetchone(self):
+                return (False,)
+
+        class CommitFailingConnection:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                if exc_type is None:
+                    raise OSError("database commit failed")
+                return False
+
+            def cursor(self):
+                return FakeCursor()
+
+        class CommitFailingConnections:
+            def connect(self):
+                return CommitFailingConnection()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            data_root = Path(tmp) / "data"
+            repository = SharedAssetRepository(CommitFailingConnections(), data_root)  # type: ignore[arg-type]
+            relative_path = Path("shared-assets") / "atomic" / "version.bin"
+            with self.assertRaisesRegex(OSError, "database commit failed"):
+                repository._write_atomically(
+                    "admin-user",
+                    relative_path=relative_path,
+                    content=b"must not survive",
+                    insert=lambda cursor: None,
+                    action="shared_asset.test",
+                    details={},
+                )
+            self.assertFalse((data_root / relative_path).exists())
+            self.assertFalse(list((data_root / "shared-assets").rglob("*.tmp")))
+
     def test_shared_asset_disk_failure_rolls_back_database_and_temporary_file(self) -> None:
         from codex_image.server.database import PostgresConnections
         from codex_image.server.shared_assets import SharedAssetRepository
@@ -209,6 +257,11 @@ class ServerSharedAssetTests(unittest.TestCase):
                     admin_view = admin.get("/api/admin/shared-assets?status=all")
                     self.assertEqual(admin_view.status_code, 200)
                     self.assertFalse(admin_view.json()["assets"][0]["is_active"])
+                    self.assertEqual(len(admin_view.json()["assets"][0]["versions"]), 1)
+                    self.assertEqual(
+                        admin_view.json()["assets"][0]["versions"][0]["version_number"],
+                        2,
+                    )
                     restored = admin.patch(
                         f"/api/shared-assets/{asset_id}/status",
                         json={"is_active": True},

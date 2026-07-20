@@ -305,7 +305,7 @@ def _admin_shared_asset_payload(
 ) -> dict[str, object]:
     payload = _shared_asset_payload(
         asset,
-        versions=shared_assets.list_versions(asset.asset_id, include_inactive=True),
+        versions=[asset.current_version] if asset.current_version is not None else [],
         include_versions=True,
     )
     path = None

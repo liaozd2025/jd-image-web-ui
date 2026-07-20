@@ -1006,6 +1006,17 @@ try {
   await eventually(async () => Boolean((await adminPage.locator("#settingsAuditList").textContent()).trim()), "audit settings did not load");
   const adminTasks = await api(adminPage, `/api/admin/users/${userAId}/tasks?page=1&page_size=20`);
   check(adminTasks.status === 200 && adminTasks.body.pagination.page_size === 20 && adminTasks.body.tasks.some((item) => item.task_id === generated.task_id), "admin could not inspect paginated user tasks");
+  check((await api(pageA, `/api/admin/users/${userAId}/tasks?page=1&page_size=20`)).status === 403, "ordinary user reached the administrator task page");
+  const generatedAdminTask = adminTasks.body.tasks.find((item) => item.task_id === generated.task_id);
+  const protectedTaskThumbnail = generatedAdminTask?.outputs?.find((output) => output.thumbnail_url)?.thumbnail_url;
+  check(Boolean(protectedTaskThumbnail), "completed task did not expose an administrator thumbnail");
+  check((await api(pageB, protectedTaskThumbnail)).status === 403, "ordinary user reached another user's administrator task thumbnail");
+  const artifactAuditBefore = (await api(adminPage, `/api/admin/audit?subject_user_id=${userAId}&limit=200`)).body.events
+    .filter((event) => event.action === "admin.view_user_task_artifact").length;
+  check((await api(adminPage, protectedTaskThumbnail)).status === 200, "administrator task thumbnail was unavailable");
+  const artifactAuditAfter = (await api(adminPage, `/api/admin/audit?subject_user_id=${userAId}&limit=200`)).body.events
+    .filter((event) => event.action === "admin.view_user_task_artifact").length;
+  check(artifactAuditAfter === artifactAuditBefore, "thumbnail request created a per-image audit event");
   await adminPage.locator('[data-system-settings-tab="content"]').click();
   await adminPage.locator("#settingsContentUser").selectOption(userAId);
   await eventually(
@@ -1022,11 +1033,17 @@ try {
   );
   check(await adminPage.locator("#settingsContentPreview button", { hasText: /下载|删除|编辑/ }).count() === 0, "task read-only preview exposed a mutating or download action");
   await adminPage.locator("#settingsContentPreviewClose").click();
+  check(await generatedCard.evaluate((card) => card === document.activeElement), "closing task preview did not restore card focus");
   await adminPage.locator("#settingsContentAssetsTab").click();
   await eventually(
     async () => (await adminPage.locator("#settingsContentAssetsGrid").textContent()).includes("User A private image"),
     "unified read-only content view did not render the user's personal asset",
   );
+  const adminAssets = await api(adminPage, `/api/admin/users/${userAId}/assets?page=1&page_size=20&kind=image`);
+  const protectedAssetThumbnail = adminAssets.body.assets.find((asset) => asset.name === "User A private image")?.thumbnail_url;
+  check(Boolean(protectedAssetThumbnail), "personal image did not expose an administrator thumbnail");
+  check((await api(pageB, protectedAssetThumbnail)).status === 403, "ordinary user reached another user's administrator asset thumbnail");
+  check((await api(pageB, `/api/admin/shared-assets/${sharedContribution.item.asset_id}/preview`)).status === 403, "ordinary user reached an administrator shared preview");
   const personalAssetCard = adminPage.locator("#settingsContentAssetsGrid .settings-content-card", {
     has: adminPage.locator(".settings-content-card-title", { hasText: /^User A private image$/ }),
   });
@@ -1037,6 +1054,7 @@ try {
     "asset read-only preview omitted its name",
   );
   await adminPage.locator("#settingsContentPreviewClose").click();
+  check(await personalAssetCard.evaluate((card) => card === document.activeElement), "closing asset preview did not restore card focus");
   check(await adminPage.locator("#settingsContentAssetsTab").getAttribute("aria-selected") === "true", "closing the preview lost the selected content tab");
   await adminPage.setViewportSize({ width: 390, height: 844 });
   const contentMobileLayout = await adminPage.evaluate(() => {

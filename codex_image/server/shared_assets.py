@@ -521,8 +521,8 @@ class SharedAssetRepository:
     ) -> None:
         absolute_path = self.data_root / relative_path
         temporary_path = absolute_path.with_name(f".{absolute_path.name}.{uuid4().hex}.tmp")
-        with self.connections.connect() as connection:
-            try:
+        try:
+            with self.connections.connect() as connection:
                 with connection.cursor() as cursor:
                     assert_writes_allowed(cursor)
                     absolute_path.parent.mkdir(parents=True, exist_ok=True)
@@ -536,10 +536,10 @@ class SharedAssetRepository:
                         details=details,
                     )
                     temporary_path.replace(absolute_path)
-            except Exception:
-                temporary_path.unlink(missing_ok=True)
-                absolute_path.unlink(missing_ok=True)
-                raise
+        except Exception:
+            temporary_path.unlink(missing_ok=True)
+            absolute_path.unlink(missing_ok=True)
+            raise
 
     @staticmethod
     def _version_from_row(row: dict[str, Any]) -> SharedAssetVersion:
