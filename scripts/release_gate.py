@@ -14,7 +14,6 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     failures: list[str] = []
     for forbidden in (
-        "codex_image/webui",
         "launcher",
         "packaging",
         "Start WebUI.command",
@@ -43,6 +42,8 @@ def main(argv: list[str] | None = None) -> int:
         "codex_image/server/app.py",
         "codex_image/server/worker.py",
         "codex_image/server/ops.py",
+        "codex_image/webui/static/index.html",
+        "codex_image/webui/static/app.js",
         "deploy/server/README.md",
     )
     failures.extend(f"required release file is missing: {path}" for path in required if not (ROOT / path).is_file())

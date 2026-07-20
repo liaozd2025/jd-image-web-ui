@@ -955,8 +955,11 @@ try {
   await eventually(async () => (await adminPage.locator("#settingsDepartmentProviderList").textContent()).includes("Browser Fake Provider"), "department provider settings did not load");
   await eventually(async () => (await adminPage.locator("#settingsUserQuotaList").textContent()).includes(credentials.userA.username), "per-user department quotas did not load");
   await adminPage.locator('[data-system-settings-tab="shared"]').click();
-  await eventually(async () => (await adminPage.locator("#settingsSharedAssetList").textContent()).includes("Shared browser image"), "shared asset settings did not load");
-  const sharedSettingsRow = adminPage.locator("#settingsSharedAssetList .settings-list-row", { hasText: "Shared gallery contribution" });
+  await adminPage.locator("#settingsSharedStatus").selectOption("all");
+  await eventually(async () => (await adminPage.locator("#settingsSharedAssetGrid").textContent()).includes("Shared browser image"), "paginated shared asset cards did not load");
+  check((await adminPage.locator("#settingsSharedStorageSummary").textContent()).includes("不设限制"), "shared storage still exposed a product quota");
+  check(await adminPage.locator("#settingsSharedQuotaForm").count() === 0, "shared storage quota form still existed");
+  const sharedSettingsRow = adminPage.locator("#settingsSharedAssetGrid .settings-content-card", { hasText: "Shared gallery contribution" });
   await sharedSettingsRow.waitFor({ state: "visible" });
   await sharedSettingsRow.getByRole("button", { name: "使用" }).click();
   await adminPage.locator("#systemSettingsModal").waitFor({ state: "hidden" });
@@ -966,7 +969,7 @@ try {
   await adminPage.locator("#serverAccountSettingsButton").click();
   await adminPage.locator("#systemSettingsModal").waitFor({ state: "visible" });
   await adminPage.locator('[data-system-settings-tab="shared"]').click();
-  const sharedContributionSettingsRow = adminPage.locator("#settingsSharedAssetList .settings-list-row", { hasText: "Shared gallery contribution" });
+  const sharedContributionSettingsRow = adminPage.locator("#settingsSharedAssetGrid .settings-content-card", { hasText: "Shared gallery contribution" });
   await sharedContributionSettingsRow.waitFor({ state: "visible" });
   const deactivateSharedResponse = adminPage.waitForResponse((response) => (
     new URL(response.url()).pathname === `/api/shared-assets/${sharedContribution.item.asset_id}/status`
@@ -1001,19 +1004,51 @@ try {
   check((await schedulerSaveResponse).status() === 200, "scheduler settings save failed");
   await adminPage.locator('[data-system-settings-tab="audit"]').click();
   await eventually(async () => Boolean((await adminPage.locator("#settingsAuditList").textContent()).trim()), "audit settings did not load");
-  const adminTasks = await api(adminPage, `/api/admin/users/${userAId}/tasks?limit=100`);
-  check(adminTasks.status === 200 && adminTasks.body.tasks.some((item) => item.task_id === generated.task_id), "admin could not inspect user tasks");
+  const adminTasks = await api(adminPage, `/api/admin/users/${userAId}/tasks?page=1&page_size=20`);
+  check(adminTasks.status === 200 && adminTasks.body.pagination.page_size === 20 && adminTasks.body.tasks.some((item) => item.task_id === generated.task_id), "admin could not inspect paginated user tasks");
   await adminPage.locator('[data-system-settings-tab="content"]').click();
   await adminPage.locator("#settingsContentUser").selectOption(userAId);
   await eventually(
-    async () => (await adminPage.locator("#settingsContentTasks").textContent()).includes("browser image edit with two references"),
-    "unified read-only content view did not render the user's generated task",
+    async () => (await adminPage.locator("#settingsContentTasksGrid").textContent()).includes("browser image edit with two references"),
+    "unified read-only content view did not render the user's paginated generated task",
   );
   check(await adminPage.locator('[data-system-settings-panel="content"] button', { hasText: /删除|编辑|执行/ }).count() === 0, "read-only user content view exposed a mutating action");
-  check((await api(adminPage, `/api/admin/users/${userAId}/tasks/${generated.task_id}/download`)).status === 200, "admin could not download protected user output");
+  const generatedCard = adminPage.locator("#settingsContentTasksGrid .settings-content-card", { hasText: "browser image edit with two references" });
+  await generatedCard.click();
+  await adminPage.locator("#settingsContentPreview").waitFor({ state: "visible" });
+  await eventually(
+    async () => (await adminPage.locator("#settingsContentPreviewBody").textContent()).includes("browser image edit with two references"),
+    "task read-only preview omitted the prompt",
+  );
+  check(await adminPage.locator("#settingsContentPreview button", { hasText: /下载|删除|编辑/ }).count() === 0, "task read-only preview exposed a mutating or download action");
+  await adminPage.locator("#settingsContentPreviewClose").click();
+  await adminPage.locator("#settingsContentAssetsTab").click();
+  await eventually(
+    async () => (await adminPage.locator("#settingsContentAssetsGrid").textContent()).includes("User A private image"),
+    "unified read-only content view did not render the user's personal asset",
+  );
+  const personalAssetCard = adminPage.locator("#settingsContentAssetsGrid .settings-content-card", {
+    has: adminPage.locator(".settings-content-card-title", { hasText: /^User A private image$/ }),
+  });
+  await personalAssetCard.click();
+  await adminPage.locator("#settingsContentPreview").waitFor({ state: "visible" });
+  await eventually(
+    async () => (await adminPage.locator("#settingsContentPreviewTitle").textContent()).includes("User A private image"),
+    "asset read-only preview omitted its name",
+  );
+  await adminPage.locator("#settingsContentPreviewClose").click();
+  check(await adminPage.locator("#settingsContentAssetsTab").getAttribute("aria-selected") === "true", "closing the preview lost the selected content tab");
+  await adminPage.setViewportSize({ width: 390, height: 844 });
+  const contentMobileLayout = await adminPage.evaluate(() => {
+    const root = document.querySelector("#systemSettingsModal");
+    const grid = document.querySelector("#settingsContentAssetsGrid");
+    return { rootScrollWidth: root.scrollWidth, rootWidth: root.clientWidth, gridRight: grid.getBoundingClientRect().right, viewportWidth: innerWidth };
+  });
+  check(contentMobileLayout.rootScrollWidth <= contentMobileLayout.rootWidth + 1 && contentMobileLayout.gridRight <= contentMobileLayout.viewportWidth + 1, "390px content review introduced horizontal scrolling");
+  await adminPage.setViewportSize({ width: 1440, height: 900 });
   const audit = await api(adminPage, `/api/admin/audit?subject_user_id=${userAId}&limit=200`);
   const actions = new Set(audit.body.events.map((event) => event.action));
-  check(actions.has("admin.view_user_tasks") && actions.has("admin.view_user_task_artifact"), "administrator cross-user access was not audited");
+  check(actions.has("admin.view_user_tasks_page") && actions.has("admin.view_user_task") && actions.has("admin.view_user_assets_page") && actions.has("admin.view_user_asset"), "administrator page and detail review access was not audited");
   const catalog = await api(adminPage, "/api/admin/provider-catalog");
   check((await api(adminPage, `/api/providers/personal/${catalog.body.providers[0].provider_version_id}`, { method: "PUT", json: { api_key: "forbidden" } })).status === 403, "admin configured a personal provider");
 

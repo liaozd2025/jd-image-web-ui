@@ -259,6 +259,56 @@ class AssetRepository:
                 )
                 return [self._asset_from_row(row) for row in cursor.fetchall()]
 
+    def list_assets_page(
+        self,
+        user_id: str,
+        *,
+        page: int,
+        page_size: int,
+        kind: AssetKind | None = None,
+        state: str = "active",
+        query: str = "",
+    ) -> tuple[list[Asset], int]:
+        clauses = ["assets.user_id = %s"]
+        values: list[object] = [user_id]
+        if state == "active":
+            clauses.append("assets.deleted_at IS NULL")
+        elif state == "deleted":
+            clauses.append("assets.deleted_at IS NOT NULL")
+        if kind is not None:
+            clauses.append("assets.asset_kind = %s")
+            values.append(kind)
+        normalized_query = query.strip()
+        if normalized_query:
+            clauses.append("assets.name ILIKE %s")
+            values.append(f"%{normalized_query}%")
+        where = " AND ".join(clauses)
+        offset = (page - 1) * page_size
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                cursor.execute(
+                    f"SELECT COUNT(*) FROM server_assets AS assets WHERE {where}",
+                    values,
+                )
+                total = int(cursor.fetchone()["count"])
+                cursor.execute(
+                    f"""
+                    SELECT assets.*, versions.asset_version_id AS current_asset_version_id,
+                           versions.asset_id AS version_asset_id, versions.user_id AS version_user_id,
+                           versions.version_number, versions.original_filename, versions.mime_type,
+                           versions.stored_relative_path, versions.sha256, versions.byte_size,
+                           versions.created_at AS version_created_at
+                    FROM server_assets AS assets
+                    LEFT JOIN server_asset_versions AS versions
+                      ON versions.asset_version_id = assets.current_version_id
+                    WHERE {where}
+                    ORDER BY assets.updated_at DESC, assets.asset_id DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    (*values, page_size, offset),
+                )
+                return [self._asset_from_row(row) for row in cursor.fetchall()], total
+
     def get_asset(self, user_id: str, asset_id: str, *, include_deleted: bool = False) -> Asset:
         condition = "" if include_deleted else "AND assets.deleted_at IS NULL"
         with self.connections.connect() as connection:

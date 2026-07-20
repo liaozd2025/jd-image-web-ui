@@ -3070,6 +3070,42 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertIn('translate(`serverSettings.blockedReason.${item.reason}`)', settings_source)
         self.assertIn('formatTranslation("serverSettings.blockedCount"', settings_source)
         self.assertRegex(styles, r"\.settings-metric-grid\s*\{[^}]*display:\s*grid")
+
+    def test_admin_asset_browsers_use_paginated_thumbnail_cards_and_read_only_preview(self) -> None:
+        html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
+        settings_source = Path("codex_image/webui/frontend/src/server-settings.ts").read_text(encoding="utf-8")
+        styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
+
+        self.assertNotIn('id="settingsSharedQuotaForm"', html)
+        for element_id in (
+            "settingsSharedStorageSummary",
+            "settingsSharedSearch",
+            "settingsSharedKind",
+            "settingsSharedStatus",
+            "settingsSharedCategory",
+            "settingsSharedAssetGrid",
+            "settingsSharedPagination",
+            "settingsContentTasksTab",
+            "settingsContentAssetsTab",
+            "settingsContentTasksPanel",
+            "settingsContentAssetsPanel",
+            "settingsContentTasksGrid",
+            "settingsContentAssetsGrid",
+            "settingsContentTasksPagination",
+            "settingsContentAssetsPagination",
+            "settingsContentPreview",
+        ):
+            self.assertIn(f'id="{element_id}"', html)
+
+        self.assertIn('api("/api/admin/shared-storage")', settings_source)
+        self.assertIn("page_size: 20", settings_source)
+        self.assertIn('image.loading = "lazy"', settings_source)
+        self.assertNotIn("shared-storage-quota", settings_source)
+        self.assertNotIn("tasks?limit=100", settings_source)
+        self.assertNotIn("assets?limit=100", settings_source)
+        self.assertRegex(styles, r"\.settings-content-grid\s*\{[^}]*display:\s*grid")
+        self.assertRegex(styles, r"\.settings-content-thumbnail\s*\{[^}]*object-fit:\s*contain")
+        self.assertRegex(styles, r"\.settings-content-preview\s*\{[^}]*position:\s*fixed")
     def test_image_input_accepts_clipboard_images(self) -> None:
         html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
         script = self._frontend_script_source()

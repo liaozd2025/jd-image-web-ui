@@ -451,6 +451,7 @@ class ServerSharedGalleryTests(unittest.TestCase):
         from codex_image.server.assets import MAX_ASSET_BYTES
         from codex_image.server.app import create_server_app
         from codex_image.server.config import ServerSettings
+        from codex_image.server.database import PostgresConnections
 
         with temporary_postgres_database(TEST_DATABASE_URL) as database_url:
             with tempfile.TemporaryDirectory() as tmp:
@@ -570,21 +571,29 @@ class ServerSharedGalleryTests(unittest.TestCase):
                         },
                     )
 
-                    quota = admin.get("/api/admin/shared-storage-quota").json()["quota"]
-                    limited = admin.patch(
+                    with PostgresConnections(database_url, connect_timeout_seconds=5).connect() as connection:
+                        with connection.cursor() as cursor:
+                            cursor.execute(
+                                "UPDATE server_shared_storage_settings SET quota_bytes = 0 WHERE singleton"
+                            )
+                    storage = admin.get("/api/admin/shared-storage")
+                    self.assertEqual(storage.status_code, 200, storage.text)
+                    self.assertTrue(storage.json()["storage"]["unlimited"])
+                    self.assertGreater(storage.json()["storage"]["used_bytes"], 0)
+                    removed_quota_update = admin.patch(
                         "/api/admin/shared-storage-quota",
-                        json={"quota_bytes": quota["used_bytes"]},
+                        json={"quota_bytes": 1},
                         headers={"X-CSRF-Token": admin_csrf},
                     )
-                    self.assertEqual(limited.status_code, 200, limited.text)
-                    quota_batch = admin.post(
+                    self.assertEqual(removed_quota_update.status_code, 404, removed_quota_update.text)
+                    unlimited_batch = admin.post(
                         "/api/shared-gallery/items/batch",
-                        data={"category_id": "brand-assets", "names": json.dumps(["超额图片"])},
-                        files=[("files", ("quota.png", PNG_IMAGE, "image/png"))],
+                        data={"category_id": "brand-assets", "names": json.dumps(["无限共享图片"])},
+                        files=[("files", ("unlimited.png", PNG_IMAGE, "image/png"))],
                         headers={"X-CSRF-Token": admin_csrf},
                     )
-                    self.assertEqual(quota_batch.status_code, 207, quota_batch.text)
-                    self.assertEqual(quota_batch.json()["results"][0]["error"], "quota_exceeded")
+                    self.assertEqual(unlimited_batch.status_code, 207, unlimited_batch.text)
+                    self.assertEqual(unlimited_batch.json()["results"][0]["status"], "created")
 
                     audit = admin.get("/api/admin/audit?limit=100").json()["events"]
                     batch_events = [event for event in audit if event["action"] == "shared_gallery.batch_completed"]

@@ -319,12 +319,21 @@ def _task_payload(
             if task.status == "completed" and record.get("thumbnail_relative_path") and not record.get("deleted")
             else None
         )
+        preview_url = (
+            f"{task_url}/outputs/{output_index}/preview"
+            if url_prefix.startswith("/api/admin/")
+            and task.status == "completed"
+            and record.get("relative_path")
+            and not record.get("deleted")
+            else None
+        )
         outputs.append(
             {
                 "index": output_index,
                 "status": output_status,
                 "url": completed_url,
                 "thumbnail_url": thumbnail_url,
+                "preview_url": preview_url,
                 "size": str(task.request_parameters.get("size") or ""),
                 "format": str(record.get("output_format") or task.request_parameters.get("output_format") or "png"),
                 "quality": str(task.request_parameters.get("quality") or "auto"),

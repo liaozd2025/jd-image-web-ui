@@ -304,6 +304,51 @@ class GenerationTaskRepository:
                 )
                 return [self._task_from_row(row) for row in cursor.fetchall()]
 
+    def list_tasks_page(
+        self,
+        user_id: str,
+        *,
+        page: int,
+        page_size: int,
+        status: TaskStatus | None = None,
+        state: str = "active",
+        query: str = "",
+    ) -> tuple[list[GenerationTask], int]:
+        clauses = ["user_id = %s"]
+        values: list[object] = [user_id]
+        if state == "active":
+            clauses.append("deleted_at IS NULL")
+        elif state == "deleted":
+            clauses.append("deleted_at IS NOT NULL")
+        if status is not None:
+            clauses.append("status = %s")
+            values.append(status)
+        normalized_query = query.strip()
+        if normalized_query:
+            pattern = f"%{normalized_query}%"
+            clauses.append("(task_id ILIKE %s OR prompt ILIKE %s OR model_id ILIKE %s)")
+            values.extend((pattern, pattern, pattern))
+        where = " AND ".join(clauses)
+        offset = (page - 1) * page_size
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                cursor.execute(
+                    f"SELECT COUNT(*) FROM server_generation_tasks WHERE {where}",
+                    values,
+                )
+                total = int(cursor.fetchone()["count"])
+                cursor.execute(
+                    f"""
+                    SELECT *
+                    FROM server_generation_tasks
+                    WHERE {where}
+                    ORDER BY created_at DESC, task_id DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    (*values, page_size, offset),
+                )
+                return [self._task_from_row(row) for row in cursor.fetchall()], total
+
     def get_task(self, user_id: str, task_id: str, *, include_deleted: bool = False) -> GenerationTask:
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:

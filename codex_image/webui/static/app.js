@@ -1358,9 +1358,40 @@
     "systemSettings.saveQuota": "Save quota",
     "systemSettings.providerCredentials": "Provider credentials",
     "systemSettings.userQuota": "User quotas",
-    "systemSettings.sharedDescription": "Set the shared storage quota, use shared images, and manage asset visibility.",
-    "systemSettings.sharedQuotaMb": "Shared storage (MB)",
-    "systemSettings.saveStorage": "Save storage",
+    "systemSettings.sharedDescription": "Review shared storage usage, use shared images, and manage asset visibility.",
+    "systemSettings.sharedFilters": "Shared asset filters",
+    "systemSettings.searchLabel": "Search",
+    "systemSettings.sharedSearchPlaceholder": "Search by name",
+    "systemSettings.assetSearchPlaceholder": "Search by name",
+    "systemSettings.taskSearchPlaceholder": "Task ID, prompt, or model",
+    "systemSettings.category": "Category",
+    "systemSettings.allCategories": "All categories",
+    "systemSettings.uncategorized": "Uncategorized",
+    "systemSettings.assetType": "Asset type",
+    "systemSettings.allTypes": "All types",
+    "systemSettings.typeImage": "Image",
+    "systemSettings.typeReference": "Reference image",
+    "systemSettings.typePrompt": "Prompt",
+    "systemSettings.typeTemplate": "Template",
+    "systemSettings.typeFile": "File",
+    "systemSettings.status": "Status",
+    "systemSettings.enabledOnly": "Enabled",
+    "systemSettings.disabledOnly": "Disabled",
+    "systemSettings.allStatuses": "All",
+    "systemSettings.normalOnly": "Active",
+    "systemSettings.deletedOnly": "Deleted",
+    "systemSettings.contentState": "Content state",
+    "systemSettings.statusQueued": "Queued",
+    "systemSettings.statusRunning": "Running",
+    "systemSettings.statusCompleted": "Completed",
+    "systemSettings.statusFailed": "Failed",
+    "systemSettings.statusCancelled": "Cancelled",
+    "systemSettings.statusInterrupted": "Interrupted",
+    "systemSettings.previousPage": "Previous",
+    "systemSettings.nextPage": "Next",
+    "systemSettings.sharedPagination": "Shared asset pages",
+    "systemSettings.taskPagination": "Generated content pages",
+    "systemSettings.assetPagination": "Personal asset pages",
     "systemSettings.schedulerDescription": "Adjust global and per-user concurrency and review the current queue.",
     "systemSettings.globalConcurrency": "Global concurrency",
     "systemSettings.perUserConcurrency": "Per-user concurrency",
@@ -1369,8 +1400,11 @@
     "systemSettings.userQueues": "User queues",
     "systemSettings.contentDescription": "Review tasks, assets, and usage by user; editing and deletion are unavailable here.",
     "systemSettings.selectUser": "Select user",
-    "systemSettings.recentTasks": "Recent tasks",
-    "systemSettings.recentAssets": "Recent assets",
+    "systemSettings.contentViews": "User content type",
+    "systemSettings.generatedContent": "Generated content",
+    "systemSettings.personalAssets": "Personal assets",
+    "systemSettings.readOnlyPreview": "Read-only preview",
+    "systemSettings.closePreview": "Close preview",
     "systemSettings.auditDescription": "Review administrator actions and their outcomes.",
     "systemSettings.action": "Action",
     "systemSettings.actionPlaceholder": "For example: user.create",
@@ -1422,6 +1456,22 @@
     "serverSettings.use": "Use",
     "serverSettings.sharedImageUnavailable": "The shared image is unavailable. Refresh and try again.",
     "serverSettings.sharedAssetMeta": "Publisher {publisher} \xB7 {status}",
+    "serverSettings.sharedStoragePolicy": "Product quota",
+    "serverSettings.unlimitedProductQuota": "No limit",
+    "serverSettings.sharedAssetCount": "Shared assets",
+    "serverSettings.sharedActiveAssetCount": "Active assets",
+    "serverSettings.pagination": "Page {page} of {pages} \xB7 {total} items",
+    "serverSettings.previewUnavailable": "Preview unavailable",
+    "serverSettings.noTextContent": "No text content",
+    "serverSettings.originalFileRemoved": "Original file removed",
+    "serverSettings.genericFilePreviewBlocked": "Generic files are not rendered inline for safety",
+    "serverSettings.deletedOutput": "Output deleted",
+    "serverSettings.resultCount": "{count} results",
+    "serverSettings.noPrompt": "No prompt",
+    "serverSettings.loadingPreview": "Loading read-only preview",
+    "serverSettings.noAssets": "No matching assets",
+    "serverSettings.noTasks": "No matching tasks",
+    "serverSettings.noUsers": "No standard users to review",
     "serverSettings.queuedTasks": "Queued tasks",
     "serverSettings.runningTasks": "Running tasks",
     "serverSettings.blockedTasks": "Blocked tasks",
@@ -11287,9 +11337,40 @@
     "systemSettings.saveQuota": "\u4FDD\u5B58\u989D\u5EA6",
     "systemSettings.providerCredentials": "\u4F9B\u5E94\u5546\u51ED\u636E",
     "systemSettings.userQuota": "\u7528\u6237\u989D\u5EA6",
-    "systemSettings.sharedDescription": "\u8BBE\u7F6E\u5171\u4EAB\u7A7A\u95F4\u914D\u989D\u3001\u4F7F\u7528\u5171\u4EAB\u56FE\u7247\u5E76\u7BA1\u7406\u8D44\u4EA7\u53EF\u89C1\u72B6\u6001\u3002",
-    "systemSettings.sharedQuotaMb": "\u5171\u4EAB\u7A7A\u95F4\uFF08MB\uFF09",
-    "systemSettings.saveStorage": "\u4FDD\u5B58\u7A7A\u95F4",
+    "systemSettings.sharedDescription": "\u67E5\u770B\u5171\u4EAB\u5B58\u50A8\u7528\u91CF\uFF0C\u4F7F\u7528\u5171\u4EAB\u56FE\u7247\u5E76\u7BA1\u7406\u8D44\u4EA7\u53EF\u89C1\u72B6\u6001\u3002",
+    "systemSettings.sharedFilters": "\u5171\u4EAB\u8D44\u4EA7\u7B5B\u9009",
+    "systemSettings.searchLabel": "\u641C\u7D22",
+    "systemSettings.sharedSearchPlaceholder": "\u6309\u540D\u79F0\u641C\u7D22",
+    "systemSettings.assetSearchPlaceholder": "\u6309\u540D\u79F0\u641C\u7D22",
+    "systemSettings.taskSearchPlaceholder": "\u4EFB\u52A1 ID\u3001\u63D0\u793A\u8BCD\u6216\u6A21\u578B",
+    "systemSettings.category": "\u5206\u7C7B",
+    "systemSettings.allCategories": "\u5168\u90E8\u5206\u7C7B",
+    "systemSettings.uncategorized": "\u672A\u5206\u7C7B",
+    "systemSettings.assetType": "\u8D44\u4EA7\u7C7B\u578B",
+    "systemSettings.allTypes": "\u5168\u90E8\u7C7B\u578B",
+    "systemSettings.typeImage": "\u56FE\u7247",
+    "systemSettings.typeReference": "\u53C2\u8003\u56FE",
+    "systemSettings.typePrompt": "\u63D0\u793A\u8BCD",
+    "systemSettings.typeTemplate": "\u6A21\u677F",
+    "systemSettings.typeFile": "\u6587\u4EF6",
+    "systemSettings.status": "\u72B6\u6001",
+    "systemSettings.enabledOnly": "\u542F\u7528",
+    "systemSettings.disabledOnly": "\u5DF2\u505C\u7528",
+    "systemSettings.allStatuses": "\u5168\u90E8",
+    "systemSettings.normalOnly": "\u6B63\u5E38",
+    "systemSettings.deletedOnly": "\u5DF2\u5220\u9664",
+    "systemSettings.contentState": "\u5185\u5BB9\u72B6\u6001",
+    "systemSettings.statusQueued": "\u6392\u961F\u4E2D",
+    "systemSettings.statusRunning": "\u751F\u6210\u4E2D",
+    "systemSettings.statusCompleted": "\u5DF2\u5B8C\u6210",
+    "systemSettings.statusFailed": "\u5931\u8D25",
+    "systemSettings.statusCancelled": "\u5DF2\u53D6\u6D88",
+    "systemSettings.statusInterrupted": "\u5DF2\u4E2D\u65AD",
+    "systemSettings.previousPage": "\u4E0A\u4E00\u9875",
+    "systemSettings.nextPage": "\u4E0B\u4E00\u9875",
+    "systemSettings.sharedPagination": "\u5171\u4EAB\u8D44\u4EA7\u5206\u9875",
+    "systemSettings.taskPagination": "\u751F\u6210\u5185\u5BB9\u5206\u9875",
+    "systemSettings.assetPagination": "\u4E2A\u4EBA\u8D44\u4EA7\u5206\u9875",
     "systemSettings.schedulerDescription": "\u8C03\u6574\u5168\u5C40\u4E0E\u5355\u7528\u6237\u5E76\u53D1\u4E0A\u9650\uFF0C\u67E5\u770B\u5F53\u524D\u961F\u5217\u3002",
     "systemSettings.globalConcurrency": "\u5168\u5C40\u5E76\u53D1",
     "systemSettings.perUserConcurrency": "\u5355\u7528\u6237\u5E76\u53D1",
@@ -11298,8 +11379,11 @@
     "systemSettings.userQueues": "\u7528\u6237\u961F\u5217",
     "systemSettings.contentDescription": "\u6309\u7528\u6237\u67E5\u770B\u4EFB\u52A1\u3001\u8D44\u4EA7\u4E0E\u7528\u91CF\uFF1B\u6B64\u5904\u4E0D\u63D0\u4F9B\u7F16\u8F91\u6216\u5220\u9664\u3002",
     "systemSettings.selectUser": "\u9009\u62E9\u7528\u6237",
-    "systemSettings.recentTasks": "\u6700\u8FD1\u4EFB\u52A1",
-    "systemSettings.recentAssets": "\u6700\u8FD1\u8D44\u4EA7",
+    "systemSettings.contentViews": "\u7528\u6237\u5185\u5BB9\u7C7B\u578B",
+    "systemSettings.generatedContent": "\u751F\u6210\u5185\u5BB9",
+    "systemSettings.personalAssets": "\u4E2A\u4EBA\u8D44\u4EA7",
+    "systemSettings.readOnlyPreview": "\u53EA\u8BFB\u9884\u89C8",
+    "systemSettings.closePreview": "\u5173\u95ED\u9884\u89C8",
     "systemSettings.auditDescription": "\u67E5\u770B\u7BA1\u7406\u5458\u64CD\u4F5C\u53CA\u5176\u7ED3\u679C\u3002",
     "systemSettings.action": "\u64CD\u4F5C",
     "systemSettings.actionPlaceholder": "\u4F8B\u5982 user.create",
@@ -11351,6 +11435,22 @@
     "serverSettings.use": "\u4F7F\u7528",
     "serverSettings.sharedImageUnavailable": "\u5171\u4EAB\u56FE\u7247\u5F53\u524D\u4E0D\u53EF\u7528\uFF0C\u8BF7\u5237\u65B0\u540E\u91CD\u8BD5",
     "serverSettings.sharedAssetMeta": "\u53D1\u5E03\u8005 {publisher} \xB7 {status}",
+    "serverSettings.sharedStoragePolicy": "\u4EA7\u54C1\u7EA7\u914D\u989D",
+    "serverSettings.unlimitedProductQuota": "\u4E0D\u8BBE\u9650\u5236",
+    "serverSettings.sharedAssetCount": "\u5171\u4EAB\u8D44\u4EA7\u603B\u6570",
+    "serverSettings.sharedActiveAssetCount": "\u542F\u7528\u8D44\u4EA7",
+    "serverSettings.pagination": "\u7B2C {page} \u9875\uFF0C\u5171 {pages} \u9875 \xB7 {total} \u9879",
+    "serverSettings.previewUnavailable": "\u9884\u89C8\u4E0D\u53EF\u7528",
+    "serverSettings.noTextContent": "\u6682\u65E0\u6587\u5B57\u5185\u5BB9",
+    "serverSettings.originalFileRemoved": "\u539F\u6587\u4EF6\u5DF2\u6E05\u7406",
+    "serverSettings.genericFilePreviewBlocked": "\u4E3A\u5B89\u5168\u8D77\u89C1\uFF0C\u666E\u901A\u6587\u4EF6\u4E0D\u5728\u6B64\u5904\u5185\u8054\u9884\u89C8",
+    "serverSettings.deletedOutput": "\u7ED3\u679C\u5DF2\u5220\u9664",
+    "serverSettings.resultCount": "{count} \u4E2A\u7ED3\u679C",
+    "serverSettings.noPrompt": "\u65E0\u63D0\u793A\u8BCD",
+    "serverSettings.loadingPreview": "\u6B63\u5728\u52A0\u8F7D\u53EA\u8BFB\u9884\u89C8",
+    "serverSettings.noAssets": "\u6682\u65E0\u7B26\u5408\u6761\u4EF6\u7684\u8D44\u4EA7",
+    "serverSettings.noTasks": "\u6682\u65E0\u7B26\u5408\u6761\u4EF6\u7684\u4EFB\u52A1",
+    "serverSettings.noUsers": "\u6682\u65E0\u53EF\u67E5\u770B\u7684\u666E\u901A\u7528\u6237",
     "serverSettings.queuedTasks": "\u7B49\u5F85\u4EFB\u52A1",
     "serverSettings.runningTasks": "\u8FD0\u884C\u4EFB\u52A1",
     "serverSettings.blockedTasks": "\u963B\u585E\u4EFB\u52A1",
@@ -45576,6 +45676,12 @@ ${galleryText}`;
   // codex_image/webui/frontend/src/server-settings.ts
   var initialized3 = false;
   var managedUsers = [];
+  var PAGE_SIZE = 20;
+  var sharedBrowser = { page: 1, page_size: 20, query: "", status: "active", kind: "", state: "", category_id: "" };
+  var taskBrowser = { page: 1, page_size: 20, query: "", status: "", kind: "", state: "active", category_id: "" };
+  var assetBrowser = { page: 1, page_size: 20, query: "", status: "", kind: "", state: "active", category_id: "" };
+  var currentContentView = "tasks";
+  var searchTimers = /* @__PURE__ */ new Map();
   async function api(path, options = {}) {
     const headers = new Headers(options.headers || {});
     const method = String(options.method || "GET").toUpperCase();
@@ -45687,6 +45793,254 @@ ${galleryText}`;
   }
   function jsonOptions(body) {
     return { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  }
+  function pageQuery(state32, fields) {
+    const params = new URLSearchParams({ page: String(state32.page), page_size: String(PAGE_SIZE) });
+    fields.forEach((field) => {
+      const value = String(state32[field] || "").trim();
+      if (value) params.set(field, value);
+    });
+    return params.toString();
+  }
+  function debounceSearch(key, action) {
+    const previous = searchTimers.get(key);
+    if (previous) window.clearTimeout(previous);
+    searchTimers.set(key, window.setTimeout(action, 300));
+  }
+  function renderPagination(selector, pagination, onPage) {
+    const nav = document.querySelector(selector);
+    if (!nav) return;
+    const current = pagination || { page: 1, page_size: PAGE_SIZE, total_items: 0, total_pages: 0 };
+    const previous = nav.querySelector('[data-page-action="previous"]');
+    const next = nav.querySelector('[data-page-action="next"]');
+    const label = nav.querySelector(".settings-pagination-label");
+    if (label) label.textContent = formatTranslation("serverSettings.pagination", {
+      page: current.page,
+      pages: current.total_pages,
+      total: current.total_items
+    });
+    if (previous) {
+      previous.disabled = current.page <= 1;
+      previous.onclick = () => onPage(Math.max(1, current.page - 1));
+    }
+    if (next) {
+      next.disabled = current.total_pages === 0 || current.page >= current.total_pages;
+      next.onclick = () => onPage(current.page + 1);
+    }
+  }
+  function assetKindLabel(kind) {
+    const key = { image: "typeImage", reference: "typeReference", prompt: "typePrompt", template: "typeTemplate", file: "typeFile" }[kind];
+    return key ? translate(`systemSettings.${key}`) : kind;
+  }
+  function taskStatusLabel(status) {
+    const suffix = { queued: "Queued", running: "Running", completed: "Completed", failed: "Failed", cancelled: "Cancelled", interrupted: "Interrupted" }[status];
+    return suffix ? translate(`systemSettings.status${suffix}`) : status;
+  }
+  function contentPlaceholder(label) {
+    return textElement("div", label, "settings-content-placeholder");
+  }
+  function thumbnailImage(url, alt) {
+    const image = document.createElement("img");
+    image.className = "settings-content-thumbnail";
+    image.alt = alt;
+    image.loading = "lazy";
+    image.src = url;
+    image.addEventListener("error", () => image.replaceWith(contentPlaceholder(translate("serverSettings.previewUnavailable"))), { once: true });
+    return image;
+  }
+  function makePreviewable(card, open) {
+    card.role = "button";
+    card.tabIndex = 0;
+    card.addEventListener("click", () => void open());
+    card.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      void open();
+    });
+  }
+  function assetMedia(asset) {
+    const media = document.createElement("div");
+    media.className = "settings-content-media";
+    if (asset.thumbnail_url && asset.file_available !== false) {
+      media.append(thumbnailImage(asset.thumbnail_url, asset.name));
+    } else if (["prompt", "template"].includes(asset.asset_kind)) {
+      const excerpt = textElement("pre", asset.content_excerpt || translate("serverSettings.noTextContent"), "settings-content-excerpt");
+      media.append(excerpt);
+    } else if (asset.file_available === false) {
+      media.append(contentPlaceholder(translate("serverSettings.originalFileRemoved")));
+    } else {
+      const version = asset.current_version || {};
+      media.append(contentPlaceholder(`${assetKindLabel(asset.asset_kind)}
+${version.original_filename || asset.name}
+${fmtBytes(version.byte_size)}`));
+    }
+    return media;
+  }
+  function sharedAssetCard(asset) {
+    const card = document.createElement("article");
+    card.className = "settings-content-card";
+    const media = assetMedia(asset);
+    media.addEventListener("click", () => void openSharedPreview(asset));
+    const copy = document.createElement("div");
+    copy.className = "settings-content-card-copy";
+    const status = textElement("span", translate(asset.is_active ? "serverSettings.active" : "serverSettings.inactive"), `settings-content-status ${asset.is_active ? "active" : "inactive"}`);
+    const version = asset.current_version || {};
+    copy.append(
+      status,
+      textElement("h3", asset.name, "settings-content-card-title"),
+      textElement("p", `${assetKindLabel(asset.asset_kind)} \xB7 ${asset.category_name || translate("systemSettings.uncategorized")} \xB7 ${fmtBytes(version.byte_size)}`, "settings-content-card-meta")
+    );
+    if (asset.prompt_note) copy.append(textElement("p", asset.prompt_note, "settings-content-card-prompt"));
+    const rowActions = actions();
+    rowActions.classList.add("settings-content-card-actions");
+    rowActions.addEventListener("click", (event) => event.stopPropagation());
+    if (asset.is_active && ["image", "reference"].includes(asset.asset_kind)) {
+      rowActions.append(actionButton(translate("serverSettings.use"), async () => {
+        const gallery = await api("/api/gallery");
+        const item = (gallery.items || []).find((candidate) => candidate.id === `shared:${asset.asset_id}`);
+        if (!item) throw new Error(translate("serverSettings.sharedImageUnavailable"));
+        getLegacyBridge().methods.addGalleryInput(item);
+        closeSystemSettingsModal();
+      }));
+    }
+    rowActions.append(actionButton(translate(asset.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
+      if (!window.confirm(formatTranslation(asset.is_active ? "serverSettings.confirmDeactivateAsset" : "serverSettings.confirmReactivateAsset", { asset: asset.name }))) return;
+      await api(`/api/shared-assets/${encodeURIComponent(asset.asset_id)}/status`, {
+        method: "PATCH",
+        ...jsonOptions({ is_active: !asset.is_active })
+      });
+      await loadShared();
+    }, asset.is_active));
+    copy.append(rowActions);
+    card.append(media, copy);
+    return card;
+  }
+  function taskCard(userId, task) {
+    const card = document.createElement("article");
+    card.className = "settings-content-card";
+    makePreviewable(card, () => openTaskPreview(userId, task.task_id));
+    const media = document.createElement("div");
+    media.className = "settings-content-media";
+    const outputs = task.outputs || [];
+    if (outputs.length) {
+      const outputGrid = document.createElement("div");
+      outputGrid.className = "settings-task-output-grid";
+      outputs.forEach((output) => {
+        if (output.thumbnail_url && !output.deleted) outputGrid.append(thumbnailImage(output.thumbnail_url, `${task.task_id} #${output.index}`));
+        else outputGrid.append(contentPlaceholder(output.deleted ? translate("serverSettings.deletedOutput") : translate("serverSettings.originalFileRemoved")));
+      });
+      media.append(outputGrid);
+    } else {
+      media.append(contentPlaceholder(task.error_message || taskStatusLabel(task.status)));
+    }
+    const copy = document.createElement("div");
+    copy.className = "settings-content-card-copy";
+    copy.append(
+      textElement("span", taskStatusLabel(task.status), `settings-content-status ${task.status}${task.deleted ? " deleted" : ""}`),
+      textElement("h3", task.task_id, "settings-content-card-title"),
+      textElement("p", `${task.model_id} \xB7 ${fmtDate(task.created_at)} \xB7 ${formatTranslation("serverSettings.resultCount", { count: outputs.filter((item) => !item.deleted).length })}`, "settings-content-card-meta"),
+      textElement("p", task.prompt || translate("serverSettings.noPrompt"), "settings-content-card-prompt")
+    );
+    card.append(media, copy);
+    return card;
+  }
+  function personalAssetCard(userId, asset) {
+    const card = document.createElement("article");
+    card.className = "settings-content-card";
+    makePreviewable(card, () => openAssetPreview(userId, asset.asset_id));
+    const copy = document.createElement("div");
+    copy.className = "settings-content-card-copy";
+    const version = asset.current_version || {};
+    copy.append(
+      textElement("span", translate(asset.deleted ? "systemSettings.deletedOnly" : "serverSettings.active"), `settings-content-status ${asset.deleted ? "deleted" : "active"}`),
+      textElement("h3", asset.name, "settings-content-card-title"),
+      textElement("p", `${assetKindLabel(asset.asset_kind)} \xB7 ${version.original_filename || "--"} \xB7 ${fmtBytes(version.byte_size)} \xB7 ${fmtDate(asset.updated_at)}`, "settings-content-card-meta")
+    );
+    card.append(assetMedia(asset), copy);
+    return card;
+  }
+  function showPreview(title, meta, ...content) {
+    const preview = document.querySelector("#settingsContentPreview");
+    if (!preview) return;
+    const titleNode = preview.querySelector("#settingsContentPreviewTitle");
+    const metaNode = preview.querySelector("#settingsContentPreviewMeta");
+    const body = preview.querySelector("#settingsContentPreviewBody");
+    if (titleNode) titleNode.textContent = title;
+    if (metaNode) metaNode.textContent = meta;
+    body?.replaceChildren(...content);
+    preview.classList.remove("hidden");
+    preview.setAttribute("aria-hidden", "false");
+    preview.querySelector("#settingsContentPreviewClose")?.focus();
+  }
+  function closeContentPreview() {
+    const preview = document.querySelector("#settingsContentPreview");
+    preview?.classList.add("hidden");
+    preview?.setAttribute("aria-hidden", "true");
+  }
+  async function openTaskPreview(userId, taskId) {
+    showPreview(taskId, translate("serverSettings.loadingPreview"), contentPlaceholder(translate("serverSettings.loadingPreview")));
+    try {
+      const result = await api(`/api/admin/users/${encodeURIComponent(userId)}/tasks/${encodeURIComponent(taskId)}`);
+      const task = result.task;
+      const details = textElement("p", task.prompt || translate("serverSettings.noPrompt"), "settings-content-preview-details");
+      const outputs = document.createElement("div");
+      outputs.className = "settings-content-preview-images";
+      (task.outputs || []).forEach((output) => {
+        if (output.preview_url && !output.deleted) outputs.append(thumbnailImage(output.preview_url, `${task.task_id} #${output.index}`));
+        else outputs.append(contentPlaceholder(output.deleted ? translate("serverSettings.deletedOutput") : translate("serverSettings.originalFileRemoved")));
+      });
+      if (!outputs.childElementCount) outputs.append(contentPlaceholder(task.error_message || taskStatusLabel(task.status)));
+      showPreview(task.task_id, `${taskStatusLabel(task.status)} \xB7 ${task.model_id} \xB7 ${fmtDate(task.created_at)}`, details, outputs);
+    } catch (error) {
+      closeContentPreview();
+      reportError(error);
+    }
+  }
+  async function openAssetPreview(userId, assetId) {
+    showPreview(assetId, translate("serverSettings.loadingPreview"), contentPlaceholder(translate("serverSettings.loadingPreview")));
+    try {
+      const result = await api(`/api/admin/users/${encodeURIComponent(userId)}/assets/${encodeURIComponent(assetId)}`);
+      const asset = result.asset;
+      const version = asset.current_version || {};
+      let content;
+      if (asset.preview_url && asset.file_available !== false) {
+        const images = document.createElement("div");
+        images.className = "settings-content-preview-images";
+        images.append(thumbnailImage(asset.preview_url, asset.name));
+        content = images;
+      } else if (["prompt", "template"].includes(asset.asset_kind)) {
+        content = textElement("pre", asset.content_text || translate("serverSettings.noTextContent"), "settings-content-preview-text");
+      } else {
+        content = contentPlaceholder(asset.file_available === false ? translate("serverSettings.originalFileRemoved") : translate("serverSettings.genericFilePreviewBlocked"));
+      }
+      showPreview(asset.name, `${assetKindLabel(asset.asset_kind)} \xB7 ${version.original_filename || "--"} \xB7 ${fmtBytes(version.byte_size)} \xB7 ${fmtDate(asset.updated_at)}`, content);
+    } catch (error) {
+      closeContentPreview();
+      reportError(error);
+    }
+  }
+  async function openSharedPreview(asset) {
+    showPreview(asset.name, translate("serverSettings.loadingPreview"), contentPlaceholder(translate("serverSettings.loadingPreview")));
+    try {
+      const result = await api(`/api/admin/shared-assets/${encodeURIComponent(asset.asset_id)}`);
+      const detail = result.asset;
+      const version = detail.current_version || {};
+      let content;
+      if (detail.preview_url && detail.file_available !== false) {
+        const images = document.createElement("div");
+        images.className = "settings-content-preview-images";
+        images.append(thumbnailImage(detail.preview_url, detail.name));
+        content = images;
+      } else if (["prompt", "template"].includes(detail.asset_kind)) {
+        content = textElement("pre", detail.content_text || translate("serverSettings.noTextContent"), "settings-content-preview-text");
+      } else {
+        content = contentPlaceholder(detail.file_available === false ? translate("serverSettings.originalFileRemoved") : translate("serverSettings.genericFilePreviewBlocked"));
+      }
+      showPreview(detail.name, `${assetKindLabel(detail.asset_kind)} \xB7 ${detail.category_name || translate("systemSettings.uncategorized")} \xB7 ${version.original_filename || "--"} \xB7 ${fmtBytes(version.byte_size)}`, content);
+    } catch (error) {
+      closeContentPreview();
+      reportError(error);
+    }
   }
   async function loadSessions() {
     const result = await api("/api/auth/sessions");
@@ -45886,31 +46240,40 @@ ${galleryText}`;
     replacePreservingDynamicDrafts("#settingsUserQuotaList", ...quotaRows);
   }
   async function loadShared() {
-    const [quotaResult, assetResult] = await Promise.all([api("/api/admin/shared-storage-quota"), api("/api/admin/shared-assets")]);
-    const quotaInput = document.querySelector("#settingsSharedQuotaForm [name=quota_mb]");
-    if (quotaInput) quotaInput.value = String(Math.max(1, Math.round(Number(quotaResult.quota?.quota_bytes || 0) / 1024 / 1024)));
-    const rows = (assetResult.assets || []).map((asset) => {
-      const rowActions = actions();
-      if (asset.is_active && ["image", "reference"].includes(asset.asset_kind)) {
-        rowActions.append(actionButton(translate("serverSettings.use"), async () => {
-          const gallery = await api("/api/gallery");
-          const item = (gallery.items || []).find((candidate) => candidate.id === `shared:${asset.asset_id}`);
-          if (!item) throw new Error(translate("serverSettings.sharedImageUnavailable"));
-          getLegacyBridge().methods.addGalleryInput(item);
-          closeSystemSettingsModal();
-        }));
-      }
-      rowActions.append(actionButton(translate(asset.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
-        if (!window.confirm(formatTranslation(asset.is_active ? "serverSettings.confirmDeactivateAsset" : "serverSettings.confirmReactivateAsset", { asset: asset.name }))) return;
-        await api(`/api/shared-assets/${encodeURIComponent(asset.asset_id)}/status`, {
-          method: "PATCH",
-          ...jsonOptions({ is_active: !asset.is_active })
-        });
-        await loadShared();
-      }, asset.is_active));
-      return listRow(`${asset.name} \xB7 ${asset.asset_kind}`, formatTranslation("serverSettings.sharedAssetMeta", { publisher: asset.publisher_user_id, status: translate(asset.is_active ? "serverSettings.available" : "serverSettings.inactive") }), rowActions);
+    const query = pageQuery(sharedBrowser, ["query", "kind", "status", "category_id"]);
+    const [storageResult, assetResult, categoryResult] = await Promise.all([
+      api("/api/admin/shared-storage"),
+      api(`/api/admin/shared-assets?${query}`),
+      api("/api/shared-gallery/categories")
+    ]);
+    const storage = storageResult.storage || {};
+    replace(
+      "#settingsSharedStorageSummary",
+      metric(translate("serverSettings.sharedStoragePolicy"), translate("serverSettings.unlimitedProductQuota")),
+      metric(translate("serverSettings.storageUsed"), fmtBytes(storage.used_bytes)),
+      metric(translate("serverSettings.sharedAssetCount"), String(storage.asset_count ?? 0)),
+      metric(translate("serverSettings.sharedActiveAssetCount"), String(storage.active_asset_count ?? 0))
+    );
+    const category = document.querySelector("#settingsSharedCategory");
+    if (category) {
+      const selected = sharedBrowser.category_id;
+      const all = document.createElement("option");
+      all.value = "";
+      all.textContent = translate("systemSettings.allCategories");
+      category.replaceChildren(all, ...(categoryResult.categories || []).map((item) => {
+        const option = document.createElement("option");
+        option.value = String(item.id || "");
+        option.textContent = String(item.name || "");
+        return option;
+      }));
+      category.value = selected;
+    }
+    const cards = (assetResult.assets || []).map((asset) => sharedAssetCard(asset));
+    replace("#settingsSharedAssetGrid", ...cards.length ? cards : [textElement("p", translate("serverSettings.noAssets"), "settings-empty-state")]);
+    renderPagination("#settingsSharedPagination", assetResult.pagination, (page) => {
+      sharedBrowser.page = page;
+      void loadShared().catch(reportError);
     });
-    replace("#settingsSharedAssetList", ...rows);
   }
   async function loadScheduler() {
     const result = await api("/api/admin/scheduler");
@@ -45948,17 +46311,57 @@ ${galleryText}`;
     populateContentUsers();
     const select = document.querySelector("#settingsContentUser");
     const userId = select?.value;
-    if (!userId) return;
-    const [tasksResult, assetsResult, usageResult] = await Promise.all([
-      api(`/api/admin/users/${encodeURIComponent(userId)}/tasks?limit=100`),
-      api(`/api/admin/users/${encodeURIComponent(userId)}/assets?limit=100`),
-      api(`/api/admin/users/${encodeURIComponent(userId)}/usage`)
-    ]);
+    if (!userId) {
+      replace("#settingsContentSummary");
+      replace("#settingsContentTasksGrid", textElement("p", translate("serverSettings.noUsers"), "settings-empty-state"));
+      replace("#settingsContentAssetsGrid", textElement("p", translate("serverSettings.noUsers"), "settings-empty-state"));
+      return;
+    }
+    const usagePromise = api(`/api/admin/users/${encodeURIComponent(userId)}/usage`);
+    const contentPromise = currentContentView === "tasks" ? loadContentTasks(userId) : loadContentAssets(userId);
+    const usageResult = await usagePromise;
+    await contentPromise;
     const usage = usageResult.usage || {};
     const taskCount = Object.values(usage.tasks || {}).reduce((sum, value) => sum + Number(value || 0), 0);
     replace("#settingsContentSummary", metric(translate("serverSettings.totalTasks"), String(taskCount)), metric(translate("serverSettings.storageUsed"), fmtBytes(usage.storage?.used_bytes)), metric(translate("serverSettings.departmentQuotaUsed"), String(usage.department_quota?.consumed_units ?? 0)));
-    replace("#settingsContentTasks", ...(tasksResult.tasks || []).map((task) => listRow(`${task.model_id} \xB7 ${task.status}`, `${fmtDate(task.created_at)} \xB7 ${task.prompt || ""}`)));
-    replace("#settingsContentAssets", ...(assetsResult.assets || []).map((asset) => listRow(`${asset.name} \xB7 ${asset.asset_kind}`, formatTranslation("serverSettings.createdAt", { date: fmtDate(asset.created_at) }))));
+  }
+  async function loadContentTasks(userId) {
+    const query = pageQuery(taskBrowser, ["query", "status", "state"]);
+    const result = await api(`/api/admin/users/${encodeURIComponent(userId)}/tasks?${query}`);
+    const cards = (result.tasks || []).map((task) => taskCard(userId, task));
+    replace("#settingsContentTasksGrid", ...cards.length ? cards : [textElement("p", translate("serverSettings.noTasks"), "settings-empty-state")]);
+    renderPagination("#settingsContentTasksPagination", result.pagination, (page) => {
+      taskBrowser.page = page;
+      void loadContentTasks(userId).catch(reportError);
+    });
+  }
+  async function loadContentAssets(userId) {
+    const query = pageQuery(assetBrowser, ["query", "kind", "state"]);
+    const result = await api(`/api/admin/users/${encodeURIComponent(userId)}/assets?${query}`);
+    const cards = (result.assets || []).map((asset) => personalAssetCard(userId, asset));
+    replace("#settingsContentAssetsGrid", ...cards.length ? cards : [textElement("p", translate("serverSettings.noAssets"), "settings-empty-state")]);
+    renderPagination("#settingsContentAssetsPagination", result.pagination, (page) => {
+      assetBrowser.page = page;
+      void loadContentAssets(userId).catch(reportError);
+    });
+  }
+  function setContentView(view, options = {}) {
+    const reload = options.reload ?? true;
+    currentContentView = view;
+    const tasksSelected = view === "tasks";
+    const tasksTab = document.querySelector("#settingsContentTasksTab");
+    const assetsTab = document.querySelector("#settingsContentAssetsTab");
+    const tasksPanel = document.querySelector("#settingsContentTasksPanel");
+    const assetsPanel = document.querySelector("#settingsContentAssetsPanel");
+    tasksTab?.classList.toggle("active", tasksSelected);
+    tasksTab?.setAttribute("aria-selected", String(tasksSelected));
+    assetsTab?.classList.toggle("active", !tasksSelected);
+    assetsTab?.setAttribute("aria-selected", String(!tasksSelected));
+    if (tasksPanel) tasksPanel.hidden = !tasksSelected;
+    if (assetsPanel) assetsPanel.hidden = tasksSelected;
+    if (tasksSelected) taskBrowser.page = 1;
+    else assetBrowser.page = 1;
+    if (reload) void loadContent().catch(reportError);
   }
   async function loadAudit(action = "") {
     const query = action ? `&action=${encodeURIComponent(action)}` : "";
@@ -46045,18 +46448,6 @@ ${galleryText}`;
         reportError(error);
       }
     });
-    document.querySelector("#settingsSharedQuotaForm")?.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      const data = new FormData(form);
-      try {
-        await api("/api/admin/shared-storage-quota", { method: "PATCH", ...jsonOptions({ quota_bytes: Math.round(Number(data.get("quota_mb")) * 1024 * 1024) }) });
-        clearSystemSettingsDirty(form);
-        await loadShared();
-      } catch (error) {
-        reportError(error);
-      }
-    });
     document.querySelector("#settingsSchedulerForm")?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
@@ -46074,12 +46465,77 @@ ${galleryText}`;
       const data = new FormData(event.currentTarget);
       void loadAudit(String(data.get("action") || "")).catch(reportError);
     });
-    document.querySelector("#settingsContentUser")?.addEventListener("change", () => void loadContent().catch(reportError));
+    document.querySelector("#settingsContentUser")?.addEventListener("change", () => {
+      taskBrowser.page = 1;
+      assetBrowser.page = 1;
+      closeContentPreview();
+      void loadContent().catch(reportError);
+    });
+    document.querySelector("#settingsSharedSearch")?.addEventListener("input", (event) => {
+      sharedBrowser.query = event.currentTarget.value;
+      debounceSearch("shared", () => {
+        sharedBrowser.page = 1;
+        void loadShared().catch(reportError);
+      });
+    });
+    ["status", "kind", "category_id"].forEach((field) => {
+      const selector = {
+        status: "#settingsSharedStatus",
+        kind: "#settingsSharedKind",
+        category_id: "#settingsSharedCategory"
+      }[field];
+      document.querySelector(selector)?.addEventListener("change", (event) => {
+        sharedBrowser[field] = event.currentTarget.value;
+        sharedBrowser.page = 1;
+        void loadShared().catch(reportError);
+      });
+    });
+    document.querySelector("#settingsContentTasksTab")?.addEventListener("click", () => setContentView("tasks"));
+    document.querySelector("#settingsContentAssetsTab")?.addEventListener("click", () => setContentView("assets"));
+    document.querySelector("#settingsContentTasksSearch")?.addEventListener("input", (event) => {
+      taskBrowser.query = event.currentTarget.value;
+      debounceSearch("tasks", () => {
+        taskBrowser.page = 1;
+        void loadContent().catch(reportError);
+      });
+    });
+    document.querySelector("#settingsContentTasksStatus")?.addEventListener("change", (event) => {
+      taskBrowser.status = event.currentTarget.value;
+      taskBrowser.page = 1;
+      void loadContent().catch(reportError);
+    });
+    document.querySelector("#settingsContentTasksState")?.addEventListener("change", (event) => {
+      taskBrowser.state = event.currentTarget.value;
+      taskBrowser.page = 1;
+      void loadContent().catch(reportError);
+    });
+    document.querySelector("#settingsContentAssetsSearch")?.addEventListener("input", (event) => {
+      assetBrowser.query = event.currentTarget.value;
+      debounceSearch("assets", () => {
+        assetBrowser.page = 1;
+        void loadContent().catch(reportError);
+      });
+    });
+    document.querySelector("#settingsContentAssetsKind")?.addEventListener("change", (event) => {
+      assetBrowser.kind = event.currentTarget.value;
+      assetBrowser.page = 1;
+      void loadContent().catch(reportError);
+    });
+    document.querySelector("#settingsContentAssetsState")?.addEventListener("change", (event) => {
+      assetBrowser.state = event.currentTarget.value;
+      assetBrowser.page = 1;
+      void loadContent().catch(reportError);
+    });
+    document.querySelectorAll("[data-preview-close]").forEach((button) => button.addEventListener("click", closeContentPreview));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeContentPreview();
+    });
   }
   function initServerSettingsFeature() {
     if (initialized3) return;
     initialized3 = true;
     bindForms();
+    setContentView("tasks", { reload: false });
     document.addEventListener("codex-image-user-context", () => void loadSessions().catch(reportError));
     document.addEventListener("codex-image-settings-tab-change", (event) => {
       const tab = event.detail.tab;

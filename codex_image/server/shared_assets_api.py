@@ -4,12 +4,14 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from .assets import AssetNotFound, AssetQuotaExceeded, AssetValidationError
+from .assets import AssetNotFound, AssetValidationError
 from .assets_api import _kind, _limit, _parse_asset_request, _version_payload
 from .auth import require_admin
+from .content_thumbnails import ensure_image_thumbnail
 from .identity import AuthenticatedSession
+from .pagination import pagination_payload, parse_page_request
 from .shared_assets import (
     SHARED_GALLERY_ASSET_KINDS,
     SharedAsset,
@@ -24,44 +26,114 @@ class SharedAssetStatusPayload(BaseModel):
     is_active: bool
 
 
-class SharedQuotaPayload(BaseModel):
-    quota_bytes: int = Field(ge=0, le=100 * 1024 * 1024 * 1024)
-
-
 def install_shared_asset_routes(app: FastAPI, *, shared_assets: SharedAssetRepository) -> None:
-    @app.get("/api/shared-assets/quota", response_model=None)
-    def shared_quota(request: Request) -> JSONResponse:
-        request.state.auth_session
-        return JSONResponse(content={"quota": _quota_payload(shared_assets.quota())})
-
-    @app.get("/api/admin/shared-storage-quota", response_model=None)
-    def admin_shared_quota(
+    @app.get("/api/admin/shared-storage", response_model=None)
+    def admin_shared_storage(
         admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
     ) -> JSONResponse:
-        return JSONResponse(content={"quota": _quota_payload(shared_assets.quota())})
-
-    @app.patch("/api/admin/shared-storage-quota", response_model=None)
-    def set_shared_quota(
-        payload: SharedQuotaPayload,
-        admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
-    ) -> JSONResponse:
-        try:
-            quota = shared_assets.set_quota(payload.quota_bytes, actor_user_id=admin_session.user.user_id)
-        except AssetValidationError as error:
-            return JSONResponse(status_code=422, content={"detail": str(error)})
-        return JSONResponse(content={"quota": _quota_payload(quota)})
+        usage = shared_assets.storage_usage()
+        return JSONResponse(
+            content={
+                "storage": {
+                    "unlimited": True,
+                    "used_bytes": usage.used_bytes,
+                    "asset_count": usage.asset_count,
+                    "active_asset_count": usage.active_asset_count,
+                    "version_count": usage.version_count,
+                }
+            }
+        )
 
     @app.get("/api/admin/shared-assets", response_model=None)
     def admin_shared_assets(
+        request: Request,
         admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
     ) -> JSONResponse:
+        page = parse_page_request(request)
+        if page is None:
+            return JSONResponse(status_code=422, content={"detail": "invalid_asset_page"})
+        status = request.query_params.get("status", "active")
+        if status not in {"active", "inactive", "all"}:
+            return JSONResponse(status_code=422, content={"detail": "invalid_asset_status"})
+        kind = _kind(request.query_params.get("kind"))
+        if request.query_params.get("kind") is not None and kind is None:
+            return JSONResponse(status_code=422, content={"detail": "invalid_asset_kind"})
+        query = str(request.query_params.get("query") or "").strip()
+        if len(query) > 200:
+            return JSONResponse(status_code=422, content={"detail": "invalid_asset_query"})
+        assets, total = shared_assets.list_assets_page(
+            page=page.page,
+            page_size=page.page_size,
+            status=status,
+            kind=kind,
+            category_id=request.query_params.get("category_id"),
+            query=query,
+        )
         return JSONResponse(
             content={
                 "assets": [
-                    _shared_asset_payload(asset, versions=shared_assets.list_versions(asset.asset_id, include_inactive=True))
-                    for asset in shared_assets.list_assets(include_inactive=True)
-                ]
+                    _admin_shared_asset_payload(shared_assets, asset)
+                    for asset in assets
+                ],
+                "pagination": pagination_payload(page, total),
             }
+        )
+
+    @app.get("/api/admin/shared-assets/{asset_id}", response_model=None)
+    def admin_shared_asset_detail(
+        asset_id: str,
+        admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
+    ) -> JSONResponse:
+        try:
+            asset = shared_assets.get_asset(asset_id, include_inactive=True)
+        except AssetNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        return JSONResponse(
+            content={"asset": _admin_shared_asset_payload(shared_assets, asset, include_content=True)}
+        )
+
+    @app.get("/api/admin/shared-assets/{asset_id}/thumbnail")
+    def admin_shared_asset_thumbnail(
+        asset_id: str,
+        admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
+    ):
+        try:
+            asset = shared_assets.get_asset(asset_id, include_inactive=True)
+            if asset.asset_kind not in SHARED_GALLERY_ASSET_KINDS or asset.current_version is None:
+                raise AssetNotFound("shared asset thumbnail was not found")
+            source = shared_assets.asset_path(asset.current_version)
+            thumbnail = ensure_image_thumbnail(
+                shared_assets.data_root,
+                scope="shared",
+                version_id=asset.current_version.asset_version_id,
+                source_path=source,
+            )
+        except (AssetNotFound, FileNotFoundError, ValueError, OSError):
+            return JSONResponse(status_code=404, content={"detail": "shared_asset_thumbnail_missing"})
+        return FileResponse(
+            thumbnail,
+            media_type="image/jpeg",
+            headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+        )
+
+    @app.get("/api/admin/shared-assets/{asset_id}/preview")
+    def admin_shared_asset_preview(
+        asset_id: str,
+        admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
+    ):
+        try:
+            asset = shared_assets.get_asset(asset_id, include_inactive=True)
+            if asset.asset_kind not in SHARED_GALLERY_ASSET_KINDS or asset.current_version is None:
+                raise AssetNotFound("shared asset preview was not found")
+            path = shared_assets.asset_path(asset.current_version)
+        except AssetNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        if not path.is_file():
+            return JSONResponse(status_code=404, content={"detail": "shared_asset_file_missing"})
+        return FileResponse(
+            path,
+            media_type=asset.current_version.mime_type,
+            headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
         )
 
     @app.get("/api/shared-assets", response_model=None)
@@ -100,8 +172,6 @@ def install_shared_asset_routes(app: FastAPI, *, shared_assets: SharedAssetRepos
             return JSONResponse(status_code=403, content={"detail": str(error)})
         except SharedAssetConflict as error:
             return JSONResponse(status_code=409, content={"detail": str(error)})
-        except AssetQuotaExceeded as error:
-            return JSONResponse(status_code=413, content={"detail": str(error)})
         except AssetValidationError as error:
             return JSONResponse(status_code=422, content={"detail": str(error)})
         return JSONResponse(status_code=201, content={"asset": _shared_asset_payload(asset, include_versions=True)})
@@ -136,8 +206,6 @@ def install_shared_asset_routes(app: FastAPI, *, shared_assets: SharedAssetRepos
             return JSONResponse(status_code=404, content={"detail": str(error)})
         except SharedAssetForbidden as error:
             return JSONResponse(status_code=403, content={"detail": str(error)})
-        except AssetQuotaExceeded as error:
-            return JSONResponse(status_code=413, content={"detail": str(error)})
         except AssetValidationError as error:
             return JSONResponse(status_code=422, content={"detail": str(error)})
         return JSONResponse(status_code=201, content={"asset": _shared_asset_payload(asset, versions=versions, include_versions=True)})
@@ -195,14 +263,6 @@ def _shared_file_response(path, version: SharedAssetVersion):
     )
 
 
-def _quota_payload(quota) -> dict[str, int]:
-    return {
-        "quota_bytes": quota.quota_bytes,
-        "used_bytes": quota.used_bytes,
-        "available_bytes": quota.available_bytes,
-    }
-
-
 def _shared_asset_payload(
     asset: SharedAsset,
     *,
@@ -235,3 +295,50 @@ def _shared_asset_payload(
             for version in (versions or [])
         ]
     return payload
+
+
+def _admin_shared_asset_payload(
+    shared_assets: SharedAssetRepository,
+    asset: SharedAsset,
+    *,
+    include_content: bool = False,
+) -> dict[str, object]:
+    payload = _shared_asset_payload(
+        asset,
+        versions=shared_assets.list_versions(asset.asset_id, include_inactive=True),
+        include_versions=True,
+    )
+    path = None
+    if asset.current_version is not None:
+        try:
+            candidate = shared_assets.asset_path(asset.current_version)
+            if candidate.is_file():
+                path = candidate
+        except AssetNotFound:
+            path = None
+    payload["file_available"] = path is not None
+    payload["thumbnail_url"] = (
+        f"/api/admin/shared-assets/{asset.asset_id}/thumbnail"
+        if path is not None and asset.asset_kind in SHARED_GALLERY_ASSET_KINDS
+        else None
+    )
+    payload["preview_url"] = (
+        f"/api/admin/shared-assets/{asset.asset_id}/preview"
+        if path is not None and asset.asset_kind in SHARED_GALLERY_ASSET_KINDS
+        else None
+    )
+    text = _text_content(path) if asset.asset_kind in {"prompt", "template"} else ""
+    payload["content_excerpt"] = text[:500]
+    if include_content:
+        payload["content_text"] = text
+        payload["content_truncated"] = len(text) >= 100_000
+    return payload
+
+
+def _text_content(path) -> str:
+    if path is None:
+        return ""
+    try:
+        return path.read_bytes()[:100_000].decode("utf-8", errors="replace").strip()
+    except OSError:
+        return ""

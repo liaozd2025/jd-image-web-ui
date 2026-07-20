@@ -13,7 +13,6 @@ from .assets import (
     ASSET_KINDS,
     AssetKind,
     AssetNotFound,
-    AssetQuotaExceeded,
     AssetValidationError,
     _clean_filename,
     _clean_name,
@@ -68,10 +67,11 @@ class SharedAsset:
 
 
 @dataclass(frozen=True)
-class SharedStorageQuota:
-    quota_bytes: int
+class SharedStorageUsage:
     used_bytes: int
-    available_bytes: int
+    asset_count: int
+    active_asset_count: int
+    version_count: int
 
 
 class SharedAssetRepository:
@@ -158,9 +158,8 @@ class SharedAssetRepository:
                 )
 
         try:
-            self._write_with_quota(
+            self._write_atomically(
                 publisher_user_id,
-                byte_size=len(content),
                 relative_path=relative_path,
                 content=content,
                 insert=insert,
@@ -241,9 +240,8 @@ class SharedAssetRepository:
                 (version_id, asset_id),
             )
 
-        self._write_with_quota(
+        self._write_atomically(
             actor_user_id,
-            byte_size=len(content),
             relative_path=relative_path,
             content=content,
             insert=insert,
@@ -281,6 +279,71 @@ class SharedAssetRepository:
                     (limit,),
                 )
                 return [self._asset_from_row(row) for row in cursor.fetchall()]
+
+    def list_assets_page(
+        self,
+        *,
+        page: int,
+        page_size: int,
+        status: str = "active",
+        kind: AssetKind | None = None,
+        category_id: str | None = None,
+        query: str = "",
+    ) -> tuple[list[SharedAsset], int]:
+        clauses = ["TRUE"]
+        values: list[object] = []
+        if status == "active":
+            clauses.append("assets.is_active")
+        elif status == "inactive":
+            clauses.append("NOT assets.is_active")
+        if kind is not None:
+            clauses.append("assets.asset_kind = %s")
+            values.append(kind)
+        if category_id:
+            clauses.append("gallery_items.category_id = %s")
+            values.append(category_id)
+        normalized_query = query.strip()
+        if normalized_query:
+            pattern = f"%{normalized_query}%"
+            clauses.append("(assets.name ILIKE %s OR COALESCE(gallery_items.prompt_note, '') ILIKE %s)")
+            values.extend((pattern, pattern))
+        where = " AND ".join(clauses)
+        offset = (page - 1) * page_size
+        joins = """
+            LEFT JOIN server_shared_gallery_items AS gallery_items
+              ON gallery_items.asset_id = assets.asset_id
+            LEFT JOIN server_shared_gallery_categories AS categories
+              ON categories.category_id = gallery_items.category_id
+        """
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                cursor.execute(
+                    f"SELECT COUNT(*) FROM server_shared_assets AS assets {joins} WHERE {where}",
+                    values,
+                )
+                total = int(cursor.fetchone()["count"])
+                cursor.execute(
+                    f"""
+                    SELECT assets.*, versions.asset_version_id AS current_asset_version_id,
+                           versions.publisher_user_id AS version_publisher_user_id,
+                           versions.version_number, versions.original_filename, versions.mime_type,
+                           versions.stored_relative_path, versions.sha256, versions.byte_size,
+                           versions.created_at AS version_created_at,
+                           gallery_items.category_id, categories.name AS category_name,
+                           gallery_items.prompt_note, gallery_items.sort_order
+                    FROM server_shared_assets AS assets
+                    LEFT JOIN server_shared_asset_versions AS versions
+                      ON versions.asset_version_id = assets.current_version_id
+                    {joins}
+                    WHERE {where}
+                    ORDER BY categories.sort_order NULLS LAST,
+                             gallery_items.sort_order NULLS LAST,
+                             assets.updated_at DESC, assets.asset_id DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    (*values, page_size, offset),
+                )
+                return [self._asset_from_row(row) for row in cursor.fetchall()], total
 
     def get_asset(self, asset_id: str, *, include_inactive: bool = False) -> SharedAsset:
         condition = "" if include_inactive else "AND assets.is_active"
@@ -355,43 +418,27 @@ class SharedAssetRepository:
                 )
         return self.get_asset(asset_id, include_inactive=True)
 
-    def quota(self) -> SharedStorageQuota:
+    def storage_usage(self) -> SharedStorageUsage:
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:
-                assert_writes_allowed(cursor)
                 cursor.execute(
                     """
-                    SELECT settings.quota_bytes, COALESCE(SUM(versions.byte_size), 0)
-                    FROM server_shared_storage_settings AS settings
-                    LEFT JOIN server_shared_asset_versions AS versions ON TRUE
-                    WHERE settings.singleton
-                    GROUP BY settings.quota_bytes
+                    SELECT COALESCE(SUM(versions.byte_size), 0),
+                           COUNT(DISTINCT assets.asset_id),
+                           COUNT(DISTINCT assets.asset_id) FILTER (WHERE assets.is_active),
+                           COUNT(versions.asset_version_id)
+                    FROM server_shared_assets AS assets
+                    LEFT JOIN server_shared_asset_versions AS versions
+                      ON versions.asset_id = assets.asset_id
                     """
                 )
                 row = cursor.fetchone()
-        if row is None:
-            raise AssetNotFound("shared storage settings were not found")
-        quota, used = max(0, int(row[0])), max(0, int(row[1]))
-        return SharedStorageQuota(quota, used, max(0, quota - used))
-
-    def set_quota(self, quota_bytes: int, *, actor_user_id: str) -> SharedStorageQuota:
-        if quota_bytes < 0:
-            raise AssetValidationError("shared storage quota must be non-negative")
-        with self.connections.connect() as connection:
-            with connection.cursor() as cursor:
-                assert_writes_allowed(cursor)
-                cursor.execute(
-                    "UPDATE server_shared_storage_settings SET quota_bytes = %s, updated_at = CURRENT_TIMESTAMP WHERE singleton",
-                    (quota_bytes,),
-                )
-                record_audit_event(
-                    cursor,
-                    action="shared_storage.quota_updated",
-                    actor_user_id=actor_user_id,
-                    subject_user_id=None,
-                    details={"quota_bytes": quota_bytes},
-                )
-        return self.quota()
+        return SharedStorageUsage(
+            used_bytes=max(0, int(row[0] if row else 0)),
+            asset_count=max(0, int(row[1] if row else 0)),
+            active_asset_count=max(0, int(row[2] if row else 0)),
+            version_count=max(0, int(row[3] if row else 0)),
+        )
 
     def resolve_versions(self, asset_version_ids: list[str]) -> list[dict[str, object]]:
         if len(asset_version_ids) > 16 or len(set(asset_version_ids)) != len(asset_version_ids):
@@ -462,11 +509,10 @@ class SharedAssetRepository:
             raise AssetNotFound("shared asset version was not found")
         return self._version_from_row(row)
 
-    def _write_with_quota(
+    def _write_atomically(
         self,
         user_id: str,
         *,
-        byte_size: int,
         relative_path: Path,
         content: bytes,
         insert: Any,
@@ -479,13 +525,6 @@ class SharedAssetRepository:
             try:
                 with connection.cursor() as cursor:
                     assert_writes_allowed(cursor)
-                    cursor.execute("SELECT quota_bytes FROM server_shared_storage_settings WHERE singleton FOR UPDATE")
-                    row = cursor.fetchone()
-                    if row is None:
-                        raise AssetNotFound("shared storage settings were not found")
-                    cursor.execute("SELECT COALESCE(SUM(byte_size), 0) FROM server_shared_asset_versions")
-                    if int(cursor.fetchone()[0]) + byte_size > max(0, int(row[0])):
-                        raise AssetQuotaExceeded("shared storage quota exceeded")
                     absolute_path.parent.mkdir(parents=True, exist_ok=True)
                     temporary_path.write_bytes(content)
                     insert(cursor)

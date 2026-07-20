@@ -6,16 +6,18 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from psycopg.rows import dict_row
 
-from .assets import AssetNotFound, AssetRepository
+from .assets import Asset, AssetNotFound, AssetRepository
+from .assets_api import _asset_payload, _kind
 from .audit import record_audit_event
 from .auth import require_admin
+from .content_thumbnails import ensure_image_thumbnail
 from .database import PostgresConnections
 from .identity import AuthenticatedSession
 from .department_providers import DepartmentProviderRepository, DepartmentQuotaExceeded
 from .tasks import GenerationTaskRepository, TaskNotFound, task_output_records
 from .tasks_api import _task_payload
-from .assets_api import _asset_payload
 from .maintenance import assert_writes_allowed
+from .pagination import pagination_payload, parse_page_request
 
 
 def install_admin_view_routes(
@@ -37,21 +39,36 @@ def install_admin_view_routes(
         raw_status = request.query_params.get("status")
         if raw_status and raw_status not in {"queued", "running", "interrupted", "completed", "failed", "cancelled"}:
             return JSONResponse(status_code=422, content={"detail": "invalid_task_status"})
-        limit = _limit(request)
-        if limit is None:
-            return JSONResponse(status_code=422, content={"detail": "invalid_task_limit"})
-        task_list = tasks.list_tasks(
+        page = parse_page_request(request)
+        if page is None:
+            return JSONResponse(status_code=422, content={"detail": "invalid_task_page"})
+        state = request.query_params.get("state", "active")
+        if state not in {"active", "deleted", "all"}:
+            return JSONResponse(status_code=422, content={"detail": "invalid_task_state"})
+        query = str(request.query_params.get("query") or "").strip()
+        if len(query) > 500:
+            return JSONResponse(status_code=422, content={"detail": "invalid_task_query"})
+        task_list, total = tasks.list_tasks_page(
             user_id,
             status=raw_status if raw_status else None,  # type: ignore[arg-type]
-            limit=limit,
-            include_deleted=True,
+            state=state,
+            query=query,
+            page=page.page,
+            page_size=page.page_size,
         )
         _record_view(
             connections,
             admin_session.user.user_id,
             user_id,
-            action="admin.view_user_tasks",
-            details={"count": len(task_list)},
+            action="admin.view_user_tasks_page",
+            details={
+                "count": len(task_list),
+                "page": page.page,
+                "page_size": page.page_size,
+                "state": state,
+                "status": raw_status or "all",
+                "query": query,
+            },
         )
         return JSONResponse(
             content={
@@ -60,6 +77,7 @@ def install_admin_view_routes(
                     _task_payload(task, url_prefix=f"/api/admin/users/{user_id}/tasks")
                     for task in task_list
                 ],
+                "pagination": pagination_payload(page, total),
             }
         )
 
@@ -121,7 +139,7 @@ def install_admin_view_routes(
         artifact: str,
         admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
     ):
-        if artifact not in {"download", "thumbnail"}:
+        if artifact not in {"download", "preview", "thumbnail"}:
             return JSONResponse(status_code=404, content={"detail": "artifact_not_found"})
         try:
             task = tasks.get_task(user_id, task_id, include_deleted=True)
@@ -143,18 +161,19 @@ def install_admin_view_routes(
                 media_type = str(output.get("media_type") or "application/octet-stream")
                 extension = str(output.get("output_format") or "png")
                 filename = f"task-{task.task_id}-image-{output_index}.{extension}"
-                disposition = True
+                disposition = artifact == "download"
         except TaskNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
         if not path.is_file():
             return JSONResponse(status_code=404, content={"detail": "task_file_missing"})
-        _record_view(
-            connections,
-            admin_session.user.user_id,
-            user_id,
-            action="admin.view_user_task_artifact",
-            details={"task_id": task_id, "artifact": artifact, "output_index": output_index},
-        )
+        if artifact != "thumbnail":
+            _record_view(
+                connections,
+                admin_session.user.user_id,
+                user_id,
+                action="admin.view_user_task_artifact",
+                details={"task_id": task_id, "artifact": artifact, "output_index": output_index},
+            )
         headers = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
         if disposition:
             headers["Content-Disposition"] = f'attachment; filename="{filename}"'
@@ -194,13 +213,14 @@ def install_admin_view_routes(
             return JSONResponse(status_code=404, content={"detail": str(error)})
         if not path.is_file():
             return JSONResponse(status_code=404, content={"detail": "task_file_missing"})
-        _record_view(
-            connections,
-            admin_session.user.user_id,
-            user_id,
-            action="admin.view_user_task_artifact",
-            details={"task_id": task_id, "artifact": artifact},
-        )
+        if artifact != "thumbnail":
+            _record_view(
+                connections,
+                admin_session.user.user_id,
+                user_id,
+                action="admin.view_user_task_artifact",
+                details={"task_id": task_id, "artifact": artifact},
+            )
         headers = {"Cache-Control": "no-store"}
         if disposition:
             headers["Content-Disposition"] = f'attachment; filename="{filename}"'
@@ -214,29 +234,126 @@ def install_admin_view_routes(
     ) -> JSONResponse:
         if not _user_exists(connections, user_id):
             return JSONResponse(status_code=404, content={"detail": "user was not found"})
-        limit = _limit(request)
-        if limit is None:
-            return JSONResponse(status_code=422, content={"detail": "invalid_asset_limit"})
-        asset_list = assets.list_assets(user_id, include_deleted=True, limit=limit)
+        page = parse_page_request(request)
+        if page is None:
+            return JSONResponse(status_code=422, content={"detail": "invalid_asset_page"})
+        state = request.query_params.get("state", "active")
+        if state not in {"active", "deleted", "all"}:
+            return JSONResponse(status_code=422, content={"detail": "invalid_asset_state"})
+        kind = _kind(request.query_params.get("kind"))
+        if request.query_params.get("kind") is not None and kind is None:
+            return JSONResponse(status_code=422, content={"detail": "invalid_asset_kind"})
+        query = str(request.query_params.get("query") or "").strip()
+        if len(query) > 200:
+            return JSONResponse(status_code=422, content={"detail": "invalid_asset_query"})
+        asset_list, total = assets.list_assets_page(
+            user_id,
+            page=page.page,
+            page_size=page.page_size,
+            kind=kind,
+            state=state,
+            query=query,
+        )
         _record_view(
             connections,
             admin_session.user.user_id,
             user_id,
-            action="admin.view_user_assets",
-            details={"count": len(asset_list)},
+            action="admin.view_user_assets_page",
+            details={
+                "count": len(asset_list),
+                "page": page.page,
+                "page_size": page.page_size,
+                "state": state,
+                "kind": kind or "all",
+                "query": query,
+            },
         )
         return JSONResponse(
             content={
                 "viewer": _viewer_payload(admin_session, user_id),
                 "assets": [
-                    _asset_payload(
-                        asset,
-                        include_versions=False,
-                        url_prefix=f"/api/admin/users/{user_id}/assets",
-                    )
+                    _admin_asset_payload(assets, user_id, asset)
                     for asset in asset_list
                 ],
+                "pagination": pagination_payload(page, total),
             }
+        )
+
+    @app.get("/api/admin/users/{user_id}/assets/{asset_id}", response_model=None)
+    def admin_asset_detail(
+        user_id: str,
+        asset_id: str,
+        admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
+    ) -> JSONResponse:
+        try:
+            asset = assets.get_asset(user_id, asset_id, include_deleted=True)
+        except AssetNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        _record_view(
+            connections,
+            admin_session.user.user_id,
+            user_id,
+            action="admin.view_user_asset",
+            details={"asset_id": asset_id},
+        )
+        return JSONResponse(
+            content={
+                "viewer": _viewer_payload(admin_session, user_id),
+                "asset": _admin_asset_payload(assets, user_id, asset, include_content=True),
+            }
+        )
+
+    @app.get("/api/admin/users/{user_id}/assets/{asset_id}/thumbnail")
+    def admin_asset_thumbnail(
+        user_id: str,
+        asset_id: str,
+        admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
+    ):
+        try:
+            asset = assets.get_asset(user_id, asset_id, include_deleted=True)
+            if asset.asset_kind not in {"image", "reference"} or asset.current_version is None:
+                raise AssetNotFound("asset thumbnail was not found")
+            source = assets.asset_path(asset.current_version)
+            thumbnail = ensure_image_thumbnail(
+                assets.data_root,
+                scope="personal",
+                version_id=asset.current_version.asset_version_id,
+                source_path=source,
+            )
+        except (AssetNotFound, FileNotFoundError, ValueError, OSError):
+            return JSONResponse(status_code=404, content={"detail": "asset_thumbnail_missing"})
+        return FileResponse(
+            thumbnail,
+            media_type="image/jpeg",
+            headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+        )
+
+    @app.get("/api/admin/users/{user_id}/assets/{asset_id}/preview")
+    def admin_asset_preview(
+        user_id: str,
+        asset_id: str,
+        admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
+    ):
+        try:
+            asset = assets.get_asset(user_id, asset_id, include_deleted=True)
+            if asset.asset_kind not in {"image", "reference"} or asset.current_version is None:
+                raise AssetNotFound("asset preview was not found")
+            path = assets.asset_path(asset.current_version)
+        except AssetNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        if not path.is_file():
+            return JSONResponse(status_code=404, content={"detail": "asset_file_missing"})
+        _record_view(
+            connections,
+            admin_session.user.user_id,
+            user_id,
+            action="admin.view_user_asset_artifact",
+            details={"asset_id": asset_id, "artifact": "preview"},
+        )
+        return FileResponse(
+            path,
+            media_type=asset.current_version.mime_type,
+            headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
         )
 
     @app.get("/api/admin/users/{user_id}/assets/{asset_id}/download")
@@ -428,6 +545,55 @@ def _viewer_payload(admin_session: AuthenticatedSession, target_user_id: str | N
         "admin_user_id": admin_session.user.user_id,
         "target_user_id": target_user_id,
     }
+
+
+def _admin_asset_payload(
+    assets: AssetRepository,
+    user_id: str,
+    asset: Asset,
+    *,
+    include_content: bool = False,
+) -> dict[str, object]:
+    url_prefix = f"/api/admin/users/{user_id}/assets"
+    payload = _asset_payload(
+        asset,
+        include_versions=False,
+        url_prefix=url_prefix,
+    )
+    path = None
+    if asset.current_version is not None:
+        try:
+            candidate = assets.asset_path(asset.current_version)
+            if candidate.is_file():
+                path = candidate
+        except AssetNotFound:
+            path = None
+    payload["file_available"] = path is not None
+    payload["thumbnail_url"] = (
+        f"{url_prefix}/{asset.asset_id}/thumbnail"
+        if path is not None and asset.asset_kind in {"image", "reference"}
+        else None
+    )
+    payload["preview_url"] = (
+        f"{url_prefix}/{asset.asset_id}/preview"
+        if path is not None and asset.asset_kind in {"image", "reference"}
+        else None
+    )
+    text = _read_text_asset(path) if asset.asset_kind in {"prompt", "template"} else ""
+    payload["content_excerpt"] = text[:500]
+    if include_content:
+        payload["content_text"] = text
+        payload["content_truncated"] = len(text) >= 100_000
+    return payload
+
+
+def _read_text_asset(path) -> str:
+    if path is None:
+        return ""
+    try:
+        return path.read_bytes()[:100_000].decode("utf-8", errors="replace").strip()
+    except OSError:
+        return ""
 
 
 def _limit(request: Request, *, default: int = 50, maximum: int = 100) -> int | None:

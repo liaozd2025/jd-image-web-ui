@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from starlette.datastructures import UploadFile
 from starlette.formparsers import MultiPartException
 
-from .assets import MAX_ASSET_BYTES, AssetNotFound, AssetQuotaExceeded, AssetValidationError
+from .assets import MAX_ASSET_BYTES, AssetNotFound, AssetValidationError
 from .auth import require_admin
 from .identity import AuthenticatedSession
 from .shared_assets import SharedAssetConflict, SharedAssetRepository
@@ -101,8 +101,6 @@ def install_shared_gallery_routes(
             )
         except SharedAssetConflict as error:
             return JSONResponse(status_code=409, content={"detail": str(error)})
-        except AssetQuotaExceeded as error:
-            return JSONResponse(status_code=413, content={"detail": str(error)})
         except AssetValidationError as error:
             return JSONResponse(status_code=422, content={"detail": str(error)})
         return JSONResponse(status_code=201, content={"item": _shared_asset_payload(asset, include_versions=True)})
@@ -319,8 +317,6 @@ async def _process_shared_gallery_batch_request(
                     )
                 except SharedAssetConflict:
                     result.update({"status": "failed", "error": "name_conflict"})
-                except AssetQuotaExceeded:
-                    result.update({"status": "failed", "error": "quota_exceeded"})
                 except AssetValidationError as error:
                     message = str(error).lower()
                     if len(content) > MAX_ASSET_BYTES:

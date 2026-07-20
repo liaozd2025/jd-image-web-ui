@@ -1191,12 +1191,16 @@
         </section>
 
         <section class="system-settings-section" data-system-settings-panel="shared" data-admin-only hidden aria-hidden="true">
-          <header class="system-settings-page-heading"><p data-i18n="systemSettings.adminGroup">系统管理</p><h2 data-i18n="systemSettings.sharedTab">共享资产与存储</h2><span data-i18n="systemSettings.sharedDescription">设置共享空间配额、使用共享图片并管理资产可见状态。</span></header>
-          <form id="settingsSharedQuotaForm" class="settings-card settings-inline-form" data-sensitive-form>
-            <label><span data-i18n="systemSettings.sharedQuotaMb">共享空间（MB）</span><input name="quota_mb" class="control" type="number" min="1" step="1" required /></label>
-            <button class="run-button" type="submit" data-i18n="systemSettings.saveStorage">保存空间</button>
-          </form>
-          <div id="settingsSharedAssetList" class="settings-list settings-admin-list"></div>
+          <header class="system-settings-page-heading"><p data-i18n="systemSettings.adminGroup">系统管理</p><h2 data-i18n="systemSettings.sharedTab">共享资产与存储</h2><span data-i18n="systemSettings.sharedDescription">查看共享存储用量，使用共享图片并管理资产可见状态。</span></header>
+          <div id="settingsSharedStorageSummary" class="settings-metric-grid"></div>
+          <div class="settings-card settings-browser-filters" aria-label="共享资产筛选" data-i18n-attr="aria-label:systemSettings.sharedFilters">
+            <label class="settings-browser-search"><span data-i18n="systemSettings.searchLabel">搜索</span><input id="settingsSharedSearch" class="control" type="search" placeholder="按名称搜索" data-i18n-attr="placeholder:systemSettings.sharedSearchPlaceholder" /></label>
+            <label><span data-i18n="systemSettings.category">分类</span><select id="settingsSharedCategory" class="control"><option value="" data-i18n="systemSettings.allCategories">全部分类</option></select></label>
+            <label><span data-i18n="systemSettings.assetType">资产类型</span><select id="settingsSharedKind" class="control"><option value="" data-i18n="systemSettings.allTypes">全部类型</option><option value="image" data-i18n="systemSettings.typeImage">图片</option><option value="reference" data-i18n="systemSettings.typeReference">参考图</option><option value="prompt" data-i18n="systemSettings.typePrompt">提示词</option><option value="template" data-i18n="systemSettings.typeTemplate">模板</option><option value="file" data-i18n="systemSettings.typeFile">文件</option></select></label>
+            <label><span data-i18n="systemSettings.status">状态</span><select id="settingsSharedStatus" class="control"><option value="active" data-i18n="systemSettings.enabledOnly">启用</option><option value="inactive" data-i18n="systemSettings.disabledOnly">已停用</option><option value="all" data-i18n="systemSettings.allStatuses">全部</option></select></label>
+          </div>
+          <div id="settingsSharedAssetGrid" class="settings-content-grid" aria-live="polite"></div>
+          <nav id="settingsSharedPagination" class="settings-pagination" aria-label="共享资产分页" data-i18n-attr="aria-label:systemSettings.sharedPagination"><button class="ghost-button text-sm" type="button" data-page-action="previous" data-i18n="systemSettings.previousPage">上一页</button><span class="settings-pagination-label"></span><button class="ghost-button text-sm" type="button" data-page-action="next" data-i18n="systemSettings.nextPage">下一页</button></nav>
         </section>
 
         <section class="system-settings-section" data-system-settings-panel="scheduler" data-admin-only hidden aria-hidden="true">
@@ -1217,8 +1221,28 @@
           <header class="system-settings-page-heading"><p data-i18n="systemSettings.adminGroup">系统管理</p><h2 data-i18n="systemSettings.contentTab">用户内容只读查看</h2><span data-i18n="systemSettings.contentDescription">按用户查看任务、资产与用量；此处不提供编辑或删除。</span></header>
           <label class="settings-card settings-content-picker"><span data-i18n="systemSettings.selectUser">选择用户</span><select id="settingsContentUser" class="control"></select></label>
           <div id="settingsContentSummary" class="settings-metric-grid"></div>
-          <h3 class="settings-section-title" data-i18n="systemSettings.recentTasks">最近任务</h3><div id="settingsContentTasks" class="settings-list settings-admin-list"></div>
-          <h3 class="settings-section-title" data-i18n="systemSettings.recentAssets">最近资产</h3><div id="settingsContentAssets" class="settings-list settings-admin-list"></div>
+          <div class="settings-content-tabs" role="tablist" aria-label="用户内容类型" data-i18n-attr="aria-label:systemSettings.contentViews">
+            <button id="settingsContentTasksTab" class="settings-content-tab active" type="button" role="tab" aria-selected="true" aria-controls="settingsContentTasksPanel" data-content-view="tasks" data-i18n="systemSettings.generatedContent">生成内容</button>
+            <button id="settingsContentAssetsTab" class="settings-content-tab" type="button" role="tab" aria-selected="false" aria-controls="settingsContentAssetsPanel" data-content-view="assets" data-i18n="systemSettings.personalAssets">个人资产</button>
+          </div>
+          <section id="settingsContentTasksPanel" class="settings-content-panel" role="tabpanel" aria-labelledby="settingsContentTasksTab">
+            <div class="settings-card settings-browser-filters">
+              <label class="settings-browser-search"><span data-i18n="systemSettings.searchLabel">搜索</span><input id="settingsContentTasksSearch" class="control" type="search" placeholder="任务 ID、提示词或模型" data-i18n-attr="placeholder:systemSettings.taskSearchPlaceholder" /></label>
+              <label><span data-i18n="systemSettings.status">状态</span><select id="settingsContentTasksStatus" class="control"><option value="" data-i18n="systemSettings.allStatuses">全部</option><option value="queued" data-i18n="systemSettings.statusQueued">排队中</option><option value="running" data-i18n="systemSettings.statusRunning">生成中</option><option value="completed" data-i18n="systemSettings.statusCompleted">已完成</option><option value="failed" data-i18n="systemSettings.statusFailed">失败</option><option value="cancelled" data-i18n="systemSettings.statusCancelled">已取消</option><option value="interrupted" data-i18n="systemSettings.statusInterrupted">已中断</option></select></label>
+              <label><span data-i18n="systemSettings.contentState">内容状态</span><select id="settingsContentTasksState" class="control"><option value="active" data-i18n="systemSettings.normalOnly">正常</option><option value="deleted" data-i18n="systemSettings.deletedOnly">已删除</option><option value="all" data-i18n="systemSettings.allStatuses">全部</option></select></label>
+            </div>
+            <div id="settingsContentTasksGrid" class="settings-content-grid" aria-live="polite"></div>
+            <nav id="settingsContentTasksPagination" class="settings-pagination" aria-label="生成内容分页" data-i18n-attr="aria-label:systemSettings.taskPagination"><button class="ghost-button text-sm" type="button" data-page-action="previous" data-i18n="systemSettings.previousPage">上一页</button><span class="settings-pagination-label"></span><button class="ghost-button text-sm" type="button" data-page-action="next" data-i18n="systemSettings.nextPage">下一页</button></nav>
+          </section>
+          <section id="settingsContentAssetsPanel" class="settings-content-panel" role="tabpanel" aria-labelledby="settingsContentAssetsTab" hidden>
+            <div class="settings-card settings-browser-filters">
+              <label class="settings-browser-search"><span data-i18n="systemSettings.searchLabel">搜索</span><input id="settingsContentAssetsSearch" class="control" type="search" placeholder="按名称搜索" data-i18n-attr="placeholder:systemSettings.assetSearchPlaceholder" /></label>
+              <label><span data-i18n="systemSettings.assetType">资产类型</span><select id="settingsContentAssetsKind" class="control"><option value="" data-i18n="systemSettings.allTypes">全部类型</option><option value="image" data-i18n="systemSettings.typeImage">图片</option><option value="reference" data-i18n="systemSettings.typeReference">参考图</option><option value="prompt" data-i18n="systemSettings.typePrompt">提示词</option><option value="template" data-i18n="systemSettings.typeTemplate">模板</option><option value="file" data-i18n="systemSettings.typeFile">文件</option></select></label>
+              <label><span data-i18n="systemSettings.contentState">内容状态</span><select id="settingsContentAssetsState" class="control"><option value="active" data-i18n="systemSettings.normalOnly">正常</option><option value="deleted" data-i18n="systemSettings.deletedOnly">已删除</option><option value="all" data-i18n="systemSettings.allStatuses">全部</option></select></label>
+            </div>
+            <div id="settingsContentAssetsGrid" class="settings-content-grid" aria-live="polite"></div>
+            <nav id="settingsContentAssetsPagination" class="settings-pagination" aria-label="个人资产分页" data-i18n-attr="aria-label:systemSettings.assetPagination"><button class="ghost-button text-sm" type="button" data-page-action="previous" data-i18n="systemSettings.previousPage">上一页</button><span class="settings-pagination-label"></span><button class="ghost-button text-sm" type="button" data-page-action="next" data-i18n="systemSettings.nextPage">下一页</button></nav>
+          </section>
         </section>
 
         <section class="system-settings-section" data-system-settings-panel="audit" data-admin-only hidden aria-hidden="true">
@@ -1229,6 +1253,13 @@
           </form>
           <div id="settingsAuditList" class="settings-list settings-admin-list"></div>
         </section>
+        <div id="settingsContentPreview" class="settings-content-preview hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="settingsContentPreviewTitle">
+          <button class="settings-content-preview-backdrop" type="button" aria-label="关闭预览" data-preview-close data-i18n-attr="aria-label:systemSettings.closePreview"></button>
+          <div class="settings-content-preview-panel">
+            <header class="settings-content-preview-heading"><div><span data-i18n="systemSettings.readOnlyPreview">只读预览</span><h2 id="settingsContentPreviewTitle"></h2><p id="settingsContentPreviewMeta"></p></div><button id="settingsContentPreviewClose" class="ghost-button drawer-close-button" type="button" aria-label="关闭预览" data-preview-close data-i18n-attr="aria-label:systemSettings.closePreview"><svg class="drawer-close-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 7L17 17M17 7L7 17" /></svg></button></header>
+            <div id="settingsContentPreviewBody" class="settings-content-preview-body"></div>
+          </div>
+        </div>
       </main>
       </div>
 
