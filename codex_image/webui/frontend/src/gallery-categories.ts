@@ -65,6 +65,23 @@ function renderImageStrip(): void { legacyMethod("renderImageStrip"); }
 function updateRequestPreview(): void { legacyMethod("updateRequestPreview"); }
 function refreshGallery(): Promise<void> { return legacyMethod("refreshGallery"); }
 
+function isSharedGallery(): boolean {
+  return state.activeGalleryScope === "shared";
+}
+
+function currentGalleryCategories(): GalleryCategory[] {
+  return isSharedGallery() ? state.sharedGalleryCategories : state.galleryCategories;
+}
+
+function setCurrentGalleryCategories(categories: GalleryCategory[]): void {
+  if (isSharedGallery()) state.sharedGalleryCategories = categories;
+  else state.galleryCategories = categories;
+}
+
+function categoryEndpoint(suffix = ""): string {
+  return `${isSharedGallery() ? "/api/shared-gallery/categories" : "/api/gallery/categories"}${suffix}`;
+}
+
 function cssEscape(value: any): string {
   const text = String(value || "");
   if (window.CSS?.escape) return window.CSS.escape(text);
@@ -145,12 +162,13 @@ function handleQuickGalleryCategoryEvent(event: any) {
 
 function ensureActiveGalleryCategory() {
   if (findGalleryCategory(state.activeGalleryCategory)) return;
-  state.activeGalleryCategory = state.galleryCategories[0]?.id || "portrait";
+  state.activeGalleryCategory = currentGalleryCategories()[0]?.id || (isSharedGallery() ? "uncategorized" : "portrait");
+  state.galleryLibraryState[state.activeGalleryScope].category = state.activeGalleryCategory;
 }
 
 function renderGalleryCategoryControls() {
   ensureActiveGalleryCategory();
-  const categories = normalizeGalleryCategories(state.galleryCategories);
+  const categories = normalizeGalleryCategories(currentGalleryCategories());
   if (els.quickGalleryRail) {
     els.quickGalleryRail.innerHTML = categories.map((category) => `
       <button class="quick-gallery-category${category.id === state.activeGalleryCategory ? " active" : ""}" data-quick-gallery-category="${escapeHtml(category.id)}" type="button">${escapeHtml(categoryLabel(category.id))}</button>
@@ -163,6 +181,7 @@ function renderGalleryCategoryControls() {
     `).join("");
     els.galleryCategoryInput.value = findGalleryCategory(currentValue) ? currentValue : state.activeGalleryCategory;
   }
+  els.newGalleryCategoryPromptRole?.classList.toggle("hidden", isSharedGallery());
   renderGalleryDrawerCategoryTabs();
   renderGalleryCategoryManager();
   syncGalleryCategoryManagerVisibility();
@@ -170,7 +189,7 @@ function renderGalleryCategoryControls() {
 
 function renderGalleryDrawerCategoryTabs() {
   if (!els.galleryDrawerCategoryTabs) return;
-  const categories = normalizeGalleryCategories(state.galleryCategories);
+  const categories = normalizeGalleryCategories(currentGalleryCategories());
   els.galleryDrawerCategoryTabs.innerHTML = categories.map((category) => `
     <button
       class="quick-gallery-category${category.id === state.activeGalleryCategory ? " active" : ""}"
@@ -184,7 +203,7 @@ function renderGalleryDrawerCategoryTabs() {
 
 function renderGalleryCategoryManager() {
   if (!els.galleryCategoryList) return;
-  const categories = normalizeGalleryCategories(state.galleryCategories);
+  const categories = normalizeGalleryCategories(currentGalleryCategories());
   els.galleryCategoryList.innerHTML = categories.map((category) => `
     <div
       class="gallery-category-row${category.id === state.activeGalleryCategory ? " is-current" : ""}"
@@ -211,11 +230,11 @@ function renderGalleryCategoryManager() {
           </svg>
         </button>
       </div>
-      <input class="control" type="text" maxlength="32" value="${escapeHtml(categoryLabel(category.id))}" data-gallery-category-name="${escapeHtml(category.id)}" aria-label="${escapeHtml(translate("gallery.categoryName"))}">
-      <input class="control" type="text" maxlength="48" value="${escapeHtml(categoryPromptRole(category.id))}" data-gallery-category-prompt-role="${escapeHtml(category.id)}" aria-label="${escapeHtml(translate("gallery.categoryPromptRole"))}">
+      <input class="control" type="text" maxlength="32" value="${escapeHtml(categoryLabel(category.id))}" data-gallery-category-name="${escapeHtml(category.id)}" aria-label="${escapeHtml(translate("gallery.categoryName"))}" ${category.locked ? "disabled" : ""}>
+      ${isSharedGallery() ? "" : `<input class="control" type="text" maxlength="48" value="${escapeHtml(categoryPromptRole(category.id))}" data-gallery-category-prompt-role="${escapeHtml(category.id)}" aria-label="${escapeHtml(translate("gallery.categoryPromptRole"))}">`}
       <div class="gallery-category-row-actions">
-        <button class="ghost-button text-sm" type="button" data-gallery-category-save="${escapeHtml(category.id)}">${escapeHtml(translate("gallery.categorySave"))}</button>
-        <button class="ghost-button text-sm danger-button" type="button" data-gallery-category-delete="${escapeHtml(category.id)}" ${categories.length <= 1 ? "disabled" : ""}>${escapeHtml(translate("gallery.categoryDelete"))}</button>
+        <button class="ghost-button text-sm" type="button" data-gallery-category-save="${escapeHtml(category.id)}" ${category.locked ? "disabled" : ""}>${escapeHtml(translate("gallery.categorySave"))}</button>
+        <button class="ghost-button text-sm danger-button" type="button" data-gallery-category-delete="${escapeHtml(category.id)}" ${categories.length <= 1 || category.locked ? "disabled" : ""}>${escapeHtml(translate("gallery.categoryDelete"))}</button>
       </div>
     </div>
   `).join("");
@@ -245,6 +264,7 @@ function toggleGalleryCategoryManager() {
 }
 
 function syncGalleryCategoryManagerVisibility() {
+  if (isSharedGallery() && document.documentElement.dataset.userRole !== "admin") galleryCategoryManagerExpanded = false;
   els.galleryCategoryManagePanel?.classList.toggle("hidden", !galleryCategoryManagerExpanded);
   els.galleryCategoryManageToggle?.setAttribute("aria-expanded", galleryCategoryManagerExpanded ? "true" : "false");
   els.galleryCategoryManageToggle?.classList.toggle("active", galleryCategoryManagerExpanded);
@@ -252,10 +272,10 @@ function syncGalleryCategoryManagerVisibility() {
 
 async function refreshGalleryCategories() {
   try {
-    const response = await fetch("/api/gallery/categories");
+    const response = await fetch(categoryEndpoint());
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || translate("gallery.categoryLoadFailed"));
-    state.galleryCategories = normalizeGalleryCategories(data.categories);
+    setCurrentGalleryCategories(normalizeGalleryCategories(data.categories));
     ensureActiveGalleryCategory();
     renderGalleryCategoryControls();
     renderQuickGalleryDock();
@@ -275,16 +295,17 @@ async function createGalleryCategory() {
     return;
   }
   try {
-    const response = await fetch("/api/gallery/categories", {
+    const response = await fetch(categoryEndpoint(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, prompt_role: promptRole }),
+      body: JSON.stringify(isSharedGallery() ? { name } : { name, prompt_role: promptRole }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || translate("gallery.categoryCreateFailed"));
     if (els.newGalleryCategoryName) els.newGalleryCategoryName.value = "";
     if (els.newGalleryCategoryPromptRole) els.newGalleryCategoryPromptRole.value = "";
     state.activeGalleryCategory = data.category?.id || state.activeGalleryCategory;
+    state.galleryLibraryState[state.activeGalleryScope].category = state.activeGalleryCategory;
     await refreshGalleryCategories();
     setStatus(translate("gallery.categoryCreated"), "ok");
   } catch (error: any) {
@@ -303,10 +324,10 @@ async function updateGalleryCategory(categoryId: any) {
     return;
   }
   try {
-    const response = await fetch(`/api/gallery/categories/${encodeURIComponent(categoryId)}`, {
+    const response = await fetch(categoryEndpoint(`/${encodeURIComponent(categoryId)}`), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, prompt_role: promptRole, order: category?.order }),
+      body: JSON.stringify(isSharedGallery() ? { name } : { name, prompt_role: promptRole, order: category?.order }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || translate("gallery.categorySaveFailed"));
@@ -319,8 +340,10 @@ async function updateGalleryCategory(categoryId: any) {
 
 function deleteGalleryCategory(button: any, categoryId: any) {
   const category = findGalleryCategory(categoryId);
-  if (!category || state.galleryCategories.length <= 1) return;
-  const moveTo = state.galleryCategories.find((candidate: any) => candidate.id !== categoryId)?.id;
+  if (!category || currentGalleryCategories().length <= 1 || category.locked) return;
+  const moveTo = isSharedGallery()
+    ? "uncategorized"
+    : currentGalleryCategories().find((candidate: any) => candidate.id !== categoryId)?.id;
   const target = findGalleryCategory(moveTo);
   openConfirmPopover(button, {
     title: translate("gallery.categoryDeleteTitle"),
@@ -335,12 +358,13 @@ function deleteGalleryCategory(button: any, categoryId: any) {
 
 async function performDeleteGalleryCategory(categoryId: any, moveTo: any, categoryName: any) {
   try {
-    const response = await fetch(`/api/gallery/categories/${encodeURIComponent(categoryId)}?move_to=${encodeURIComponent(moveTo)}`, {
+    const response = await fetch(categoryEndpoint(`/${encodeURIComponent(categoryId)}${isSharedGallery() ? "" : `?move_to=${encodeURIComponent(moveTo)}`}`), {
       method: "DELETE",
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.detail || translate("gallery.categoryDeleteFailed"));
     if (state.activeGalleryCategory === categoryId) state.activeGalleryCategory = moveTo;
+    state.galleryLibraryState[state.activeGalleryScope].category = state.activeGalleryCategory;
     await refreshGallery();
     setStatus(formatTranslation("gallery.categoryDeletedMigrated", { name: categoryName }), "ok");
   } catch (error: any) {
@@ -351,6 +375,7 @@ async function performDeleteGalleryCategory(categoryId: any, moveTo: any, catego
 function setQuickGalleryCategory(category: any) {
   if (!findGalleryCategory(category)) return;
   state.activeGalleryCategory = category;
+  state.galleryLibraryState[state.activeGalleryScope].category = category;
   state.hoveredGalleryItemId = null;
   state.quickGalleryFocusItemId = null;
   renderGalleryCategoryControls();
@@ -361,6 +386,7 @@ function setQuickGalleryCategory(category: any) {
 function setGalleryDrawerCategory(category: any) {
   if (!findGalleryCategory(category)) return;
   state.activeGalleryCategory = category;
+  state.galleryLibraryState[state.activeGalleryScope].category = category;
   state.hoveredGalleryItemId = null;
   state.quickGalleryFocusItemId = null;
   closeGalleryEditPopover();
@@ -371,7 +397,7 @@ function setGalleryDrawerCategory(category: any) {
 }
 
 function findGalleryCategory(categoryId: any) {
-  return state.galleryCategories.find((category: any) => category.id === categoryId);
+  return currentGalleryCategories().find((category: any) => category.id === categoryId);
 }
 
 function categoryRow(categoryId: any) {
@@ -405,13 +431,13 @@ function finishGalleryCategoryDrag() {
 
 function applyGalleryCategoryOrder(categoryIds: string[]) {
   const orderMap = new Map(categoryIds.map((categoryId, index) => [categoryId, (index + 1) * 10]));
-  state.galleryCategories = normalizeGalleryCategories(
-    state.galleryCategories.map((category: any) => (
+  setCurrentGalleryCategories(normalizeGalleryCategories(
+    currentGalleryCategories().map((category: any) => (
       orderMap.has(category.id)
         ? { ...category, order: orderMap.get(category.id) }
         : category
     ))
-  );
+  ));
   renderGalleryCategoryControls();
   renderQuickGalleryDock();
   renderGalleryGrid();
@@ -452,14 +478,14 @@ function moveGalleryCategoryDragPlaceholder(targetRow: HTMLElement, placement: "
 
 async function persistGalleryCategoryOrder(categoryIds: string[]) {
   try {
-    const response = await fetch("/api/gallery/categories/reorder", {
+    const response = await fetch(categoryEndpoint("/reorder"), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ category_ids: categoryIds }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.detail || translate("gallery.categoryOrderUpdateFailed"));
-    state.galleryCategories = normalizeGalleryCategories(data.categories);
+    setCurrentGalleryCategories(normalizeGalleryCategories(data.categories));
     renderGalleryCategoryControls();
     renderQuickGalleryDock();
     renderGalleryGrid();
@@ -478,7 +504,7 @@ function handleGalleryCategoryDragStart(event: DragEvent) {
   draggedGalleryCategoryId = categoryId;
   galleryCategoryDropTargetId = null;
   galleryCategoryDropPlacement = "after";
-  galleryCategoryOriginalOrder = normalizeGalleryCategories(state.galleryCategories).map((galleryCategory) => galleryCategory.id);
+  galleryCategoryOriginalOrder = normalizeGalleryCategories(currentGalleryCategories()).map((galleryCategory) => galleryCategory.id);
   event.dataTransfer?.setData("text/plain", categoryId);
   if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
   setGalleryDragPreview(event, {
@@ -523,7 +549,7 @@ function handleGalleryCategoryDrop(event: DragEvent) {
   event.preventDefault();
   const originalOrder = galleryCategoryOriginalOrder.length
     ? galleryCategoryOriginalOrder.slice()
-    : normalizeGalleryCategories(state.galleryCategories).map((category) => category.id);
+    : normalizeGalleryCategories(currentGalleryCategories()).map((category) => category.id);
   const reorderedIds = categoryDomOrder();
   finishGalleryCategoryDrag();
   if (!reorderedIds.includes(draggedId) || sameGalleryCategoryOrder(originalOrder, reorderedIds)) return;

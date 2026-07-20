@@ -17,6 +17,104 @@
   gap: 12px;
 }
 
+.gallery-library-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.gallery-library-tab {
+  min-height: 38px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.gallery-library-tab.active {
+  background: var(--surface);
+  color: var(--primary-strong);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.gallery-library-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gallery-search-field {
+  flex: 1 1 300px;
+}
+
+.gallery-search-field .control {
+  width: 100%;
+}
+
+.gallery-inactive-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.shared-gallery-upload-panel {
+  width: min(640px, calc(100vw - 32px));
+}
+
+.shared-gallery-upload-body,
+.shared-gallery-upload-names {
+  display: grid;
+  gap: 12px;
+}
+
+.shared-gallery-upload-body {
+  padding: 16px 0;
+}
+
+.shared-gallery-upload-body .field-block {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shared-gallery-upload-body textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.shared-gallery-upload-result {
+  font-size: 12px;
+}
+
+.shared-gallery-upload-result.is-pending {
+  color: var(--muted);
+}
+
+.shared-gallery-upload-result.is-success {
+  color: var(--success, var(--primary-strong));
+}
+
+.shared-gallery-upload-result.is-error {
+  color: var(--danger);
+}
+
+.shared-gallery-upload-panel .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .gallery-drawer-toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

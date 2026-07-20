@@ -39,6 +39,8 @@ function gallerySource(item: any) {
   return {
     kind: "gallery",
     id: item.id,
+    scope: item.scope || (String(item.id || "").startsWith("shared:") ? "shared" : "personal"),
+    asset_version_id: item.asset_version_id || "",
     name: item.name,
     category: item.category,
     category_name: item.category_name || legacyMethod("categoryLabel", item.category),

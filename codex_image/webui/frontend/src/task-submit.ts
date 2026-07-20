@@ -192,6 +192,7 @@ function buildPreviewRequest() {
     n: params.n,
     images: uploads.map((source: any) => source.name),
     gallery_image_ids: galleries.map((source: any) => source.id),
+    gallery_image_version_ids: galleries.map((source: any) => source.asset_version_id || ""),
     reference_asset_ids: assets.map((source: any) => source.id),
     reference_files: fileUploads.map((source: any) => source.filename),
     reference_file_ids: storedFiles.map((source: any) => source.id),
@@ -365,7 +366,10 @@ async function runTask() {
   if (els.outputFormat.value !== "png") {
     form.append("output_compression", String(params.output_compression));
   }
-  galleries.forEach((source: any) => form.append("gallery_image_ids", source.id));
+  galleries.forEach((source: any) => {
+    form.append("gallery_image_ids", source.id);
+    form.append("gallery_image_version_ids", source.asset_version_id || "");
+  });
   assets.forEach((source: any) => form.append("reference_asset_ids", source.id));
   fileUploads.forEach((source: any) => form.append("reference_files", source.file));
   storedFiles.forEach((source: any) => form.append("reference_file_ids", source.id));

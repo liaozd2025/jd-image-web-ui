@@ -331,11 +331,17 @@
                   </div>
 
                   <div id="galleryManagePanel" class="gallery-manage-panel">
-                    <button id="galleryManageButton" class="ghost-button text-sm icon-text-button resource-manage-button gallery-manage-button" type="button" aria-controls="galleryDrawer" aria-expanded="false" title="管理公用库" data-i18n-attr="title:gallery.manage">
+                    <button id="galleryPersonalManageButton" class="ghost-button text-sm icon-text-button resource-manage-button gallery-manage-button" type="button" aria-controls="galleryDrawer" aria-expanded="false" title="管理个人图库" data-i18n-attr="title:gallery.managePersonal">
                       <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path d="M4 5h16v14H4zM8 13l2.2-2.2 2.8 3.2 2-2 3 4M8 9h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                       </svg>
-                      <span data-i18n="gallery.manage">管理公用库</span>
+                      <span data-i18n="gallery.managePersonal">管理个人图库</span>
+                    </button>
+                    <button id="gallerySharedManageButton" class="ghost-button text-sm icon-text-button resource-manage-button gallery-manage-button" type="button" aria-controls="galleryDrawer" aria-expanded="false" title="管理共享图库" data-i18n-attr="title:gallery.manageShared">
+                      <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M4 5h16v14H4zM8 13l2.2-2.2 2.8 3.2 2-2 3 4M8 9h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                      <span data-i18n="gallery.manageShared">管理共享图库</span>
                     </button>
                   </div>
                 </div>
@@ -1402,13 +1408,13 @@
       </div>
     </div>
 
-    <div id="galleryDrawer" class="resource-sheet resource-sheet-wide gallery-drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-label="共享图库" data-i18n-attr="aria-label:gallery.title">
+    <div id="galleryDrawer" class="resource-sheet resource-sheet-wide gallery-drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-label="图库管理" data-i18n-attr="aria-label:gallery.managementTitle">
       <div class="resource-sheet-header gallery-drawer-header">
           <div>
-            <h2 data-i18n="gallery.title">共享图库</h2>
+            <h2 data-i18n="gallery.managementTitle">图库管理</h2>
             <p id="galleryDrawerSubtitle" data-i18n="gallery.subtitle">选择参考图加入当前任务</p>
           </div>
-          <button id="galleryDrawerClose" class="ghost-button drawer-close-button" type="button" aria-label="关闭共享图库面板" title="关闭" data-i18n-attr="aria-label:close.gallery;title:action.close">
+          <button id="galleryDrawerClose" class="ghost-button drawer-close-button" type="button" aria-label="关闭图库管理面板" title="关闭" data-i18n-attr="aria-label:close.gallery;title:action.close">
             <svg class="drawer-close-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M7 7L17 17M17 7L7 17" />
             </svg>
@@ -1416,11 +1422,27 @@
       </div>
       <div class="resource-sheet-body gallery-drawer-body">
         <div class="gallery-drawer-top">
+          <div class="gallery-library-tabs" role="tablist" aria-label="图库范围">
+            <button class="gallery-library-tab active" type="button" role="tab" aria-selected="true" data-gallery-scope-tab="personal" data-i18n="gallery.personalLibrary">个人图库</button>
+            <button class="gallery-library-tab" type="button" role="tab" aria-selected="false" data-gallery-scope-tab="shared" data-i18n="gallery.sharedLibrary">共享图库</button>
+          </div>
+          <div class="gallery-library-controls">
+            <label class="gallery-search-field">
+              <span class="sr-only" data-i18n="gallery.search">搜索图库</span>
+              <input id="gallerySearchInput" class="control" type="search" placeholder="搜索名称或说明" data-i18n-attr="placeholder:gallery.searchPlaceholder" />
+            </label>
+            <label id="galleryInactiveToggleLabel" class="gallery-inactive-toggle hidden" hidden>
+              <input id="galleryInactiveToggle" type="checkbox" />
+              <span data-i18n="gallery.showInactive">查看已停用</span>
+            </label>
+          </div>
           <div class="gallery-drawer-toolbar">
             <div id="galleryDrawerCategoryTabs" class="gallery-drawer-category-tabs" aria-label="图库分类" data-i18n-attr="aria-label:gallery.categories"></div>
             <div class="gallery-drawer-actions">
               <button id="gallerySharedImageUploadButton" class="ghost-button text-sm hidden" type="button" data-i18n="gallery.addSharedImage" hidden>添加图片</button>
               <input id="gallerySharedImageInput" type="file" accept="image/*" hidden disabled />
+              <button id="galleryBatchUploadButton" class="ghost-button text-sm hidden" type="button" data-i18n="gallery.batchUpload" hidden>批量上传</button>
+              <input id="galleryBatchUploadInput" type="file" accept="image/*" multiple hidden disabled />
               <button id="galleryCategoryManageToggle" class="ghost-button text-sm" type="button" aria-expanded="false" data-i18n="gallery.manageCategories">管理分类</button>
             </div>
           </div>
@@ -1443,6 +1465,35 @@
       </div>
     </div>
     <div id="galleryDrawerBackdrop" class="resource-sheet-backdrop gallery-drawer-backdrop hidden"></div>
+
+    <div id="sharedGalleryUploadModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="上传共享图库图片">
+      <div class="modal-panel shared-gallery-upload-panel">
+        <div class="modal-heading">
+          <div>
+            <h2 id="sharedGalleryUploadTitle" data-i18n="gallery.uploadTitle">上传共享图库图片</h2>
+            <p data-i18n="gallery.uploadCopy">图片名称在共享图库内不可重复</p>
+          </div>
+          <button id="sharedGalleryUploadClose" class="ghost-button drawer-close-button" type="button" aria-label="关闭" title="关闭">
+            <svg class="drawer-close-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 7L17 17M17 7L7 17" /></svg>
+          </button>
+        </div>
+        <div class="shared-gallery-upload-body">
+          <div id="sharedGalleryUploadNames" class="shared-gallery-upload-names"></div>
+          <label class="field-block">
+            <span data-i18n="gallery.fieldCategory">图库分类</span>
+            <select id="sharedGalleryUploadCategory" class="control"></select>
+          </label>
+          <label class="field-block">
+            <span data-i18n="gallery.fieldPromptNote">提示词说明</span>
+            <textarea id="sharedGalleryUploadNote" class="control" maxlength="1000" placeholder="可选"></textarea>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button id="sharedGalleryUploadCancel" class="ghost-button" type="button" data-i18n="action.cancel">取消</button>
+          <button id="sharedGalleryUploadSave" class="primary-button" type="button" data-i18n="action.save">保存</button>
+        </div>
+      </div>
+    </div>
 
     <div id="addToGalleryModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="添加到图库" data-i18n-attr="aria-label:addGallery.title">
       <div class="modal-panel add-gallery-panel">
@@ -1488,7 +1539,7 @@
     </div>
 
     <div id="taskNotificationToastRegion" class="task-notification-toast-region" aria-live="polite"></div>
-  <script src="/static/app.js?v=runtime-573"></script>
+  <script src="/static/app.js?v=runtime-574"></script>
   <script src="/static/workspace-controls.js?v=server-1"></script>
   </body>
 </html>

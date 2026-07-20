@@ -43,6 +43,8 @@ export interface TaskNotificationSettings {
 
 export interface GalleryRef {
   id: string;
+  scope?: "personal" | "shared";
+  asset_version_id?: string;
   name: string;
   category?: string;
   category_name?: string;

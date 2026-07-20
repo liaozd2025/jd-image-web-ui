@@ -24,6 +24,8 @@ from .providers import ProviderRepository
 from .providers_api import install_provider_routes
 from .shared_assets import SharedAssetRepository
 from .shared_assets_api import install_shared_asset_routes
+from .shared_gallery import SharedGalleryRepository
+from .shared_gallery_api import install_shared_gallery_routes
 from .scheduler_api import install_scheduler_routes
 from .tasks import GenerationTaskRepository
 from .tasks_api import install_task_routes
@@ -42,6 +44,7 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
     provider_cipher = ProviderSecretCipher.from_encoded_key(settings.master_key)
     asset_repository = AssetRepository(connections, settings.data_root)
     shared_asset_repository = SharedAssetRepository(connections, settings.data_root)
+    shared_gallery_repository = SharedGalleryRepository(connections)
     department_provider_repository = DepartmentProviderRepository(connections, provider_cipher)
     task_repository = GenerationTaskRepository(
         connections,
@@ -124,6 +127,11 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
         departments=department_provider_repository,
     )
     install_shared_asset_routes(app, shared_assets=shared_asset_repository)
+    install_shared_gallery_routes(
+        app,
+        shared_gallery=shared_gallery_repository,
+        shared_assets=shared_asset_repository,
+    )
     install_department_provider_routes(app, departments=department_provider_repository)
     install_scheduler_routes(app, connections=connections)
     install_workspace_routes(

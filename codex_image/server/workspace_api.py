@@ -228,9 +228,26 @@ def install_workspace_routes(
     @app.get("/api/gallery", response_model=None)
     def gallery(request: Request) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
+        scope = request.query_params.get("scope")
+        if scope not in {None, "personal", "shared"}:
+            return JSONResponse(status_code=422, content={"detail": "invalid_gallery_scope"})
+        query = str(request.query_params.get("query") or "").strip().casefold()
+        category_id = str(request.query_params.get("category_id") or "").strip()
+        items = _gallery_items(session, assets, shared_assets)
+        if scope:
+            items = [item for item in items if item.get("scope") == scope]
+        if category_id:
+            items = [item for item in items if str(item.get("category") or "") == category_id]
+        if query:
+            items = [
+                item
+                for item in items
+                if query in str(item.get("name") or "").casefold()
+                or query in str(item.get("prompt_note") or "").casefold()
+            ]
         return JSONResponse(
             content={
-                "items": _gallery_items(session, assets, shared_assets),
+                "items": items,
                 "categories": _workspace_categories(session.user.user_id, assets, kind="gallery"),
             }
         )
@@ -244,10 +261,13 @@ def install_workspace_routes(
                 if not isinstance(upload, UploadFile):
                     return JSONResponse(status_code=422, content={"detail": "请选择图片文件"})
                 content = await upload.read(MAX_TASK_INPUT_BYTES + 1)
+                requested_name = str(form.get("name") or upload.filename or "图片")
+                if _personal_gallery_name_exists(session.user.user_id, assets, requested_name):
+                    return JSONResponse(status_code=409, content={"detail": "个人图库素材名称已存在"})
                 item = assets.create_asset(
                     session.user.user_id,
                     asset_kind="image",
-                    name=str(form.get("name") or upload.filename or "图片"),
+                    name=requested_name,
                     original_filename=upload.filename or "gallery-image.bin",
                     mime_type=upload.content_type or "application/octet-stream",
                     content=content,
@@ -298,10 +318,18 @@ def install_workspace_routes(
         except ValueError:
             return JSONResponse(status_code=422, content={"detail": "invalid_gallery_request"})
         existing = _gallery_metadata(session.user.user_id, assets).get(asset_id, {})
+        requested_name = str(payload.get("name", existing.get("name", "图片")))[:160]
+        if _personal_gallery_name_exists(
+            session.user.user_id,
+            assets,
+            requested_name,
+            exclude_asset_id=asset_id,
+        ):
+            return JSONResponse(status_code=409, content={"detail": "个人图库素材名称已存在"})
         metadata = {
             "_workspace_type": "gallery_metadata",
             "asset_id": asset_id,
-            "name": str(payload.get("name", existing.get("name", "图片")))[:160],
+            "name": requested_name,
             "category": str(payload.get("category", existing.get("category", "portrait")))[:64],
             "prompt_note": str(payload.get("prompt_note", existing.get("prompt_note", "")))[:1000],
             "order": int(payload.get("order", existing.get("order", 0)) or 0),
@@ -1058,11 +1086,43 @@ async def _workspace_task_from_form(
     if stored_reference_file_ids and api_mode != "responses":
         return JSONResponse(status_code=422, content={"detail": "参考文件只能用于 Responses 供应商"})
     shared_asset_version_ids: list[str] = []
-    for raw_asset_id in [
-        *form.getlist("gallery_image_ids"),
-        *form.getlist("reference_asset_ids"),
-        *stored_reference_file_ids,
-    ]:
+    gallery_image_ids = [str(item) for item in form.getlist("gallery_image_ids")]
+    gallery_image_version_ids = [str(item) for item in form.getlist("gallery_image_version_ids")]
+    if gallery_image_version_ids and len(gallery_image_version_ids) != len(gallery_image_ids):
+        return JSONResponse(status_code=422, content={"detail": "图库素材版本参数无效"})
+    for index, raw_text in enumerate(gallery_image_ids):
+        requested_version_id = gallery_image_version_ids[index] if gallery_image_version_ids else ""
+        if raw_text.startswith("shared:"):
+            asset_id = raw_text.split(":", 1)[1]
+            try:
+                shared_asset = shared_assets.get_asset(asset_id)
+                if requested_version_id:
+                    selected_version = shared_assets.get_version(requested_version_id)
+                    if selected_version.asset_id != asset_id:
+                        raise AssetNotFound("shared gallery version does not belong to the selected item")
+                    version_id = selected_version.asset_version_id
+                else:
+                    version_id = shared_asset.current_version_id
+            except AssetNotFound as error:
+                return JSONResponse(status_code=404, content={"detail": str(error)})
+            if version_id and version_id not in shared_asset_version_ids:
+                shared_asset_version_ids.append(version_id)
+            continue
+        try:
+            asset = assets.get_asset(session.user.user_id, raw_text)
+            if requested_version_id:
+                selected_version = assets.get_version(session.user.user_id, requested_version_id)
+                if selected_version.asset_id != raw_text:
+                    raise AssetNotFound("gallery version does not belong to the selected item")
+                version_id = selected_version.asset_version_id
+            else:
+                version_id = asset.current_version_id
+        except AssetNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        if version_id and version_id not in asset_version_ids:
+            asset_version_ids.append(version_id)
+
+    for raw_asset_id in [*form.getlist("reference_asset_ids"), *stored_reference_file_ids]:
         raw_text = str(raw_asset_id)
         if raw_text.startswith("shared:"):
             if raw_text in stored_reference_file_ids:
@@ -1177,9 +1237,10 @@ def _gallery_items(
             {
                 "id": f"shared:{asset.asset_id}",
                 "name": asset.name,
-                "category": "portrait",
-                "prompt_note": "",
-                "order": 0,
+                "category": asset.category_id or "uncategorized",
+                "category_name": asset.category_name or "未分类",
+                "prompt_note": asset.prompt_note,
+                "order": asset.sort_order,
                 "image_url": f"/api/shared-assets/{asset.asset_id}/download",
                 "mime_type": asset.current_version.mime_type,
                 "scope": "shared",
@@ -1201,6 +1262,31 @@ def _gallery_metadata(user_id: str, assets: AssetRepository) -> dict[str, dict[s
         if asset_id:
             result[asset_id] = document
     return result
+
+
+def _personal_gallery_name_exists(
+    user_id: str,
+    assets: AssetRepository,
+    name: str,
+    *,
+    exclude_asset_id: str | None = None,
+) -> bool:
+    normalized = " ".join(name.replace("\x00", "").split()).casefold()
+    if not normalized:
+        return False
+    metadata = _gallery_metadata(user_id, assets)
+    personal_assets = [
+        *assets.list_assets(user_id, kind="image", limit=100),
+        *assets.list_assets(user_id, kind="reference", limit=100),
+    ]
+    for asset in personal_assets:
+        if asset.asset_id == exclude_asset_id:
+            continue
+        details = metadata.get(asset.asset_id, {})
+        existing_name = str(details.get("name") or asset.name)
+        if " ".join(existing_name.replace("\x00", "").split()).casefold() == normalized:
+            return True
+    return False
 
 
 def _workspace_documents(

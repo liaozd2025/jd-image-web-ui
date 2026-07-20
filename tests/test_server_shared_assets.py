@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from tests.server_test_database import TEST_MASTER_KEY, temporary_postgres_database
 from tests.test_server_auth import bootstrap_admin
 from tests.test_server_user_lifecycle import ADMIN_PASSWORD, change_password, login
+from tests.test_server_shared_gallery import PNG_IMAGE
 
 
 TEST_DATABASE_URL = os.environ.get("JD_IMAGE_TEST_DATABASE_URL", "")
@@ -93,22 +94,22 @@ class ServerSharedAssetTests(unittest.TestCase):
                     self.assertEqual(unauthenticated_create.status_code, 401, unauthenticated_create.text)
 
                     created = admin.post(
-                        "/api/shared-assets",
-                        data={"asset_kind": "image", "name": "Brand mark"},
-                        files={"file": ("brand.png", b"shared-v1", "image/png")},
+                        "/api/shared-gallery/items",
+                        data={"name": "Brand mark", "category_id": "uncategorized"},
+                        files={"file": ("brand.png", PNG_IMAGE, "image/png")},
                         headers={"X-CSRF-Token": admin_csrf},
                     )
                     self.assertEqual(created.status_code, 201, created.text)
-                    asset = created.json()["asset"]
+                    asset = created.json()["item"]
                     asset_id = asset["asset_id"]
                     version_id = asset["current_version_id"]
                     visible = viewer.get("/api/shared-assets")
                     self.assertEqual(visible.status_code, 200)
                     self.assertEqual(visible.json()["assets"][0]["asset_id"], asset_id)
-                    self.assertEqual(viewer.get(f"/api/shared-assets/{asset_id}/download").content, b"shared-v1")
+                    self.assertEqual(viewer.get(f"/api/shared-assets/{asset_id}/download").content, PNG_IMAGE)
                     self.assertEqual(
                         viewer.get(f"/api/shared-assets/{asset_id}/versions/{version_id}/download").content,
-                        b"shared-v1",
+                        PNG_IMAGE,
                     )
                     workspace_gallery = viewer.get("/api/gallery")
                     self.assertEqual(workspace_gallery.status_code, 200, workspace_gallery.text)
@@ -153,7 +154,7 @@ class ServerSharedAssetTests(unittest.TestCase):
                     self.assertEqual(forbidden_version.status_code, 403, forbidden_version.text)
                     second = admin.post(
                         f"/api/shared-assets/{asset_id}/versions",
-                        files={"file": ("brand-v2.png", b"shared-v2", "image/png")},
+                        files={"file": ("brand-v2.png", PNG_IMAGE + b"shared-v2", "image/png")},
                         headers={"X-CSRF-Token": admin_csrf},
                     )
                     self.assertEqual(second.status_code, 201, second.text)
@@ -188,7 +189,8 @@ class ServerSharedAssetTests(unittest.TestCase):
                         name="Historical contribution",
                         original_filename="historical.png",
                         mime_type="image/png",
-                        content=b"historical-image",
+                        content=PNG_IMAGE + b"historical-image",
+                        category_id="uncategorized",
                     )
                     historical_version = owner.post(
                         f"/api/shared-assets/{historical.asset_id}/versions",
@@ -218,7 +220,8 @@ class ServerSharedAssetTests(unittest.TestCase):
                         name="Historical reference contribution",
                         original_filename="historical-reference.png",
                         mime_type="image/png",
-                        content=b"historical-reference",
+                        content=PNG_IMAGE + b"historical-reference",
+                        category_id="uncategorized",
                     )
                     historical_reference_version = owner.post(
                         f"/api/shared-assets/{historical_reference.asset_id}/versions",

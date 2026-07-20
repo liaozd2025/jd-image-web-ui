@@ -328,14 +328,29 @@
       quickGalleryList: document.querySelector("#quickGalleryList"),
       quickGalleryRail: document.querySelector("#quickGalleryRail"),
       galleryManagePanel: document.querySelector("#galleryManagePanel"),
-      galleryManageButton: document.querySelector("#galleryManageButton"),
+      galleryPersonalManageButton: document.querySelector("#galleryPersonalManageButton"),
+      gallerySharedManageButton: document.querySelector("#gallerySharedManageButton"),
       galleryDrawer: document.querySelector("#galleryDrawer"),
       galleryDrawerClose: document.querySelector("#galleryDrawerClose"),
       galleryDrawerBackdrop: document.querySelector("#galleryDrawerBackdrop"),
       galleryDrawerSubtitle: document.querySelector("#galleryDrawerSubtitle"),
+      galleryScopeTabs: document.querySelector(".gallery-library-tabs"),
+      gallerySearchInput: document.querySelector("#gallerySearchInput"),
+      galleryInactiveToggle: document.querySelector("#galleryInactiveToggle"),
+      galleryInactiveToggleLabel: document.querySelector("#galleryInactiveToggleLabel"),
       galleryDrawerCategoryTabs: document.querySelector("#galleryDrawerCategoryTabs"),
       gallerySharedImageUploadButton: document.querySelector("#gallerySharedImageUploadButton"),
       gallerySharedImageInput: document.querySelector("#gallerySharedImageInput"),
+      galleryBatchUploadButton: document.querySelector("#galleryBatchUploadButton"),
+      galleryBatchUploadInput: document.querySelector("#galleryBatchUploadInput"),
+      sharedGalleryUploadModal: document.querySelector("#sharedGalleryUploadModal"),
+      sharedGalleryUploadTitle: document.querySelector("#sharedGalleryUploadTitle"),
+      sharedGalleryUploadClose: document.querySelector("#sharedGalleryUploadClose"),
+      sharedGalleryUploadCancel: document.querySelector("#sharedGalleryUploadCancel"),
+      sharedGalleryUploadSave: document.querySelector("#sharedGalleryUploadSave"),
+      sharedGalleryUploadNames: document.querySelector("#sharedGalleryUploadNames"),
+      sharedGalleryUploadCategory: document.querySelector("#sharedGalleryUploadCategory"),
+      sharedGalleryUploadNote: document.querySelector("#sharedGalleryUploadNote"),
       galleryCategoryManagePanel: document.querySelector("#galleryCategoryManagePanel"),
       galleryCategoryManageToggle: document.querySelector("#galleryCategoryManageToggle"),
       galleryCategoryList: document.querySelector("#galleryCategoryList"),
@@ -871,6 +886,28 @@
     "gallery.categoryProductRole": "Product reference",
     "gallery.referenceRole": "Reference image",
     "gallery.manage": "Manage gallery",
+    "gallery.managePersonal": "Manage personal gallery",
+    "gallery.manageShared": "Manage shared gallery",
+    "gallery.managementTitle": "Gallery management",
+    "gallery.personalLibrary": "Personal gallery",
+    "gallery.sharedLibrary": "Shared gallery",
+    "gallery.search": "Search gallery",
+    "gallery.searchPlaceholder": "Search names or notes",
+    "gallery.showInactive": "Show inactive",
+    "gallery.batchUpload": "Batch upload",
+    "gallery.batchUploaded": "Batch upload complete",
+    "gallery.uploadTitle": "Upload shared gallery images",
+    "gallery.uploadCopy": "Image names must be unique in the shared gallery",
+    "gallery.uploadPending": "Ready to save",
+    "gallery.uploadCreated": "Saved",
+    "gallery.uploadFailed": "Failed",
+    "gallery.uploadErrorNameConflict": "Name already exists",
+    "gallery.uploadErrorInvalidImage": "Not a valid image",
+    "gallery.uploadErrorFileTooLarge": "File is too large",
+    "gallery.uploadErrorQuotaExceeded": "Shared storage quota exceeded",
+    "gallery.restore": "Restore",
+    "gallery.restored": "Shared image restored",
+    "gallery.restoreFailed": "Failed to restore shared image",
     "gallery.loadFailed": "Failed to load gallery",
     "gallery.imageOrderUpdateFailed": "Failed to update image order",
     "gallery.imageOrderUpdated": "Image order updated",
@@ -10777,7 +10814,29 @@
     "gallery.categoryCharacterRole": "\u89D2\u8272\u53C2\u8003",
     "gallery.categoryProductRole": "\u4EA7\u54C1\u53C2\u8003",
     "gallery.referenceRole": "\u53C2\u8003\u56FE",
-    "gallery.manage": "\u7BA1\u7406\u516C\u7528\u5E93",
+    "gallery.manage": "\u7BA1\u7406\u56FE\u5E93",
+    "gallery.managePersonal": "\u7BA1\u7406\u4E2A\u4EBA\u56FE\u5E93",
+    "gallery.manageShared": "\u7BA1\u7406\u5171\u4EAB\u56FE\u5E93",
+    "gallery.managementTitle": "\u56FE\u5E93\u7BA1\u7406",
+    "gallery.personalLibrary": "\u4E2A\u4EBA\u56FE\u5E93",
+    "gallery.sharedLibrary": "\u5171\u4EAB\u56FE\u5E93",
+    "gallery.search": "\u641C\u7D22\u56FE\u5E93",
+    "gallery.searchPlaceholder": "\u641C\u7D22\u540D\u79F0\u6216\u8BF4\u660E",
+    "gallery.showInactive": "\u67E5\u770B\u5DF2\u505C\u7528",
+    "gallery.batchUpload": "\u6279\u91CF\u4E0A\u4F20",
+    "gallery.batchUploaded": "\u6279\u91CF\u4E0A\u4F20\u5B8C\u6210",
+    "gallery.uploadTitle": "\u4E0A\u4F20\u5171\u4EAB\u56FE\u5E93\u56FE\u7247",
+    "gallery.uploadCopy": "\u56FE\u7247\u540D\u79F0\u5728\u5171\u4EAB\u56FE\u5E93\u5185\u4E0D\u53EF\u91CD\u590D",
+    "gallery.uploadPending": "\u5F85\u4FDD\u5B58",
+    "gallery.uploadCreated": "\u4FDD\u5B58\u6210\u529F",
+    "gallery.uploadFailed": "\u4FDD\u5B58\u5931\u8D25",
+    "gallery.uploadErrorNameConflict": "\u540D\u79F0\u5DF2\u5B58\u5728",
+    "gallery.uploadErrorInvalidImage": "\u4E0D\u662F\u6709\u6548\u56FE\u7247",
+    "gallery.uploadErrorFileTooLarge": "\u6587\u4EF6\u5927\u5C0F\u8D85\u9650",
+    "gallery.uploadErrorQuotaExceeded": "\u5171\u4EAB\u5B58\u50A8\u989D\u5EA6\u4E0D\u8DB3",
+    "gallery.restore": "\u6062\u590D",
+    "gallery.restored": "\u5171\u4EAB\u56FE\u7247\u5DF2\u6062\u590D",
+    "gallery.restoreFailed": "\u6062\u590D\u5171\u4EAB\u56FE\u7247\u5931\u8D25",
     "gallery.loadFailed": "\u56FE\u5E93\u8BFB\u53D6\u5931\u8D25",
     "gallery.imageOrderUpdateFailed": "\u66F4\u65B0\u56FE\u7247\u987A\u5E8F\u5931\u8D25",
     "gallery.imageOrderUpdated": "\u56FE\u7247\u987A\u5E8F\u5DF2\u66F4\u65B0",
@@ -13965,6 +14024,7 @@
       taskSearchHistoryRequestSeq: 0,
       pendingTaskId: null,
       galleryItems: [],
+      sharedGalleryCategories: [],
       promptSnippets: [],
       promptTemplates: [],
       promptTemplateCategories: [],
@@ -13975,6 +14035,11 @@
       recentAssets: [],
       collectedReferences: [],
       galleryCategories: defaultGalleryCategories(),
+      activeGalleryScope: "personal",
+      galleryLibraryState: {
+        personal: { category: "portrait", query: "", status: "active" },
+        shared: { category: "product-images", query: "", status: "active" }
+      },
       activeGalleryCategory: "portrait",
       hoveredGalleryItemId: null,
       quickGalleryFocusItemId: null,
@@ -14648,6 +14713,8 @@
     return {
       kind: "gallery",
       id: item.id,
+      scope: item.scope || (String(item.id || "").startsWith("shared:") ? "shared" : "personal"),
+      asset_version_id: item.asset_version_id || "",
       name: item.name,
       category: item.category,
       category_name: item.category_name || legacyMethod3("categoryLabel", item.category),
@@ -28730,6 +28797,19 @@ ${hint}` : hint;
   function refreshGallery() {
     return legacyMethod6("refreshGallery");
   }
+  function isSharedGallery() {
+    return state2.activeGalleryScope === "shared";
+  }
+  function currentGalleryCategories() {
+    return isSharedGallery() ? state2.sharedGalleryCategories : state2.galleryCategories;
+  }
+  function setCurrentGalleryCategories(categories) {
+    if (isSharedGallery()) state2.sharedGalleryCategories = categories;
+    else state2.galleryCategories = categories;
+  }
+  function categoryEndpoint(suffix = "") {
+    return `${isSharedGallery() ? "/api/shared-gallery/categories" : "/api/gallery/categories"}${suffix}`;
+  }
   function cssEscape2(value) {
     const text = String(value || "");
     if (window.CSS?.escape) return window.CSS.escape(text);
@@ -28798,11 +28878,12 @@ ${hint}` : hint;
   }
   function ensureActiveGalleryCategory() {
     if (findGalleryCategory(state2.activeGalleryCategory)) return;
-    state2.activeGalleryCategory = state2.galleryCategories[0]?.id || "portrait";
+    state2.activeGalleryCategory = currentGalleryCategories()[0]?.id || (isSharedGallery() ? "uncategorized" : "portrait");
+    state2.galleryLibraryState[state2.activeGalleryScope].category = state2.activeGalleryCategory;
   }
   function renderGalleryCategoryControls() {
     ensureActiveGalleryCategory();
-    const categories = normalizeGalleryCategories(state2.galleryCategories);
+    const categories = normalizeGalleryCategories(currentGalleryCategories());
     if (els2.quickGalleryRail) {
       els2.quickGalleryRail.innerHTML = categories.map((category) => `
       <button class="quick-gallery-category${category.id === state2.activeGalleryCategory ? " active" : ""}" data-quick-gallery-category="${escapeHtml3(category.id)}" type="button">${escapeHtml3(categoryLabel(category.id))}</button>
@@ -28815,13 +28896,14 @@ ${hint}` : hint;
     `).join("");
       els2.galleryCategoryInput.value = findGalleryCategory(currentValue) ? currentValue : state2.activeGalleryCategory;
     }
+    els2.newGalleryCategoryPromptRole?.classList.toggle("hidden", isSharedGallery());
     renderGalleryDrawerCategoryTabs();
     renderGalleryCategoryManager();
     syncGalleryCategoryManagerVisibility();
   }
   function renderGalleryDrawerCategoryTabs() {
     if (!els2.galleryDrawerCategoryTabs) return;
-    const categories = normalizeGalleryCategories(state2.galleryCategories);
+    const categories = normalizeGalleryCategories(currentGalleryCategories());
     els2.galleryDrawerCategoryTabs.innerHTML = categories.map((category) => `
     <button
       class="quick-gallery-category${category.id === state2.activeGalleryCategory ? " active" : ""}"
@@ -28834,7 +28916,7 @@ ${hint}` : hint;
   }
   function renderGalleryCategoryManager() {
     if (!els2.galleryCategoryList) return;
-    const categories = normalizeGalleryCategories(state2.galleryCategories);
+    const categories = normalizeGalleryCategories(currentGalleryCategories());
     els2.galleryCategoryList.innerHTML = categories.map((category) => `
     <div
       class="gallery-category-row${category.id === state2.activeGalleryCategory ? " is-current" : ""}"
@@ -28861,11 +28943,11 @@ ${hint}` : hint;
           </svg>
         </button>
       </div>
-      <input class="control" type="text" maxlength="32" value="${escapeHtml3(categoryLabel(category.id))}" data-gallery-category-name="${escapeHtml3(category.id)}" aria-label="${escapeHtml3(translate("gallery.categoryName"))}">
-      <input class="control" type="text" maxlength="48" value="${escapeHtml3(categoryPromptRole(category.id))}" data-gallery-category-prompt-role="${escapeHtml3(category.id)}" aria-label="${escapeHtml3(translate("gallery.categoryPromptRole"))}">
+      <input class="control" type="text" maxlength="32" value="${escapeHtml3(categoryLabel(category.id))}" data-gallery-category-name="${escapeHtml3(category.id)}" aria-label="${escapeHtml3(translate("gallery.categoryName"))}" ${category.locked ? "disabled" : ""}>
+      ${isSharedGallery() ? "" : `<input class="control" type="text" maxlength="48" value="${escapeHtml3(categoryPromptRole(category.id))}" data-gallery-category-prompt-role="${escapeHtml3(category.id)}" aria-label="${escapeHtml3(translate("gallery.categoryPromptRole"))}">`}
       <div class="gallery-category-row-actions">
-        <button class="ghost-button text-sm" type="button" data-gallery-category-save="${escapeHtml3(category.id)}">${escapeHtml3(translate("gallery.categorySave"))}</button>
-        <button class="ghost-button text-sm danger-button" type="button" data-gallery-category-delete="${escapeHtml3(category.id)}" ${categories.length <= 1 ? "disabled" : ""}>${escapeHtml3(translate("gallery.categoryDelete"))}</button>
+        <button class="ghost-button text-sm" type="button" data-gallery-category-save="${escapeHtml3(category.id)}" ${category.locked ? "disabled" : ""}>${escapeHtml3(translate("gallery.categorySave"))}</button>
+        <button class="ghost-button text-sm danger-button" type="button" data-gallery-category-delete="${escapeHtml3(category.id)}" ${categories.length <= 1 || category.locked ? "disabled" : ""}>${escapeHtml3(translate("gallery.categoryDelete"))}</button>
       </div>
     </div>
   `).join("");
@@ -28891,16 +28973,17 @@ ${hint}` : hint;
     syncGalleryCategoryManagerVisibility();
   }
   function syncGalleryCategoryManagerVisibility() {
+    if (isSharedGallery() && document.documentElement.dataset.userRole !== "admin") galleryCategoryManagerExpanded = false;
     els2.galleryCategoryManagePanel?.classList.toggle("hidden", !galleryCategoryManagerExpanded);
     els2.galleryCategoryManageToggle?.setAttribute("aria-expanded", galleryCategoryManagerExpanded ? "true" : "false");
     els2.galleryCategoryManageToggle?.classList.toggle("active", galleryCategoryManagerExpanded);
   }
   async function refreshGalleryCategories() {
     try {
-      const response = await fetch("/api/gallery/categories");
+      const response = await fetch(categoryEndpoint());
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || translate("gallery.categoryLoadFailed"));
-      state2.galleryCategories = normalizeGalleryCategories(data.categories);
+      setCurrentGalleryCategories(normalizeGalleryCategories(data.categories));
       ensureActiveGalleryCategory();
       renderGalleryCategoryControls();
       renderQuickGalleryDock();
@@ -28919,16 +29002,17 @@ ${hint}` : hint;
       return;
     }
     try {
-      const response = await fetch("/api/gallery/categories", {
+      const response = await fetch(categoryEndpoint(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, prompt_role: promptRole })
+        body: JSON.stringify(isSharedGallery() ? { name } : { name, prompt_role: promptRole })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || translate("gallery.categoryCreateFailed"));
       if (els2.newGalleryCategoryName) els2.newGalleryCategoryName.value = "";
       if (els2.newGalleryCategoryPromptRole) els2.newGalleryCategoryPromptRole.value = "";
       state2.activeGalleryCategory = data.category?.id || state2.activeGalleryCategory;
+      state2.galleryLibraryState[state2.activeGalleryScope].category = state2.activeGalleryCategory;
       await refreshGalleryCategories();
       setStatus3(translate("gallery.categoryCreated"), "ok");
     } catch (error) {
@@ -28946,10 +29030,10 @@ ${hint}` : hint;
       return;
     }
     try {
-      const response = await fetch(`/api/gallery/categories/${encodeURIComponent(categoryId)}`, {
+      const response = await fetch(categoryEndpoint(`/${encodeURIComponent(categoryId)}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, prompt_role: promptRole, order: category?.order })
+        body: JSON.stringify(isSharedGallery() ? { name } : { name, prompt_role: promptRole, order: category?.order })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || translate("gallery.categorySaveFailed"));
@@ -28961,8 +29045,8 @@ ${hint}` : hint;
   }
   function deleteGalleryCategory(button, categoryId) {
     const category = findGalleryCategory(categoryId);
-    if (!category || state2.galleryCategories.length <= 1) return;
-    const moveTo = state2.galleryCategories.find((candidate) => candidate.id !== categoryId)?.id;
+    if (!category || currentGalleryCategories().length <= 1 || category.locked) return;
+    const moveTo = isSharedGallery() ? "uncategorized" : currentGalleryCategories().find((candidate) => candidate.id !== categoryId)?.id;
     const target = findGalleryCategory(moveTo);
     openConfirmPopover(button, {
       title: translate("gallery.categoryDeleteTitle"),
@@ -28976,12 +29060,13 @@ ${hint}` : hint;
   }
   async function performDeleteGalleryCategory(categoryId, moveTo, categoryName) {
     try {
-      const response = await fetch(`/api/gallery/categories/${encodeURIComponent(categoryId)}?move_to=${encodeURIComponent(moveTo)}`, {
+      const response = await fetch(categoryEndpoint(`/${encodeURIComponent(categoryId)}${isSharedGallery() ? "" : `?move_to=${encodeURIComponent(moveTo)}`}`), {
         method: "DELETE"
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.detail || translate("gallery.categoryDeleteFailed"));
       if (state2.activeGalleryCategory === categoryId) state2.activeGalleryCategory = moveTo;
+      state2.galleryLibraryState[state2.activeGalleryScope].category = state2.activeGalleryCategory;
       await refreshGallery();
       setStatus3(formatTranslation("gallery.categoryDeletedMigrated", { name: categoryName }), "ok");
     } catch (error) {
@@ -28991,6 +29076,7 @@ ${hint}` : hint;
   function setQuickGalleryCategory(category) {
     if (!findGalleryCategory(category)) return;
     state2.activeGalleryCategory = category;
+    state2.galleryLibraryState[state2.activeGalleryScope].category = category;
     state2.hoveredGalleryItemId = null;
     state2.quickGalleryFocusItemId = null;
     renderGalleryCategoryControls();
@@ -29000,6 +29086,7 @@ ${hint}` : hint;
   function setGalleryDrawerCategory(category) {
     if (!findGalleryCategory(category)) return;
     state2.activeGalleryCategory = category;
+    state2.galleryLibraryState[state2.activeGalleryScope].category = category;
     state2.hoveredGalleryItemId = null;
     state2.quickGalleryFocusItemId = null;
     closeGalleryEditPopover();
@@ -29009,7 +29096,7 @@ ${hint}` : hint;
     renderGalleryGrid({ animateHeight: true });
   }
   function findGalleryCategory(categoryId) {
-    return state2.galleryCategories.find((category) => category.id === categoryId);
+    return currentGalleryCategories().find((category) => category.id === categoryId);
   }
   function categoryRow(categoryId) {
     return els2.galleryCategoryList?.querySelector?.(`[data-gallery-category-row="${cssEscape2(categoryId)}"]`) || null;
@@ -29039,9 +29126,9 @@ ${hint}` : hint;
   }
   function applyGalleryCategoryOrder(categoryIds) {
     const orderMap = new Map(categoryIds.map((categoryId, index) => [categoryId, (index + 1) * 10]));
-    state2.galleryCategories = normalizeGalleryCategories(
-      state2.galleryCategories.map((category) => orderMap.has(category.id) ? { ...category, order: orderMap.get(category.id) } : category)
-    );
+    setCurrentGalleryCategories(normalizeGalleryCategories(
+      currentGalleryCategories().map((category) => orderMap.has(category.id) ? { ...category, order: orderMap.get(category.id) } : category)
+    ));
     renderGalleryCategoryControls();
     renderQuickGalleryDock();
     renderGalleryGrid();
@@ -29074,14 +29161,14 @@ ${hint}` : hint;
   }
   async function persistGalleryCategoryOrder(categoryIds) {
     try {
-      const response = await fetch("/api/gallery/categories/reorder", {
+      const response = await fetch(categoryEndpoint("/reorder"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ category_ids: categoryIds })
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.detail || translate("gallery.categoryOrderUpdateFailed"));
-      state2.galleryCategories = normalizeGalleryCategories(data.categories);
+      setCurrentGalleryCategories(normalizeGalleryCategories(data.categories));
       renderGalleryCategoryControls();
       renderQuickGalleryDock();
       renderGalleryGrid();
@@ -29099,7 +29186,7 @@ ${hint}` : hint;
     draggedGalleryCategoryId = categoryId;
     galleryCategoryDropTargetId = null;
     galleryCategoryDropPlacement = "after";
-    galleryCategoryOriginalOrder = normalizeGalleryCategories(state2.galleryCategories).map((galleryCategory) => galleryCategory.id);
+    galleryCategoryOriginalOrder = normalizeGalleryCategories(currentGalleryCategories()).map((galleryCategory) => galleryCategory.id);
     event.dataTransfer?.setData("text/plain", categoryId);
     if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
     setGalleryDragPreview(event, {
@@ -29140,7 +29227,7 @@ ${hint}` : hint;
     }
     const draggedId = draggedGalleryCategoryId;
     event.preventDefault();
-    const originalOrder = galleryCategoryOriginalOrder.length ? galleryCategoryOriginalOrder.slice() : normalizeGalleryCategories(state2.galleryCategories).map((category) => category.id);
+    const originalOrder = galleryCategoryOriginalOrder.length ? galleryCategoryOriginalOrder.slice() : normalizeGalleryCategories(currentGalleryCategories()).map((category) => category.id);
     const reorderedIds = categoryDomOrder();
     finishGalleryCategoryDrag();
     if (!reorderedIds.includes(draggedId) || sameGalleryCategoryOrder(originalOrder, reorderedIds)) return;
@@ -29791,6 +29878,9 @@ ${hint}` : hint;
   function persistGalleryItemOrder(category, itemIds) {
     return legacyMethod9("persistGalleryItemOrder", category, itemIds);
   }
+  function restoreSharedGalleryItem(itemId) {
+    return legacyMethod9("restoreSharedGalleryItem", itemId);
+  }
   function cssEscape3(value) {
     const text = String(value || "");
     if (window.CSS?.escape) return window.CSS.escape(text);
@@ -29888,13 +29978,16 @@ ${hint}` : hint;
       return `<div class="gallery-empty">${translate("gallery.emptyCategory")}</div>`;
     }
     const isAdmin2 = getCurrentServerUser()?.role === "admin";
+    const activeQuery = String(state5.galleryLibraryState?.[state5.activeGalleryScope]?.query || "").trim();
     return items.map((item) => {
       const canManage = item.scope !== "shared" || isAdmin2;
       const canDeactivate = item.scope !== "shared" || isAdmin2;
-      const canEditDetails = item.scope !== "shared";
+      const canEditDetails = item.scope !== "shared" || isAdmin2;
+      const canReorder = canEditDetails && !activeQuery;
+      const inactiveSharedItem = item.scope === "shared" && isAdmin2 && item.is_active === false;
       return `
     <article class="gallery-card" data-gallery-id="${escapeHtml6(item.id)}">
-      ${canEditDetails ? `
+      ${canReorder ? `
       <button
         class="gallery-card-drag-strip"
         type="button"
@@ -29917,7 +30010,7 @@ ${hint}` : hint;
         <span>${translate("gallery.dragSort")}</span>
       </button>` : ""}
       <div class="gallery-card-media">
-        <img src="${escapeHtml6(item.image_url)}" alt="${escapeHtml6(item.name)}" draggable="false" loading="lazy" decoding="async">
+        ${item.image_url ? `<img src="${escapeHtml6(item.image_url)}" alt="${escapeHtml6(item.name)}" draggable="false" loading="lazy" decoding="async">` : ""}
       </div>
       <div class="gallery-card-body">
         <div class="gallery-card-heading">
@@ -29927,13 +30020,13 @@ ${hint}` : hint;
         <span>${escapeHtml6(categoryLabel3(item.category))}</span>
       </div>
       <div class="gallery-card-actions">
-        <button class="ghost-button text-sm" type="button" data-gallery-use="${escapeHtml6(item.id)}">${translate("gallery.use")}</button>
-        ${canManage ? `<button class="ghost-button text-sm" type="button" data-gallery-replace="${escapeHtml6(item.id)}">${translate("gallery.replace")}</button>` : ""}
+        ${inactiveSharedItem ? `<button class="ghost-button text-sm" type="button" data-gallery-restore="${escapeHtml6(item.id)}">${translate("gallery.restore")}</button>` : `<button class="ghost-button text-sm" type="button" data-gallery-use="${escapeHtml6(item.id)}">${translate("gallery.use")}</button>`}
+        ${canManage && !inactiveSharedItem ? `<button class="ghost-button text-sm" type="button" data-gallery-replace="${escapeHtml6(item.id)}">${translate("gallery.replace")}</button>` : ""}
         ${canEditDetails ? `
         <button class="ghost-button text-sm" type="button" data-gallery-rename="${escapeHtml6(item.id)}">${translate("gallery.rename")}</button>
         <button class="ghost-button text-sm" type="button" data-gallery-move="${escapeHtml6(item.id)}">${translate("gallery.moveCategory")}</button>
         <button class="ghost-button text-sm" type="button" data-gallery-note="${escapeHtml6(item.id)}">${translate("gallery.note")}</button>` : ""}
-        ${canDeactivate ? `<button class="ghost-button text-sm danger-button" type="button" data-gallery-delete="${escapeHtml6(item.id)}">${translate(item.scope === "shared" ? "gallery.deactivate" : "gallery.delete")}</button>` : ""}
+        ${canDeactivate && !inactiveSharedItem ? `<button class="ghost-button text-sm danger-button" type="button" data-gallery-delete="${escapeHtml6(item.id)}">${translate(item.scope === "shared" ? "gallery.deactivate" : "gallery.delete")}</button>` : ""}
       </div>
     </article>
   `;
@@ -29943,12 +30036,16 @@ ${hint}` : hint;
     return root;
   }
   function handleGalleryGridClick(event) {
-    const button = event.target.closest?.("[data-gallery-use],[data-gallery-rename],[data-gallery-replace],[data-gallery-move],[data-gallery-note],[data-gallery-delete]");
+    const button = event.target.closest?.("[data-gallery-use],[data-gallery-restore],[data-gallery-rename],[data-gallery-replace],[data-gallery-move],[data-gallery-note],[data-gallery-delete]");
     if (!button || !els5.galleryGrid?.contains(button)) return;
     if (button.dataset.galleryUse) {
       const item2 = findGalleryItem2(button.dataset.galleryUse);
       if (item2) addGalleryInput3(item2);
       closeGallery();
+      return;
+    }
+    if (button.dataset.galleryRestore) {
+      void restoreSharedGalleryItem(button.dataset.galleryRestore);
       return;
     }
     const itemId = button.dataset.galleryRename || button.dataset.galleryReplace || button.dataset.galleryMove || button.dataset.galleryNote || button.dataset.galleryDelete;
@@ -30047,7 +30144,7 @@ ${hint}` : hint;
     const itemId = String(handle?.dataset.galleryId || "");
     if (!handle || !itemId || !els5.galleryGrid?.contains(handle)) return;
     const item = findGalleryItem2(itemId);
-    if (item?.scope === "shared") {
+    if (item?.scope === "shared" && getCurrentServerUser()?.role !== "admin") {
       event.preventDefault();
       return;
     }
@@ -30148,6 +30245,30 @@ ${hint}` : hint;
       handleGalleryGridDrop,
       handleGalleryGridDragEnd
     });
+  }
+
+  // codex_image/webui/frontend/src/shared-gallery-item.ts
+  function sharedGalleryItemFromAsset(asset, fallbackName = "") {
+    const assetId = String(asset?.asset_id || "");
+    const versionId = String(asset?.current_version_id || "");
+    if (!assetId || !versionId) return null;
+    return {
+      id: `shared:${assetId}`,
+      asset_id: assetId,
+      asset_version_id: versionId,
+      name: String(asset.name || fallbackName || translate("gallery.sharedImageFallbackName")),
+      category: String(asset.category_id || "uncategorized"),
+      category_name: String(asset.category_name || translate("gallery.uncategorized")),
+      category_prompt_role: "",
+      prompt_note: String(asset.prompt_note || ""),
+      order: Number(asset.sort_order) || 0,
+      image_url: asset.download_url || `/api/shared-assets/${encodeURIComponent(assetId)}/versions/${encodeURIComponent(versionId)}/download`,
+      scope: "shared",
+      read_only: true,
+      is_active: asset.is_active !== false,
+      created_at: asset.created_at,
+      updated_at: asset.updated_at
+    };
   }
 
   // codex_image/webui/frontend/src/gallery-item-actions.ts
@@ -30270,26 +30391,14 @@ ${hint}` : hint;
     const requestedShared = els6.galleryScopeInput?.value === "shared";
     const personal = !requestedShared || getCurrentServerUser()?.role !== "admin";
     if (personal && requestedShared && els6.galleryScopeInput) els6.galleryScopeInput.value = "personal";
-    els6.galleryCategoryField?.classList.toggle("hidden", !personal);
-    els6.galleryPromptNoteField?.classList.toggle("hidden", !personal);
-  }
-  function sharedGalleryItemFromAsset(asset, fallbackName) {
-    const assetId = String(asset?.asset_id || "");
-    if (!assetId || !asset?.download_url) return null;
-    return {
-      id: `shared:${assetId}`,
-      name: String(asset.name || fallbackName),
-      category: "portrait",
-      category_name: translate("gallery.categoryPortrait"),
-      category_prompt_role: "",
-      prompt_note: "",
-      order: 0,
-      image_url: asset.download_url,
-      scope: "shared",
-      read_only: true,
-      created_at: asset.created_at,
-      updated_at: asset.updated_at
-    };
+    els6.galleryCategoryField?.classList.remove("hidden");
+    els6.galleryPromptNoteField?.classList.remove("hidden");
+    const categories = personal ? state6.galleryCategories : state6.sharedGalleryCategories;
+    if (els6.galleryCategoryInput) {
+      els6.galleryCategoryInput.innerHTML = normalizeGalleryCategories2(categories).map((category) => `
+      <option value="${escapeHtml7(category.id)}">${escapeHtml7(category.name)}</option>
+    `).join("");
+    }
   }
   function closeAddToGallery() {
     state6.addToGalleryIndex = null;
@@ -30319,20 +30428,21 @@ ${hint}` : hint;
       const imageFile = await galleryImageFileForSource(source);
       form.append("name", name);
       if (scope === "shared") {
-        form.append("asset_kind", "image");
+        form.append("category_id", els6.galleryCategoryInput.value);
+        form.append("prompt_note", els6.galleryPromptNoteInput?.value.trim() || "");
         form.append("file", imageFile);
       } else {
         form.append("category", els6.galleryCategoryInput.value);
         form.append("prompt_note", els6.galleryPromptNoteInput?.value.trim() || "");
         form.append("image", imageFile);
       }
-      const response = await fetch(scope === "shared" ? "/api/shared-assets" : "/api/gallery", { method: "POST", body: form });
+      const response = await fetch(scope === "shared" ? "/api/shared-gallery/items" : "/api/gallery", { method: "POST", body: form });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.detail || translate("gallery.saveFailed"));
       }
       await refreshGallery2();
-      const item = scope === "shared" ? findGalleryItem3(`shared:${data.asset?.asset_id || ""}`) || sharedGalleryItemFromAsset(data.asset, name) : data.item;
+      const item = scope === "shared" ? findGalleryItem3(`shared:${data.item?.asset_id || ""}`) || sharedGalleryItemFromAsset(data.item, name) : data.item;
       if (!item) throw new Error(translate("gallery.saveFailed"));
       if (scope === "shared" && !findGalleryItem3(item.id)) {
         state6.galleryItems = [...state6.galleryItems, item];
@@ -30405,15 +30515,19 @@ ${hint}` : hint;
   }
   async function patchGalleryItem(itemId, payload2) {
     try {
-      const response = await fetch(`/api/gallery/${encodeURIComponent(itemId)}`, {
+      const shared = String(itemId).startsWith("shared:");
+      const endpoint = shared ? `/api/shared-gallery/items/${encodeURIComponent(String(itemId).replace(/^shared:/, ""))}` : `/api/gallery/${encodeURIComponent(itemId)}`;
+      const requestPayload = shared && Object.prototype.hasOwnProperty.call(payload2, "category") ? { ...payload2, category_id: payload2.category, category: void 0 } : payload2;
+      const response = await fetch(endpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload2)
+        body: JSON.stringify(requestPayload)
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || translate("gallery.updateFailed"));
       await refreshGallery2();
-      state6.images = state6.images.map((source) => source.kind === "gallery" && source.id === itemId ? gallerySource2(data.item) : source);
+      const updated = shared ? sharedGalleryItemFromAsset(data.item, findGalleryItem3(itemId)?.name || "") : data.item;
+      state6.images = state6.images.map((source) => source.kind === "gallery" && source.id === itemId ? gallerySource2(updated) : source);
       renderImageStrip4();
       updateRequestPreview3();
     } catch (error) {
@@ -30557,7 +30671,8 @@ ${hint}` : hint;
   }
   function galleryEditFieldHtml(mode, item) {
     if (mode === "category") {
-      const options = normalizeGalleryCategories2(state6.galleryCategories).map((category) => `
+      const categories = item.scope === "shared" ? state6.sharedGalleryCategories : state6.galleryCategories;
+      const options = normalizeGalleryCategories2(categories).map((category) => `
       <option value="${escapeHtml7(category.id)}" ${category.id === item.category ? "selected" : ""}>${escapeHtml7(categoryLabel4(category.id))}</option>
     `).join("");
       return `
@@ -30646,28 +30761,26 @@ ${hint}` : hint;
   var galleryFeatureInitialized = false;
   var galleryFeatureEventsBound = false;
   var lastGalleryTrigger = null;
+  var pendingSharedFiles = [];
   function legacyMethod11(name, ...args) {
     const method = getLegacyBridge().methods[name];
-    if (typeof method !== "function") {
-      throw new Error("Legacy method " + name + " is not initialized");
-    }
+    if (typeof method !== "function") throw new Error(`Legacy method ${name} is not initialized`);
     return method(...args);
   }
   function setStatus6(message, type) {
     legacyMethod11("setStatus", message, type);
+  }
+  function escapeHtml8(value) {
+    return legacyMethod11("escapeHtml", value);
   }
   function closeConfirmPopover3() {
     legacyMethod11("closeConfirmPopover");
   }
   var defaultGalleryCategories3 = () => legacyMethod11("defaultGalleryCategories");
   var normalizeGalleryCategories3 = (categories) => legacyMethod11("normalizeGalleryCategories", categories);
-  var ensureActiveGalleryCategory3 = () => {
-    legacyMethod11("ensureActiveGalleryCategory");
-  };
   var renderGalleryCategoryControls4 = () => {
     legacyMethod11("renderGalleryCategoryControls");
   };
-  var findGalleryCategory3 = (categoryId) => legacyMethod11("findGalleryCategory", categoryId);
   var renderQuickGalleryDock4 = () => {
     legacyMethod11("renderQuickGalleryDock");
   };
@@ -30680,43 +30793,50 @@ ${hint}` : hint;
   var closeGalleryEditPopover3 = () => {
     legacyMethod11("closeGalleryEditPopover");
   };
+  function activeLibraryState() {
+    return state7.activeGalleryScope === "shared" ? state7.galleryLibraryState.shared : state7.galleryLibraryState.personal;
+  }
+  function activeCategories() {
+    return state7.activeGalleryScope === "shared" ? normalizeGalleryCategories3(state7.sharedGalleryCategories) : normalizeGalleryCategories3(state7.galleryCategories);
+  }
   function sortGalleryItems(items) {
-    const categories = normalizeGalleryCategories3(state7.galleryCategories);
-    const categoryOrder = new Map(categories.map((category) => [String(category.id), Number(category.order) || 0]));
+    const categoryOrder = new Map(activeCategories().map((category) => [String(category.id), Number(category.order) || 0]));
     return [...items].sort((left, right) => {
-      const leftCategoryOrder = Number(categoryOrder.get(String(left.category || "")) ?? Number.MAX_SAFE_INTEGER);
-      const rightCategoryOrder = Number(categoryOrder.get(String(right.category || "")) ?? Number.MAX_SAFE_INTEGER);
-      if (leftCategoryOrder !== rightCategoryOrder) {
-        return leftCategoryOrder - rightCategoryOrder;
-      }
-      const leftOrder = Number(left.order) > 0 ? Number(left.order) : Number.MAX_SAFE_INTEGER;
-      const rightOrder = Number(right.order) > 0 ? Number(right.order) : Number.MAX_SAFE_INTEGER;
-      if (leftOrder !== rightOrder) {
-        return leftOrder - rightOrder;
-      }
-      const leftCreatedAt = String(left.created_at || "");
-      const rightCreatedAt = String(right.created_at || "");
-      if (leftCreatedAt !== rightCreatedAt) {
-        return rightCreatedAt.localeCompare(leftCreatedAt, "zh-CN", { numeric: true, sensitivity: "base" });
-      }
-      const leftName = String(left.name || "");
-      const rightName = String(right.name || "");
-      return leftName.localeCompare(rightName, "zh-CN", { numeric: true, sensitivity: "base" });
+      const categoryDifference = Number(categoryOrder.get(String(left.category || "")) ?? Number.MAX_SAFE_INTEGER) - Number(categoryOrder.get(String(right.category || "")) ?? Number.MAX_SAFE_INTEGER);
+      if (categoryDifference) return categoryDifference;
+      const orderDifference = (Number(left.order) || Number.MAX_SAFE_INTEGER) - (Number(right.order) || Number.MAX_SAFE_INTEGER);
+      if (orderDifference) return orderDifference;
+      return String(left.name || "").localeCompare(String(right.name || ""), "zh-CN", { numeric: true, sensitivity: "base" });
     });
   }
   function filterGalleryItems3(category = state7.activeGalleryCategory) {
-    return sortGalleryItems(state7.galleryItems.filter((item) => item.category === category));
+    const scope = state7.activeGalleryScope;
+    const query = String(activeLibraryState()?.query || "").trim().toLocaleLowerCase();
+    const status = activeLibraryState()?.status || "active";
+    return sortGalleryItems(state7.galleryItems.filter((item) => item.scope === scope && item.category === category && (scope !== "shared" || (status === "inactive" ? item.is_active === false : item.is_active !== false)) && (!query || String(item.name || "").toLocaleLowerCase().includes(query) || String(item.prompt_note || "").toLocaleLowerCase().includes(query))));
   }
   async function refreshGallery3() {
     try {
-      const response = await fetch("/api/gallery");
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.detail || translate("gallery.loadFailed"));
+      const [galleryResponse, sharedCategoryResponse] = await Promise.all([
+        fetch("/api/gallery"),
+        fetch("/api/shared-gallery/categories")
+      ]);
+      const galleryData = await galleryResponse.json();
+      const sharedCategoryData = await sharedCategoryResponse.json();
+      if (!galleryResponse.ok) throw new Error(galleryData.detail || translate("gallery.loadFailed"));
+      if (!sharedCategoryResponse.ok) throw new Error(sharedCategoryData.detail || translate("gallery.categoryLoadFailed"));
+      let items = Array.isArray(galleryData.items) ? galleryData.items : [];
+      state7.galleryCategories = normalizeGalleryCategories3(galleryData.categories);
+      state7.sharedGalleryCategories = normalizeGalleryCategories3(sharedCategoryData.categories);
+      if (state7.activeGalleryScope === "shared" && activeLibraryState()?.status === "inactive" && getCurrentServerUser()?.role === "admin") {
+        const inactiveResponse = await fetch("/api/shared-gallery/items?status=inactive");
+        const inactiveData = await inactiveResponse.json();
+        if (!inactiveResponse.ok) throw new Error(inactiveData.detail || translate("gallery.loadFailed"));
+        const inactiveItems = (inactiveData.items || []).map(sharedGalleryItemFromAsset).filter(Boolean);
+        items = [...items.filter((item) => item.scope !== "shared"), ...inactiveItems];
       }
-      state7.galleryItems = sortGalleryItems(data.items || []);
-      state7.galleryCategories = normalizeGalleryCategories3(data.categories);
-      ensureActiveGalleryCategory3();
+      state7.galleryItems = sortGalleryItems(items);
+      syncActiveCategory();
       renderGalleryCategoryControls4();
       renderQuickGalleryDock4();
       if (els7.galleryDrawer?.classList.contains("open")) renderGalleryGrid4();
@@ -30728,20 +30848,30 @@ ${hint}` : hint;
       setStatus6(error.message || translate("gallery.loadFailed"), "error");
     }
   }
-  async function openGallery(category) {
+  function syncActiveCategory() {
+    const library = activeLibraryState();
+    const categories = activeCategories();
+    if (!categories.some((category) => category.id === library.category)) {
+      library.category = categories[0]?.id || (state7.activeGalleryScope === "shared" ? "uncategorized" : "portrait");
+    }
+    state7.activeGalleryCategory = library.category;
+  }
+  async function openGallery(scope) {
     legacyMethod11("closePromptTemplateDrawer", { restoreFocus: false });
-    lastGalleryTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : els7.galleryManageButton;
-    state7.activeGalleryCategory = findGalleryCategory3(category) ? category : state7.galleryCategories[0]?.id || "portrait";
-    await refreshGallery3();
+    lastGalleryTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : scope === "shared" ? els7.gallerySharedManageButton : els7.galleryPersonalManageButton;
+    state7.activeGalleryScope = scope;
+    syncActiveCategory();
+    syncGalleryManagementControls();
     renderGalleryCategoryControls4();
     renderGalleryGrid4();
     els7.galleryDrawer?.classList.add("open");
     els7.galleryDrawer?.setAttribute("aria-hidden", "false");
     els7.galleryDrawerBackdrop?.classList.remove("hidden");
-    els7.galleryManageButton?.setAttribute("aria-expanded", "true");
-    window.setTimeout(() => {
-      els7.galleryDrawerClose?.focus?.({ preventScroll: true });
-    }, 0);
+    els7.galleryPersonalManageButton?.setAttribute("aria-expanded", String(scope === "personal"));
+    els7.gallerySharedManageButton?.setAttribute("aria-expanded", String(scope === "shared"));
+    await refreshGallery3();
+    syncGalleryManagementControls();
+    window.setTimeout(() => els7.galleryDrawerClose?.focus?.({ preventScroll: true }), 0);
   }
   function closeGallery2(options = {}) {
     const restoreFocus = options?.restoreFocus !== false;
@@ -30751,136 +30881,216 @@ ${hint}` : hint;
     els7.galleryDrawer?.classList.remove("open");
     els7.galleryDrawer?.setAttribute("aria-hidden", "true");
     els7.galleryDrawerBackdrop?.classList.add("hidden");
-    els7.galleryManageButton?.setAttribute("aria-expanded", "false");
-    if (restoreFocus) {
-      const focusTarget = lastGalleryTrigger || els7.galleryManageButton;
-      focusTarget?.focus?.({ preventScroll: true });
-    }
+    els7.galleryPersonalManageButton?.setAttribute("aria-expanded", "false");
+    els7.gallerySharedManageButton?.setAttribute("aria-expanded", "false");
+    if (restoreFocus) lastGalleryTrigger?.focus?.({ preventScroll: true });
   }
   function findGalleryItem4(itemId) {
     return state7.galleryItems.find((item) => item.id === itemId);
   }
   function applyGalleryItemOrder2(category, itemIds) {
     const orderMap = new Map(itemIds.map((itemId, index) => [itemId, (index + 1) * 10]));
-    state7.galleryItems = sortGalleryItems(
-      state7.galleryItems.map((item) => item.category === category && orderMap.has(item.id) ? { ...item, order: orderMap.get(item.id) } : item)
-    );
+    state7.galleryItems = state7.galleryItems.map((item) => orderMap.has(item.id) ? { ...item, order: orderMap.get(item.id) } : item);
     renderQuickGalleryDock4();
     renderGalleryGrid4();
   }
   async function persistGalleryItemOrder2(category, itemIds) {
+    const shared = state7.activeGalleryScope === "shared";
+    const normalizedIds = shared ? itemIds.map((itemId) => itemId.replace(/^shared:/, "")) : itemIds;
     try {
-      const response = await fetch("/api/gallery/reorder", {
+      const response = await fetch(shared ? "/api/shared-gallery/items/reorder" : "/api/gallery/reorder", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category, item_ids: itemIds })
+        body: JSON.stringify(shared ? { category_id: category, item_ids: normalizedIds } : { category, item_ids: normalizedIds })
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.detail || translate("gallery.imageOrderUpdateFailed"));
-      const reorderedIds = new Set(itemIds);
-      const reorderedItems = Array.isArray(data.items) ? data.items : [];
-      state7.galleryItems = sortGalleryItems([
-        ...state7.galleryItems.filter((item) => !(item.category === category && reorderedIds.has(item.id))),
-        ...reorderedItems
-      ]);
-      renderQuickGalleryDock4();
-      renderGalleryGrid4();
+      await refreshGallery3();
       setStatus6(translate("gallery.imageOrderUpdated"), "ok");
     } catch (error) {
       await refreshGallery3();
       setStatus6(error.message || translate("gallery.imageOrderUpdateFailed"), "error");
     }
   }
-  function handleGalleryManageButtonClick() {
-    void openGallery(state7.activeGalleryCategory);
+  function syncGalleryManagementControls() {
+    const shared = state7.activeGalleryScope === "shared";
+    const isAdmin2 = getCurrentServerUser()?.role === "admin";
+    document.querySelectorAll("[data-gallery-scope-tab]").forEach((tab) => {
+      const selected = tab.dataset.galleryScopeTab === state7.activeGalleryScope;
+      tab.classList.toggle("active", selected);
+      tab.setAttribute("aria-selected", String(selected));
+    });
+    if (els7.gallerySearchInput) els7.gallerySearchInput.value = activeLibraryState()?.query || "";
+    if (els7.galleryInactiveToggle) els7.galleryInactiveToggle.checked = activeLibraryState()?.status === "inactive";
+    const showSharedAdmin = shared && isAdmin2;
+    [els7.gallerySharedImageUploadButton, els7.galleryBatchUploadButton, els7.galleryInactiveToggleLabel].forEach((element2) => {
+      if (!element2) return;
+      element2.hidden = !showSharedAdmin;
+      element2.classList.toggle("hidden", !showSharedAdmin);
+    });
+    if (els7.gallerySharedImageInput) els7.gallerySharedImageInput.disabled = !showSharedAdmin;
+    if (els7.galleryBatchUploadInput) els7.galleryBatchUploadInput.disabled = !showSharedAdmin;
+    if (els7.galleryCategoryManageToggle) {
+      const canManageCategories = !shared || isAdmin2;
+      els7.galleryCategoryManageToggle.hidden = !canManageCategories;
+      els7.galleryCategoryManageToggle.classList.toggle("hidden", !canManageCategories);
+    }
   }
   function syncGalleryRoleVisibility() {
     const isAdmin2 = getCurrentServerUser()?.role === "admin";
-    if (els7.gallerySharedImageUploadButton) {
-      els7.gallerySharedImageUploadButton.hidden = !isAdmin2;
-      els7.gallerySharedImageUploadButton.classList.toggle("hidden", !isAdmin2);
-      els7.gallerySharedImageUploadButton.disabled = !isAdmin2;
+    if (!isAdmin2 && state7.activeGalleryScope === "shared" && activeLibraryState()?.status === "inactive") {
+      activeLibraryState().status = "active";
     }
-    if (els7.gallerySharedImageInput) els7.gallerySharedImageInput.disabled = !isAdmin2;
     if (els7.galleryScopeSharedOption) {
       els7.galleryScopeSharedOption.hidden = !isAdmin2;
       els7.galleryScopeSharedOption.disabled = !isAdmin2;
     }
-    if (!isAdmin2 && els7.galleryScopeInput?.value === "shared") {
-      els7.galleryScopeInput.value = "personal";
-      els7.galleryScopeInput.dispatchEvent(new Event("change"));
-    }
+    syncGalleryManagementControls();
     if (els7.galleryDrawer?.classList.contains("open")) renderGalleryGrid4();
   }
-  function sharedGalleryImageName(file) {
+  function sharedImageName(file) {
     return String(file.name || translate("gallery.sharedImageFallbackName")).replace(/\.[^.]+$/, "").trim().slice(0, 160) || translate("gallery.sharedImageFallbackName");
   }
-  function sharedGalleryItemFromAsset2(asset) {
-    const assetId = String(asset?.asset_id || "");
-    if (!assetId || !asset?.download_url) return null;
-    return {
-      id: `shared:${assetId}`,
-      name: String(asset.name || translate("gallery.sharedImageFallbackName")),
-      category: "portrait",
-      category_name: translate("gallery.categoryPortrait"),
-      category_prompt_role: "",
-      prompt_note: "",
-      order: 0,
-      image_url: asset.download_url,
-      scope: "shared",
-      read_only: true,
-      created_at: asset.created_at,
-      updated_at: asset.updated_at
-    };
+  function openSharedUpload(files) {
+    if (getCurrentServerUser()?.role !== "admin" || !files.length) return;
+    pendingSharedFiles = files;
+    const categories = normalizeGalleryCategories3(state7.sharedGalleryCategories);
+    if (els7.sharedGalleryUploadCategory) {
+      els7.sharedGalleryUploadCategory.innerHTML = categories.map((category) => `<option value="${escapeHtml8(category.id)}">${escapeHtml8(category.name)}</option>`).join("");
+      els7.sharedGalleryUploadCategory.value = activeLibraryState()?.category || categories[0]?.id || "uncategorized";
+    }
+    if (els7.sharedGalleryUploadNames) {
+      els7.sharedGalleryUploadNames.innerHTML = files.map((file, index) => `
+      <label class="field-block">
+        <span>${escapeHtml8(file.name)}</span>
+        <input class="control" data-shared-upload-name="${index}" maxlength="160" value="${escapeHtml8(sharedImageName(file))}">
+        <small class="shared-gallery-upload-result is-pending" data-shared-upload-result="${index}">${translate("gallery.uploadPending")}</small>
+      </label>
+    `).join("");
+    }
+    if (els7.sharedGalleryUploadNote) els7.sharedGalleryUploadNote.value = "";
+    if (els7.sharedGalleryUploadTitle) els7.sharedGalleryUploadTitle.textContent = files.length > 1 ? translate("gallery.batchUpload") : translate("gallery.uploadTitle");
+    els7.sharedGalleryUploadModal?.classList.remove("hidden");
+    els7.sharedGalleryUploadSave.disabled = false;
+    els7.sharedGalleryUploadNames?.querySelector("input")?.focus();
   }
-  async function uploadSharedGalleryImage(file) {
-    if (getCurrentServerUser()?.role !== "admin") return;
-    if (!String(file.type || "").startsWith("image/")) {
-      setStatus6(translate("gallery.sharedImageOnly"), "error");
+  function closeSharedUpload() {
+    pendingSharedFiles = [];
+    els7.sharedGalleryUploadModal?.classList.add("hidden");
+    if (els7.gallerySharedImageInput) els7.gallerySharedImageInput.value = "";
+    if (els7.galleryBatchUploadInput) els7.galleryBatchUploadInput.value = "";
+    if (els7.sharedGalleryUploadSave) els7.sharedGalleryUploadSave.disabled = false;
+  }
+  function sharedUploadErrorLabel(error) {
+    const keyByError = {
+      name_conflict: "gallery.uploadErrorNameConflict",
+      invalid_image: "gallery.uploadErrorInvalidImage",
+      file_too_large: "gallery.uploadErrorFileTooLarge",
+      quota_exceeded: "gallery.uploadErrorQuotaExceeded"
+    };
+    const key = keyByError[String(error || "")];
+    return key ? translate(key) : String(error || translate("gallery.uploadFailed"));
+  }
+  function renderSharedUploadResults(results) {
+    results.forEach((result, index) => {
+      const target = els7.sharedGalleryUploadNames?.querySelector(`[data-shared-upload-result="${index}"]`);
+      if (!target) return;
+      const created = result?.status === "created";
+      target.classList.toggle("is-pending", false);
+      target.classList.toggle("is-success", created);
+      target.classList.toggle("is-error", !created);
+      target.textContent = created ? translate("gallery.uploadCreated") : `${translate("gallery.uploadFailed")}: ${sharedUploadErrorLabel(result?.error)}`;
+    });
+  }
+  async function saveSharedUpload() {
+    if (!pendingSharedFiles.length || getCurrentServerUser()?.role !== "admin") return;
+    const names = pendingSharedFiles.map((_, index) => String(els7.sharedGalleryUploadNames?.querySelector(`[data-shared-upload-name="${index}"]`)?.value || "").trim());
+    if (names.some((name) => !name)) {
+      setStatus6(translate("gallery.nameRequired"), "error");
       return;
     }
-    if (els7.gallerySharedImageUploadButton) els7.gallerySharedImageUploadButton.disabled = true;
+    const categoryId = els7.sharedGalleryUploadCategory?.value;
+    const note = els7.sharedGalleryUploadNote?.value.trim() || "";
+    if (!categoryId) {
+      setStatus6(translate("gallery.categoryRequired"), "error");
+      return;
+    }
+    els7.sharedGalleryUploadSave.disabled = true;
+    let retainResults = false;
     try {
       const form = new FormData();
-      form.append("name", sharedGalleryImageName(file));
-      form.append("asset_kind", "image");
-      form.append("file", file);
-      const response = await fetch("/api/shared-assets", { method: "POST", body: form });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || translate("gallery.sharedImageUploadFailed"));
-      state7.activeGalleryCategory = "portrait";
+      form.append("category_id", categoryId);
+      form.append("prompt_note", note);
+      let endpoint = "/api/shared-gallery/items";
+      if (pendingSharedFiles.length === 1) {
+        form.append("name", names[0]);
+        form.append("file", pendingSharedFiles[0]);
+      } else {
+        endpoint = "/api/shared-gallery/items/batch";
+        form.append("names", JSON.stringify(names));
+        pendingSharedFiles.forEach((file) => form.append("files", file));
+      }
+      const response = await fetch(endpoint, { method: "POST", body: form });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok && response.status !== 207) throw new Error(data.detail || translate("gallery.saveFailed"));
+      if (response.status === 207) {
+        renderSharedUploadResults(data.results || []);
+        const failures = (data.results || []).filter((result) => result.status !== "created");
+        setStatus6(failures.length ? `${pendingSharedFiles.length - failures.length}/${pendingSharedFiles.length} ${translate("gallery.batchUploaded")}` : translate("gallery.batchUploaded"), failures.length ? "error" : "ok");
+        retainResults = failures.length > 0;
+      } else {
+        setStatus6(translate("gallery.savedAsReference"), "ok");
+      }
+      if (retainResults) pendingSharedFiles = [];
+      else closeSharedUpload();
       await refreshGallery3();
-      const itemId = `shared:${data.asset?.asset_id || ""}`;
-      const fallbackItem = findGalleryItem4(itemId) ? null : sharedGalleryItemFromAsset2(data.asset);
-      if (fallbackItem) {
-        state7.galleryItems = sortGalleryItems([
-          ...state7.galleryItems.filter((item) => item.id !== fallbackItem.id),
-          fallbackItem
-        ]);
-        renderQuickGalleryDock4();
-        if (els7.galleryDrawer?.classList.contains("open")) renderGalleryGrid4();
-      }
-      setStatus6(translate("gallery.sharedImageUploaded"), "ok");
     } catch (error) {
-      setStatus6(error.message || translate("gallery.sharedImageUploadFailed"), "error");
+      setStatus6(error.message || translate("gallery.saveFailed"), "error");
     } finally {
-      if (els7.gallerySharedImageInput) els7.gallerySharedImageInput.value = "";
-      if (els7.gallerySharedImageUploadButton) {
-        els7.gallerySharedImageUploadButton.disabled = getCurrentServerUser()?.role !== "admin";
-      }
+      els7.sharedGalleryUploadSave.disabled = retainResults;
     }
   }
-  function handleSharedGalleryImageSelection(event) {
-    const input = event.target;
-    const file = input.files?.[0];
-    if (file) void uploadSharedGalleryImage(file);
+  async function restoreSharedGalleryItem2(itemId) {
+    if (getCurrentServerUser()?.role !== "admin") return;
+    const assetId = itemId.replace(/^shared:/, "");
+    try {
+      const response = await fetch(`/api/shared-assets/${encodeURIComponent(assetId)}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: true })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || translate("gallery.restoreFailed"));
+      await refreshGallery3();
+      setStatus6(translate("gallery.restored"), "ok");
+    } catch (error) {
+      setStatus6(error.message || translate("gallery.restoreFailed"), "error");
+    }
   }
   function bindGalleryFeatureEvents() {
     if (galleryFeatureEventsBound) return;
     galleryFeatureEventsBound = true;
-    els7.galleryManageButton?.addEventListener("click", handleGalleryManageButtonClick);
+    els7.galleryPersonalManageButton?.addEventListener("click", () => void openGallery("personal"));
+    els7.gallerySharedManageButton?.addEventListener("click", () => void openGallery("shared"));
+    els7.galleryScopeTabs?.addEventListener("click", (event) => {
+      const tab = event.target.closest?.("[data-gallery-scope-tab]");
+      if (tab) void openGallery(tab.dataset.galleryScopeTab);
+    });
+    els7.gallerySearchInput?.addEventListener("input", () => {
+      activeLibraryState().query = els7.gallerySearchInput.value;
+      renderGalleryGrid4();
+    });
+    els7.galleryInactiveToggle?.addEventListener("change", () => {
+      activeLibraryState().status = els7.galleryInactiveToggle.checked ? "inactive" : "active";
+      void refreshGallery3();
+    });
     els7.gallerySharedImageUploadButton?.addEventListener("click", () => els7.gallerySharedImageInput?.click());
-    els7.gallerySharedImageInput?.addEventListener("change", handleSharedGalleryImageSelection);
+    els7.galleryBatchUploadButton?.addEventListener("click", () => els7.galleryBatchUploadInput?.click());
+    els7.gallerySharedImageInput?.addEventListener("change", (event) => openSharedUpload(Array.from(event.target.files || []).slice(0, 1)));
+    els7.galleryBatchUploadInput?.addEventListener("change", (event) => openSharedUpload(Array.from(event.target.files || []).slice(0, 50)));
+    els7.sharedGalleryUploadSave?.addEventListener("click", () => void saveSharedUpload());
+    els7.sharedGalleryUploadClose?.addEventListener("click", closeSharedUpload);
+    els7.sharedGalleryUploadCancel?.addEventListener("click", closeSharedUpload);
     els7.galleryDrawerClose?.addEventListener("click", () => closeGallery2());
     els7.galleryDrawerBackdrop?.addEventListener("click", () => closeGallery2());
   }
@@ -30900,7 +31110,7 @@ ${hint}` : hint;
       applyGalleryItemOrder: applyGalleryItemOrder2,
       persistGalleryItemOrder: persistGalleryItemOrder2,
       syncGalleryRoleVisibility,
-      uploadSharedGalleryImage
+      restoreSharedGalleryItem: restoreSharedGalleryItem2
     });
   }
 
@@ -32800,7 +33010,7 @@ ${hint}` : hint;
     }
     return method(...args);
   }
-  function escapeHtml8(value) {
+  function escapeHtml9(value) {
     return legacyMethod17("escapeHtml", value);
   }
   function setStatus11(message, type) {
@@ -32912,33 +33122,33 @@ ${hint}` : hint;
       ...recentColors.map((color) => colorSwatchButton(color, translate("colors.recentLabel")))
     ].join("");
     els13.colorSuggest.innerHTML = `
-    <div class="color-suggest-main" data-color-original="${escapeHtml8(editingColor)}">
+    <div class="color-suggest-main" data-color-original="${escapeHtml9(editingColor)}">
       <div class="color-value-control${isEditingDirty ? " is-dirty" : ""}" data-color-value-control>
-        <label class="color-picker-control" title="${escapeHtml8(translate("colors.pick"))}" aria-label="${escapeHtml8(translate("colors.pick"))}">
-          <input class="color-picker-input" type="color" value="${escapeHtml8(selected)}" data-color-picker>
-          <span class="color-picker-swatch" style="--active-color: ${escapeHtml8(selected)}">
+        <label class="color-picker-control" title="${escapeHtml9(translate("colors.pick"))}" aria-label="${escapeHtml9(translate("colors.pick"))}">
+          <input class="color-picker-input" type="color" value="${escapeHtml9(selected)}" data-color-picker>
+          <span class="color-picker-swatch" style="--active-color: ${escapeHtml9(selected)}">
             <svg class="color-picker-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M14.5 4.5l5 5-8.8 8.8H6.5v-4.2l8-9.6z"></path>
               <path d="M12.7 6.4l4.9 4.9"></path>
             </svg>
-            <span class="color-picker-label">${escapeHtml8(translate("colors.pickShort"))}</span>
+            <span class="color-picker-label">${escapeHtml9(translate("colors.pickShort"))}</span>
           </span>
         </label>
-        <input class="color-hex-input" type="text" value="${escapeHtml8(typedValue)}" maxlength="7" spellcheck="false" aria-label="${escapeHtml8(translate("colors.hexValue"))}" data-color-hex-input>
+        <input class="color-hex-input" type="text" value="${escapeHtml9(typedValue)}" maxlength="7" spellcheck="false" aria-label="${escapeHtml9(translate("colors.hexValue"))}" data-color-hex-input>
       </div>
       <button class="ghost-button text-sm color-insert-button${isEditingDirty ? " is-dirty" : ""}" type="button" data-insert-color${editingColor && !isEditingDirty ? " disabled" : ""}>${actionLabel}</button>
       <div class="color-suggest-actions">
-        <button class="ghost-button text-sm" type="button" data-save-favorite-color>${escapeHtml8(translate("colors.save"))}</button>
-        <a class="ghost-button text-sm color-export-link" href="${COLOR_PALETTE_EXPORT_CSS_ENDPOINT}" target="_blank" rel="noopener" data-color-palette-export>${escapeHtml8(translate("colors.exportPs"))}</a>
+        <button class="ghost-button text-sm" type="button" data-save-favorite-color>${escapeHtml9(translate("colors.save"))}</button>
+        <a class="ghost-button text-sm color-export-link" href="${COLOR_PALETTE_EXPORT_CSS_ENDPOINT}" target="_blank" rel="noopener" data-color-palette-export>${escapeHtml9(translate("colors.exportPs"))}</a>
         <label class="ghost-button text-sm color-import-label" data-color-palette-import>
-          ${escapeHtml8(translate("colors.importPs"))}
+          ${escapeHtml9(translate("colors.importPs"))}
           <input class="color-import-input" type="file" accept=".aco,.css,.html,.htm,.svg,.txt" data-color-palette-import-input>
         </label>
-        <button class="ghost-button text-sm color-manage-button" type="button" aria-pressed="${state11.colorPaletteManageMode ? "true" : "false"}" data-color-palette-manage>${escapeHtml8(state11.colorPaletteManageMode ? translate("colors.done") : translate("colors.manage"))}</button>
+        <button class="ghost-button text-sm color-manage-button" type="button" aria-pressed="${state11.colorPaletteManageMode ? "true" : "false"}" data-color-palette-manage>${escapeHtml9(state11.colorPaletteManageMode ? translate("colors.done") : translate("colors.manage"))}</button>
       </div>
-      <div class="color-update-hint${isEditingDirty ? "" : " hidden"}" role="status" aria-live="polite" data-color-update-hint>${escapeHtml8(translate("colors.pendingUpdate"))}</div>
+      <div class="color-update-hint${isEditingDirty ? "" : " hidden"}" role="status" aria-live="polite" data-color-update-hint>${escapeHtml9(translate("colors.pendingUpdate"))}</div>
     </div>
-    <div class="${swatchRowClass}" aria-label="${escapeHtml8(translate("colors.favorites"))}">
+    <div class="${swatchRowClass}" aria-label="${escapeHtml9(translate("colors.favorites"))}">
       ${swatchButtons}
     </div>
   `;
@@ -32951,13 +33161,13 @@ ${hint}` : hint;
   }
   function colorSwatchButton(color, label = "", { removable = false } = {}) {
     const normalized = normalizeHexColor2(color) || DEFAULT_COLOR_CODE2;
-    const deleteLabel = escapeHtml8(formatTranslation("colors.deleteFavorite", { name: label || normalized }));
+    const deleteLabel = escapeHtml9(formatTranslation("colors.deleteFavorite", { name: label || normalized }));
     return `
     <span class="color-swatch-item">
-      <button class="color-swatch-button" type="button" title="${escapeHtml8(label ? `${label} ${normalized}` : normalized)}" data-color-swatch="${escapeHtml8(normalized)}" style="--swatch-color: ${escapeHtml8(normalized)}">
-        <span>${escapeHtml8(label ? `${label} ${normalized}` : normalized)}</span>
+      <button class="color-swatch-button" type="button" title="${escapeHtml9(label ? `${label} ${normalized}` : normalized)}" data-color-swatch="${escapeHtml9(normalized)}" style="--swatch-color: ${escapeHtml9(normalized)}">
+        <span>${escapeHtml9(label ? `${label} ${normalized}` : normalized)}</span>
       </button>
-      ${removable ? `<button class="color-swatch-remove" type="button" title="${deleteLabel}" aria-label="${deleteLabel}" data-remove-favorite-color="${escapeHtml8(normalized)}">
+      ${removable ? `<button class="color-swatch-remove" type="button" title="${deleteLabel}" aria-label="${deleteLabel}" data-remove-favorite-color="${escapeHtml9(normalized)}">
         <svg class="color-swatch-remove-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M7 7L17 17M17 7L7 17"></path>
         </svg>
@@ -33290,7 +33500,7 @@ ${hint}` : hint;
     }
     return method(...args);
   }
-  function escapeHtml9(value) {
+  function escapeHtml10(value) {
     return legacyMethod18("escapeHtml", value);
   }
   function setStatus12(message, type) {
@@ -33439,13 +33649,13 @@ ${hint}` : hint;
     }
     state12.activePromptSnippetRange = match.range.cloneRange();
     suggest.innerHTML = snippets.map((snippet) => `
-    <button type="button" class="prompt-snippet-option" data-prompt-snippet-id="${escapeHtml9(snippet.id)}">
-      <span class="prompt-snippet-option-tag">~${escapeHtml9(snippet.tag)}</span>
+    <button type="button" class="prompt-snippet-option" data-prompt-snippet-id="${escapeHtml10(snippet.id)}">
+      <span class="prompt-snippet-option-tag">~${escapeHtml10(snippet.tag)}</span>
       <span class="prompt-snippet-option-main">
-        <span class="prompt-snippet-option-title">${escapeHtml9(snippet.title)}${resourceScopeBadgeHtml(snippet.scope)}</span>
-        <small>${escapeHtml9(promptSnippetPreview(snippet.content))}</small>
+        <span class="prompt-snippet-option-title">${escapeHtml10(snippet.title)}${resourceScopeBadgeHtml(snippet.scope)}</span>
+        <small>${escapeHtml10(promptSnippetPreview(snippet.content))}</small>
       </span>
-      <small>${escapeHtml9(snippet.category)}</small>
+      <small>${escapeHtml10(snippet.category)}</small>
     </button>
   `).join("");
     suggest.querySelectorAll("[data-prompt-snippet-id]").forEach((button) => {
@@ -33706,13 +33916,13 @@ ${hint}` : hint;
     promptSnippetPopoverState.chip = chip;
     promptSnippetPopoverState.snippetId = snippet.id;
     popover.innerHTML = `
-    <div class="prompt-snippet-popover-title">~${escapeHtml9(snippet.tag)}</div>
-    <div class="prompt-snippet-popover-meta">${escapeHtml9(snippet.title)} \xB7 ${escapeHtml9(snippet.category)}</div>
-    <div class="prompt-snippet-popover-preview">${escapeHtml9(snippet.content)}</div>
+    <div class="prompt-snippet-popover-title">~${escapeHtml10(snippet.tag)}</div>
+    <div class="prompt-snippet-popover-meta">${escapeHtml10(snippet.title)} \xB7 ${escapeHtml10(snippet.category)}</div>
+    <div class="prompt-snippet-popover-preview">${escapeHtml10(snippet.content)}</div>
     <div class="prompt-snippet-popover-actions">
-      <button class="ghost-button text-sm" type="button" data-prompt-snippet-expand>${escapeHtml9(translate("snippets.expand"))}</button>
-      <button class="ghost-button text-sm" type="button" data-prompt-snippet-edit>${escapeHtml9(translate("snippets.edit"))}</button>
-      <button class="ghost-button text-sm" type="button" data-prompt-snippet-close>${escapeHtml9(translate("snippets.close"))}</button>
+      <button class="ghost-button text-sm" type="button" data-prompt-snippet-expand>${escapeHtml10(translate("snippets.expand"))}</button>
+      <button class="ghost-button text-sm" type="button" data-prompt-snippet-edit>${escapeHtml10(translate("snippets.edit"))}</button>
+      <button class="ghost-button text-sm" type="button" data-prompt-snippet-close>${escapeHtml10(translate("snippets.close"))}</button>
     </div>
   `;
     function handlePopoverActionClick(event, action) {
@@ -33734,26 +33944,26 @@ ${hint}` : hint;
     promptSnippetPopoverState.snippetId = snippet.id || null;
     popover.innerHTML = `
     <form class="prompt-snippet-form">
-      <div class="prompt-snippet-popover-title">${escapeHtml9(mode === "edit" ? translate("snippets.editTitle") : translate("snippets.saveTitle"))}</div>
+      <div class="prompt-snippet-popover-title">${escapeHtml10(mode === "edit" ? translate("snippets.editTitle") : translate("snippets.saveTitle"))}</div>
       <label class="prompt-snippet-field">
-        <span>${escapeHtml9(translate("snippets.shortTag"))}</span>
-        <input class="prompt-snippet-input" type="text" maxlength="24" value="${escapeHtml9(snippet.tag || "")}" data-prompt-snippet-tag>
+        <span>${escapeHtml10(translate("snippets.shortTag"))}</span>
+        <input class="prompt-snippet-input" type="text" maxlength="24" value="${escapeHtml10(snippet.tag || "")}" data-prompt-snippet-tag>
       </label>
       <label class="prompt-snippet-field">
-        <span>${escapeHtml9(translate("snippets.title"))}</span>
-        <input class="prompt-snippet-input" type="text" maxlength="80" value="${escapeHtml9(snippet.title || "")}" placeholder="${escapeHtml9(translate("snippets.titlePlaceholder"))}" data-prompt-snippet-title>
+        <span>${escapeHtml10(translate("snippets.title"))}</span>
+        <input class="prompt-snippet-input" type="text" maxlength="80" value="${escapeHtml10(snippet.title || "")}" placeholder="${escapeHtml10(translate("snippets.titlePlaceholder"))}" data-prompt-snippet-title>
       </label>
       <label class="prompt-snippet-field">
-        <span>${escapeHtml9(translate("snippets.category"))}</span>
-        <input class="prompt-snippet-input" type="text" maxlength="32" value="${escapeHtml9(snippet.category || DEFAULT_PROMPT_SNIPPET_CATEGORY)}" data-prompt-snippet-category>
+        <span>${escapeHtml10(translate("snippets.category"))}</span>
+        <input class="prompt-snippet-input" type="text" maxlength="32" value="${escapeHtml10(snippet.category || DEFAULT_PROMPT_SNIPPET_CATEGORY)}" data-prompt-snippet-category>
       </label>
       <label class="prompt-snippet-field">
-        <span>${escapeHtml9(translate("snippets.content"))}</span>
-        <textarea class="prompt-snippet-input prompt-snippet-textarea" maxlength="4000" data-prompt-snippet-content>${escapeHtml9(snippet.content || "")}</textarea>
+        <span>${escapeHtml10(translate("snippets.content"))}</span>
+        <textarea class="prompt-snippet-input prompt-snippet-textarea" maxlength="4000" data-prompt-snippet-content>${escapeHtml10(snippet.content || "")}</textarea>
       </label>
       <div class="prompt-snippet-popover-actions">
-        <button class="ghost-button text-sm" type="button" data-prompt-snippet-cancel>${escapeHtml9(translate("snippets.cancel"))}</button>
-        <button class="ghost-button text-sm" type="submit">${escapeHtml9(mode === "edit" ? translate("snippets.save") : translate("snippets.saveSelection"))}</button>
+        <button class="ghost-button text-sm" type="button" data-prompt-snippet-cancel>${escapeHtml10(translate("snippets.cancel"))}</button>
+        <button class="ghost-button text-sm" type="submit">${escapeHtml10(mode === "edit" ? translate("snippets.save") : translate("snippets.saveSelection"))}</button>
       </div>
     </form>
   `;
@@ -34001,7 +34211,7 @@ ${hint}` : hint;
     }
     return method(...args);
   }
-  function escapeHtml10(value) {
+  function escapeHtml11(value) {
     return legacyMethod19("escapeHtml", value);
   }
   function setStatus13(message, type) {
@@ -34202,8 +34412,8 @@ ${hint}` : hint;
     els15.promptTemplateCategoryList.innerHTML = [
       `<button class="prompt-template-category ${state13.promptTemplateCategory ? "" : "active"}" data-prompt-template-category="" type="button">${translate("templates.all")}</button>`,
       ...categories.map((category) => `
-      <button class="prompt-template-category ${state13.promptTemplateCategory === category.id ? "active" : ""}" data-prompt-template-category="${escapeHtml10(category.id)}" type="button">
-        ${escapeHtml10(promptTemplateCategoryLabel(category.name))}
+      <button class="prompt-template-category ${state13.promptTemplateCategory === category.id ? "active" : ""}" data-prompt-template-category="${escapeHtml11(category.id)}" type="button">
+        ${escapeHtml11(promptTemplateCategoryLabel(category.name))}
       </button>
     `)
     ].join("");
@@ -34218,15 +34428,15 @@ ${hint}` : hint;
     const categories = normalizePromptTemplateCategoryList(state13.promptTemplateCategories);
     els15.promptTemplateCategoryPanel.innerHTML = `
     <div class="prompt-template-category-create">
-      <input class="control" type="text" maxlength="32" placeholder="${escapeHtml10(translate("templates.newCategory"))}" data-prompt-template-category-new>
-      <button class="ghost-button text-sm" type="button" data-prompt-template-category-create>${escapeHtml10(translate("action.add"))}</button>
+      <input class="control" type="text" maxlength="32" placeholder="${escapeHtml11(translate("templates.newCategory"))}" data-prompt-template-category-new>
+      <button class="ghost-button text-sm" type="button" data-prompt-template-category-create>${escapeHtml11(translate("action.add"))}</button>
     </div>
     <div class="prompt-template-category-manage-list">
       ${categories.map((category) => `
-        <div class="prompt-template-category-manage-row" data-prompt-template-category-row="${escapeHtml10(category.id)}">
-          <input class="control" type="text" maxlength="32" value="${escapeHtml10(category.name)}" data-prompt-template-category-name>
-          <button class="ghost-button text-sm" type="button" data-prompt-template-category-rename>${escapeHtml10(translate("action.save"))}</button>
-          <button class="ghost-button text-sm quiet-danger-button" type="button" data-prompt-template-category-delete ${category.id === PROMPT_TEMPLATE_CATEGORY_COMMON ? "disabled" : ""}>${escapeHtml10(translate("action.delete"))}</button>
+        <div class="prompt-template-category-manage-row" data-prompt-template-category-row="${escapeHtml11(category.id)}">
+          <input class="control" type="text" maxlength="32" value="${escapeHtml11(category.name)}" data-prompt-template-category-name>
+          <button class="ghost-button text-sm" type="button" data-prompt-template-category-rename>${escapeHtml11(translate("action.save"))}</button>
+          <button class="ghost-button text-sm quiet-danger-button" type="button" data-prompt-template-category-delete ${category.id === PROMPT_TEMPLATE_CATEGORY_COMMON ? "disabled" : ""}>${escapeHtml11(translate("action.delete"))}</button>
         </div>
       `).join("")}
     </div>
@@ -34277,13 +34487,13 @@ ${hint}` : hint;
       return;
     }
     els15.promptTemplateList.innerHTML = templates.map((template) => `
-    <button class="prompt-template-card" type="button" data-prompt-template-id="${escapeHtml10(template.id)}">
-      ${template.thumbnail_url ? `<span class="prompt-template-card-thumb"><img src="${escapeHtml10(template.thumbnail_url)}" alt="" loading="lazy" decoding="async"></span>` : ""}
-      <span class="prompt-template-card-title">${escapeHtml10(promptTemplateCardTitle(template))}</span>
-      ${promptTemplateCardSubtitle(template) ? `<span class="prompt-template-card-subtitle">${escapeHtml10(promptTemplateCardSubtitle(template))}</span>` : ""}
-      <span class="prompt-template-card-preview">${escapeHtml10(promptTemplatePreview(template.content, 64))}</span>
+    <button class="prompt-template-card" type="button" data-prompt-template-id="${escapeHtml11(template.id)}">
+      ${template.thumbnail_url ? `<span class="prompt-template-card-thumb"><img src="${escapeHtml11(template.thumbnail_url)}" alt="" loading="lazy" decoding="async"></span>` : ""}
+      <span class="prompt-template-card-title">${escapeHtml11(promptTemplateCardTitle(template))}</span>
+      ${promptTemplateCardSubtitle(template) ? `<span class="prompt-template-card-subtitle">${escapeHtml11(promptTemplateCardSubtitle(template))}</span>` : ""}
+      <span class="prompt-template-card-preview">${escapeHtml11(promptTemplatePreview(template.content, 64))}</span>
       <span class="prompt-template-card-meta">
-        <span class="prompt-template-card-source">${resourceScopeBadgeHtml(template.scope)}<span>${escapeHtml10(promptTemplateCategoryLabel(template.category))}</span></span>
+        <span class="prompt-template-card-source">${resourceScopeBadgeHtml(template.scope)}<span>${escapeHtml11(promptTemplateCategoryLabel(template.category))}</span></span>
         <span>${template.favorite ? translate("templates.favoriteBadge") : formatTranslation("templates.usageCount", { count: template.usage_count || 0 })}</span>
       </span>
     </button>
@@ -34307,8 +34517,8 @@ ${hint}` : hint;
       return;
     }
     els15.promptTemplateRecentDock.innerHTML = recent.map((template) => `
-    <button class="prompt-template-recent-chip" type="button" data-prompt-template-insert="${escapeHtml10(template.id)}">
-      ${escapeHtml10(template.short_title)}
+    <button class="prompt-template-recent-chip" type="button" data-prompt-template-insert="${escapeHtml11(template.id)}">
+      ${escapeHtml11(template.short_title)}
     </button>
   `).join("");
     els15.promptTemplateRecentDock.classList.remove("hidden");
@@ -34321,24 +34531,24 @@ ${hint}` : hint;
     els15.promptTemplateDetail.innerHTML = `
     <div class="prompt-template-detail-header">
       <button class="ghost-button prompt-template-detail-back" type="button" data-prompt-template-back>${translate("templates.back")}</button>
-      <button class="ghost-button prompt-template-detail-edit" type="button" data-prompt-template-edit="${escapeHtml10(template.id)}">${translate("templates.edit")}</button>
+      <button class="ghost-button prompt-template-detail-edit" type="button" data-prompt-template-edit="${escapeHtml11(template.id)}">${translate("templates.edit")}</button>
     </div>
-    ${template.thumbnail_url ? `<img class="prompt-template-detail-thumb" src="${escapeHtml10(template.thumbnail_url)}" alt="" loading="lazy" decoding="async">` : ""}
-    <h3>${escapeHtml10(template.title)}</h3>
+    ${template.thumbnail_url ? `<img class="prompt-template-detail-thumb" src="${escapeHtml11(template.thumbnail_url)}" alt="" loading="lazy" decoding="async">` : ""}
+    <h3>${escapeHtml11(template.title)}</h3>
     <div class="prompt-template-detail-meta">
       ${resourceScopeBadgeHtml(template.scope)}
-      <span>${escapeHtml10(promptTemplateCategoryLabel(template.category))}</span>
-      <span>${escapeHtml10(template.model_hint)}</span>
+      <span>${escapeHtml11(promptTemplateCategoryLabel(template.category))}</span>
+      <span>${escapeHtml11(template.model_hint)}</span>
       ${template.favorite ? `<span>${translate("templates.favoriteBadge")}</span>` : ""}
     </div>
-    <div class="prompt-template-detail-content">${escapeHtml10(template.content)}</div>
-    ${template.notes ? `<p class="prompt-template-detail-notes">${escapeHtml10(template.notes)}</p>` : ""}
+    <div class="prompt-template-detail-content">${escapeHtml11(template.content)}</div>
+    ${template.notes ? `<p class="prompt-template-detail-notes">${escapeHtml11(template.notes)}</p>` : ""}
     <div class="prompt-template-detail-actions">
       <div class="prompt-template-detail-secondary-actions">
-        <button class="ghost-button text-sm" type="button" data-prompt-template-copy="${escapeHtml10(template.id)}">${translate("templates.copy")}</button>
-        <button class="ghost-button text-sm" type="button" data-prompt-template-insert="${escapeHtml10(template.id)}">${translate("templates.insert")}</button>
+        <button class="ghost-button text-sm" type="button" data-prompt-template-copy="${escapeHtml11(template.id)}">${translate("templates.copy")}</button>
+        <button class="ghost-button text-sm" type="button" data-prompt-template-insert="${escapeHtml11(template.id)}">${translate("templates.insert")}</button>
       </div>
-      <button class="ghost-button text-sm prompt-template-detail-replace" type="button" data-prompt-template-replace="${escapeHtml10(template.id)}">${translate("action.replace")}</button>
+      <button class="ghost-button text-sm prompt-template-detail-replace" type="button" data-prompt-template-replace="${escapeHtml11(template.id)}">${translate("action.replace")}</button>
     </div>
   `;
     els15.promptTemplateList?.classList.add("hidden");
@@ -34397,51 +34607,51 @@ ${hint}` : hint;
     els15.promptTemplateList?.classList.add("hidden");
     const categories = promptTemplateCategoriesForSelect(value.category);
     els15.promptTemplateForm.innerHTML = `
-    <form class="prompt-template-form" data-prompt-template-form-id="${escapeHtml10(value.id || "")}">
+    <form class="prompt-template-form" data-prompt-template-form-id="${escapeHtml11(value.id || "")}">
       <div class="prompt-template-form-header">
-        <button class="ghost-button text-sm" type="button" data-prompt-template-back>${escapeHtml10(translate("templates.back"))}</button>
-        ${value.id ? `<button class="ghost-button text-sm danger-button" type="button" data-prompt-template-delete="${escapeHtml10(value.id)}">${escapeHtml10(translate("action.delete"))}</button>` : ""}
+        <button class="ghost-button text-sm" type="button" data-prompt-template-back>${escapeHtml11(translate("templates.back"))}</button>
+        ${value.id ? `<button class="ghost-button text-sm danger-button" type="button" data-prompt-template-delete="${escapeHtml11(value.id)}">${escapeHtml11(translate("action.delete"))}</button>` : ""}
       </div>
       <label class="prompt-template-field">
-        <span>${escapeHtml10(translate("templates.formTitle"))}</span>
-        <input class="control" type="text" maxlength="80" value="${escapeHtml10(value.title || "")}" data-prompt-template-title>
+        <span>${escapeHtml11(translate("templates.formTitle"))}</span>
+        <input class="control" type="text" maxlength="80" value="${escapeHtml11(value.title || "")}" data-prompt-template-title>
       </label>
       <label class="prompt-template-field">
-        <span>${escapeHtml10(translate("templates.formShortTitle"))}</span>
-        <input class="control" type="text" maxlength="12" value="${escapeHtml10(value.short_title || "")}" data-prompt-template-short-title>
+        <span>${escapeHtml11(translate("templates.formShortTitle"))}</span>
+        <input class="control" type="text" maxlength="12" value="${escapeHtml11(value.short_title || "")}" data-prompt-template-short-title>
       </label>
       <label class="prompt-template-field">
-        <span>${escapeHtml10(translate("templates.formCategory"))}</span>
+        <span>${escapeHtml11(translate("templates.formCategory"))}</span>
         <select class="control" data-prompt-template-category-input>
-          ${categories.map((category) => `<option value="${escapeHtml10(category.id)}" ${category.id === value.category ? "selected" : ""}>${escapeHtml10(promptTemplateCategoryLabel(category.name))}</option>`).join("")}
+          ${categories.map((category) => `<option value="${escapeHtml11(category.id)}" ${category.id === value.category ? "selected" : ""}>${escapeHtml11(promptTemplateCategoryLabel(category.name))}</option>`).join("")}
         </select>
       </label>
       <label class="prompt-template-field prompt-template-field-full">
-        <span>${escapeHtml10(translate("templates.formTags"))}</span>
-        <input class="control" type="text" value="${escapeHtml10((value.tags || []).join("\uFF0C"))}" data-prompt-template-tags>
+        <span>${escapeHtml11(translate("templates.formTags"))}</span>
+        <input class="control" type="text" value="${escapeHtml11((value.tags || []).join("\uFF0C"))}" data-prompt-template-tags>
       </label>
       <div class="prompt-template-field prompt-template-field-full prompt-template-thumbnail-field">
-        <span>${escapeHtml10(translate("templates.formThumbnail"))}</span>
-        <input type="hidden" value="${escapeHtml10(value.thumbnail_url || "")}" data-prompt-template-thumbnail-url>
+        <span>${escapeHtml11(translate("templates.formThumbnail"))}</span>
+        <input type="hidden" value="${escapeHtml11(value.thumbnail_url || "")}" data-prompt-template-thumbnail-url>
         <div class="prompt-template-thumbnail-row">
           <div class="prompt-template-thumbnail-preview" data-prompt-template-thumbnail-preview></div>
-          <button class="ghost-button text-sm" type="button" data-prompt-template-thumbnail-clear>${escapeHtml10(translate("templates.thumbnailClear"))}</button>
+          <button class="ghost-button text-sm" type="button" data-prompt-template-thumbnail-clear>${escapeHtml11(translate("templates.thumbnailClear"))}</button>
         </div>
         <div class="prompt-template-thumbnail-picker" data-prompt-template-thumbnail-picker></div>
       </div>
       <label class="prompt-template-field prompt-template-field-full">
-        <span>${escapeHtml10(translate("templates.formContent"))}</span>
-        <textarea class="control prompt-template-textarea" maxlength="8000" data-prompt-template-content>${escapeHtml10(value.content || "")}</textarea>
+        <span>${escapeHtml11(translate("templates.formContent"))}</span>
+        <textarea class="control prompt-template-textarea" maxlength="8000" data-prompt-template-content>${escapeHtml11(value.content || "")}</textarea>
       </label>
       <label class="prompt-template-field prompt-template-field-full">
-        <span>${escapeHtml10(translate("templates.formNotes"))}</span>
-        <textarea class="control prompt-template-notes" maxlength="500" data-prompt-template-notes>${escapeHtml10(value.notes || "")}</textarea>
+        <span>${escapeHtml11(translate("templates.formNotes"))}</span>
+        <textarea class="control prompt-template-notes" maxlength="500" data-prompt-template-notes>${escapeHtml11(value.notes || "")}</textarea>
       </label>
       <label class="prompt-template-check">
         <input type="checkbox" ${value.favorite ? "checked" : ""} data-prompt-template-favorite>
-        <span>${escapeHtml10(translate("templates.formFavorite"))}</span>
+        <span>${escapeHtml11(translate("templates.formFavorite"))}</span>
       </label>
-      <button class="run-button prompt-template-save" type="submit">${escapeHtml10(translate("action.save"))}</button>
+      <button class="run-button prompt-template-save" type="submit">${escapeHtml11(translate("action.save"))}</button>
     </form>
   `;
     els15.promptTemplateForm.classList.remove("hidden");
@@ -34486,17 +34696,17 @@ ${hint}` : hint;
     const input = form.querySelector("[data-prompt-template-thumbnail-url]");
     if (input) input.value = selectedUrl;
     if (preview) {
-      preview.innerHTML = selectedUrl ? `<img src="${escapeHtml10(selectedUrl)}" alt=""><span>${escapeHtml10(promptTemplatePreview(selectedUrl, 30))}</span>` : `<span>${escapeHtml10(translate("templates.thumbnailNone"))}</span>`;
+      preview.innerHTML = selectedUrl ? `<img src="${escapeHtml11(selectedUrl)}" alt=""><span>${escapeHtml11(promptTemplatePreview(selectedUrl, 30))}</span>` : `<span>${escapeHtml11(translate("templates.thumbnailNone"))}</span>`;
     }
     if (!picker) return;
     const thumbnails = historyTemplateThumbnails();
     if (!thumbnails.length) {
-      picker.innerHTML = `<div class="prompt-template-thumbnail-empty">${escapeHtml10(translate("templates.thumbnailEmpty"))}</div>`;
+      picker.innerHTML = `<div class="prompt-template-thumbnail-empty">${escapeHtml11(translate("templates.thumbnailEmpty"))}</div>`;
       return;
     }
     picker.innerHTML = thumbnails.map((item) => `
-    <button class="prompt-template-thumbnail-option ${item.url === selectedUrl ? "active" : ""}" type="button" data-prompt-template-thumbnail-select="${escapeHtml10(item.url)}" title="${escapeHtml10(item.label)}">
-      <img src="${escapeHtml10(item.url)}" alt="">
+    <button class="prompt-template-thumbnail-option ${item.url === selectedUrl ? "active" : ""}" type="button" data-prompt-template-thumbnail-select="${escapeHtml11(item.url)}" title="${escapeHtml11(item.label)}">
+      <img src="${escapeHtml11(item.url)}" alt="">
     </button>
   `).join("");
   }
@@ -35118,7 +35328,7 @@ ${hint}` : hint;
     }
     return method(...args);
   }
-  function escapeHtml11(value) {
+  function escapeHtml12(value) {
     return legacyMethod21("escapeHtml", value);
   }
   function categoryLabel5(category) {
@@ -35201,10 +35411,10 @@ ${hint}` : hint;
       return;
     }
     els17.mentionSuggest.innerHTML = items.map((item) => `
-    <button type="button" class="mention-option" data-mention-id="${escapeHtml11(item.id)}">
-      <img src="${escapeHtml11(item.image_url)}" alt="">
-      <span>@${escapeHtml11(item.name)}</span>
-      <small>${escapeHtml11(categoryLabel5(item.category))}</small>
+    <button type="button" class="mention-option" data-mention-id="${escapeHtml12(item.id)}" data-mention-version-id="${escapeHtml12(item.asset_version_id || "")}">
+      <img src="${escapeHtml12(item.image_url)}" alt="">
+      <span>@${escapeHtml12(item.name)}</span>
+      <small>${resourceScopeBadgeHtml(item.scope)} ${escapeHtml12(categoryLabel5(item.category))}</small>
     </button>
   `).join("");
     els17.mentionSuggest.querySelectorAll("[data-mention-id]").forEach((button) => {
@@ -35294,6 +35504,8 @@ ${hint}` : hint;
     chip.draggable = true;
     chip.dataset.promptChip = "gallery";
     chip.dataset.galleryId = item.id;
+    chip.dataset.galleryScope = item.scope || (String(item.id || "").startsWith("shared:") ? "shared" : "personal");
+    chip.dataset.galleryAssetVersionId = item.asset_version_id || "";
     chip.dataset.galleryName = item.name;
     chip.dataset.galleryCategory = item.category || "";
     chip.dataset.galleryCategoryName = item.category_name || categoryLabel5(item.category);
@@ -35372,6 +35584,8 @@ ${hint}` : hint;
       if (item) return gallerySource3(item);
       return gallerySource3({
         id: itemId,
+        scope: chip.dataset.galleryScope || "",
+        asset_version_id: chip.dataset.galleryAssetVersionId || "",
         name: chip.dataset.galleryName || chip.textContent.replace(/^@/, "").trim() || translate("gallery.imageFallback"),
         category: chip.dataset.galleryCategory || "",
         category_name: chip.dataset.galleryCategoryName || "",
@@ -36553,7 +36767,7 @@ ${galleryText}`;
     }
     return method(...args);
   }
-  function escapeHtml12(value) {
+  function escapeHtml13(value) {
     return legacyMethod28("escapeHtml", value);
   }
   function mainModelOptionsForQuery(query) {
@@ -36589,7 +36803,7 @@ ${galleryText}`;
     const options = mainModelOptionsForQuery(query);
     state16.mainModelOptionIndex = Math.min(Math.max(0, state16.mainModelOptionIndex), Math.max(0, options.length - 1));
     if (!options.length) {
-      els24.mainModelOptions.innerHTML = `<div class="model-combobox-empty" role="option" aria-disabled="true">${escapeHtml12(translate("output.mainModelCustomForInput"))}</div>`;
+      els24.mainModelOptions.innerHTML = `<div class="model-combobox-empty" role="option" aria-disabled="true">${escapeHtml13(translate("output.mainModelCustomForInput"))}</div>`;
       els24.mainModel.removeAttribute("aria-activedescendant");
       return;
     }
@@ -36603,8 +36817,8 @@ ${galleryText}`;
         type="button"
         role="option"
         aria-selected="${selected ? "true" : "false"}"
-        data-main-model-option="${escapeHtml12(model)}"
-      >${escapeHtml12(model)}</button>
+        data-main-model-option="${escapeHtml13(model)}"
+      >${escapeHtml13(model)}</button>
     `;
     }).join("");
     els24.mainModel.setAttribute("aria-activedescendant", `mainModelOption-${state16.mainModelOptionIndex}`);
@@ -37822,7 +38036,7 @@ ${galleryText}`;
     }
     return method(...args);
   }
-  function escapeHtml13(...args) {
+  function escapeHtml14(...args) {
     return legacyMethod31("escapeHtml", ...args);
   }
   function updateDocumentTitle(...args) {
@@ -37914,7 +38128,7 @@ ${galleryText}`;
     renderActiveTaskGroup(activeHtml);
     if (!tasks.length) {
       expandedTaskGroupRenderToken += 1;
-      els28.taskList.innerHTML = `<div class="task-meta">${escapeHtml13(translate("taskList.empty"))}</div>`;
+      els28.taskList.innerHTML = `<div class="task-meta">${escapeHtml14(translate("taskList.empty"))}</div>`;
       updateDocumentTitle();
       restoreTaskListScrollAnchor(scrollAnchor);
       return;
@@ -38212,7 +38426,7 @@ ${galleryText}`;
     }
   }
   function renderExpandedTaskGroupShellHtml(group, options = {}) {
-    const groupKey = escapeHtml13(group.key);
+    const groupKey = escapeHtml14(group.key);
     const startExpanded = options.startExpanded !== false;
     return `
     <section class="task-group task-group-expanded" data-task-group="${groupKey}">
@@ -38222,11 +38436,11 @@ ${galleryText}`;
         data-task-group-toggle-key="${groupKey}"
         data-task-group-expanded="true"
         aria-expanded="${startExpanded ? "true" : "false"}"
-        aria-label="${escapeHtml13(formatTranslation("taskGroup.collapse", { label: group.label }))}"
+        aria-label="${escapeHtml14(formatTranslation("taskGroup.collapse", { label: group.label }))}"
       >
         <span class="task-group-label-button">
           <span class="task-group-title">
-            <span class="task-group-label">${escapeHtml13(group.label)}</span>
+            <span class="task-group-label">${escapeHtml14(group.label)}</span>
             <span class="task-group-count-separator" aria-hidden="true"> \xB7 </span>
             <span class="task-group-count">${group.tasks.length}</span>
           </span>
@@ -38268,7 +38482,7 @@ ${galleryText}`;
     return `
     <div ${sectionClass} ${sectionData}>
       <div class="task-active-section-title">
-        <span>${escapeHtml13(label)}</span>
+        <span>${escapeHtml14(label)}</span>
         <span class="task-active-section-count">${tasks.length}</span>
       </div>
       <div class="task-active-section-items">
@@ -38297,7 +38511,7 @@ ${galleryText}`;
     };
   }
   function activeTaskGroupHtml(group) {
-    const groupKey = escapeHtml13(group.key);
+    const groupKey = escapeHtml14(group.key);
     const sections = activeTaskSections(group.tasks || []);
     const dispatchPending = Boolean(legacyMethod31("isQueueDispatchPending"));
     const collapsed = Boolean(state19.activeTaskGroupCollapsed);
@@ -38306,9 +38520,9 @@ ${galleryText}`;
       activeTaskSectionHtml("waiting", translate("taskGroup.waiting"), sections.waiting),
       !sections.running.length && !sections.waiting.length && dispatchPending ? activeTaskDispatchPendingHtml() : ""
     ].join("");
-    const activeLabel = escapeHtml13(group.label);
+    const activeLabel = escapeHtml14(group.label);
     const activeCount = group.tasks.length;
-    const toggleLabel = escapeHtml13(formatTranslation(collapsed ? "taskGroup.expand" : "taskGroup.collapse", { label: group.label }));
+    const toggleLabel = escapeHtml14(formatTranslation(collapsed ? "taskGroup.expand" : "taskGroup.collapse", { label: group.label }));
     return `
     <section class="task-group task-group-expanded task-group-active${collapsed ? " task-active-collapsed" : ""}" data-task-group="${groupKey}">
       <button
@@ -38340,7 +38554,7 @@ ${galleryText}`;
   `;
   }
   function expandedTaskGroupHtml(group) {
-    const groupKey = escapeHtml13(group.key);
+    const groupKey = escapeHtml14(group.key);
     return `
     <section class="task-group task-group-expanded" data-task-group="${groupKey}">
       <button
@@ -38349,11 +38563,11 @@ ${galleryText}`;
         data-task-group-toggle-key="${groupKey}"
         data-task-group-expanded="true"
         aria-expanded="true"
-        aria-label="${escapeHtml13(formatTranslation("taskGroup.collapse", { label: group.label }))}"
+        aria-label="${escapeHtml14(formatTranslation("taskGroup.collapse", { label: group.label }))}"
       >
         <span class="task-group-label-button">
           <span class="task-group-title">
-            <span class="task-group-label">${escapeHtml13(group.label)}</span>
+            <span class="task-group-label">${escapeHtml14(group.label)}</span>
             <span class="task-group-count-separator" aria-hidden="true"> \xB7 </span>
             <span class="task-group-count">${group.tasks.length}</span>
           </span>
@@ -38428,12 +38642,12 @@ ${galleryText}`;
   }
   function taskQueueActionStripHtml(task, queueSection = taskQueueSection(task), waitingIndex = waitingQueueIndex(task?.task_id)) {
     if (!queueSection) return "";
-    const taskId = escapeHtml13(task.task_id);
+    const taskId = escapeHtml14(task.task_id);
     if (queueSection === "running") {
-      const runningActionsLabel = escapeHtml13(translate("queue.runningActions"));
-      const cancelTitle = escapeHtml13(translate("queue.cancelRunningTitle"));
+      const runningActionsLabel = escapeHtml14(translate("queue.runningActions"));
+      const cancelTitle = escapeHtml14(translate("queue.cancelRunningTitle"));
       return `
-      <div class="task-queue-actions task-queue-actions-running" role="group" aria-label="${runningActionsLabel}" data-task-queue-section="${escapeHtml13(queueSection)}">
+      <div class="task-queue-actions task-queue-actions-running" role="group" aria-label="${runningActionsLabel}" data-task-queue-section="${escapeHtml14(queueSection)}">
         <button class="task-queue-action task-queue-cancel-button" type="button" data-task-queue-cancel-id="${taskId}" aria-label="${cancelTitle}" title="${cancelTitle}">${taskQueueActionIconHtml("cancel")}</button>
       </div>
     `;
@@ -38441,15 +38655,15 @@ ${galleryText}`;
     const waitingCount = (state19.queue.waiting || []).length;
     const disableMoveUp = waitingIndex <= 0;
     const disableMoveDown = waitingIndex < 0 || waitingIndex >= waitingCount - 1;
-    const waitingActionsLabel = escapeHtml13(translate("queue.waitingActions"));
-    const dragWaitingLabel = escapeHtml13(translate("queue.dragWaiting"));
-    const dragSortLabel = escapeHtml13(translate("queue.dragSort"));
-    const moveUpTitle = escapeHtml13(translate("queue.moveUpTitle"));
-    const moveDownTitle = escapeHtml13(translate("queue.moveDownTitle"));
-    const promoteTitle = escapeHtml13(translate("queue.promoteTitle"));
-    const deleteTitle = escapeHtml13(translate("queue.deleteWaitingTitle"));
+    const waitingActionsLabel = escapeHtml14(translate("queue.waitingActions"));
+    const dragWaitingLabel = escapeHtml14(translate("queue.dragWaiting"));
+    const dragSortLabel = escapeHtml14(translate("queue.dragSort"));
+    const moveUpTitle = escapeHtml14(translate("queue.moveUpTitle"));
+    const moveDownTitle = escapeHtml14(translate("queue.moveDownTitle"));
+    const promoteTitle = escapeHtml14(translate("queue.promoteTitle"));
+    const deleteTitle = escapeHtml14(translate("queue.deleteWaitingTitle"));
     return `
-    <div class="task-queue-actions task-queue-actions-waiting" role="group" aria-label="${waitingActionsLabel}" data-task-queue-section="${escapeHtml13(queueSection)}">
+    <div class="task-queue-actions task-queue-actions-waiting" role="group" aria-label="${waitingActionsLabel}" data-task-queue-section="${escapeHtml14(queueSection)}">
       <button class="task-queue-drag-handle" type="button" draggable="true" data-task-queue-drag-handle-id="${taskId}" aria-label="${dragWaitingLabel}" title="${dragSortLabel}">
         <svg class="task-queue-drag-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
           <path d="M5 3.5h.1M5 8h.1M5 12.5h.1M10.5 3.5h.1M10.5 8h.1M10.5 12.5h.1" />
@@ -38464,9 +38678,9 @@ ${galleryText}`;
   }
   function taskCardActionsHtml(taskId, queueSection = "") {
     if (queueSection) return "";
-    const actionGroupLabel = escapeHtml13(translate("taskActions.group"));
-    const archiveLabel = escapeHtml13(translate("taskContext.archive"));
-    const deleteLabel = escapeHtml13(translate("taskContext.delete"));
+    const actionGroupLabel = escapeHtml14(translate("taskActions.group"));
+    const archiveLabel = escapeHtml14(translate("taskContext.archive"));
+    const deleteLabel = escapeHtml14(translate("taskContext.delete"));
     return `
       <div class="task-card-actions" role="group" aria-label="${actionGroupLabel}">
         <button class="task-archive-button" type="button" data-archive-task-id="${taskId}" aria-label="${archiveLabel}" title="${archiveLabel}">
@@ -38494,38 +38708,38 @@ ${galleryText}`;
     const activeCurrent = active ? ' aria-current="true"' : "";
     const unread = taskHasUnreadUpdate(task);
     const unreadClass = unread ? " unread" : "";
-    const statusClass = task.status ? ` ${escapeHtml13(task.status)}` : "";
-    const title = escapeHtml13(task.prompt || task.mode || "Untitled");
-    const taskId = escapeHtml13(task.task_id);
+    const statusClass = task.status ? ` ${escapeHtml14(task.status)}` : "";
+    const title = escapeHtml14(task.prompt || task.mode || "Untitled");
+    const taskId = escapeHtml14(task.task_id);
     const showImageSummary = taskImageSummaryVisible(task);
     const imageBlocks = showImageSummary ? taskImageBlocksHtml(task) : "";
-    const imageSummary = showImageSummary ? escapeHtml13(taskImageSummaryText(task)) : "";
+    const imageSummary = showImageSummary ? escapeHtml14(taskImageSummaryText(task)) : "";
     const imageSummaryHtml = imageSummary ? `<span class="task-image-summary">${imageSummary}</span>` : "";
     const retryFullText = taskRetryStateText2(task);
     const retryText = taskCardRetryStateText(task) || retryFullText;
     const runningTimerHtml = taskCardRunningTimerHtml(task, taskId);
     const statusLabel = taskStatusLabelHtml(task);
     const statusMetaText = runningTimerHtml && retryText ? [taskMetaDetailsText2(task), retryText].filter(Boolean).join(" \xB7 ") : retryText ? taskMetaDetailsWithCompletionText(task) : taskMetaDetailsText2(task);
-    const statusMeta = escapeHtml13(statusMetaText);
+    const statusMeta = escapeHtml14(statusMetaText);
     const taskTime = taskCardCompletionTimeText(task);
     const runtime = taskCardRuntimeText2(task);
     const runtimeFullText = taskRuntimeText(task);
     const completionTitle = taskCompletionTimestampTitle(task);
     const runtimeTitleText = [runtimeFullText, completionTitle].filter(Boolean).join(" \xB7 ");
-    const runtimeTitle = runtimeTitleText ? ` title="${escapeHtml13(runtimeTitleText)}"` : "";
-    const runtimeHtml = runtime ? `<span class="task-runtime" data-task-runtime-id="${taskId}" data-task-completed-at-id="${taskId}"${runtimeTitle}>${escapeHtml13(runtime)}</span>` : "";
+    const runtimeTitle = runtimeTitleText ? ` title="${escapeHtml14(runtimeTitleText)}"` : "";
+    const runtimeHtml = runtime ? `<span class="task-runtime" data-task-runtime-id="${taskId}" data-task-completed-at-id="${taskId}"${runtimeTitle}>${escapeHtml14(runtime)}</span>` : "";
     const imageRow = showImageSummary ? `
           <span class="task-image-row">
             ${imageBlocks}
-            <span class="task-status-row task-status-inline" aria-label="${escapeHtml13(taskStatusAccessibleLabel2(task))}">
+            <span class="task-status-row task-status-inline" aria-label="${escapeHtml14(taskStatusAccessibleLabel2(task))}">
               ${statusLabel}
             </span>
             ${imageSummaryHtml}
           </span>
     ` : "";
-    const retryTitle = retryFullText && retryFullText !== retryText ? ` title="${escapeHtml13(retryFullText)}"` : "";
-    const retryHtml = !runningTimerHtml && retryText ? `<span class="task-retry-state" data-task-retry-id="${taskId}"${retryTitle}>${escapeHtml13(retryText)}</span>` : "";
-    const timeHtml = !retryText && taskTime ? `<span class="task-card-time">${escapeHtml13(taskTime)}</span>` : "";
+    const retryTitle = retryFullText && retryFullText !== retryText ? ` title="${escapeHtml14(retryFullText)}"` : "";
+    const retryHtml = !runningTimerHtml && retryText ? `<span class="task-retry-state" data-task-retry-id="${taskId}"${retryTitle}>${escapeHtml14(retryText)}</span>` : "";
+    const timeHtml = !retryText && taskTime ? `<span class="task-card-time">${escapeHtml14(taskTime)}</span>` : "";
     const detailRightHtml = runningTimerHtml || retryHtml || timeHtml;
     const detailRowClass = detailRightHtml ? "task-detail-row" : "task-detail-row task-detail-row-meta-only";
     const detailRow = statusMeta || detailRightHtml ? `
@@ -38539,17 +38753,17 @@ ${galleryText}`;
     const batchSelectedClass = batchSelected ? " batch-selected" : "";
     const queueIds = queueTaskIdsBySection();
     const queueSection = taskQueueSection(task, queueIds);
-    const queueClass = queueSection ? ` queue-${escapeHtml13(queueSection)}` : "";
+    const queueClass = queueSection ? ` queue-${escapeHtml14(queueSection)}` : "";
     const queueTaskData = queueSection === "waiting" ? ` data-queue-task-id="${taskId}"` : "";
     const queueActions = taskQueueActionStripHtml(task, queueSection, waitingQueueIndex(task.task_id, queueIds));
     const taskActions = taskCardActionsHtml(taskId, queueSection);
     const batchSelect = state19.batchMode ? `
-      <button class="task-select-button" type="button" data-batch-select-task-id="${taskId}" aria-pressed="${batchSelected ? "true" : "false"}" aria-label="${escapeHtml13(translate("taskList.selectSession"))}">
+      <button class="task-select-button" type="button" data-batch-select-task-id="${taskId}" aria-pressed="${batchSelected ? "true" : "false"}" aria-label="${escapeHtml14(translate("taskList.selectSession"))}">
         <span></span>
       </button>
     ` : "";
-    const unreadDot = unread ? `<span class="task-unread-dot" aria-label="${escapeHtml13(translate("taskList.unreadUpdate"))}"></span>` : "";
-    const activeLabel = escapeHtml13(translate("taskList.viewing"));
+    const unreadDot = unread ? `<span class="task-unread-dot" aria-label="${escapeHtml14(translate("taskList.unreadUpdate"))}"></span>` : "";
+    const activeLabel = escapeHtml14(translate("taskList.viewing"));
     return `
     <div class="task-card${active}${unreadClass}${statusClass}${batchClass}${batchSelectedClass}${queueClass}" role="button" tabindex="0" data-task-id="${taskId}" data-task-unread="${unread ? "true" : "false"}" data-active-label="${activeLabel}"${activeCurrent}${queueTaskData}>
       ${batchSelect}
@@ -38632,8 +38846,8 @@ ${galleryText}`;
     if (!tasks.some((task) => !isAlwaysVisibleTask(task))) return "";
     return `
     <a class="task-history-library-card" href="/history">
-      <span>${escapeHtml13(translate("footer.historyLibrary"))}</span>
-      <small>${escapeHtml13(translate("historyLibrary.openFull"))}</small>
+      <span>${escapeHtml14(translate("footer.historyLibrary"))}</span>
+      <small>${escapeHtml14(translate("historyLibrary.openFull"))}</small>
     </a>
   `;
   }
@@ -38745,36 +38959,36 @@ ${galleryText}`;
     const outputThumbnailUrl = taskThumbnailUrls(task)[0];
     const inputPreviewUrl = taskInputPreviewUrls(task)[0];
     const imageUrl = outputThumbnailUrl || outputUrl || task.preview_url || inputPreviewUrl;
-    const safeClassName = escapeHtml13(className);
+    const safeClassName = escapeHtml14(className);
     if (imageUrl && inputPreviewUrl) {
       const loadingSpinner = taskThumbShowsLoading(task) ? '<span class="task-thumb-stack-spinner" aria-hidden="true"></span>' : "";
-      const imageToImageLabel = escapeHtml13(translate("taskCard.imageToImageThumb"));
+      const imageToImageLabel = escapeHtml14(translate("taskCard.imageToImageThumb"));
       return `
       <div class="${safeClassName} task-thumb-stack" aria-label="${imageToImageLabel}">
-        <img class="task-thumb-reference" src="${escapeHtml13(inputPreviewUrl)}" alt="" loading="lazy" decoding="async" draggable="false">
-        <img class="task-thumb-output" src="${escapeHtml13(imageUrl)}" alt="" loading="lazy" decoding="async" draggable="false">
+        <img class="task-thumb-reference" src="${escapeHtml14(inputPreviewUrl)}" alt="" loading="lazy" decoding="async" draggable="false">
+        <img class="task-thumb-output" src="${escapeHtml14(imageUrl)}" alt="" loading="lazy" decoding="async" draggable="false">
         ${loadingSpinner}
       </div>
     `;
     }
     if (imageUrl) {
-      const textToImageLabel = escapeHtml13(translate("taskCard.textToImageThumb"));
-      const textBadge = escapeHtml13(translate("taskCard.textBadge"));
+      const textToImageLabel = escapeHtml14(translate("taskCard.textToImageThumb"));
+      const textBadge = escapeHtml14(translate("taskCard.textBadge"));
       return `
       <div class="${safeClassName} task-thumb-single" aria-label="${textToImageLabel}">
-        <img class="task-thumb-single-image" src="${escapeHtml13(imageUrl)}" alt="" loading="lazy" decoding="async" draggable="false">
+        <img class="task-thumb-single-image" src="${escapeHtml14(imageUrl)}" alt="" loading="lazy" decoding="async" draggable="false">
         <span class="task-thumb-mode-badge" aria-hidden="true">${textBadge}</span>
       </div>
     `;
     }
     if (task.status === "failed") {
-      return `<div class="${safeClassName} failed-thumb" aria-label="${escapeHtml13(translate("taskCard.failedThumb"))}"><span>!</span></div>`;
+      return `<div class="${safeClassName} failed-thumb" aria-label="${escapeHtml14(translate("taskCard.failedThumb"))}"><span>!</span></div>`;
     }
     return `<div class="${safeClassName} running-thumb"><span></span></div>`;
   }
   function taskStatusLabelHtml(task) {
-    const label = escapeHtml13(formatTaskStatus2(task) || translate("taskStatus.unknown"));
-    const taskId = escapeHtml13(task?.task_id || "");
+    const label = escapeHtml14(formatTaskStatus2(task) || translate("taskStatus.unknown"));
+    const taskId = escapeHtml14(task?.task_id || "");
     return `<span class="task-status-label" data-task-status-id="${taskId}">${label}</span>`;
   }
   function taskStatusAccessibleLabel2(task) {
@@ -38796,7 +39010,7 @@ ${galleryText}`;
   }
   function taskCardElapsedLineHtml(key, values, elapsedHtml) {
     const marker = "__TASK_CARD_ELAPSED_TIMER__";
-    return formatTranslation(key, { ...values, elapsed: marker }).split(marker).map((part) => escapeHtml13(part)).join(elapsedHtml);
+    return formatTranslation(key, { ...values, elapsed: marker }).split(marker).map((part) => escapeHtml14(part)).join(elapsedHtml);
   }
   function taskCardRunningTimerHtml(task, taskId) {
     if (task?.status !== "running") return "";
@@ -38912,7 +39126,7 @@ ${galleryText}`;
     }
     return method(...args);
   }
-  function escapeHtml14(...args) {
+  function escapeHtml15(...args) {
     return legacyMethod32("escapeHtml", ...args);
   }
   function element(node) {
@@ -39012,7 +39226,7 @@ ${galleryText}`;
     sidebarContent.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : behavior });
   }
   function anchorRowHtml(group) {
-    const key = escapeHtml14(group.key);
+    const key = escapeHtml15(group.key);
     return `
     <button
       class="task-history-anchor-row"
@@ -39020,11 +39234,11 @@ ${galleryText}`;
       data-task-group-anchor-key="${key}"
       data-task-group-toggle-key="${key}"
       aria-expanded="false"
-      aria-label="${escapeHtml14(formatTranslation("taskGroup.expand", { label: group.label }))}"
+      aria-label="${escapeHtml15(formatTranslation("taskGroup.expand", { label: group.label }))}"
     >
       <span class="task-history-anchor-label">
         <span class="task-group-title">
-          <span class="task-group-label">${escapeHtml14(group.label)}</span>
+          <span class="task-group-label">${escapeHtml15(group.label)}</span>
           <span class="task-group-count-separator" aria-hidden="true"> \xB7 </span>
           <span class="task-group-count">${group.tasks.length}</span>
         </span>
@@ -39172,7 +39386,7 @@ ${galleryText}`;
   function taskThumbHtml2(...args) {
     return legacyMethod33("taskThumbHtml", ...args);
   }
-  function escapeHtml15(...args) {
+  function escapeHtml16(...args) {
     return legacyMethod33("escapeHtml", ...args);
   }
   function formatTaskStatus3(...args) {
@@ -39285,12 +39499,12 @@ ${galleryText}`;
     }
     els30.archiveList.innerHTML = archivedTasks.map((task) => {
       const image = taskThumbHtml2(task, "archive-thumb");
-      const title = escapeHtml15(task.prompt || task.mode || "Untitled");
-      const status = escapeHtml15(formatTaskStatus3(task));
-      const size = escapeHtml15(task.output_size || task.params?.size || "");
-      const provider = escapeHtml15(legacyMethod33("taskCardProviderLabel", task) || "");
+      const title = escapeHtml16(task.prompt || task.mode || "Untitled");
+      const status = escapeHtml16(formatTaskStatus3(task));
+      const size = escapeHtml16(task.output_size || task.params?.size || "");
+      const provider = escapeHtml16(legacyMethod33("taskCardProviderLabel", task) || "");
       const meta = [status, size, provider].filter(Boolean).join(" \xB7 ");
-      const taskId = escapeHtml15(task.task_id);
+      const taskId = escapeHtml16(task.task_id);
       return `
       <article class="archive-card" data-archive-select-task-id="${taskId}">
         ${image}
@@ -40235,6 +40449,7 @@ ${galleryText}`;
       n: params.n,
       images: uploads.map((source) => source.name),
       gallery_image_ids: galleries.map((source) => source.id),
+      gallery_image_version_ids: galleries.map((source) => source.asset_version_id || ""),
       reference_asset_ids: assets.map((source) => source.id),
       reference_files: fileUploads.map((source) => source.filename),
       reference_file_ids: storedFiles.map((source) => source.id)
@@ -40400,7 +40615,10 @@ ${galleryText}`;
     if (els33.outputFormat.value !== "png") {
       form.append("output_compression", String(params.output_compression));
     }
-    galleries.forEach((source) => form.append("gallery_image_ids", source.id));
+    galleries.forEach((source) => {
+      form.append("gallery_image_ids", source.id);
+      form.append("gallery_image_version_ids", source.asset_version_id || "");
+    });
     assets.forEach((source) => form.append("reference_asset_ids", source.id));
     fileUploads.forEach((source) => form.append("reference_files", source.file));
     storedFiles.forEach((source) => form.append("reference_file_ids", source.id));
@@ -41408,7 +41626,7 @@ ${galleryText}`;
     }
     return method(...args);
   }
-  function escapeHtml16(...args) {
+  function escapeHtml17(...args) {
     return legacyMethod38("escapeHtml", ...args);
   }
   function setStatus18(...args) {
@@ -41525,7 +41743,7 @@ ${galleryText}`;
   function taskContextButton(action, label, disabled = false, danger = false) {
     const disabledAttr = disabled ? " disabled" : "";
     const dangerClass = danger ? " danger" : "";
-    return `<button class="task-context-menu-button${dangerClass}" type="button" role="menuitem" data-task-context-action="${action}"${disabledAttr}>${escapeHtml16(label)}</button>`;
+    return `<button class="task-context-menu-button${dangerClass}" type="button" role="menuitem" data-task-context-action="${action}"${disabledAttr}>${escapeHtml17(label)}</button>`;
   }
   function bindTaskContextMenuActionEvents(menu) {
     menu.querySelectorAll("[data-task-context-action]").forEach((button) => {
@@ -41969,17 +42187,17 @@ ${galleryText}`;
   }
   function taskNotificationItemHtml(notification) {
     const unreadClass = notification.unread ? " unread" : "";
-    return `<button class="task-notification-item${unreadClass}" type="button" data-task-notification-id="${escapeHtml17(notification.id)}">
+    return `<button class="task-notification-item${unreadClass}" type="button" data-task-notification-id="${escapeHtml18(notification.id)}">
     ${taskNotificationInnerHtml(notification)}
   </button>`;
   }
   function taskNotificationInnerHtml(notification) {
-    const thumbnail = notification.thumbnail_url ? `<img class="task-notification-thumb" src="${escapeHtml17(notification.thumbnail_url)}" alt="">` : `<span class="task-notification-thumb task-notification-thumb-placeholder" aria-hidden="true">${escapeHtml17(statusGlyph(notification.status))}</span>`;
+    const thumbnail = notification.thumbnail_url ? `<img class="task-notification-thumb" src="${escapeHtml18(notification.thumbnail_url)}" alt="">` : `<span class="task-notification-thumb task-notification-thumb-placeholder" aria-hidden="true">${escapeHtml18(statusGlyph(notification.status))}</span>`;
     return `${thumbnail}
     <span class="task-notification-body">
-      <span class="task-notification-title">${escapeHtml17(taskNotificationDisplayTitle(notification))}</span>
-      <span class="task-notification-message">${escapeHtml17(taskNotificationDisplayMessage(notification))}</span>
-      <span class="task-notification-time">${escapeHtml17(formatNotificationTime(notification.created_at))}</span>
+      <span class="task-notification-title">${escapeHtml18(taskNotificationDisplayTitle(notification))}</span>
+      <span class="task-notification-message">${escapeHtml18(taskNotificationDisplayMessage(notification))}</span>
+      <span class="task-notification-time">${escapeHtml18(formatNotificationTime(notification.created_at))}</span>
     </span>`;
   }
   function statusGlyph(status) {
@@ -42082,7 +42300,7 @@ ${galleryText}`;
     if (!text) return "";
     return text.length > 48 ? `${text.slice(0, 48)}...` : text;
   }
-  function escapeHtml17(value) {
+  function escapeHtml18(value) {
     return getLegacyBridge().methods.escapeHtml(value);
   }
   function setStatus19(message, type) {
@@ -42154,7 +42372,7 @@ ${galleryText}`;
     }
     return method(...args);
   }
-  function escapeHtml18(...args) {
+  function escapeHtml19(...args) {
     return legacyMethod39("escapeHtml", ...args);
   }
   function taskRatio2(task) {
@@ -42695,7 +42913,7 @@ ${galleryText}`;
     return formatDurationParts2(totalMilliseconds).text;
   }
   function elapsedWheelMarkup(char) {
-    const safeChar = escapeHtml18(char);
+    const safeChar = escapeHtml19(char);
     if (/^\d$/.test(char)) {
       const digitStrip = "0123456789".split("").map((digit) => `<span>${digit}</span>`).join("");
       return `<span class="elapsed-wheel" aria-hidden="true" data-elapsed-char="${safeChar}" data-elapsed-char-value="${safeChar}" style="--digit-offset: ${safeChar};"><span class="elapsed-wheel-strip">${digitStrip}</span></span>`;
@@ -42712,7 +42930,7 @@ ${galleryText}`;
   function elapsedTimerSpan2(kind, startValue) {
     const elapsedMs = elapsedMillisecondsSince2(startValue);
     const elapsed = formatDurationTenths2(elapsedMs);
-    return `<span class="elapsed-timer" aria-label="${elapsed}" data-preview-elapsed="${escapeHtml18(kind)}" data-preview-start="${escapeHtml18(startValue || "")}">${elapsedTimerMarkup2(elapsedMs)}</span>`;
+    return `<span class="elapsed-timer" aria-label="${elapsed}" data-preview-elapsed="${escapeHtml19(kind)}" data-preview-start="${escapeHtml19(startValue || "")}">${elapsedTimerMarkup2(elapsedMs)}</span>`;
   }
   function taskGeneratedCount(task, fallback = 0) {
     const visibleCompleted = taskVisibleCompletedCount(task);
@@ -42812,7 +43030,7 @@ ${galleryText}`;
     }
     return method(...args);
   }
-  function escapeHtml19(...args) {
+  function escapeHtml20(...args) {
     return legacyMethod40("escapeHtml", ...args);
   }
   function isTaskArchived4(...args) {
@@ -42940,7 +43158,7 @@ ${galleryText}`;
       clearPreviewGridLayout();
       els37.previewGrid.innerHTML = `
       <div class="empty-preview error-preview">
-        <p>${escapeHtml19(taskFailureMessage2(selected) || translate("preview.taskFailed"))}</p>
+        <p>${escapeHtml20(taskFailureMessage2(selected) || translate("preview.taskFailed"))}</p>
         ${retryFailureSummaryButton(selected)}
       </div>
     `;
@@ -42952,7 +43170,7 @@ ${galleryText}`;
       closePromptPopover7();
       cancelDeferredPreviewRender();
       clearPreviewGridLayout();
-      els37.previewGrid.innerHTML = `<div class="empty-preview">${escapeHtml19(translate("preview.empty"))}</div>`;
+      els37.previewGrid.innerHTML = `<div class="empty-preview">${escapeHtml20(translate("preview.empty"))}</div>`;
       return;
     }
     renderOutputPreview(selected);
@@ -43005,14 +43223,14 @@ ${galleryText}`;
     if (!failure) return "";
     return `
     <div class="running-failure-notice" data-preview-running-failure role="status">
-      <strong>${escapeHtml19(formatTranslation("preview.failedOutput", { index: failure.index }))}</strong>
-      <p>${escapeHtml19(failure.error)}</p>
+      <strong>${escapeHtml20(formatTranslation("preview.failedOutput", { index: failure.index }))}</strong>
+      <p>${escapeHtml20(failure.error)}</p>
     </div>
   `;
   }
   function previewElapsedLineHtml(key, values, elapsedHtml) {
     const marker = "__CODEX_IMAGE_ELAPSED_TIMER__";
-    return formatTranslation(key, { ...values, elapsed: marker }).split(marker).map((part) => escapeHtml19(part)).join(elapsedHtml);
+    return formatTranslation(key, { ...values, elapsed: marker }).split(marker).map((part) => escapeHtml20(part)).join(elapsedHtml);
   }
   function scheduleDeferredPreviewRender(task, { running, failure, waiting, outputUrls, totalCount, itemCount }) {
     const renderToken = ++pendingPreviewRenderToken;
@@ -43521,15 +43739,15 @@ ${galleryText}`;
     const elapsed = elapsedTimerSpan3("running", taskProgressStartValue4(task));
     const generated = taskGeneratedCount2(task, visibleOutputCount);
     const total = taskTotalCount2(task);
-    const size = escapeHtml19(task.params?.size || currentSize2());
+    const size = escapeHtml20(task.params?.size || currentSize2());
     const retryState = taskRetryStateText4(task);
-    const retryStateHtml = retryState ? `<p data-preview-retry-state>${escapeHtml19(retryState)}</p>` : "";
+    const retryStateHtml = retryState ? `<p data-preview-retry-state>${escapeHtml20(retryState)}</p>` : "";
     const failureNotice = runningFailureNotice(task);
     return `
     <div class="running-progress-card">
       <div class="waiting-spinner" aria-hidden="true"></div>
       <div>
-        <strong>${escapeHtml19(translate("preview.continueGenerating"))}</strong>
+        <strong>${escapeHtml20(translate("preview.continueGenerating"))}</strong>
         <p class="elapsed-line">${previewElapsedLineHtml("preview.progressLine", { generated, total }, elapsed)}</p>
         <p class="elapsed-meta">${size}</p>
         ${retryStateHtml}
@@ -43544,15 +43762,15 @@ ${galleryText}`;
     const elapsed = elapsedTimerSpan3("waiting", elapsedFrom);
     const generated = taskGeneratedCount2(task, visibleOutputCount);
     const total = taskTotalCount2(task);
-    const size = escapeHtml19(task.params?.size || currentSize2());
-    const retryReason = task.last_error ? `<p>${escapeHtml19(formatTranslation("preview.lastError", { error: task.last_error }))}</p>` : "";
+    const size = escapeHtml20(task.params?.size || currentSize2());
+    const retryReason = task.last_error ? `<p>${escapeHtml20(formatTranslation("preview.lastError", { error: task.last_error }))}</p>` : "";
     const retryState = taskRetryStateText4(task);
-    const retryStateHtml = retryState ? `<p data-preview-retry-state>${escapeHtml19(retryState)}</p>` : "";
+    const retryStateHtml = retryState ? `<p data-preview-retry-state>${escapeHtml20(retryState)}</p>` : "";
     return `
     <div class="running-progress-card waiting-progress-card">
       <div class="waiting-spinner" aria-hidden="true"></div>
       <div>
-        <strong>${escapeHtml19(translate("preview.waitingContinue"))}</strong>
+        <strong>${escapeHtml20(translate("preview.waitingContinue"))}</strong>
         <p class="elapsed-line">${previewElapsedLineHtml("preview.progressLine", { generated, total }, elapsed)}</p>
         <p class="elapsed-meta">${size}</p>
         ${retryStateHtml}
@@ -43567,13 +43785,13 @@ ${galleryText}`;
     const failed = Number.parseInt(task?.failed_count ?? "", 10);
     const failedCount = Number.isNaN(failed) ? Math.max(0, taskTotalCount2(task) - generated) : failed;
     const total = taskTotalCount2(task);
-    const message = escapeHtml19(taskFailureMessage2(task) || translate("preview.partialFailed"));
+    const message = escapeHtml20(taskFailureMessage2(task) || translate("preview.partialFailed"));
     const retryState = taskRetryStateText4(task);
-    const retryStateHtml = retryState ? `<p data-preview-retry-state>${escapeHtml19(retryState)}</p>` : "";
+    const retryStateHtml = retryState ? `<p data-preview-retry-state>${escapeHtml20(retryState)}</p>` : "";
     return `
     <div class="failure-summary-card">
-      <strong>${escapeHtml19(task.status === "partial_failed" ? translate("preview.partialFailed") : translate("preview.taskFailed"))}</strong>
-      <p>${escapeHtml19(formatTranslation("preview.failureLine", { generated, total, failed: failedCount }))}</p>
+      <strong>${escapeHtml20(task.status === "partial_failed" ? translate("preview.partialFailed") : translate("preview.taskFailed"))}</strong>
+      <p>${escapeHtml20(formatTranslation("preview.failureLine", { generated, total, failed: failedCount }))}</p>
       ${retryStateHtml}
       <p>${message}</p>
       ${retryFailureSummaryButton(task)}
@@ -43581,13 +43799,13 @@ ${galleryText}`;
   `;
   }
   function retryFailureSummaryButton(task) {
-    const taskId = escapeHtml19(task.task_id || "");
+    const taskId = escapeHtml20(task.task_id || "");
     const actions2 = [];
     if (canRetryFailedTask3(task)) {
-      actions2.push(`<button class="ghost-button text-sm" type="button" data-preview-retry-failed-task-id="${taskId}">${escapeHtml19(translate("preview.retryFailed"))}</button>`);
+      actions2.push(`<button class="ghost-button text-sm" type="button" data-preview-retry-failed-task-id="${taskId}">${escapeHtml20(translate("preview.retryFailed"))}</button>`);
     }
     if (canAcceptTaskSuccesses3(task)) {
-      actions2.push(`<button class="ghost-button text-sm" type="button" data-preview-accept-successes-task-id="${taskId}">${escapeHtml19(translate("preview.acceptSuccesses"))}</button>`);
+      actions2.push(`<button class="ghost-button text-sm" type="button" data-preview-accept-successes-task-id="${taskId}">${escapeHtml20(translate("preview.acceptSuccesses"))}</button>`);
     }
     if (!actions2.length) return "";
     return `
@@ -43599,16 +43817,16 @@ ${galleryText}`;
   function renderRunningPreview(task) {
     clearPreviewGridLayout();
     const elapsed = elapsedTimerSpan3("running", taskProgressStartValue4(task));
-    const size = escapeHtml19(task.params?.size || currentSize2());
+    const size = escapeHtml20(task.params?.size || currentSize2());
     const modeLabel = task.mode === "edit" ? translate("preview.editMode") : translate("preview.generateMode");
     const retryState = taskRetryStateText4(task);
-    const retryStateHtml = retryState ? `<p data-preview-retry-state>${escapeHtml19(retryState)}</p>` : "";
+    const retryStateHtml = retryState ? `<p data-preview-retry-state>${escapeHtml20(retryState)}</p>` : "";
     const failureNotice = runningFailureNotice(task);
     els37.previewGrid.innerHTML = `
     <div class="waiting-preview">
       <div class="waiting-spinner" aria-hidden="true"></div>
       <div>
-        <strong>${escapeHtml19(formatTranslation("preview.runningTitle", { mode: modeLabel }))}</strong>
+        <strong>${escapeHtml20(formatTranslation("preview.runningTitle", { mode: modeLabel }))}</strong>
         <p class="elapsed-line">${previewElapsedLineHtml("preview.elapsedLine", {}, elapsed)}</p>
         <p class="elapsed-meta">${size}</p>
         ${retryStateHtml}
@@ -43623,21 +43841,21 @@ ${galleryText}`;
     const submitting = task.status === "submitting";
     const elapsedFrom = task.started_at || task.queued_at || task.created_at;
     const elapsed = elapsedTimerSpan3("waiting", elapsedFrom);
-    const size = escapeHtml19(task.params?.size || currentSize2());
+    const size = escapeHtml20(task.params?.size || currentSize2());
     const title = submitting ? translate("preview.submittingTitle") : translate("preview.queuedTitle");
     const detail = submitting ? translate("preview.submittingDetail") : translate("preview.queuedDetail");
-    const retryReason = !submitting && task.last_error ? `<p>${escapeHtml19(formatTranslation("preview.lastError", { error: task.last_error }))}</p>` : "";
+    const retryReason = !submitting && task.last_error ? `<p>${escapeHtml20(formatTranslation("preview.lastError", { error: task.last_error }))}</p>` : "";
     const retryState = taskRetryStateText4(task);
-    const retryStateHtml = retryState ? `<p data-preview-retry-state>${escapeHtml19(retryState)}</p>` : "";
+    const retryStateHtml = retryState ? `<p data-preview-retry-state>${escapeHtml20(retryState)}</p>` : "";
     els37.previewGrid.innerHTML = `
     <div class="waiting-preview">
       <div class="waiting-spinner" aria-hidden="true"></div>
       <div>
-        <strong>${escapeHtml19(title)}</strong>
+        <strong>${escapeHtml20(title)}</strong>
         <p class="elapsed-line">${previewElapsedLineHtml("preview.elapsedLine", {}, elapsed)}</p>
         <p class="elapsed-meta">${size}</p>
         ${retryStateHtml}
-        <p>${escapeHtml19(detail)}</p>
+        <p>${escapeHtml20(detail)}</p>
         ${retryReason}
       </div>
       <div class="waiting-bar"><span></span></div>
@@ -44233,7 +44451,7 @@ ${galleryText}`;
     }
     return method(...args);
   }
-  function escapeHtml20(value) {
+  function escapeHtml21(value) {
     return legacyMethod43("escapeHtml", value);
   }
   function closeGalleryEditPopover4() {
@@ -44307,16 +44525,16 @@ ${galleryText}`;
     closeGalleryEditPopover4();
     confirmPopoverState.anchor = anchor;
     confirmPopoverState.onConfirm = typeof options.onConfirm === "function" ? options.onConfirm : null;
-    const message = options.message ? `<p class="confirm-popover-message">${escapeHtml20(options.message)}</p>` : "";
-    const detail = options.detail ? `<div class="confirm-popover-detail">${escapeHtml20(options.detail)}</div>` : "";
+    const message = options.message ? `<p class="confirm-popover-message">${escapeHtml21(options.message)}</p>` : "";
+    const detail = options.detail ? `<div class="confirm-popover-detail">${escapeHtml21(options.detail)}</div>` : "";
     const confirmText = options.confirmText || translate("action.confirm");
     popover.innerHTML = `
-    <div class="confirm-popover-title">${escapeHtml20(options.title || translate("action.confirmQuestion"))}</div>
+    <div class="confirm-popover-title">${escapeHtml21(options.title || translate("action.confirmQuestion"))}</div>
     ${message}
     ${detail}
     <div class="confirm-popover-actions">
-      <button class="ghost-button text-sm" type="button" data-confirm-popover-cancel>${escapeHtml20(translate("action.cancel"))}</button>
-      <button class="ghost-button text-sm danger-button confirm-popover-confirm" type="button" data-confirm-popover-confirm>${escapeHtml20(confirmText)}</button>
+      <button class="ghost-button text-sm" type="button" data-confirm-popover-cancel>${escapeHtml21(translate("action.cancel"))}</button>
+      <button class="ghost-button text-sm danger-button confirm-popover-confirm" type="button" data-confirm-popover-confirm>${escapeHtml21(confirmText)}</button>
     </div>
   `;
     popover.querySelector("[data-confirm-popover-cancel]")?.addEventListener("click", closeConfirmPopover4);
@@ -44362,13 +44580,13 @@ ${galleryText}`;
     return `
     <section class="prompt-popover-section${toneClass}">
       <div class="prompt-popover-section-head">
-        <div class="prompt-popover-label">${escapeHtml20(label)}</div>
+        <div class="prompt-popover-label">${escapeHtml21(label)}</div>
         <div class="prompt-popover-section-tools">
-          <span class="prompt-popover-meta">${escapeHtml20(meta || promptLengthLabel(text))}</span>
+          <span class="prompt-popover-meta">${escapeHtml21(meta || promptLengthLabel(text))}</span>
           ${actions2}
         </div>
       </div>
-      <pre class="prompt-popover-text">${escapeHtml20(text || translate("promptPopover.empty"))}</pre>
+      <pre class="prompt-popover-text">${escapeHtml21(text || translate("promptPopover.empty"))}</pre>
     </section>
   `;
   }
@@ -44378,10 +44596,10 @@ ${galleryText}`;
       class="prompt-copy-button prompt-copy-inline"
       type="button"
       data-copy-optimized-prompt
-      aria-label="${escapeHtml20(translate("promptPopover.copyOptimized"))}"
-      title="${escapeHtml20(translate("promptPopover.copyOptimized"))}"
+      aria-label="${escapeHtml21(translate("promptPopover.copyOptimized"))}"
+      title="${escapeHtml21(translate("promptPopover.copyOptimized"))}"
       ${optimizedPrompt ? "" : "disabled"}
-    >${escapeHtml20(translate("templates.copy"))}</button>
+    >${escapeHtml21(translate("templates.copy"))}</button>
   `;
   }
   function submittedPromptDetails(originalPrompt, submittedPrompt) {
@@ -44389,8 +44607,8 @@ ${galleryText}`;
     if (normalizedPromptText(originalPrompt) === normalizedPromptText(submittedPrompt)) return "";
     return `
     <details class="prompt-popover-submitted">
-      <summary>${escapeHtml20(translate("promptPopover.submitted"))}</summary>
-      <pre class="prompt-popover-submitted-text">${escapeHtml20(submittedPrompt)}</pre>
+      <summary>${escapeHtml21(translate("promptPopover.submitted"))}</summary>
+      <pre class="prompt-popover-submitted-text">${escapeHtml21(submittedPrompt)}</pre>
     </details>
   `;
   }
@@ -44417,13 +44635,13 @@ ${galleryText}`;
     popover.innerHTML = `
     <div class="prompt-popover-header">
       <div>
-        <strong>${escapeHtml20(translate("promptPopover.title"))}</strong>
-        <span class="prompt-popover-summary">${escapeHtml20(formatTranslation("promptPopover.summary", {
+        <strong>${escapeHtml21(translate("promptPopover.title"))}</strong>
+        <span class="prompt-popover-summary">${escapeHtml21(formatTranslation("promptPopover.summary", {
       original: promptLengthLabel(originalPrompt),
       optimized: optimizedLength
     }))}</span>
       </div>
-      <button class="prompt-popover-close" type="button" aria-label="${escapeHtml20(translate("promptPopover.close"))}">\xD7</button>
+      <button class="prompt-popover-close" type="button" aria-label="${escapeHtml21(translate("promptPopover.close"))}">\xD7</button>
     </div>
     <div class="prompt-popover-body">
       <div class="prompt-popover-compare">

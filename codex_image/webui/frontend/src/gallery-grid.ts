@@ -38,6 +38,7 @@ function editGalleryPromptNote(button: any, itemId: any): void { legacyMethod("e
 function deleteGalleryItem(button: any, itemId: any): void { legacyMethod("deleteGalleryItem", button, itemId); }
 function applyGalleryItemOrder(category: any, itemIds: string[]): void { legacyMethod("applyGalleryItemOrder", category, itemIds); }
 function persistGalleryItemOrder(category: any, itemIds: string[]): Promise<void> { return legacyMethod("persistGalleryItemOrder", category, itemIds); }
+function restoreSharedGalleryItem(itemId: string): Promise<void> { return legacyMethod("restoreSharedGalleryItem", itemId); }
 
 function cssEscape(value: any): string {
   const text = String(value || "");
@@ -150,13 +151,16 @@ function galleryGridContentHtml(items: any) {
     return `<div class="gallery-empty">${translate("gallery.emptyCategory")}</div>`;
   }
   const isAdmin = getCurrentServerUser()?.role === "admin";
+  const activeQuery = String(state.galleryLibraryState?.[state.activeGalleryScope]?.query || "").trim();
   return items.map((item: any) => {
     const canManage = item.scope !== "shared" || isAdmin;
     const canDeactivate = item.scope !== "shared" || isAdmin;
-    const canEditDetails = item.scope !== "shared";
+    const canEditDetails = item.scope !== "shared" || isAdmin;
+    const canReorder = canEditDetails && !activeQuery;
+    const inactiveSharedItem = item.scope === "shared" && isAdmin && item.is_active === false;
     return `
     <article class="gallery-card" data-gallery-id="${escapeHtml(item.id)}">
-      ${canEditDetails ? `
+      ${canReorder ? `
       <button
         class="gallery-card-drag-strip"
         type="button"
@@ -179,7 +183,7 @@ function galleryGridContentHtml(items: any) {
         <span>${translate("gallery.dragSort")}</span>
       </button>` : ""}
       <div class="gallery-card-media">
-        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.name)}" draggable="false" loading="lazy" decoding="async">
+        ${item.image_url ? `<img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.name)}" draggable="false" loading="lazy" decoding="async">` : ""}
       </div>
       <div class="gallery-card-body">
         <div class="gallery-card-heading">
@@ -189,13 +193,13 @@ function galleryGridContentHtml(items: any) {
         <span>${escapeHtml(categoryLabel(item.category))}</span>
       </div>
       <div class="gallery-card-actions">
-        <button class="ghost-button text-sm" type="button" data-gallery-use="${escapeHtml(item.id)}">${translate("gallery.use")}</button>
-        ${canManage ? `<button class="ghost-button text-sm" type="button" data-gallery-replace="${escapeHtml(item.id)}">${translate("gallery.replace")}</button>` : ""}
+        ${inactiveSharedItem ? `<button class="ghost-button text-sm" type="button" data-gallery-restore="${escapeHtml(item.id)}">${translate("gallery.restore")}</button>` : `<button class="ghost-button text-sm" type="button" data-gallery-use="${escapeHtml(item.id)}">${translate("gallery.use")}</button>`}
+        ${canManage && !inactiveSharedItem ? `<button class="ghost-button text-sm" type="button" data-gallery-replace="${escapeHtml(item.id)}">${translate("gallery.replace")}</button>` : ""}
         ${canEditDetails ? `
         <button class="ghost-button text-sm" type="button" data-gallery-rename="${escapeHtml(item.id)}">${translate("gallery.rename")}</button>
         <button class="ghost-button text-sm" type="button" data-gallery-move="${escapeHtml(item.id)}">${translate("gallery.moveCategory")}</button>
         <button class="ghost-button text-sm" type="button" data-gallery-note="${escapeHtml(item.id)}">${translate("gallery.note")}</button>` : ""}
-        ${canDeactivate ? `<button class="ghost-button text-sm danger-button" type="button" data-gallery-delete="${escapeHtml(item.id)}">${translate(item.scope === "shared" ? "gallery.deactivate" : "gallery.delete")}</button>` : ""}
+        ${canDeactivate && !inactiveSharedItem ? `<button class="ghost-button text-sm danger-button" type="button" data-gallery-delete="${escapeHtml(item.id)}">${translate(item.scope === "shared" ? "gallery.deactivate" : "gallery.delete")}</button>` : ""}
       </div>
     </article>
   `;
@@ -207,12 +211,16 @@ function bindGalleryGridActions(root: any = els.galleryGrid) {
 }
 
 function handleGalleryGridClick(event: any) {
-  const button = event.target.closest?.("[data-gallery-use],[data-gallery-rename],[data-gallery-replace],[data-gallery-move],[data-gallery-note],[data-gallery-delete]");
+  const button = event.target.closest?.("[data-gallery-use],[data-gallery-restore],[data-gallery-rename],[data-gallery-replace],[data-gallery-move],[data-gallery-note],[data-gallery-delete]");
   if (!button || !els.galleryGrid?.contains(button)) return;
   if (button.dataset.galleryUse) {
     const item = findGalleryItem(button.dataset.galleryUse);
     if (item) addGalleryInput(item);
     closeGallery();
+    return;
+  }
+  if (button.dataset.galleryRestore) {
+    void restoreSharedGalleryItem(button.dataset.galleryRestore);
     return;
   }
   const itemId = button.dataset.galleryRename
@@ -328,7 +336,7 @@ function handleGalleryGridDragStart(event: DragEvent) {
   const itemId = String((handle as HTMLElement | null)?.dataset.galleryId || "");
   if (!handle || !itemId || !els.galleryGrid?.contains(handle)) return;
   const item = findGalleryItem(itemId);
-  if (item?.scope === "shared") {
+  if (item?.scope === "shared" && getCurrentServerUser()?.role !== "admin") {
     event.preventDefault();
     return;
   }

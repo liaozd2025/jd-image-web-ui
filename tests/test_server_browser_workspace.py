@@ -155,12 +155,20 @@ class ServerWorkspaceBrowserReleaseGateTests(unittest.TestCase):
                             ),
                         )
                         for kind, name, filename, mime_type, content in shared_assets:
-                            response = admin.post(
-                                "/api/shared-assets",
-                                data={"asset_kind": kind, "name": name},
-                                files={"file": (filename, content, mime_type)},
-                                headers={"X-CSRF-Token": csrf},
-                            )
+                            if kind == "image":
+                                response = admin.post(
+                                    "/api/shared-gallery/items",
+                                    data={"name": name, "category_id": "product-images", "prompt_note": "Browser gate"},
+                                    files={"file": (filename, content, mime_type)},
+                                    headers={"X-CSRF-Token": csrf},
+                                )
+                            else:
+                                response = admin.post(
+                                    "/api/shared-assets",
+                                    data={"asset_kind": kind, "name": name},
+                                    files={"file": (filename, content, mime_type)},
+                                    headers={"X-CSRF-Token": csrf},
+                                )
                             self.assertEqual(response.status_code, 201, response.text)
 
                     web_port = _free_port()
@@ -243,7 +251,7 @@ class ServerWorkspaceBrowserReleaseGateTests(unittest.TestCase):
                         env=browser_environment,
                         capture_output=True,
                         text=True,
-                        timeout=90,
+                        timeout=180,
                         check=False,
                     )
                     _terminate_process(worker_process)

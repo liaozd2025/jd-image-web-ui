@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
 
+from psycopg import errors
 from psycopg.rows import dict_row
 
 from .assets import (
@@ -25,6 +26,10 @@ from .maintenance import assert_writes_allowed
 
 
 class SharedAssetForbidden(RuntimeError):
+    pass
+
+
+class SharedAssetConflict(RuntimeError):
     pass
 
 
@@ -56,6 +61,10 @@ class SharedAsset:
     created_at: str
     updated_at: str
     current_version: SharedAssetVersion | None
+    category_id: str | None = None
+    category_name: str | None = None
+    prompt_note: str = ""
+    sort_order: int = 0
 
 
 @dataclass(frozen=True)
@@ -80,6 +89,8 @@ class SharedAssetRepository:
         original_filename: str,
         mime_type: str,
         content: bytes,
+        category_id: str | None = None,
+        prompt_note: str = "",
     ) -> SharedAsset:
         kind = _validate_shared_kind(asset_kind)
         if kind in SHARED_GALLERY_ASSET_KINDS and actor_role != "admin":
@@ -87,7 +98,9 @@ class SharedAssetRepository:
         clean_name = _clean_name(name or original_filename)
         filename = _clean_filename(original_filename)
         normalized_mime = _normalize_mime(mime_type)
-        _validate_content(kind, normalized_mime, content)
+        if kind in SHARED_GALLERY_ASSET_KINDS and not category_id:
+            raise AssetValidationError("shared gallery category is required")
+        _validate_shared_content(kind, normalized_mime, content)
         asset_id = str(uuid4())
         version_id = str(uuid4())
         relative_path = Path("shared-assets") / asset_id / f"{version_id}.bin"
@@ -119,16 +132,47 @@ class SharedAssetRepository:
                     len(content),
                 ),
             )
+            if kind in SHARED_GALLERY_ASSET_KINDS:
+                cursor.execute(
+                    "SELECT category_id FROM server_shared_gallery_categories WHERE category_id = %s",
+                    (category_id,),
+                )
+                if cursor.fetchone() is None:
+                    raise AssetValidationError("shared gallery category was not found")
+                cursor.execute(
+                    """
+                    SELECT COALESCE(MAX(sort_order), 0) + 10
+                    FROM server_shared_gallery_items
+                    WHERE category_id = %s
+                    """,
+                    (category_id,),
+                )
+                sort_order = int(cursor.fetchone()[0])
+                cursor.execute(
+                    """
+                    INSERT INTO server_shared_gallery_items (
+                        asset_id, category_id, prompt_note, sort_order
+                    ) VALUES (%s, %s, %s, %s)
+                    """,
+                    (asset_id, category_id, _clean_prompt_note(prompt_note), sort_order),
+                )
 
-        self._write_with_quota(
-            publisher_user_id,
-            byte_size=len(content),
-            relative_path=relative_path,
-            content=content,
-            insert=insert,
-            action="shared_asset.published",
-            details={"asset_id": asset_id, "asset_version_id": version_id},
-        )
+        try:
+            self._write_with_quota(
+                publisher_user_id,
+                byte_size=len(content),
+                relative_path=relative_path,
+                content=content,
+                insert=insert,
+                action="shared_gallery.item_created" if kind in SHARED_GALLERY_ASSET_KINDS else "shared_asset.published",
+                details={
+                    "asset_id": asset_id,
+                    "asset_version_id": version_id,
+                    **({"category_id": category_id} if category_id else {}),
+                },
+            )
+        except errors.UniqueViolation as error:
+            raise SharedAssetConflict("shared gallery item name already exists") from error
         return self.get_asset(asset_id)
 
     def create_version(
@@ -166,7 +210,7 @@ class SharedAssetRepository:
                 raise SharedAssetForbidden("only the publisher or administrator can update this asset")
             if not asset[2]:
                 raise AssetValidationError("shared asset is inactive")
-            _validate_content(kind, normalized_mime, content)
+            _validate_shared_content(kind, normalized_mime, content)
             cursor.execute(
                 "SELECT COALESCE(MAX(version_number), 0) FROM server_shared_asset_versions WHERE asset_id = %s",
                 (asset_id,),
@@ -218,12 +262,20 @@ class SharedAssetRepository:
                            versions.publisher_user_id AS version_publisher_user_id,
                            versions.version_number, versions.original_filename, versions.mime_type,
                            versions.stored_relative_path, versions.sha256, versions.byte_size,
-                           versions.created_at AS version_created_at
+                           versions.created_at AS version_created_at,
+                           gallery_items.category_id, categories.name AS category_name,
+                           gallery_items.prompt_note, gallery_items.sort_order
                     FROM server_shared_assets AS assets
                     LEFT JOIN server_shared_asset_versions AS versions
                       ON versions.asset_version_id = assets.current_version_id
+                    LEFT JOIN server_shared_gallery_items AS gallery_items
+                      ON gallery_items.asset_id = assets.asset_id
+                    LEFT JOIN server_shared_gallery_categories AS categories
+                      ON categories.category_id = gallery_items.category_id
                     {condition}
-                    ORDER BY assets.updated_at DESC, assets.asset_id DESC
+                    ORDER BY categories.sort_order NULLS LAST,
+                             gallery_items.sort_order NULLS LAST,
+                             assets.updated_at DESC, assets.asset_id DESC
                     LIMIT %s
                     """,
                     (limit,),
@@ -240,10 +292,16 @@ class SharedAssetRepository:
                            versions.publisher_user_id AS version_publisher_user_id,
                            versions.version_number, versions.original_filename, versions.mime_type,
                            versions.stored_relative_path, versions.sha256, versions.byte_size,
-                           versions.created_at AS version_created_at
+                           versions.created_at AS version_created_at,
+                           gallery_items.category_id, categories.name AS category_name,
+                           gallery_items.prompt_note, gallery_items.sort_order
                     FROM server_shared_assets AS assets
                     LEFT JOIN server_shared_asset_versions AS versions
                       ON versions.asset_version_id = assets.current_version_id
+                    LEFT JOIN server_shared_gallery_items AS gallery_items
+                      ON gallery_items.asset_id = assets.asset_id
+                    LEFT JOIN server_shared_gallery_categories AS categories
+                      ON categories.category_id = gallery_items.category_id
                     WHERE assets.asset_id = %s {condition}
                     """,
                     (asset_id,),
@@ -485,6 +543,10 @@ class SharedAssetRepository:
             created_at=row["created_at"].isoformat(),
             updated_at=row["updated_at"].isoformat(),
             current_version=version,
+            category_id=row.get("category_id"),
+            category_name=row.get("category_name"),
+            prompt_note=str(row.get("prompt_note") or ""),
+            sort_order=int(row.get("sort_order") or 0),
         )
 
 
@@ -493,3 +555,24 @@ def _validate_shared_kind(value: str) -> AssetKind:
     if normalized not in ASSET_KINDS:
         raise AssetValidationError("shared asset kind is invalid")
     return cast(AssetKind, normalized)
+
+
+def _clean_prompt_note(value: str) -> str:
+    normalized = value.replace("\x00", "").strip()
+    if len(normalized) > 1000:
+        raise AssetValidationError("shared gallery prompt note is invalid")
+    return normalized
+
+
+def _validate_shared_content(kind: AssetKind, mime_type: str, content: bytes) -> None:
+    _validate_content(kind, mime_type, content)
+    if kind not in SHARED_GALLERY_ASSET_KINDS:
+        return
+    signatures = {
+        "image/png": content.startswith(b"\x89PNG\r\n\x1a\n"),
+        "image/jpeg": content.startswith(b"\xff\xd8\xff"),
+        "image/gif": content.startswith((b"GIF87a", b"GIF89a")),
+        "image/webp": len(content) >= 12 and content.startswith(b"RIFF") and content[8:12] == b"WEBP",
+    }
+    if not signatures.get(mime_type, False):
+        raise AssetValidationError("shared gallery file content is not a valid image")

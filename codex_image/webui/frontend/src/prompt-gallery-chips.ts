@@ -1,6 +1,7 @@
 import { getLegacyBridge } from "./state";
 import { positionPromptPopoverAtAnchor } from "./prompt-popover-position";
 import { formatTranslation, translate } from "./i18n";
+import { resourceScopeBadgeHtml } from "./resource-scope";
 
 const bridge = getLegacyBridge();
 const state = bridge.state;
@@ -68,10 +69,10 @@ export function updateMentionSuggest(): void {
     return;
   }
   els.mentionSuggest.innerHTML = items.map((item: any) => `
-    <button type="button" class="mention-option" data-mention-id="${escapeHtml(item.id)}">
+    <button type="button" class="mention-option" data-mention-id="${escapeHtml(item.id)}" data-mention-version-id="${escapeHtml(item.asset_version_id || "")}">
       <img src="${escapeHtml(item.image_url)}" alt="">
       <span>@${escapeHtml(item.name)}</span>
-      <small>${escapeHtml(categoryLabel(item.category))}</small>
+      <small>${resourceScopeBadgeHtml(item.scope)} ${escapeHtml(categoryLabel(item.category))}</small>
     </button>
   `).join("");
   els.mentionSuggest.querySelectorAll("[data-mention-id]").forEach((button: any) => {
@@ -165,6 +166,8 @@ export function createGalleryChip(item: any): HTMLElement {
   chip.draggable = true;
   chip.dataset.promptChip = "gallery";
   chip.dataset.galleryId = item.id;
+  chip.dataset.galleryScope = item.scope || (String(item.id || "").startsWith("shared:") ? "shared" : "personal");
+  chip.dataset.galleryAssetVersionId = item.asset_version_id || "";
   chip.dataset.galleryName = item.name;
   chip.dataset.galleryCategory = item.category || "";
   chip.dataset.galleryCategoryName = item.category_name || categoryLabel(item.category);
@@ -249,6 +252,8 @@ export function syncGalleryInputsFromPrompt(): boolean {
     if (item) return gallerySource(item);
     return gallerySource({
       id: itemId,
+      scope: chip.dataset.galleryScope || "",
+      asset_version_id: chip.dataset.galleryAssetVersionId || "",
       name: chip.dataset.galleryName || chip.textContent.replace(/^@/, "").trim() || translate("gallery.imageFallback"),
       category: chip.dataset.galleryCategory || "",
       category_name: chip.dataset.galleryCategoryName || "",

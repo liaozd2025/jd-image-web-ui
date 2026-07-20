@@ -297,7 +297,7 @@ class WebUIStaticI18nTests(WebUIStaticTestCase):
             "apiSettings.copyProvider",
             "apiSettings.sortProviders",
             "apiSettings.editProvider",
-            "gallery.title",
+            "gallery.managementTitle",
         ):
             self.assertIn(f'data-i18n="{key}"', html)
         self.assertNotIn('data-i18n="settings.status"', html)

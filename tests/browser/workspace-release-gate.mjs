@@ -51,6 +51,20 @@ async function eventually(callback, message, timeoutMs = 20_000) {
   throw new Error(`${message}${lastError ? `: ${lastError.message}` : ""}`);
 }
 
+async function fillPromptEditorAtCaret(page, text) {
+  await page.locator("#promptEditor").evaluate((editor, value) => {
+    editor.focus();
+    editor.textContent = value;
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: value }));
+  }, text);
+}
+
 async function api(page, path, { method = "GET", json } = {}) {
   return await page.evaluate(async ({ path, method, json }) => {
     const token = document.cookie.split(";").map((part) => part.trim())
@@ -401,10 +415,17 @@ try {
   const privateAssetId = personalUpload.item.id;
   const privateAssetImageUrl = personalUpload.item.image_url;
   check((await api(pageA, "/api/gallery")).body.items.some((item) => item.id === privateAssetId && item.scope === "personal"), "personal gallery item was not returned");
-  await pageA.locator("#galleryManageButton").click();
+  await pageA.locator("#gallerySharedManageButton").click();
   await pageA.locator("#galleryDrawer.open").waitFor({ state: "visible" });
   check(await pageA.locator("#gallerySharedImageUploadButton").isHidden(), "normal user saw the shared gallery upload action");
   check(await pageA.locator("#galleryScopeSharedOption").evaluate((option) => option.disabled), "normal user could select the shared gallery save scope");
+  await pageA.locator("#gallerySearchInput").fill("Shared browser");
+  check((await pageA.locator("#galleryGrid").textContent()).includes("Shared browser image"), "shared gallery name search did not find the shared image");
+  await pageA.locator('[data-gallery-scope-tab="personal"]').click();
+  check(await pageA.locator("#gallerySearchInput").inputValue() === "", "shared search leaked into the personal gallery tab");
+  await pageA.locator("#gallerySearchInput").fill("User A");
+  await pageA.locator('[data-gallery-scope-tab="shared"]').click();
+  check(await pageA.locator("#gallerySearchInput").inputValue() === "Shared browser", "shared search state was lost after switching tabs");
   const sharedReadOnlyCard = pageA.locator(`[data-gallery-id="${sharedGalleryItem.id}"]`);
   check(await sharedReadOnlyCard.locator("[data-gallery-use]").count() === 1, "normal user could not use a shared gallery image");
   check(
@@ -413,8 +434,8 @@ try {
   );
   const forbiddenSharedUpload = await upload(
     pageA,
-    "/api/shared-assets",
-    { asset_kind: "image", name: "Forbidden shared upload" },
+    "/api/shared-gallery/items",
+    { name: "Forbidden shared upload", category_id: "product-images", prompt_note: "forbidden" },
     [{ field: "file", name: "forbidden-shared.png", mimeType: "image/png", bytes: imageBytes }],
   );
   check(forbiddenSharedUpload.status === 403, "normal user uploaded a shared gallery image through the API");
@@ -423,7 +444,7 @@ try {
   await pageA.locator(`[data-gallery-use="${sharedGalleryItem.id}"]`).click();
   check(await pageA.locator(`.gallery-chip[data-gallery-id="${sharedGalleryItem.id}"]`).count() === 1, "shared gallery item was not inserted into the original prompt flow");
   await pageA.locator("#clearImagesButton").click();
-  await pageA.locator("#galleryManageButton").click();
+  await pageA.locator("#galleryPersonalManageButton").click();
   await pageA.locator("#galleryDrawer.open").waitFor({ state: "visible" });
   await pageA.locator('[data-gallery-drawer-category="product"]').click();
   check((await pageA.locator("#galleryGrid").textContent()).includes("User A private image"), "personal gallery was not rendered in the original drawer");
@@ -572,7 +593,7 @@ try {
   pageB.on("response", (response) => collectServerError("user-b", response));
   await loginAndChangePassword(pageB, credentials.userB);
   await waitForWorkspace(pageB);
-  await pageB.locator("#galleryManageButton").click();
+  await pageB.locator("#gallerySharedManageButton").click();
   await pageB.locator("#galleryDrawer.open").waitFor({ state: "visible" });
   check(await pageB.locator("#gallerySharedImageUploadButton").isHidden(), "second normal user saw the shared gallery upload action");
   await pageB.locator("#galleryDrawerClose").click();
@@ -595,63 +616,267 @@ try {
   adminPage.on("response", (response) => collectServerError("admin", response));
   await loginExisting(adminPage, credentials.admin);
   check((await adminPage.locator("#serverAccountName").textContent()).includes(credentials.admin.username), "administrator username was not shown in the sidebar account entry");
-  await adminPage.locator("#galleryManageButton").click();
+  await adminPage.locator("#gallerySharedManageButton").click();
   await adminPage.locator("#galleryDrawer.open").waitFor({ state: "visible" });
   check(await adminPage.locator("#gallerySharedImageUploadButton").isVisible(), "administrator did not see the shared gallery upload action");
-  let failNextGalleryRefresh = true;
-  const failGalleryRefreshOnce = async (route) => {
-    if (route.request().method() === "GET" && failNextGalleryRefresh) {
-      failNextGalleryRefresh = false;
-      await route.abort("failed");
-      return;
-    }
-    await route.continue();
-  };
-  await adminPage.route("**/api/gallery", failGalleryRefreshOnce);
+  await adminPage.locator("#galleryCategoryManageToggle").click();
+  check(await adminPage.locator('[data-gallery-category-row="uncategorized"] [data-gallery-category-name]').isDisabled(), "system uncategorized category could be renamed");
+  check(await adminPage.locator("#newGalleryCategoryPromptRole").isHidden(), "personal prompt-role field leaked into shared category management");
+  await adminPage.locator("#newGalleryCategoryName").fill("浏览器分类");
+  const createSharedCategoryResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/shared-gallery/categories" && response.request().method() === "POST"
+  ));
+  await adminPage.locator("#addGalleryCategoryButton").click();
+  const createdSharedCategoryHttpResponse = await createSharedCategoryResponse;
+  const createdSharedCategory = await createdSharedCategoryHttpResponse.json();
+  check(createdSharedCategoryHttpResponse.status() === 201, `administrator shared category creation failed: ${JSON.stringify(createdSharedCategory)}`);
+  const createdSharedCategoryId = createdSharedCategory.category.id;
+  const createdSharedCategoryRow = adminPage.locator(`[data-gallery-category-row="${createdSharedCategoryId}"]`);
+  await createdSharedCategoryRow.waitFor({ state: "visible" });
+  await createdSharedCategoryRow.locator("[data-gallery-category-name]").fill("浏览器验收分类");
+  const renameSharedCategoryResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/shared-gallery/categories/${createdSharedCategoryId}`
+    && response.request().method() === "PATCH"
+  ));
+  await createdSharedCategoryRow.locator("[data-gallery-category-save]").click();
+  check((await renameSharedCategoryResponse).status() === 200, "administrator could not rename a shared category");
+  const reorderSharedCategoryResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/shared-gallery/categories/reorder"
+    && response.request().method() === "PATCH"
+  ));
+  const sharedCategoryTarget = adminPage.locator('[data-gallery-category-row="uncategorized"]');
+  const sharedCategoryTargetElement = await sharedCategoryTarget.elementHandle();
+  await createdSharedCategoryRow.locator("[data-gallery-category-drag-handle]").evaluate((source, target) => {
+    const dataTransfer = new DataTransfer();
+    const rect = target.getBoundingClientRect();
+    source.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer }));
+    target.dispatchEvent(new DragEvent("dragover", {
+      bubbles: true,
+      dataTransfer,
+      clientX: rect.left + 1,
+      clientY: rect.top + 1,
+    }));
+    target.dispatchEvent(new DragEvent("drop", {
+      bubbles: true,
+      dataTransfer,
+      clientX: rect.left + 1,
+      clientY: rect.top + 1,
+    }));
+    source.dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer }));
+  }, sharedCategoryTargetElement);
+  check((await reorderSharedCategoryResponse).status() === 200, "administrator could not reorder shared categories");
+  const deleteSharedCategoryResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/shared-gallery/categories/${createdSharedCategoryId}`
+    && response.request().method() === "DELETE"
+  ));
+  await createdSharedCategoryRow.locator("[data-gallery-category-delete]").click();
+  await adminPage.locator(".confirm-popover:not(.hidden)").waitFor({ state: "visible" });
+  await adminPage.locator(".confirm-popover:not(.hidden) [data-confirm-popover-confirm]").click();
+  check((await deleteSharedCategoryResponse).status() === 200, "administrator could not delete an ordinary shared category");
+  await createdSharedCategoryRow.waitFor({ state: "detached" });
+  await adminPage.locator('[data-gallery-drawer-category="product-images"]').click();
   const adminDrawerUploadResponse = adminPage.waitForResponse((response) => (
-    new URL(response.url()).pathname === "/api/shared-assets" && response.request().method() === "POST"
+    new URL(response.url()).pathname === "/api/shared-gallery/items" && response.request().method() === "POST"
   ));
   await adminPage.locator("#gallerySharedImageInput").setInputFiles({ name: "drawer-admin-image.png", mimeType: "image/png", buffer: imageBytes });
+  await adminPage.locator("#sharedGalleryUploadModal").waitFor({ state: "visible" });
+  await adminPage.locator('[data-shared-upload-name="0"]').fill("Drawer admin image");
+  await adminPage.locator("#sharedGalleryUploadCategory").selectOption("product-images");
+  await adminPage.locator("#sharedGalleryUploadSave").click();
   const adminDrawerUploadHttpResponse = await adminDrawerUploadResponse;
   const adminDrawerUpload = await adminDrawerUploadHttpResponse.json();
   check(adminDrawerUploadHttpResponse.status() === 201, `administrator shared upload failed: ${JSON.stringify(adminDrawerUpload)}`);
-  const adminDrawerUploadId = `shared:${adminDrawerUpload.asset.asset_id}`;
-  const adminSharedCard = adminPage.locator(`[data-gallery-id="${adminDrawerUploadId}"]`);
+  const adminDrawerUploadId = `shared:${adminDrawerUpload.item.asset_id}`;
+  const adminGalleryAfterUpload = await api(adminPage, "/api/gallery");
+  check(
+    adminGalleryAfterUpload.body.items.some((item) => item.id === adminDrawerUploadId && item.category === "product-images"),
+    `administrator shared upload was not returned by the gallery API: ${JSON.stringify(adminGalleryAfterUpload.body.items)}`,
+  );
+  const activeSharedCategory = await adminPage.locator('[data-gallery-drawer-category].active').getAttribute("data-gallery-drawer-category");
+  check(activeSharedCategory === "product-images", `shared gallery changed to the wrong category after upload: ${activeSharedCategory}`);
+  const adminSharedCard = adminPage.locator(`#galleryGrid .gallery-grid-layer:not(.mode-collapsed) .gallery-card[data-gallery-id="${adminDrawerUploadId}"]`);
   await adminSharedCard.waitFor({ state: "visible" });
-  check(!failNextGalleryRefresh, "shared upload did not exercise the response fallback after refresh failure");
   check(await adminSharedCard.locator("[data-gallery-replace]").count() === 1, "administrator did not see shared image version management");
   check(await adminSharedCard.locator("[data-gallery-delete]").count() === 1, "administrator did not see shared image deactivation");
-  failNextGalleryRefresh = true;
+  const adminBatchUploadResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/shared-gallery/items/batch" && response.request().method() === "POST"
+  ));
+  await adminPage.locator("#galleryBatchUploadInput").setInputFiles([
+    { name: "batch-conflict.png", mimeType: "image/png", buffer: imageBytes },
+    { name: "batch-created.png", mimeType: "image/png", buffer: imageBytes },
+  ]);
+  await adminPage.locator("#sharedGalleryUploadModal").waitFor({ state: "visible" });
+  await adminPage.locator('[data-shared-upload-name="0"]').fill("Drawer admin image");
+  await adminPage.locator('[data-shared-upload-name="1"]').fill("Browser batch image");
+  await adminPage.locator("#sharedGalleryUploadCategory").selectOption("product-images");
+  await adminPage.locator("#sharedGalleryUploadSave").click();
+  const adminBatchUploadHttpResponse = await adminBatchUploadResponse;
+  check(adminBatchUploadHttpResponse.status() === 207, "administrator batch upload did not return per-file results");
+  await adminPage.locator('[data-shared-upload-result="0"].is-error').waitFor({ state: "visible" });
+  await adminPage.locator('[data-shared-upload-result="1"].is-success').waitFor({ state: "visible" });
+  check(await adminPage.locator('[data-shared-upload-result="0"].is-error').isVisible(), "batch name conflict was not shown beside its file");
+  check(await adminPage.locator('[data-shared-upload-result="1"].is-success').isVisible(), "batch success was not shown beside its file");
+  check(await adminPage.locator("#sharedGalleryUploadSave").isDisabled(), "completed partial batch could be submitted twice");
+  await adminPage.locator("#sharedGalleryUploadClose").click();
+  await eventually(
+    async () => (await adminPage.locator("#galleryGrid").textContent()).includes("Browser batch image"),
+    "successful batch image was not rendered in the shared gallery",
+  );
+  const adminBatchCard = adminPage.locator("#galleryGrid .gallery-grid-layer:not(.mode-collapsed) .gallery-card", { hasText: "Browser batch image" });
+  await adminBatchCard.waitFor({ state: "visible" });
+  const reorderCards = adminPage.locator("#galleryGrid .gallery-grid-layer:not(.mode-collapsed) .gallery-card[data-gallery-id]");
+  check(await reorderCards.count() > 1, "shared image reorder fixture did not contain multiple cards");
+  const reorderSourceHandle = reorderCards.first().locator("[data-gallery-order-handle]");
+  const reorderTargetCard = reorderCards.last();
+  const reorderTargetElement = await reorderTargetCard.elementHandle();
+  const reorderSharedItemsResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/shared-gallery/items/reorder"
+    && response.request().method() === "PATCH"
+  ));
+  await reorderSourceHandle.evaluate((source, target) => {
+    const dataTransfer = new DataTransfer();
+    const rect = target.getBoundingClientRect();
+    source.dispatchEvent(new DragEvent("dragstart", { bubbles: true, dataTransfer }));
+    target.dispatchEvent(new DragEvent("dragover", {
+      bubbles: true,
+      dataTransfer,
+      clientX: rect.right - 1,
+      clientY: rect.bottom - 1,
+    }));
+    target.dispatchEvent(new DragEvent("drop", {
+      bubbles: true,
+      dataTransfer,
+      clientX: rect.right - 1,
+      clientY: rect.bottom - 1,
+    }));
+    source.dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer }));
+  }, reorderTargetElement);
+  check((await reorderSharedItemsResponse).status() === 200, "administrator could not reorder shared images");
+  const moveSharedItemResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/shared-gallery/items/${adminDrawerUpload.item.asset_id}`
+    && response.request().method() === "PATCH"
+  ));
+  await adminSharedCard.locator("[data-gallery-move]").click();
+  await adminPage.locator(".gallery-edit-popover:not(.hidden) [data-gallery-edit-category]").selectOption("brand-assets");
+  await adminPage.locator(".gallery-edit-popover:not(.hidden) [data-gallery-edit-save]").click();
+  check((await moveSharedItemResponse).status() === 200, "administrator could not move a shared image to another category");
+  await adminPage.locator(".gallery-edit-popover").waitFor({ state: "hidden" });
+  await adminPage.locator('[data-gallery-drawer-category="brand-assets"]').click();
+  await adminSharedCard.waitFor({ state: "visible" });
+  const noteSharedItemResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/shared-gallery/items/${adminDrawerUpload.item.asset_id}`
+    && response.request().method() === "PATCH"
+  ));
+  await adminSharedCard.locator("[data-gallery-note]").click();
+  await adminPage.locator(".gallery-edit-popover:not(.hidden) [data-gallery-edit-prompt-note]").fill("Browser managed shared note");
+  await adminPage.locator(".gallery-edit-popover:not(.hidden) [data-gallery-edit-save]").click();
+  check((await noteSharedItemResponse).status() === 200, "administrator could not edit a shared image note");
+  await adminPage.locator(".gallery-edit-popover").waitFor({ state: "hidden" });
+  const renameSharedItemResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/shared-gallery/items/${adminDrawerUpload.item.asset_id}`
+    && response.request().method() === "PATCH"
+  ));
+  await adminSharedCard.locator("[data-gallery-rename]").click();
+  await adminPage.locator(".gallery-edit-popover:not(.hidden) [data-gallery-edit-name]").fill("User A private image");
+  await adminPage.locator(".gallery-edit-popover:not(.hidden) [data-gallery-edit-save]").click();
+  check((await renameSharedItemResponse).status() === 200, "administrator could not rename a shared image");
+  await adminPage.locator(".gallery-edit-popover").waitFor({ state: "hidden" });
+  await adminSharedCard.waitFor({ state: "visible" });
   const replacementResponse = adminPage.waitForResponse((response) => (
-    new URL(response.url()).pathname === `/api/shared-assets/${adminDrawerUpload.asset.asset_id}/versions`
+    new URL(response.url()).pathname === `/api/shared-assets/${adminDrawerUpload.item.asset_id}/versions`
     && response.request().method() === "POST"
   ));
   const replacementChooser = adminPage.waitForEvent("filechooser");
   await adminSharedCard.locator("[data-gallery-replace]").click();
   await (await replacementChooser).setFiles({ name: "drawer-admin-image-v2.png", mimeType: "image/png", buffer: imageBytes });
-  check((await replacementResponse).status() === 201, "administrator could not create a shared image version");
-  await eventually(async () => !failNextGalleryRefresh, "shared version replacement did not attempt to refresh the gallery");
+  const replacementHttpResponse = await replacementResponse;
+  const replacementPayload = await replacementHttpResponse.json();
+  check(replacementHttpResponse.status() === 201, "administrator could not create a shared image version");
+  const replacementVersionId = replacementPayload.asset.current_version_id;
   await adminSharedCard.waitFor({ state: "visible" });
-  await adminPage.unroute("**/api/gallery", failGalleryRefreshOnce);
-  await adminPage.locator(`[data-gallery-use="${adminDrawerUploadId}"]`).click();
+  const deactivateDrawerSharedResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname.startsWith("/api/gallery/shared")
+    && response.request().method() === "DELETE"
+  ));
+  await adminSharedCard.locator("[data-gallery-delete]").click();
+  await adminPage.locator(".confirm-popover:not(.hidden)").waitFor({ state: "visible" });
+  await adminPage.locator(".confirm-popover:not(.hidden) [data-confirm-popover-confirm]").click();
+  check((await deactivateDrawerSharedResponse).status() === 200, "administrator could not deactivate a shared image from the gallery drawer");
+  const inactiveSharedItemsResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/shared-gallery/items"
+    && new URL(response.url()).searchParams.get("status") === "inactive"
+    && response.request().method() === "GET"
+  ));
+  await adminPage.locator("#galleryInactiveToggle").check();
+  check((await inactiveSharedItemsResponse).status() === 200, "administrator could not view inactive shared images");
+  await adminSharedCard.locator("[data-gallery-restore]").waitFor({ state: "visible" });
+  const restoreDrawerSharedResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/shared-assets/${adminDrawerUpload.item.asset_id}/status`
+    && response.request().method() === "PATCH"
+  ));
+  await adminSharedCard.locator("[data-gallery-restore]").click();
+  check((await restoreDrawerSharedResponse).status() === 200, "administrator could not restore a shared image from the gallery drawer");
+  await adminPage.locator("#galleryInactiveToggle").uncheck();
+  await adminPage.locator('[data-gallery-drawer-category="brand-assets"]').click();
+  await adminSharedCard.waitFor({ state: "visible" });
+  await adminSharedCard.locator("[data-gallery-use]").click();
   check(await adminPage.locator(`.gallery-chip[data-gallery-id="${adminDrawerUploadId}"]`).count() === 1, "administrator could not use the shared image after replacing it");
   await adminPage.locator("#clearImagesButton").click();
+
+  await pageA.reload({ waitUntil: "domcontentloaded" });
+  await waitForWorkspace(pageA);
+  await eventually(async () => {
+    const items = (await api(pageA, "/api/gallery")).body.items || [];
+    return items.some((item) => item.id === privateAssetId && item.name === "User A private image" && item.asset_version_id === personalUpload.item.asset_version_id)
+      && items.some((item) => item.id === adminDrawerUploadId && item.name === "User A private image" && item.asset_version_id === replacementVersionId);
+  }, "same-name personal and shared gallery versions were not available after reload");
+  await pageA.locator("#galleryPersonalManageButton").click();
+  await pageA.locator("#galleryDrawer.open").waitFor({ state: "visible" });
+  await pageA.locator('[data-gallery-drawer-category="product"]').click();
+  await pageA.locator(`#galleryGrid .gallery-grid-layer:not(.mode-collapsed) .gallery-card[data-gallery-id="${privateAssetId}"]`).waitFor({ state: "visible" });
+  await pageA.locator('[data-gallery-scope-tab="shared"]').click();
+  await pageA.locator('[data-gallery-drawer-category="brand-assets"]').click();
+  await pageA.locator(`#galleryGrid .gallery-grid-layer:not(.mode-collapsed) .gallery-card[data-gallery-id="${adminDrawerUploadId}"]`).waitFor({ state: "visible" });
+  await pageA.locator("#galleryDrawerClose").click();
+  await fillPromptEditorAtCaret(pageA, "@User");
+  const personalSameNameSuggestion = pageA.locator(`.mention-option[data-mention-id="${privateAssetId}"]`);
+  const sharedSameNameSuggestion = pageA.locator(`.mention-option[data-mention-id="${adminDrawerUploadId}"]`);
+  await personalSameNameSuggestion.waitFor({ state: "visible" });
+  await sharedSameNameSuggestion.waitFor({ state: "visible" });
+  check((await personalSameNameSuggestion.locator(".resource-scope-badge").textContent()).trim() === "个人", "same-name personal @ suggestion lost its scope");
+  check((await sharedSameNameSuggestion.locator(".resource-scope-badge").textContent()).trim() === "共享", "same-name shared @ suggestion lost its scope");
+  check(await personalSameNameSuggestion.getAttribute("data-mention-version-id") === personalUpload.item.asset_version_id, "personal @ suggestion referenced the wrong version");
+  check(await sharedSameNameSuggestion.getAttribute("data-mention-version-id") === replacementVersionId, "shared @ suggestion referenced the wrong version");
+  await personalSameNameSuggestion.click();
+  const personalSameNameChip = pageA.locator(`.gallery-chip[data-gallery-id="${privateAssetId}"]`);
+  check(await personalSameNameChip.getAttribute("data-gallery-scope") === "personal", "personal same-name selection resolved to the wrong gallery");
+  check(await personalSameNameChip.getAttribute("data-gallery-asset-version-id") === personalUpload.item.asset_version_id, "personal same-name selection resolved to the wrong version");
+  await personalSameNameChip.locator("[data-remove-gallery-chip]").click();
+  await fillPromptEditorAtCaret(pageA, "@User");
+  await sharedSameNameSuggestion.waitFor({ state: "visible" });
+  await sharedSameNameSuggestion.click();
+  const sharedSameNameChip = pageA.locator(`.gallery-chip[data-gallery-id="${adminDrawerUploadId}"]`);
+  check(await sharedSameNameChip.getAttribute("data-gallery-scope") === "shared", "shared same-name selection resolved to the wrong gallery");
+  check(await sharedSameNameChip.getAttribute("data-gallery-asset-version-id") === replacementVersionId, "shared same-name selection resolved to the wrong version");
+  await sharedSameNameChip.locator("[data-remove-gallery-chip]").click();
+  await pageA.locator("#promptEditor").fill("");
 
   await adminPage.locator("#imageInput").setInputFiles({ name: "shared-contribution.png", mimeType: "image/png", buffer: imageBytes });
   await adminPage.locator(".add-upload-to-gallery").click();
   check(!await adminPage.locator("#galleryScopeSharedOption").evaluate((option) => option.disabled), "administrator could not select the shared gallery save scope");
   await adminPage.locator("#galleryNameInput").fill("Shared gallery contribution");
   await adminPage.locator("#galleryScopeInput").selectOption("shared");
-  check(await adminPage.locator("#galleryCategoryField").evaluate((field) => field.classList.contains("hidden")), "personal gallery category remained visible for an administrator shared image");
-  check(await adminPage.locator("#galleryPromptNoteField").evaluate((field) => field.classList.contains("hidden")), "personal gallery note remained visible for an administrator shared image");
+  check(!await adminPage.locator("#galleryCategoryField").evaluate((field) => field.classList.contains("hidden")), "shared gallery category was hidden from an administrator");
+  check(!await adminPage.locator("#galleryPromptNoteField").evaluate((field) => field.classList.contains("hidden")), "shared gallery note was hidden from an administrator");
+  await adminPage.locator("#galleryCategoryInput").selectOption("brand-assets");
   const sharedContributionResponse = adminPage.waitForResponse((response) => (
-    new URL(response.url()).pathname === "/api/shared-assets" && response.request().method() === "POST"
+    new URL(response.url()).pathname === "/api/shared-gallery/items" && response.request().method() === "POST"
   ));
   await adminPage.locator("#saveToGalleryButton").click();
   const sharedContributionHttpResponse = await sharedContributionResponse;
   const sharedContribution = await sharedContributionHttpResponse.json();
   check(sharedContributionHttpResponse.status() === 201, `administrator shared contribution failed: ${JSON.stringify(sharedContribution)}`);
-  const sharedContributionId = `shared:${sharedContribution.asset.asset_id}`;
+  const sharedContributionId = `shared:${sharedContribution.item.asset_id}`;
   await eventually(
     async () => (
       await adminPage.locator('.gallery-thumb[title="Shared gallery contribution"]').count() === 1
@@ -728,7 +953,7 @@ try {
   await eventually(async () => (await adminPage.locator("#settingsCatalogList").textContent()).includes("Browser Fake Provider"), "provider catalog settings did not load");
   await adminPage.locator('[data-system-settings-tab="department"]').click();
   await eventually(async () => (await adminPage.locator("#settingsDepartmentProviderList").textContent()).includes("Browser Fake Provider"), "department provider settings did not load");
-  check((await adminPage.locator("#settingsUserQuotaList").textContent()).includes(credentials.userA.username), "per-user department quotas did not load");
+  await eventually(async () => (await adminPage.locator("#settingsUserQuotaList").textContent()).includes(credentials.userA.username), "per-user department quotas did not load");
   await adminPage.locator('[data-system-settings-tab="shared"]').click();
   await eventually(async () => (await adminPage.locator("#settingsSharedAssetList").textContent()).includes("Shared browser image"), "shared asset settings did not load");
   const sharedSettingsRow = adminPage.locator("#settingsSharedAssetList .settings-list-row", { hasText: "Shared gallery contribution" });
@@ -744,7 +969,7 @@ try {
   const sharedContributionSettingsRow = adminPage.locator("#settingsSharedAssetList .settings-list-row", { hasText: "Shared gallery contribution" });
   await sharedContributionSettingsRow.waitFor({ state: "visible" });
   const deactivateSharedResponse = adminPage.waitForResponse((response) => (
-    new URL(response.url()).pathname === `/api/shared-assets/${sharedContribution.asset.asset_id}/status`
+    new URL(response.url()).pathname === `/api/shared-assets/${sharedContribution.item.asset_id}/status`
     && response.request().method() === "PATCH"
   ));
   adminPage.once("dialog", async (dialog) => dialog.accept());
@@ -755,7 +980,7 @@ try {
     "deactivated shared image did not expose restore",
   );
   const restoreSharedResponse = adminPage.waitForResponse((response) => (
-    new URL(response.url()).pathname === `/api/shared-assets/${sharedContribution.asset.asset_id}/status`
+    new URL(response.url()).pathname === `/api/shared-assets/${sharedContribution.item.asset_id}/status`
     && response.request().method() === "PATCH"
   ));
   adminPage.once("dialog", async (dialog) => dialog.accept());

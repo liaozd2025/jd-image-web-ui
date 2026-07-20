@@ -13,6 +13,7 @@ from .identity import AuthenticatedSession
 from .shared_assets import (
     SHARED_GALLERY_ASSET_KINDS,
     SharedAsset,
+    SharedAssetConflict,
     SharedAssetForbidden,
     SharedAssetRepository,
     SharedAssetVersion,
@@ -97,6 +98,8 @@ def install_shared_asset_routes(app: FastAPI, *, shared_assets: SharedAssetRepos
             )
         except SharedAssetForbidden as error:
             return JSONResponse(status_code=403, content={"detail": str(error)})
+        except SharedAssetConflict as error:
+            return JSONResponse(status_code=409, content={"detail": str(error)})
         except AssetQuotaExceeded as error:
             return JSONResponse(status_code=413, content={"detail": str(error)})
         except AssetValidationError as error:
@@ -170,7 +173,7 @@ def install_shared_asset_routes(app: FastAPI, *, shared_assets: SharedAssetRepos
     @app.get("/api/shared-assets/{asset_id}/versions/{asset_version_id}/download")
     def download_shared_version(request: Request, asset_id: str, asset_version_id: str):
         try:
-            version = shared_assets.get_version(asset_version_id)
+            version = shared_assets.get_version(asset_version_id, include_inactive=True)
             if version.asset_id != asset_id:
                 raise AssetNotFound("shared asset version was not found")
             path = shared_assets.asset_path(version)
@@ -217,6 +220,10 @@ def _shared_asset_payload(
         "download_url": f"/api/shared-assets/{asset.asset_id}/download" if asset.is_active and asset.current_version_id else None,
         "created_at": asset.created_at,
         "updated_at": asset.updated_at,
+        "category_id": asset.category_id,
+        "category_name": asset.category_name,
+        "prompt_note": asset.prompt_note,
+        "sort_order": asset.sort_order,
     }
     if include_versions:
         payload["versions"] = [
