@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PROTOTYPE · 个人与团队图库管理</title>
+  <!-- Three variants of the existing image workspace gallery entry, switchable via ?variant=A|B|C. -->
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f5f8;
+      --surface: #ffffff;
+      --surface-soft: #f7f8fa;
+      --surface-blue: #f1f6ff;
+      --text: #20242c;
+      --text-2: #5f6875;
+      --muted: #89919d;
+      --line: #dfe3e8;
+      --line-strong: #c9d0d8;
+      --primary: #1f6feb;
+      --primary-dark: #175bc3;
+      --danger: #c2383e;
+      --shadow: 0 18px 46px rgba(26, 34, 48, .18);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 14px;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible { outline: 3px solid rgba(31, 111, 235, .22); outline-offset: 2px; }
+    .hidden { display: none !important; }
+
+    .prototype-ribbon {
+      position: fixed;
+      top: 14px;
+      left: 16px;
+      z-index: 50;
+      padding: 7px 10px;
+      border: 1px solid #f2c560;
+      border-radius: 8px;
+      background: #fff9e8;
+      color: #745616;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .08em;
+    }
+
+    .topbar {
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px 0 226px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,.96);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 760; }
+    .brand-mark {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      background: #171a1f;
+      color: #fff;
+      font-size: 15px;
+    }
+    .account { display: flex; align-items: center; gap: 10px; color: var(--text-2); font-size: 12px; }
+    .avatar { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: #e8eef8; color: #33537e; font-weight: 700; }
+
+    .app { max-width: 1440px; margin: 0 auto; padding: 26px 28px 110px; }
+    .page-head { display: flex; justify-content: space-between; align-items: end; margin-bottom: 16px; }
+    .page-head h1 { margin: 0; font-size: 22px; letter-spacing: -.02em; }
+    .page-head p { margin: 5px 0 0; color: var(--text-2); font-size: 12px; }
+    .page-nav { display: flex; gap: 8px; }
+    .page-nav button { border: 0; background: transparent; color: var(--text-2); padding: 8px 10px; border-radius: 8px; }
+    .page-nav button.active { background: #e9edf3; color: var(--text); font-weight: 700; }
+
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+    .panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+    .panel-heading { display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 16px; border-bottom: 1px solid var(--line); }
+    .panel-heading h2 { margin: 0; font-size: 14px; }
+    .count { color: var(--muted); font-size: 11px; }
+
+    .image-input-layout { display: grid; grid-template-columns: minmax(0, 1fr) 282px; min-height: 374px; }
+    .upload-zone { min-width: 0; padding: 14px; border-right: 1px solid var(--line); }
+    .upload-board { height: 264px; display: grid; grid-template-columns: 1fr 132px; gap: 12px; }
+    .dropzone { display: grid; place-items: center; border: 1px dashed #c5ccd5; border-radius: 12px; background: #fafbfc; color: var(--text-2); text-align: center; }
+    .dropzone strong { display: block; color: var(--text); font-size: 13px; }
+    .dropzone span { display: block; margin-top: 5px; font-size: 11px; }
+    .plus { width: 34px; height: 34px; margin: 0 auto 9px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 10px; background: white; color: var(--text); font-size: 22px; }
+    .recent { display: grid; grid-template-rows: auto 1fr; gap: 8px; }
+    .recent-title { color: var(--muted); font-size: 11px; font-weight: 700; }
+    .recent-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; align-content: start; }
+    .image-actions { display: flex; align-items: center; gap: 8px; padding-top: 12px; }
+
+    .gallery-column { min-width: 0; padding: 14px; }
+    .quick-title { margin-bottom: 10px; color: var(--muted); font-size: 11px; font-weight: 700; }
+    .quick-layout { display: grid; grid-template-columns: 88px 1fr; gap: 10px; }
+    .quick-preview { min-height: 164px; border-radius: 11px; overflow: hidden; }
+    .quick-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; align-content: start; }
+    .categories { display: flex; gap: 5px; margin-top: 9px; }
+    .categories button { flex: 1; padding: 6px 5px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--text-2); font-size: 11px; }
+    .categories button.active { border-color: #8fb8f7; background: var(--surface-blue); color: var(--primary-dark); font-weight: 700; }
+
+    .thumb {
+      position: relative;
+      min-height: 55px;
+      overflow: hidden;
+      border: 1px solid rgba(36,47,62,.08);
+      border-radius: 9px;
+      background: #dbe3ee;
+    }
+    .thumb::before, .thumb::after { content: ""; position: absolute; }
+    .thumb[data-kind="portrait"] { background: #d9c9ba; }
+    .thumb[data-kind="portrait"]::before { width: 46%; aspect-ratio: 1; left: 27%; top: 14%; border-radius: 50%; background: #f0c4a8; box-shadow: 0 36px 0 18px #293447; }
+    .thumb[data-kind="portrait"]::after { width: 48%; height: 18%; left: 26%; top: 5%; border-radius: 90% 90% 35% 35%; background: #4e3328; }
+    .thumb[data-kind="product"] { background: #d6e1d7; }
+    .thumb[data-kind="product"]::before { width: 36%; height: 60%; left: 32%; top: 24%; border-radius: 7px 7px 13px 13px; background: #f7f2df; box-shadow: inset 0 0 0 2px rgba(43,77,58,.15); }
+    .thumb[data-kind="product"]::after { width: 20%; height: 15%; left: 40%; top: 12%; border-radius: 4px 4px 0 0; background: #496c55; }
+    .thumb[data-kind="pack"] { background: #d8dfeb; }
+    .thumb[data-kind="pack"]::before { width: 58%; height: 55%; left: 21%; top: 27%; border-radius: 5px; background: #f3f5f8; box-shadow: 6px -5px 0 #9a342f; }
+    .thumb[data-kind="pack"]::after { width: 36%; height: 4px; left: 32%; top: 48%; background: #445e80; box-shadow: 0 9px 0 #adb8c6; }
+    .thumb[data-kind="scene"] { background: #bfd5e4; }
+    .thumb[data-kind="scene"]::before { inset: auto -10% -42% -10%; height: 78%; border-radius: 50% 50% 0 0; background: #617c58; }
+    .thumb[data-kind="scene"]::after { width: 24px; height: 42px; left: 55%; bottom: 17%; border-radius: 50% 50% 4px 4px; background: #d9ccb5; }
+    .thumb span { position: absolute; left: 6px; bottom: 5px; z-index: 2; max-width: calc(100% - 12px); overflow: hidden; color: white; font-size: 9px; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,.7); white-space: nowrap; }
+    .thumb.small { min-height: 58px; }
+    .thumb.micro { min-height: 38px; }
+
+    .ghost, .primary, .soft-button, .danger-button { min-height: 32px; padding: 0 12px; border-radius: 8px; font-size: 12px; font-weight: 650; }
+    .ghost { border: 1px solid var(--line); background: white; color: var(--text-2); }
+    .ghost:hover { border-color: var(--line-strong); background: var(--surface-soft); color: var(--text); }
+    .primary { border: 1px solid var(--primary); background: var(--primary); color: white; }
+    .primary:hover { background: var(--primary-dark); }
+    .soft-button { border: 1px solid #bbd2f6; background: var(--surface-blue); color: var(--primary-dark); }
+    .danger-button { border: 1px solid #f0c7c9; background: #fff5f5; color: var(--danger); }
+
+    .prompt-panel { margin-top: 16px; }
+    .prompt-body { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 14px; }
+    .prompt-box { min-height: 108px; padding: 13px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); }
+    .run { align-self: end; height: 38px; padding: 0 20px; border: 0; border-radius: 9px; background: #1d222b; color: #fff; font-weight: 700; }
+
+    .settings .setting-list { padding: 8px 14px 14px; }
+    .setting { display: grid; gap: 6px; padding: 12px 0; border-bottom: 1px solid #edf0f3; }
+    .setting:last-child { border-bottom: 0; }
+    .setting label { font-size: 11px; color: var(--text-2); font-weight: 650; }
+    .fake-control { min-height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--text); font-size: 12px; }
+    .usage { padding: 14px; border-top: 1px solid var(--line); background: var(--surface-soft); }
+    .usage-row { display: flex; justify-content: space-between; margin-bottom: 8px; color: var(--text-2); font-size: 11px; }
+    .usage-bar { height: 6px; border-radius: 99px; background: #dfe4ea; overflow: hidden; }
+    .usage-bar span { display: block; width: 42%; height: 100%; background: #718095; }
+
+    /* Variant A: compact, explicit dual entry. */
+    .variant-a .manage-zone { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .variant-a .manage-label { display: flex; justify-content: space-between; margin-bottom: 8px; color: var(--muted); font-size: 10px; font-weight: 700; }
+    .variant-a .manage-entry-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .variant-a .library-entry { min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--line); border-radius: 9px; background: white; color: var(--text); font-size: 12px; font-weight: 700; }
+    .variant-a .library-entry:hover { border-color: #8fb8f7; background: var(--surface-blue); color: var(--primary-dark); }
+    .variant-a .dot { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 6px; background: #edf0f4; color: var(--text-2); font-size: 10px; }
+    .variant-a .team .dot { background: #e9f2ff; color: var(--primary); }
+
+    /* Variant B: summary-led, with both libraries exposed as content. */
+    .variant-b .image-input-layout { grid-template-columns: minmax(0, 1fr) 330px; }
+    .variant-b .gallery-column { background: #fbfcfd; }
+    .variant-b .quick-compact { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+    .variant-b .library-summaries { display: grid; gap: 9px; margin-top: 12px; }
+    .variant-b .library-summary { width: 100%; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 11px; border: 1px solid var(--line); border-radius: 11px; background: white; color: inherit; text-align: left; }
+    .variant-b .library-summary:hover { border-color: #9abcf0; }
+    .variant-b .summary-icon { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 10px; background: #f0f2f5; color: #596575; font-size: 17px; }
+    .variant-b .summary-icon.team { background: #edf5ff; color: var(--primary); }
+    .variant-b .summary-copy { min-width: 0; }
+    .variant-b .summary-copy strong { display: block; font-size: 12px; }
+    .variant-b .summary-copy span { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .variant-b .arrow { color: var(--muted); font-size: 18px; }
+
+    /* Variant C: libraries become two working strips below the upload area. */
+    .variant-c .image-input-layout { display: block; }
+    .variant-c .upload-zone { border-right: 0; }
+    .variant-c .upload-board { grid-template-columns: 1fr 210px; height: 190px; }
+    .variant-c .gallery-column { border-top: 1px solid var(--line); background: #fafbfc; }
+    .variant-c .library-strips { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .variant-c .library-strip { display: grid; grid-template-columns: 134px 1fr; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 11px; background: white; }
+    .variant-c .strip-head { display: grid; align-content: space-between; gap: 8px; }
+    .variant-c .strip-head strong { display: block; font-size: 12px; }
+    .variant-c .strip-head span { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .variant-c .strip-head button { width: 100%; }
+    .variant-c .strip-thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+
+    .backdrop { position: fixed; inset: 0; z-index: 80; background: rgba(23,28,36,.36); }
+    .library-dialog { position: fixed; z-index: 90; background: white; box-shadow: var(--shadow); }
+    .dialog-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .dialog-title h2 { margin: 0; font-size: 18px; }
+    .dialog-title p { margin: 4px 0 0; color: var(--text-2); font-size: 11px; }
+    .close { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 9px; background: white; color: var(--text-2); font-size: 20px; }
+
+    .scope-tabs { display: flex; }
+    .scope-tab { position: relative; border: 0; background: transparent; color: var(--text-2); }
+    .scope-tab.active { color: var(--text); font-weight: 800; }
+    .scope-count { margin-left: 5px; padding: 2px 6px; border-radius: 99px; background: #eef1f5; color: var(--text-2); font-size: 10px; }
+    .scope-tab.active .scope-count { background: #e8f1ff; color: var(--primary-dark); }
+    .dialog-toolbar { display: flex; justify-content: space-between; gap: 14px; align-items: center; }
+    .category-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+    .category-tabs button { min-height: 30px; padding: 0 11px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--text-2); font-size: 11px; }
+    .category-tabs button.active { border-color: #9bbdf1; background: var(--surface-blue); color: var(--primary-dark); font-weight: 700; }
+    .toolbar-actions { display: flex; gap: 7px; }
+    .library-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+    .asset-card { overflow: hidden; border: 1px solid var(--line); border-radius: 11px; background: white; }
+    .asset-card .thumb { min-height: 112px; border: 0; border-radius: 0; }
+    .asset-copy { padding: 9px; }
+    .asset-name { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; font-weight: 750; }
+    .owner { max-width: 70px; overflow: hidden; color: var(--muted); font-size: 9px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+    .asset-meta { margin-top: 4px; color: var(--muted); font-size: 9px; }
+    .asset-actions { display: flex; gap: 5px; margin-top: 9px; }
+    .asset-actions button { flex: 1; min-height: 27px; padding: 0 6px; border-radius: 7px; font-size: 10px; }
+    .scope-note { display: flex; align-items: center; gap: 7px; color: var(--text-2); font-size: 10px; }
+    .scope-note::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #7d8a9c; }
+    .scope-note.team::before { background: var(--primary); }
+
+    /* Dialog A: existing right-side sheet, with a strong segmented scope control. */
+    .dialog-a { top: 0; right: 0; width: min(920px, 82vw); height: 100vh; display: grid; grid-template-rows: auto auto auto 1fr; }
+    .dialog-a .dialog-header { padding: 20px 22px 14px; }
+    .dialog-a .scope-tabs { margin: 0 22px; padding: 4px; border-radius: 10px; background: #f0f2f5; }
+    .dialog-a .scope-tab { flex: 1; min-height: 38px; border-radius: 8px; }
+    .dialog-a .scope-tab.active { background: white; box-shadow: 0 1px 3px rgba(30,40,55,.12); color: var(--primary-dark); }
+    .dialog-a .dialog-toolbar { padding: 13px 22px; border-bottom: 1px solid var(--line); }
+    .dialog-a .dialog-content { overflow: auto; padding: 16px 22px 24px; }
+    .dialog-a .scope-note { margin-bottom: 12px; }
+
+    /* Dialog B: centered library workspace, with top navigation tabs. */
+    .dialog-b { inset: 7vh 6vw; border-radius: 16px; display: grid; grid-template-rows: auto auto 1fr; overflow: hidden; }
+    .dialog-b .dialog-header { min-height: 68px; padding: 0 22px; }
+    .dialog-b .dialog-head-left { display: flex; align-items: center; gap: 28px; }
+    .dialog-b .scope-tabs { align-self: stretch; gap: 18px; }
+    .dialog-b .scope-tab { min-width: 74px; }
+    .dialog-b .scope-tab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--primary); }
+    .dialog-b .dialog-toolbar { padding: 12px 22px; background: #fafbfc; border-bottom: 1px solid var(--line); }
+    .dialog-b .dialog-content { overflow: auto; padding: 18px 22px 24px; }
+    .dialog-b .content-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 13px; }
+    .dialog-b .content-heading strong { font-size: 13px; }
+    .dialog-b .library-grid { grid-template-columns: repeat(5, minmax(0,1fr)); }
+
+    /* Dialog C: bottom workspace with vertical scope tabs. */
+    .dialog-c { left: 0; right: 0; bottom: 0; height: 76vh; border-radius: 18px 18px 0 0; display: grid; grid-template-rows: auto 1fr; overflow: hidden; }
+    .dialog-c .dialog-header { min-height: 64px; padding: 0 24px; }
+    .dialog-c .dialog-shell { min-height: 0; display: grid; grid-template-columns: 176px 1fr; }
+    .dialog-c .scope-tabs { display: block; padding: 18px 12px; border-right: 1px solid var(--line); background: #f7f8fa; }
+    .dialog-c .scope-tab { width: 100%; min-height: 46px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-radius: 9px; text-align: left; }
+    .dialog-c .scope-tab.active { background: white; color: var(--primary-dark); box-shadow: 0 1px 3px rgba(30,40,55,.1); }
+    .dialog-c .dialog-main { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto 1fr; }
+    .dialog-c .dialog-toolbar { padding: 12px 18px; border-bottom: 1px solid var(--line); }
+    .dialog-c .dialog-content { overflow: auto; padding: 16px 18px 22px; }
+    .dialog-c .library-grid { grid-template-columns: repeat(6, minmax(0,1fr)); }
+
+    .prototype-state {
+      position: fixed;
+      left: 18px;
+      bottom: 18px;
+      z-index: 120;
+      max-width: min(420px, calc(100vw - 36px));
+      padding: 9px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: 9px;
+      background: rgba(255,255,255,.96);
+      color: var(--text-2);
+      box-shadow: 0 5px 18px rgba(30,38,50,.1);
+      font-size: 11px;
+    }
+    .prototype-state strong { color: var(--text); }
+
+    .prototype-switcher {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      z-index: 130;
+      display: grid;
+      grid-template-columns: 38px minmax(210px, auto) 38px;
+      align-items: center;
+      padding: 5px;
+      border: 1px solid #0c1016;
+      border-radius: 999px;
+      background: #171b22;
+      color: #fff;
+      box-shadow: 0 12px 30px rgba(20,25,34,.28);
+      transform: translateX(-50%);
+    }
+    .prototype-switcher button { width: 34px; height: 34px; border: 0; border-radius: 50%; background: transparent; color: white; font-size: 18px; }
+    .prototype-switcher button:hover { background: rgba(255,255,255,.12); }
+    .variant-label { padding: 0 12px; text-align: center; font-size: 11px; font-weight: 750; white-space: nowrap; }
+
+    @media (max-width: 980px) {
+      .workspace { grid-template-columns: 1fr; }
+      .settings { display: none; }
+      .image-input-layout { grid-template-columns: 1fr 270px; }
+      .dialog-b .library-grid, .dialog-c .library-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
+      .prototype-state { display: none; }
+    }
+    @media (max-width: 700px) {
+      .prototype-ribbon { display: none; }
+      .topbar { padding: 0 14px; }
+      .app { padding: 16px 12px 100px; }
+      .page-nav { display: none; }
+      .image-input-layout, .variant-b .image-input-layout { display: block; }
+      .upload-zone { border-right: 0; border-bottom: 1px solid var(--line); }
+      .upload-board { grid-template-columns: 1fr; height: auto; }
+      .dropzone { min-height: 160px; }
+      .recent { display: none; }
+      .variant-c .library-strips { grid-template-columns: 1fr; }
+      .library-grid, .dialog-b .library-grid, .dialog-c .library-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .dialog-a { width: 100vw; }
+      .dialog-b { inset: 0; border-radius: 0; }
+      .dialog-b .dialog-title { display: none; }
+      .dialog-c .dialog-shell { grid-template-columns: 112px 1fr; }
+      .toolbar-actions .ghost { display: none; }
+      .prototype-switcher { grid-template-columns: 38px minmax(170px, auto) 38px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="prototype-ribbon">PROTOTYPE · 不接真实数据</div>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">iL</span><span>iLab GPT CONJURE</span></div>
+    <div class="account"><span>张三 · 设计部</span><span class="avatar">张</span></div>
+  </header>
+
+  <main class="app">
+    <div class="page-head">
+      <div><h1>图像工作台</h1><p>生成、编辑并管理当前任务的图像输入</p></div>
+      <nav class="page-nav" aria-label="页面导航"><button class="active">生成</button><button>历史任务</button><button>设置</button></nav>
+    </div>
+    <div id="variantMount"></div>
+  </main>
+
+  <div id="dialogMount"></div>
+  <div id="prototypeState" class="prototype-state" aria-live="polite"></div>
+  <div class="prototype-switcher" aria-label="原型方案切换">
+    <button id="previousVariant" type="button" aria-label="上一个方案">←</button>
+    <div id="variantLabel" class="variant-label"></div>
+    <button id="nextVariant" type="button" aria-label="下一个方案">→</button>
+  </div>
+
+  <script>
+    const variants = {
+      A: { name: "双入口按钮 + 右侧抽屉", dialog: "a" },
+      B: { name: "双库概览 + 居中工作台", dialog: "b" },
+      C: { name: "双库素材带 + 底部面板", dialog: "c" },
+    };
+    const variantKeys = Object.keys(variants);
+    const params = new URLSearchParams(location.search);
+    let currentVariant = (params.get("variant") || "A").toUpperCase();
+    if (!variants[currentVariant]) currentVariant = "A";
+    let dialogOpen = false;
+    let currentScope = "personal";
+
+    const assets = {
+      personal: [
+        ["portrait", "小美正面", "仅自己可见"],
+        ["scene", "办公室窗边", "仅自己可见"],
+        ["product", "测试瓶型", "仅自己可见"],
+        ["portrait", "人物侧脸", "仅自己可见"],
+        ["pack", "草稿包装", "仅自己可见"],
+        ["scene", "暖光桌面", "仅自己可见"],
+        ["product", "白底瓶身", "仅自己可见"],
+        ["pack", "礼盒草案", "仅自己可见"],
+      ],
+      team: [
+        ["pack", "品牌标准包装", "王芳上传"],
+        ["product", "益生菌产品图", "李明上传"],
+        ["scene", "企业办公场景", "管理员上传"],
+        ["portrait", "品牌代言人", "王芳上传"],
+        ["product", "钙片白底图", "李明上传"],
+        ["pack", "端午礼盒", "当前用户上传"],
+        ["scene", "实验室场景", "管理员上传"],
+        ["product", "维生素瓶型", "赵敏上传"],
+        ["portrait", "医生形象", "当前用户上传"],
+        ["pack", "品牌组合装", "王芳上传"],
+      ],
+    };
+
+    const thumb = (kind, label = "", size = "") => `<div class="thumb ${size}" data-kind="${kind}">${label ? `<span>${label}</span>` : ""}</div>`;
+    const recentThumbs = () => `
+      <div class="recent"><div class="recent-title">最近上传</div><div class="recent-grid">
+        ${thumb("portrait", "人物参考", "small")}${thumb("pack", "包装草稿", "small")}${thumb("scene", "场景参考", "small")}${thumb("product", "产品图", "small")}
+      </div></div>`;
+
+    const uploadArea = (compact = false) => `
+      <div class="upload-zone">
+        <div class="upload-board">
+          <div class="dropzone"><div><div class="plus">+</div><strong>点击、拖入或粘贴图片与文件</strong><span>支持图片与 Responses 参考文件</span></div></div>
+          ${recentThumbs()}
+        </div>
+        <div class="image-actions"><button class="ghost">清空</button><button class="ghost">粘贴</button></div>
+      </div>`;
+
+    const quickGallery = () => `
+      <div class="quick-title">快速选择图库</div>
+      <div class="quick-layout">
+        <div class="quick-preview">${thumb("portrait", "小美正面")}</div>
+        <div><div class="quick-list">${thumb("portrait", "小美", "small")}${thumb("portrait", "侧脸", "small")}${thumb("product", "瓶型", "small")}${thumb("pack", "包装", "small")}</div>
+        <div class="categories"><button class="active">人像</button><button>角色</button><button>产品</button></div></div>
+      </div>`;
+
+    const commonPanels = (inputHtml) => `
+      <div class="workspace">
+        <div>
+          <section class="panel">
+            <div class="panel-heading"><h2>图像输入</h2><span class="count">0 / 10</span></div>
+            ${inputHtml}
+          </section>
+          <section class="panel prompt-panel">
+            <div class="panel-heading"><h2>提示词</h2><span class="count">0 / 4000</span></div>
+            <div class="prompt-body"><div class="prompt-box">描述你要生成或编辑的图片，输入 @ 可调用图库参考图……</div><button class="run">开始生成</button></div>
+          </section>
+        </div>
+        <aside class="panel settings">
+          <div class="panel-heading"><h2>生成设置</h2></div>
+          <div class="setting-list">
+            <div class="setting"><label>供应商</label><div class="fake-control"><span>部门 · 火山引擎</span><span>⌄</span></div></div>
+            <div class="setting"><label>模型</label><div class="fake-control"><span>Seedream 5.0 Pro</span><span>⌄</span></div></div>
+            <div class="setting"><label>尺寸</label><div class="fake-control"><span>2048 × 2048</span><span>⌄</span></div></div>
+            <div class="setting"><label>生成数量</label><div class="fake-control"><span>1 张</span><span>⌄</span></div></div>
+          </div>
+          <div class="usage"><div class="usage-row"><span>本月额度</span><span>42%</span></div><div class="usage-bar"><span></span></div></div>
+        </aside>
+      </div>`;
+
+    function VariantA() {
+      return `<div class="variant-a">${commonPanels(`
+        <div class="image-input-layout">
+          ${uploadArea()}
+          <div class="gallery-column">
+            ${quickGallery()}
+            <div class="manage-zone">
+              <div class="manage-label"><span>图库管理</span><span>选择后在同一面板切换</span></div>
+              <div class="manage-entry-row">
+                <button class="library-entry" data-open-scope="personal"><span class="dot">我</span>个人管理库</button>
+                <button class="library-entry team" data-open-scope="team"><span class="dot">团</span>团队管理库</button>
+              </div>
+            </div>
+          </div>
+        </div>`)}</div>`;
+    }
+
+    function VariantB() {
+      return `<div class="variant-b">${commonPanels(`
+        <div class="image-input-layout">
+          ${uploadArea()}
+          <div class="gallery-column">
+            <div class="quick-title">常用图库</div>
+            <div class="quick-compact">${thumb("portrait", "小美", "micro")}${thumb("product", "瓶型", "micro")}${thumb("scene", "场景", "micro")}${thumb("pack", "包装", "micro")}</div>
+            <div class="library-summaries">
+              <button class="library-summary" data-open-scope="personal"><span class="summary-icon">♙</span><span class="summary-copy"><strong>个人管理库</strong><span>12 项 · 仅自己可见</span></span><span class="arrow">›</span></button>
+              <button class="library-summary" data-open-scope="team"><span class="summary-icon team">♟</span><span class="summary-copy"><strong>团队管理库</strong><span>38 项 · 部门成员共享</span></span><span class="arrow">›</span></button>
+            </div>
+          </div>
+        </div>`)}</div>`;
+    }
+
+    function VariantC() {
+      const strip = (scope, title, copy, list) => `
+        <div class="library-strip">
+          <div class="strip-head"><div><strong>${title}</strong><span>${copy}</span></div><button class="${scope === "team" ? "soft-button" : "ghost"}" data-open-scope="${scope}">管理</button></div>
+          <div class="strip-thumbs">${list.map(x => thumb(x[0], x[1], "small")).join("")}</div>
+        </div>`;
+      return `<div class="variant-c">${commonPanels(`
+        <div class="image-input-layout">
+          ${uploadArea(true)}
+          <div class="gallery-column">
+            <div class="quick-title">素材库</div>
+            <div class="library-strips">
+              ${strip("personal", "个人管理库", "12 项 · 私有", assets.personal.slice(0,3))}
+              ${strip("team", "团队管理库", "38 项 · 共享", assets.team.slice(0,3))}
+            </div>
+          </div>
+        </div>`)}</div>`;
+    }
+
+    const variantRenderers = { A: VariantA, B: VariantB, C: VariantC };
+
+    function assetCards() {
+      return assets[currentScope].map(([kind, name, owner], index) => {
+        const canDelete = currentScope === "personal" || owner === "当前用户上传";
+        return `<article class="asset-card">
+          ${thumb(kind, name)}
+          <div class="asset-copy">
+            <div class="asset-name"><span>${name}</span><span class="owner">${owner}</span></div>
+            <div class="asset-meta">${index % 2 ? "产品" : "人像"} · 更新于 7月${18-index}日</div>
+            <div class="asset-actions"><button class="soft-button" data-use-asset="${name}">使用</button><button class="${canDelete ? "danger-button" : "ghost"}" ${canDelete ? `data-delete-asset="${name}"` : "disabled title=仅上传者与管理员可停用"}>${canDelete ? "删除" : "只读"}</button></div>
+          </div>
+        </article>`;
+      }).join("");
+    }
+
+    function tabs() {
+      return `<div class="scope-tabs" role="tablist" aria-label="图库范围">
+        <button class="scope-tab ${currentScope === "personal" ? "active" : ""}" data-scope-tab="personal" role="tab" aria-selected="${currentScope === "personal"}">个人<span class="scope-count">12</span></button>
+        <button class="scope-tab ${currentScope === "team" ? "active" : ""}" data-scope-tab="team" role="tab" aria-selected="${currentScope === "team"}">团队<span class="scope-count">38</span></button>
+      </div>`;
+    }
+
+    function toolbar() {
+      return `<div class="dialog-toolbar">
+        <div class="category-tabs"><button class="active">全部</button><button>人像</button><button>产品</button><button>场景</button></div>
+        <div class="toolbar-actions"><button class="primary" data-add-asset>添加图片</button><button class="ghost">管理分类</button></div>
+      </div>`;
+    }
+
+    function content() {
+      const note = currentScope === "personal" ? "个人库仅自己可见，你可以添加、使用和删除。" : "团队库部门成员可见；所有人可添加和使用，仅上传者与管理员可删除。";
+      return `<div class="dialog-content"><div class="${currentScope === "team" ? "scope-note team" : "scope-note"}">${note}</div><div class="library-grid">${assetCards()}</div></div>`;
+    }
+
+    function renderDialog() {
+      const mount = document.getElementById("dialogMount");
+      if (!dialogOpen) { mount.innerHTML = ""; renderState(); return; }
+      const dialogType = variants[currentVariant].dialog;
+      const title = `<div class="dialog-title"><h2>图库管理</h2><p>个人素材与团队共享素材在这里统一管理</p></div>`;
+      let html;
+      if (dialogType === "a") {
+        html = `<div class="backdrop" data-close-dialog></div><section class="library-dialog dialog-a" role="dialog" aria-modal="true">
+          <header class="dialog-header">${title}<button class="close" data-close-dialog aria-label="关闭">×</button></header>${tabs()}${toolbar()}${content()}</section>`;
+      } else if (dialogType === "b") {
+        html = `<div class="backdrop" data-close-dialog></div><section class="library-dialog dialog-b" role="dialog" aria-modal="true">
+          <header class="dialog-header"><div class="dialog-head-left">${title}${tabs()}</div><button class="close" data-close-dialog aria-label="关闭">×</button></header>${toolbar()}
+          <div class="dialog-content"><div class="content-heading"><strong>${currentScope === "personal" ? "我的素材" : "团队共享素材"}</strong><span class="${currentScope === "team" ? "scope-note team" : "scope-note"}">${currentScope === "personal" ? "仅自己可见" : "部门成员可见"}</span></div><div class="library-grid">${assetCards()}</div></div></section>`;
+      } else {
+        html = `<div class="backdrop" data-close-dialog></div><section class="library-dialog dialog-c" role="dialog" aria-modal="true">
+          <header class="dialog-header">${title}<button class="close" data-close-dialog aria-label="关闭">×</button></header>
+          <div class="dialog-shell">${tabs()}<div class="dialog-main">${toolbar()}${content()}</div></div></section>`;
+      }
+      mount.innerHTML = html;
+      bindDialogEvents();
+      renderState();
+    }
+
+    function bindDialogEvents() {
+      document.querySelectorAll("[data-close-dialog]").forEach(el => el.addEventListener("click", () => { dialogOpen = false; renderDialog(); }));
+      document.querySelectorAll("[data-scope-tab]").forEach(el => el.addEventListener("click", () => { currentScope = el.dataset.scopeTab; renderDialog(); }));
+      document.querySelectorAll("[data-use-asset]").forEach(el => el.addEventListener("click", () => {
+        document.getElementById("prototypeState").innerHTML = `<strong>模拟操作：</strong>已把“${el.dataset.useAsset}”加入图像输入 · ${scopeName()} Tab`;
+      }));
+      document.querySelectorAll("[data-delete-asset]").forEach(el => el.addEventListener("click", () => {
+        document.getElementById("prototypeState").innerHTML = `<strong>模拟操作：</strong>准备删除“${el.dataset.deleteAsset}” · 原型不写入数据`;
+      }));
+      document.querySelectorAll("[data-add-asset]").forEach(el => el.addEventListener("click", () => {
+        document.getElementById("prototypeState").innerHTML = `<strong>模拟操作：</strong>添加图片到${scopeName()} · 原型不上传文件`;
+      }));
+    }
+
+    function scopeName() { return currentScope === "personal" ? "个人库" : "团队库"; }
+    function bindOpeners() {
+      document.querySelectorAll("[data-open-scope]").forEach(el => el.addEventListener("click", () => {
+        currentScope = el.dataset.openScope;
+        dialogOpen = true;
+        renderDialog();
+      }));
+    }
+
+    function renderState() {
+      document.getElementById("prototypeState").innerHTML = `<strong>原型状态：</strong>方案 ${currentVariant} · ${dialogOpen ? `图库管理已打开 · ${scopeName()} Tab` : "图库管理未打开"}`;
+    }
+
+    function renderVariant({ preserveDialog = false } = {}) {
+      document.getElementById("variantMount").innerHTML = variantRenderers[currentVariant]();
+      document.getElementById("variantLabel").textContent = `${currentVariant} — ${variants[currentVariant].name}`;
+      bindOpeners();
+      if (!preserveDialog) dialogOpen = false;
+      renderDialog();
+    }
+
+    function switchVariant(direction) {
+      const index = variantKeys.indexOf(currentVariant);
+      currentVariant = variantKeys[(index + direction + variantKeys.length) % variantKeys.length];
+      const nextParams = new URLSearchParams(location.search);
+      nextParams.set("variant", currentVariant);
+      history.replaceState({}, "", `${location.pathname}?${nextParams}`);
+      renderVariant({ preserveDialog: dialogOpen });
+    }
+
+    document.getElementById("previousVariant").addEventListener("click", () => switchVariant(-1));
+    document.getElementById("nextVariant").addEventListener("click", () => switchVariant(1));
+    document.addEventListener("keydown", event => {
+      const target = event.target;
+      if (target.matches("input, textarea, [contenteditable=true]")) return;
+      if (event.key === "ArrowLeft") switchVariant(-1);
+      if (event.key === "ArrowRight") switchVariant(1);
+      if (event.key === "Escape" && dialogOpen) { dialogOpen = false; renderDialog(); }
+    });
+
+    renderVariant();
+  </script>
+</body>
+</html>
