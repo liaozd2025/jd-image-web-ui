@@ -36,6 +36,8 @@ function closePromptSnippetPopover(): void { legacyMethod("closePromptSnippetPop
 function promptSnippetSuggestElement(): HTMLElement | null { return legacyMethod("promptSnippetSuggestElement"); }
 function findPromptSnippetById(id: any): any { return legacyMethod("findPromptSnippetById", id); }
 function insertPromptSnippet(snippet: any): void { legacyMethod("insertPromptSnippet", snippet); }
+function findPromptTemplateById(id: any): any { return legacyMethod("findPromptTemplateById", id); }
+function insertPromptTemplate(template: any): void { void legacyMethod("insertPromptTemplate", template); }
 function updatePromptSnippetSuggest(): void { legacyMethod("updatePromptSnippetSuggest"); }
 function updatePromptSnippetSelectionButton(): void { legacyMethod("updatePromptSnippetSelectionButton"); }
 function openPromptSnippetChipPopover(chip: any): void { legacyMethod("openPromptSnippetChipPopover", chip); }
@@ -122,11 +124,16 @@ export function handlePromptEditorKeydown(event: any): void {
   }
   const promptSnippetSuggest = promptSnippetSuggestElement();
   if (event.key === "Enter" && promptSnippetSuggest && !promptSnippetSuggest.classList.contains("hidden")) {
-    const first = promptSnippetSuggest.querySelector("[data-prompt-snippet-id]");
+    const first = promptSnippetSuggest.querySelector("[data-prompt-template-id], [data-prompt-snippet-id]");
     if (first) {
       event.preventDefault();
-      const snippet = findPromptSnippetById((first as any).dataset.promptSnippetId);
-      if (snippet) insertPromptSnippet(snippet);
+      if ((first as any).dataset.promptTemplateId) {
+        const template = findPromptTemplateById((first as any).dataset.promptTemplateId);
+        if (template) insertPromptTemplate(template);
+      } else {
+        const snippet = findPromptSnippetById((first as any).dataset.promptSnippetId);
+        if (snippet) insertPromptSnippet(snippet);
+      }
     }
   }
 }

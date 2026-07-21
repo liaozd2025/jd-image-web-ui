@@ -51,6 +51,7 @@ function setPromptText(text: any): void { legacyMethod("setPromptText", text); }
 function syncPromptFromEditor(): void { legacyMethod("syncPromptFromEditor"); }
 function updatePromptCount(): void { legacyMethod("updatePromptCount"); }
 function updateRequestPreview(): void { legacyMethod("updateRequestPreview"); }
+function updatePromptSnippetSuggest(): void { legacyMethod("updatePromptSnippetSuggest"); }
 
 function normalizePromptTemplate(value: any) {
   if (!value || typeof value !== "object") return null;
@@ -135,6 +136,7 @@ function applyPromptTemplateSettingsResponse(data: any) {
     renderPromptTemplateCategoryPanel();
     renderPromptTemplateList();
   }
+  updatePromptSnippetSuggest();
 }
 
 function promptTemplateDrawerIsOpen() {
@@ -151,6 +153,7 @@ async function refreshPromptTemplates() {
     console.warn(error.message || translate("templates.loadFailed"));
     state.promptTemplates = [];
     state.promptTemplateCategories = normalizePromptTemplateCategoryList([]);
+    updatePromptSnippetSuggest();
     renderPromptTemplateRecentDock();
     if (promptTemplateDrawerIsOpen()) {
       renderPromptTemplateCategories();

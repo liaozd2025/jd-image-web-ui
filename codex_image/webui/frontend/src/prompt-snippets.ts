@@ -168,13 +168,28 @@ function updatePromptSnippetSuggest() {
     return;
   }
   const query = match.query.toLowerCase();
-  const snippets = promptSnippetsForQuery(query).slice(0, 8);
-  if (!snippets.length) {
+  const options = promptSnippetSuggestOptions(query).slice(0, 8);
+  if (!options.length) {
     hidePromptSnippetSuggest();
     return;
   }
   state.activePromptSnippetRange = match.range.cloneRange();
-  suggest.innerHTML = snippets.map((snippet: any) => `
+  suggest.innerHTML = options.map((option: any) => {
+    if (option.kind === "template") {
+      const template = option.value;
+      return `
+    <button type="button" class="prompt-snippet-option" data-prompt-template-id="${escapeHtml(template.id)}">
+      <span class="prompt-snippet-option-tag">~${escapeHtml(template.short_title || template.title)}</span>
+      <span class="prompt-snippet-option-main">
+        <span class="prompt-snippet-option-title">${escapeHtml(template.title)}${resourceScopeBadgeHtml(template.scope)}</span>
+        <small>${escapeHtml(promptSnippetPreview(template.content))}</small>
+      </span>
+      <small>${escapeHtml(template.category || translate("templates.title"))}</small>
+    </button>
+  `;
+    }
+    const snippet = option.value;
+    return `
     <button type="button" class="prompt-snippet-option" data-prompt-snippet-id="${escapeHtml(snippet.id)}">
       <span class="prompt-snippet-option-tag">~${escapeHtml(snippet.tag)}</span>
       <span class="prompt-snippet-option-main">
@@ -183,7 +198,8 @@ function updatePromptSnippetSuggest() {
       </span>
       <small>${escapeHtml(snippet.category)}</small>
     </button>
-  `).join("");
+  `;
+  }).join("");
   suggest.querySelectorAll("[data-prompt-snippet-id]").forEach((button: any) => {
     button.addEventListener("mousedown", (event: any) => event.preventDefault());
     button.addEventListener("click", () => {
@@ -191,8 +207,38 @@ function updatePromptSnippetSuggest() {
       if (snippet) insertPromptSnippet(snippet);
     });
   });
+  suggest.querySelectorAll("[data-prompt-template-id]").forEach((button: any) => {
+    button.addEventListener("mousedown", (event: any) => event.preventDefault());
+    button.addEventListener("click", () => {
+      const template = findPromptTemplateById(button.dataset.promptTemplateId);
+      if (template) void insertPromptTemplate(template);
+    });
+  });
   positionPromptSnippetSuggestAtCaret(match);
   suggest.classList.remove("hidden");
+}
+
+function promptSnippetSuggestOptions(query: any) {
+  return [
+    ...promptTemplatesForQuery(query).map((template: any) => ({ kind: "template", value: template })),
+    ...promptSnippetsForQuery(query).map((snippet: any) => ({ kind: "snippet", value: snippet })),
+  ];
+}
+
+function promptTemplatesForQuery(query: any) {
+  const normalized = String(query || "").trim().toLowerCase();
+  return (state.promptTemplates || []).filter((template: any) => {
+    if (!normalized) return true;
+    return [
+      template.title,
+      template.short_title,
+      template.content,
+      template.category,
+      template.notes,
+      template.model_hint,
+      ...(template.tags || []),
+    ].join(" ").toLowerCase().includes(normalized);
+  });
 }
 
 function promptSnippetsForQuery(query: any) {
@@ -253,6 +299,39 @@ function insertPromptSnippet(snippet: any) {
   syncPromptAfterChipMutation();
   hidePromptSnippetSuggest();
   setCaretAfterNode(trailingSpace);
+}
+
+async function insertPromptTemplate(template: any) {
+  if (!template || !els.promptEditor) return;
+  const content = String(template.content || "").trim();
+  if (!content) return;
+  let match = activePromptSnippetMatch();
+  if (!match?.range && state.activePromptSnippetRange) {
+    match = { query: "", range: state.activePromptSnippetRange };
+  }
+  let trailingSpace = null;
+  if (match?.range) {
+    match.range.deleteContents();
+    trailingSpace = document.createTextNode(`${content} `);
+    match.range.insertNode(trailingSpace);
+  } else {
+    const currentText = getPromptText();
+    if (currentText && !/\s$/.test(currentText)) appendPromptText(" ");
+    trailingSpace = document.createTextNode(`${content} `);
+    els.promptEditor.append(trailingSpace);
+  }
+  syncPromptAfterChipMutation();
+  hidePromptSnippetSuggest();
+  setCaretAfterNode(trailingSpace);
+  try {
+    await legacyMethod("afterPromptTemplateApplied", template);
+  } catch (error: any) {
+    console.warn(error?.message || translate("templates.useStateUpdateFailed"));
+  }
+}
+
+function findPromptTemplateById(id: any) {
+  return (state.promptTemplates || []).find((template: any) => template.id === id) || null;
 }
 
 function createPromptSnippetChip(snippet: any) {

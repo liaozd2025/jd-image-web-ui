@@ -462,7 +462,7 @@ export const ZH_CN_DICTIONARY: TranslationDictionary = {
     "promptGallery.remove": "移除 @{name}",
     "prompt.title": "提示词",
     "prompt.editorLabel": "提示词",
-    "prompt.placeholder": "描述你要生成或编辑的图片，输入 @ 可调用图库参考图，输入 # 可插入颜色码，输入 ~ 或 ～ 可调用提示词片段",
+    "prompt.placeholder": "描述你要生成或编辑的图片，输入 @ 可调用图库参考图，输入 # 可插入颜色码，输入 ~ 或 ～ 可调用提示词模板或片段",
     "prompt.run": "开始生成",
     "prompt.runEdit": "开始编辑",
     "prompt.runTitle": "开始生成（Cmd+Enter）",

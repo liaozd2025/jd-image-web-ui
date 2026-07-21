@@ -10939,7 +10939,7 @@
     "promptGallery.remove": "\u79FB\u9664 @{name}",
     "prompt.title": "\u63D0\u793A\u8BCD",
     "prompt.editorLabel": "\u63D0\u793A\u8BCD",
-    "prompt.placeholder": "\u63CF\u8FF0\u4F60\u8981\u751F\u6210\u6216\u7F16\u8F91\u7684\u56FE\u7247\uFF0C\u8F93\u5165 @ \u53EF\u8C03\u7528\u56FE\u5E93\u53C2\u8003\u56FE\uFF0C\u8F93\u5165 # \u53EF\u63D2\u5165\u989C\u8272\u7801\uFF0C\u8F93\u5165 ~ \u6216 \uFF5E \u53EF\u8C03\u7528\u63D0\u793A\u8BCD\u7247\u6BB5",
+    "prompt.placeholder": "\u63CF\u8FF0\u4F60\u8981\u751F\u6210\u6216\u7F16\u8F91\u7684\u56FE\u7247\uFF0C\u8F93\u5165 @ \u53EF\u8C03\u7528\u56FE\u5E93\u53C2\u8003\u56FE\uFF0C\u8F93\u5165 # \u53EF\u63D2\u5165\u989C\u8272\u7801\uFF0C\u8F93\u5165 ~ \u6216 \uFF5E \u53EF\u8C03\u7528\u63D0\u793A\u8BCD\u6A21\u677F\u6216\u7247\u6BB5",
     "prompt.run": "\u5F00\u59CB\u751F\u6210",
     "prompt.runEdit": "\u5F00\u59CB\u7F16\u8F91",
     "prompt.runTitle": "\u5F00\u59CB\u751F\u6210\uFF08Cmd+Enter\uFF09",
@@ -33742,13 +33742,28 @@ ${hint}` : hint;
       return;
     }
     const query = match.query.toLowerCase();
-    const snippets = promptSnippetsForQuery(query).slice(0, 8);
-    if (!snippets.length) {
+    const options = promptSnippetSuggestOptions(query).slice(0, 8);
+    if (!options.length) {
       hidePromptSnippetSuggest();
       return;
     }
     state12.activePromptSnippetRange = match.range.cloneRange();
-    suggest.innerHTML = snippets.map((snippet) => `
+    suggest.innerHTML = options.map((option) => {
+      if (option.kind === "template") {
+        const template = option.value;
+        return `
+    <button type="button" class="prompt-snippet-option" data-prompt-template-id="${escapeHtml10(template.id)}">
+      <span class="prompt-snippet-option-tag">~${escapeHtml10(template.short_title || template.title)}</span>
+      <span class="prompt-snippet-option-main">
+        <span class="prompt-snippet-option-title">${escapeHtml10(template.title)}${resourceScopeBadgeHtml(template.scope)}</span>
+        <small>${escapeHtml10(promptSnippetPreview(template.content))}</small>
+      </span>
+      <small>${escapeHtml10(template.category || translate("templates.title"))}</small>
+    </button>
+  `;
+      }
+      const snippet = option.value;
+      return `
     <button type="button" class="prompt-snippet-option" data-prompt-snippet-id="${escapeHtml10(snippet.id)}">
       <span class="prompt-snippet-option-tag">~${escapeHtml10(snippet.tag)}</span>
       <span class="prompt-snippet-option-main">
@@ -33757,7 +33772,8 @@ ${hint}` : hint;
       </span>
       <small>${escapeHtml10(snippet.category)}</small>
     </button>
-  `).join("");
+  `;
+    }).join("");
     suggest.querySelectorAll("[data-prompt-snippet-id]").forEach((button) => {
       button.addEventListener("mousedown", (event) => event.preventDefault());
       button.addEventListener("click", () => {
@@ -33765,8 +33781,36 @@ ${hint}` : hint;
         if (snippet) insertPromptSnippet(snippet);
       });
     });
+    suggest.querySelectorAll("[data-prompt-template-id]").forEach((button) => {
+      button.addEventListener("mousedown", (event) => event.preventDefault());
+      button.addEventListener("click", () => {
+        const template = findPromptTemplateById(button.dataset.promptTemplateId);
+        if (template) void insertPromptTemplate(template);
+      });
+    });
     positionPromptSnippetSuggestAtCaret(match);
     suggest.classList.remove("hidden");
+  }
+  function promptSnippetSuggestOptions(query) {
+    return [
+      ...promptTemplatesForQuery(query).map((template) => ({ kind: "template", value: template })),
+      ...promptSnippetsForQuery(query).map((snippet) => ({ kind: "snippet", value: snippet }))
+    ];
+  }
+  function promptTemplatesForQuery(query) {
+    const normalized = String(query || "").trim().toLowerCase();
+    return (state12.promptTemplates || []).filter((template) => {
+      if (!normalized) return true;
+      return [
+        template.title,
+        template.short_title,
+        template.content,
+        template.category,
+        template.notes,
+        template.model_hint,
+        ...template.tags || []
+      ].join(" ").toLowerCase().includes(normalized);
+    });
   }
   function promptSnippetsForQuery(query) {
     const normalized = String(query || "").trim().toLowerCase();
@@ -33819,6 +33863,37 @@ ${hint}` : hint;
     syncPromptAfterChipMutation2();
     hidePromptSnippetSuggest();
     setCaretAfterNode2(trailingSpace);
+  }
+  async function insertPromptTemplate(template) {
+    if (!template || !els14.promptEditor) return;
+    const content = String(template.content || "").trim();
+    if (!content) return;
+    let match = activePromptSnippetMatch();
+    if (!match?.range && state12.activePromptSnippetRange) {
+      match = { query: "", range: state12.activePromptSnippetRange };
+    }
+    let trailingSpace = null;
+    if (match?.range) {
+      match.range.deleteContents();
+      trailingSpace = document.createTextNode(`${content} `);
+      match.range.insertNode(trailingSpace);
+    } else {
+      const currentText = getPromptText3();
+      if (currentText && !/\s$/.test(currentText)) appendPromptText2(" ");
+      trailingSpace = document.createTextNode(`${content} `);
+      els14.promptEditor.append(trailingSpace);
+    }
+    syncPromptAfterChipMutation2();
+    hidePromptSnippetSuggest();
+    setCaretAfterNode2(trailingSpace);
+    try {
+      await legacyMethod18("afterPromptTemplateApplied", template);
+    } catch (error) {
+      console.warn(error?.message || translate("templates.useStateUpdateFailed"));
+    }
+  }
+  function findPromptTemplateById(id) {
+    return (state12.promptTemplates || []).find((template) => template.id === id) || null;
   }
   function createPromptSnippetChip(snippet) {
     const normalized = normalizePromptSnippet(snippet) || {
@@ -34335,6 +34410,9 @@ ${hint}` : hint;
   function updateRequestPreview7() {
     legacyMethod19("updateRequestPreview");
   }
+  function updatePromptSnippetSuggest2() {
+    legacyMethod19("updatePromptSnippetSuggest");
+  }
   function normalizePromptTemplate(value) {
     if (!value || typeof value !== "object") return null;
     const title = String(value.title || "").trim();
@@ -34402,6 +34480,7 @@ ${hint}` : hint;
       renderPromptTemplateCategoryPanel();
       renderPromptTemplateList();
     }
+    updatePromptSnippetSuggest2();
   }
   function promptTemplateDrawerIsOpen() {
     return Boolean(els15.promptTemplateDrawer?.classList.contains("open"));
@@ -34416,6 +34495,7 @@ ${hint}` : hint;
       console.warn(error.message || translate("templates.loadFailed"));
       state13.promptTemplates = [];
       state13.promptTemplateCategories = normalizePromptTemplateCategoryList([]);
+      updatePromptSnippetSuggest2();
       renderPromptTemplateRecentDock();
       if (promptTemplateDrawerIsOpen()) {
         renderPromptTemplateCategories();
@@ -34624,7 +34704,7 @@ ${hint}` : hint;
     els15.promptTemplateRecentDock.classList.remove("hidden");
   }
   function selectPromptTemplate(templateId) {
-    const template = findPromptTemplateById(templateId);
+    const template = findPromptTemplateById2(templateId);
     if (!template || !els15.promptTemplateDetail) return;
     state13.selectedPromptTemplateId = template.id;
     hidePromptTemplateForm();
@@ -34980,7 +35060,7 @@ ${hint}` : hint;
     els15.promptTemplateForm.innerHTML = "";
     els15.promptTemplateList?.classList.remove("hidden");
   }
-  function findPromptTemplateById(id) {
+  function findPromptTemplateById2(id) {
     return (state13.promptTemplates || []).find((template) => template.id === id) || null;
   }
   function promptTemplatePreview(text, length = 80) {
@@ -35116,17 +35196,17 @@ ${hint}` : hint;
         return;
       }
       if (insert) {
-        const template = findPromptTemplateById(insert.dataset.promptTemplateInsert);
+        const template = findPromptTemplateById2(insert.dataset.promptTemplateInsert);
         void applyPromptTemplate(template, "insert");
       } else if (replace2) {
-        const template = findPromptTemplateById(replace2.dataset.promptTemplateReplace);
+        const template = findPromptTemplateById2(replace2.dataset.promptTemplateReplace);
         void applyPromptTemplate(template, "replace");
       } else if (copy) {
-        void copyPromptTemplateContent(findPromptTemplateById(copy.dataset.promptTemplateCopy));
+        void copyPromptTemplateContent(findPromptTemplateById2(copy.dataset.promptTemplateCopy));
       } else if (edit) {
-        renderPromptTemplateForm(findPromptTemplateById(edit.dataset.promptTemplateEdit));
+        renderPromptTemplateForm(findPromptTemplateById2(edit.dataset.promptTemplateEdit));
       } else if (remove) {
-        void deletePromptTemplate(findPromptTemplateById(remove.dataset.promptTemplateDelete));
+        void deletePromptTemplate(findPromptTemplateById2(remove.dataset.promptTemplateDelete));
       } else if (card) {
         selectPromptTemplate(card.dataset.promptTemplateId);
       }
@@ -35138,7 +35218,7 @@ ${hint}` : hint;
     els15.promptTemplateRecentDock?.addEventListener("click", (event) => {
       const button = event.target?.closest("[data-prompt-template-insert]");
       if (!button) return;
-      const template = findPromptTemplateById(button.dataset.promptTemplateInsert);
+      const template = findPromptTemplateById2(button.dataset.promptTemplateInsert);
       void applyPromptTemplate(template, "insert");
     });
   }
@@ -35183,7 +35263,7 @@ ${hint}` : hint;
       deletePromptTemplateCategory,
       hidePromptTemplateDetail,
       hidePromptTemplateForm,
-      findPromptTemplateById,
+      findPromptTemplateById: findPromptTemplateById2,
       promptTemplatePreview
     });
     bindPromptTemplateEvents();
@@ -35786,7 +35866,7 @@ ${hint}` : hint;
   function updateColorSuggest3() {
     legacyMethod22("updateColorSuggest");
   }
-  function updatePromptSnippetSuggest2() {
+  function updatePromptSnippetSuggest3() {
     legacyMethod22("updatePromptSnippetSuggest");
   }
   function clipboardHasImageFile(data) {
@@ -35859,7 +35939,7 @@ ${hint}` : hint;
     syncPromptAfterChipMutation3();
     updateMentionSuggest2();
     updateColorSuggest3();
-    updatePromptSnippetSuggest2();
+    updatePromptSnippetSuggest3();
   }
 
   // codex_image/webui/frontend/src/prompt-editor-events.ts
@@ -35927,7 +36007,13 @@ ${hint}` : hint;
   function insertPromptSnippet2(snippet) {
     legacyMethod23("insertPromptSnippet", snippet);
   }
-  function updatePromptSnippetSuggest3() {
+  function findPromptTemplateById3(id) {
+    return legacyMethod23("findPromptTemplateById", id);
+  }
+  function insertPromptTemplate2(template) {
+    void legacyMethod23("insertPromptTemplate", template);
+  }
+  function updatePromptSnippetSuggest4() {
     legacyMethod23("updatePromptSnippetSuggest");
   }
   function updatePromptSnippetSelectionButton2() {
@@ -36024,11 +36110,16 @@ ${hint}` : hint;
     }
     const promptSnippetSuggest = promptSnippetSuggestElement2();
     if (event.key === "Enter" && promptSnippetSuggest && !promptSnippetSuggest.classList.contains("hidden")) {
-      const first = promptSnippetSuggest.querySelector("[data-prompt-snippet-id]");
+      const first = promptSnippetSuggest.querySelector("[data-prompt-template-id], [data-prompt-snippet-id]");
       if (first) {
         event.preventDefault();
-        const snippet = findPromptSnippetById2(first.dataset.promptSnippetId);
-        if (snippet) insertPromptSnippet2(snippet);
+        if (first.dataset.promptTemplateId) {
+          const template = findPromptTemplateById3(first.dataset.promptTemplateId);
+          if (template) insertPromptTemplate2(template);
+        } else {
+          const snippet = findPromptSnippetById2(first.dataset.promptSnippetId);
+          if (snippet) insertPromptSnippet2(snippet);
+        }
       }
     }
   }
@@ -36261,14 +36352,14 @@ ${hint}` : hint;
       const galleryInputsChanged = syncGalleryInputsFromPrompt2();
       updateMentionSuggest3();
       updateColorSuggest4();
-      updatePromptSnippetSuggest3();
+      updatePromptSnippetSuggest4();
       if (!galleryInputsChanged) updateRequestPreview9();
     });
     els19.promptEditor?.addEventListener("keyup", (event) => {
       if (event.key === "Escape") return;
       updateMentionSuggest3();
       updateColorSuggest4();
-      updatePromptSnippetSuggest3();
+      updatePromptSnippetSuggest4();
       updatePromptSnippetSelectionButton2();
     });
     els19.promptEditor?.addEventListener("keydown", handlePromptEditorKeydown);

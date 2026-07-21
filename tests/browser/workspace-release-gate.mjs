@@ -487,6 +487,10 @@ try {
   await pageA.locator(`[data-prompt-template-id="${personalTemplateId}"]`).click();
   await pageA.locator(`[data-prompt-template-insert="${personalTemplateId}"]`).click();
   check((await pageA.locator("#promptEditor").textContent()).includes("private user A template"), "personal template was not inserted through the original prompt flow");
+  await pageA.locator("#promptEditor").fill("～Private");
+  await pageA.locator(`.prompt-snippet-option[data-prompt-template-id="${personalTemplateId}"]`).waitFor({ state: "visible" });
+  await pageA.locator(`.prompt-snippet-option[data-prompt-template-id="${personalTemplateId}"]`).click();
+  check((await pageA.locator("#promptEditor").textContent()).includes("private user A template"), "personal template was not inserted through the ~ prompt trigger");
   await pageA.locator("#promptEditor").fill("~shared");
   await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${sharedSnippet.id}"]`).waitFor({ state: "visible" });
   check((await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${sharedSnippet.id}"] .resource-scope-badge`).textContent()).trim() === "共享", "shared snippet source badge was missing");
