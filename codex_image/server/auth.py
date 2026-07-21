@@ -68,7 +68,11 @@ def install_authentication(
 ) -> None:
     static_root = Path(__file__).with_name("static")
     workspace_static_root = Path(__file__).parents[1] / "webui" / "static"
-    app.mount("/auth-static", StaticFiles(directory=static_root), name="auth-static")
+    app.mount(
+        "/auth-static",
+        NoCacheStaticFiles(directory=static_root),
+        name="auth-static",
+    )
     app.mount(
         "/static",
         NoCacheStaticFiles(directory=workspace_static_root, check_dir=False),

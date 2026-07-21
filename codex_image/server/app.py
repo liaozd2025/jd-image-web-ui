@@ -71,7 +71,7 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
         provider_cipher.ensure_database_key(connections)
         yield
 
-    app = FastAPI(title="iLab GPT CONJURE", lifespan=lifespan)
+    app = FastAPI(title="九典制药图片内容生产平台", lifespan=lifespan)
 
     @app.exception_handler(MaintenanceLockError)
     async def maintenance_lock_error_handler(_, __):

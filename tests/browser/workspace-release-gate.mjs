@@ -126,7 +126,12 @@ async function verifyLoginExperience(browser) {
   const page = await context.newPage();
   try {
     await page.goto(`${baseUrl}/login`, { waitUntil: "domcontentloaded" });
-    await page.getByText("iLab GPT CONJURE", { exact: true }).waitFor({ state: "visible" });
+    await page.getByText("九典制药", { exact: true }).waitFor({ state: "visible" });
+    await page.getByText("图片内容生产平台", { exact: true }).waitFor({ state: "visible" });
+    check(
+      await page.locator(".login-brand-mark img").evaluate((image) => image.complete && image.naturalWidth > 0),
+      "login brand image did not load",
+    );
     await page.getByRole("heading", { name: "让灵感更快" }).waitFor({ state: "visible" });
     await page.getByRole("heading", { name: "登录图片工作区" }).waitFor({ state: "visible" });
     check(await page.locator("#prototype-switcher, [data-variant]").count() === 0, "login page still exposed prototype controls");
@@ -144,7 +149,8 @@ async function verifyLoginExperience(browser) {
     await page.reload({ waitUntil: "domcontentloaded" });
     const mobileLayout = await page.evaluate(() => ({ scrollWidth: document.body.scrollWidth, viewportWidth: innerWidth }));
     check(mobileLayout.scrollWidth <= mobileLayout.viewportWidth, "390px login page introduced horizontal scrolling");
-    check(await page.getByText("iLab GPT CONJURE", { exact: true }).isVisible(), "login brand was hidden at 390px");
+    check(await page.getByText("九典制药", { exact: true }).isVisible(), "login brand was hidden at 390px");
+    check(await page.getByText("图片内容生产平台", { exact: true }).isVisible(), "login platform name was hidden at 390px");
     check(await page.getByRole("heading", { name: "登录图片工作区" }).isVisible(), "login form was hidden at 390px");
 
     await page.goto(`${baseUrl}/login?change=1`, { waitUntil: "domcontentloaded" });
@@ -208,6 +214,10 @@ async function loginExisting(page, account) {
   await page.locator("#login-form button[type=submit]").click();
   await page.waitForURL(`${baseUrl}/`);
   await page.locator(".layout-container").waitFor({ state: "visible" });
+  check(
+    await page.locator(".brand-logo").evaluate((image) => image.complete && image.naturalWidth > 0),
+    "workspace brand image did not load",
+  );
   await waitForAccount(page, account.username);
 }
 

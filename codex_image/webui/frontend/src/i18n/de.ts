@@ -128,7 +128,7 @@ export const DE_DICTIONARY: TranslationDictionary = {
     "footer.archiveCount": "Archiv {count}",
     "footer.historyLibrary": "Geschichte",
     "historyLibrary.openFull": "Öffnen Sie die vollständige Geschichtsbibliothek",
-    "history.documentTitle": "Geschichte – iLab GPT CONJURE",
+    "history.documentTitle": "Geschichte – 九典制药图片内容生产平台",
     "history.back": "Zurück zum Generator",
     "history.title": "Geschichte",
     "history.loading": "Laden",

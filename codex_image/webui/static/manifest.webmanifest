@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "iLab CONJ Web",
-  "short_name": "iLab CONJ Web",
-  "description": "Local image generation and editing workspace.",
+  "name": "九典制药图片内容生产平台",
+  "short_name": "九典图片平台",
+  "description": "九典制药图片生成、编辑与素材管理工作台。",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

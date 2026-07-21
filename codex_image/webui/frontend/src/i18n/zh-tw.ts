@@ -128,7 +128,7 @@ export const ZH_TW_DICTIONARY: TranslationDictionary = {
     "footer.archiveCount": "會話歸檔{count}",
     "footer.historyLibrary": "歷史庫",
     "historyLibrary.openFull": "開啟完整歷史庫",
-    "history.documentTitle": "歷史庫 - iLabGPTCONJURE",
+    "history.documentTitle": "歷史庫 - 九典制药图片内容生产平台",
     "history.back": "返回生成頁",
     "history.title": "歷史庫",
     "history.loading": "載入中",

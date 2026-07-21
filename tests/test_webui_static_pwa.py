@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -28,14 +29,14 @@ class WebUIPWATests(unittest.TestCase):
         self.assertIn("window.isSecureContext", pwa_script_source)
         self.assertIn('navigator.serviceWorker.register("/service-worker.js", { scope: "/" })', pwa_script_source)
 
-    def test_web_app_manifest_uses_rabbit_brand_identity_and_installable_metadata(self) -> None:
+    def test_web_app_manifest_uses_jiudian_brand_identity_and_installable_metadata(self) -> None:
         manifest_path = Path("codex_image/webui/static/manifest.webmanifest")
         self.assertTrue(manifest_path.exists())
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
         self.assertEqual(manifest["id"], "/")
-        self.assertEqual(manifest["name"], "iLab CONJ Web")
-        self.assertEqual(manifest["short_name"], "iLab CONJ Web")
+        self.assertEqual(manifest["name"], "九典制药图片内容生产平台")
+        self.assertEqual(manifest["short_name"], "九典图片平台")
         self.assertEqual(manifest["start_url"], "/")
         self.assertEqual(manifest["scope"], "/")
         self.assertEqual(manifest["display"], "standalone")
@@ -83,13 +84,14 @@ class WebUIPWATests(unittest.TestCase):
         self.assertTrue(worker_path.exists())
         source = worker_path.read_text(encoding="utf-8")
 
-        self.assertIn('const CACHE_NAME = "ilab-gpt-conjure-shell-v56";', source)
+        self.assertIn('const CACHE_NAME = "ilab-gpt-conjure-shell-v57";', source)
+        self.assertIn('"/static/brand/jiudian-pharma-logo.png"', source)
         self.assertIn('"/"', source)
         self.assertIn('"/history"', source)
         self.assertIn('"/manifest.webmanifest"', source)
-        self.assertIn('"/static/app.js"', source)
-        self.assertIn('"/static/history.js"', source)
-        self.assertIn('"/static/styles.css"', source)
+        self.assertIn('"/static/app.js?v=runtime-575"', source)
+        self.assertIn('"/static/history.js?v=history-71"', source)
+        self.assertIn('"/static/styles.css?v=runtime-574"', source)
         self.assertIn("request.mode === \"navigate\"", source)
         self.assertIn("caches.match(request).then", source)
         self.assertIn("catch(() => caches.match(request, { ignoreSearch: true }))", source)
@@ -97,6 +99,22 @@ class WebUIPWATests(unittest.TestCase):
         self.assertNotIn('"/events', source)
         self.assertNotIn('"/inputs', source)
         self.assertNotIn('"/outputs', source)
+
+    def test_service_worker_precaches_the_exact_versioned_runtime_assets_used_by_pages(self) -> None:
+        index_html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
+        history_html = Path("codex_image/webui/static/history.html").read_text(encoding="utf-8")
+        worker_source = Path("codex_image/webui/static/service-worker.js").read_text(encoding="utf-8")
+
+        runtime_assets = set(re.findall(
+            r'(?:src|href)="(/static/(?:app|history|styles)\.(?:js|css)\?v=[^"]+)"',
+            index_html + history_html,
+        ))
+        self.assertEqual(len(runtime_assets), 3)
+        for asset_url in runtime_assets:
+            self.assertIn(f'"{asset_url}"', worker_source)
+        self.assertNotIn('"/static/app.js"', worker_source)
+        self.assertNotIn('"/static/history.js"', worker_source)
+        self.assertNotIn('"/static/styles.css"', worker_source)
 
     def test_pwa_root_assets_are_served_from_authenticated_server_app(self) -> None:
         auth_source = Path("codex_image/server/auth.py").read_text(encoding="utf-8")

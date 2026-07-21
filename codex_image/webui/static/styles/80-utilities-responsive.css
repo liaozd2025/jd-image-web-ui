@@ -840,12 +840,11 @@ button:disabled {
   .brand-mark {
     width: 36px;
     height: 36px;
-    border-radius: 12px;
   }
 
-  .brand-rabbit-logo {
-    width: 27px;
-    height: 27px;
+  .brand-logo {
+    width: 30px;
+    height: 34px;
   }
 
   .sidebar-resize-handle,
