@@ -6,6 +6,7 @@ import {
   activeParameterValuesFor,
   advancedParametersAreExpanded,
   initializeParameterDraft,
+  legacyWorkspaceParameterModel,
   legacyParameterVisibility,
   matchingObjectPreset,
   migrateParameterValues,
@@ -14,6 +15,7 @@ import {
   parameterAffectsVisibility,
   parameterRenderFingerprint,
 } from "../../codex_image/webui/frontend/src/model-parameters";
+import { usesLegacyWorkspaceControls } from "../../codex_image/webui/frontend/src/workspace-model-compatibility";
 import {
   aspectRatioRect,
   aspectRatioSlots,
@@ -264,19 +266,52 @@ test("advanced parameter expansion is manifest driven and history remains expand
   assert.equal(advancedParametersAreExpanded({ ...model, expand_advanced_parameters: false }, true), true);
 });
 
-test("legacy GPT custom size is visible only for the GPT custom mode", () => {
+test("legacy workspace size controls remain available for GPT and Seedream", () => {
   assert.deepEqual(legacyParameterVisibility("gpt-image-2", "preset"), {
-    legacyGpt: true,
+    legacyWorkspace: true,
     customSize: false,
   });
   assert.deepEqual(legacyParameterVisibility("gpt-image-2", "custom"), {
-    legacyGpt: true,
+    legacyWorkspace: true,
+    customSize: true,
+  });
+  assert.deepEqual(legacyParameterVisibility("doubao-seedream-5-0-lite-browser", "preset", "seedream-image"), {
+    legacyWorkspace: true,
+    customSize: false,
+  });
+  assert.deepEqual(legacyParameterVisibility("vendor/seedream-5-pro", "custom"), {
+    legacyWorkspace: true,
     customSize: true,
   });
   assert.deepEqual(legacyParameterVisibility("nano-banana-2", "custom"), {
-    legacyGpt: false,
+    legacyWorkspace: false,
     customSize: false,
   });
+});
+
+test("Seedream keeps only provider-specific v0.7 parameters beside legacy workspace controls", () => {
+  assert.equal(usesLegacyWorkspaceControls("gpt-image-2", "gpt-image"), true);
+  assert.equal(usesLegacyWorkspaceControls("doubao-seedream-5-0-260128", "seedream-image"), true);
+  assert.equal(usesLegacyWorkspaceControls("vendor/seedream-5-pro", "custom-image"), true);
+  assert.equal(usesLegacyWorkspaceControls("nano-banana-2", "gemini-image"), false);
+
+  const seedream = {
+    ...model,
+    id: "doubao-seedream-5-0-lite-browser",
+    family_id: "seedream-image",
+    parameters: [
+      { ...parameters[0], id: "canvas.size" },
+      { ...parameters[3], id: "output.count" },
+      { ...parameters[1], id: "legacy.prompt_optimization_mode" },
+      { ...parameters[1], id: "legacy.seed_mode" },
+      { ...parameters[2], id: "legacy.seed", visible_when: [{ parameter_id: "legacy.seed_mode", operator: "equals" as const, value: "fixed" }] },
+    ],
+  };
+  assert.deepEqual(
+    legacyWorkspaceParameterModel(seedream).parameters.map((definition) => definition.id),
+    ["legacy.prompt_optimization_mode", "legacy.seed_mode", "legacy.seed"],
+  );
+  assert.deepEqual(legacyWorkspaceParameterModel(model).parameters, model.parameters);
 });
 
 test("migration has exact values, defaults, and dropped fields", () => {

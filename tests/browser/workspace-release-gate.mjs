@@ -303,6 +303,16 @@ async function waitForWorkspace(page) {
   });
   await selectCatalogModel(secondBinding.canonical_model_id);
   await selectCatalogBinding(multiCatalogProvider, secondBinding);
+  check(secondBinding.canonical_model_id.includes("seedream"), "Seedream release fixture was not selected");
+  for (const selector of ["#sizeModeGroup", ".orientation-field", ".resolution-field", ".ratio-field", "#promptFidelityField"]) {
+    check(await page.locator(selector).isVisible(), `Seedream legacy workspace control remained hidden: ${selector}`);
+  }
+  for (const parameterId of ["legacy.prompt_optimization_mode", "legacy.seed_mode"]) {
+    check(
+      await page.locator(`[data-parameter-id="${parameterId}"]`).isVisible(),
+      `Seedream v0.7 supplemental parameter remained hidden: ${parameterId}`,
+    );
+  }
   const preferenceResponse = await preferenceSaved;
   check(preferenceResponse.status() === 200, `model selection preference was not saved on the server: ${JSON.stringify(preferenceResponse.request().postDataJSON())} ${await preferenceResponse.text()}`);
   check((await page.locator("#promptEditor").textContent()) === "preserve workspace while switching models", "switching models changed the prompt");
@@ -1057,6 +1067,63 @@ try {
   check(await adminPage.locator('[data-settings-nav-group][data-admin-only] [data-system-settings-tab]:visible').count() === 7, "administrator did not receive all seven management pages");
   await adminPage.locator('[data-system-settings-tab="api"]').click();
   check(await adminPage.locator("#deleteApiProviderButton").isHidden(), "server system settings exposed a physical provider delete action");
+  const adminProviderCard = adminPage.locator('[data-api-provider-id]:not([aria-selected="true"])').first();
+  await adminProviderCard.waitFor({ state: "visible" });
+  let releaseProviderAutosave;
+  let markProviderAutosaveStarted;
+  const providerAutosaveRelease = new Promise((resolve) => { releaseProviderAutosave = resolve; });
+  const providerAutosaveStarted = new Promise((resolve) => { markProviderAutosaveStarted = resolve; });
+  const providerAutosaveSettings = (await api(adminPage, "/api/api-settings")).body.settings;
+  await adminPage.route("**/api/api-settings", async (route) => {
+    if (route.request().method() === "PATCH") {
+      markProviderAutosaveStarted();
+      await providerAutosaveRelease;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ settings: providerAutosaveSettings }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+  await adminProviderCard.click();
+  await providerAutosaveStarted;
+  await adminPage.locator("#editApiProviderButton").click();
+  await adminPage.locator("#apiProviderEditor").waitFor({ state: "visible" });
+  const providerAutosaveResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/api-settings" && response.request().method() === "PATCH"
+  ));
+  releaseProviderAutosave();
+  const providerAutosaveHttpResponse = await providerAutosaveResponse;
+  check(
+    providerAutosaveHttpResponse.status() === 200,
+    `provider selection autosave failed: ${providerAutosaveHttpResponse.status()} ${await providerAutosaveHttpResponse.text()}`,
+  );
+  await eventually(async () => await adminPage.evaluate(() => Boolean(
+    window.__codexImageWebUI?.state?.apiProviderEditingId
+      && window.__codexImageWebUI?.state?.apiProviderDraft
+      && !document.querySelector("#apiProviderEditor")?.classList.contains("hidden")
+  )), "an in-flight provider autosave discarded the newly opened editor");
+  await adminPage.unroute("**/api/api-settings");
+  await adminPage.locator("#cancelApiProviderEditButton").click();
+  await adminPage.locator("#apiProviderEditor").waitFor({ state: "hidden" });
+  await adminPage.locator("#copyApiProviderButton").click();
+  await adminPage.locator("#apiProviderEditor").waitFor({ state: "visible" });
+  await adminPage.locator("#cancelApiProviderEditButton").click();
+  await adminPage.locator("#addApiProviderButton").click();
+  await adminPage.locator("#apiProviderEditor").waitFor({ state: "visible" });
+  const newProviderBindingCount = await adminPage.locator("#apiProviderBindings [data-binding-id]").count();
+  await adminPage.locator("#addProviderBindingButton").click();
+  await eventually(
+    async () => await adminPage.locator("#apiProviderBindings [data-binding-id]").count() === newProviderBindingCount + 1,
+    "adding a catalog model binding did not change the provider draft",
+  );
+  await adminPage.locator("#cancelApiProviderEditButton").click();
+  await adminPage.locator("#sortApiProvidersButton").click();
+  check(await adminPage.locator("#apiProviderList .api-provider-sort-row").count() > 1, "provider sort action did not expose sortable rows");
+  await adminPage.locator("#sortApiProvidersButton").click();
+  check(await adminPage.locator("#apiProviderList .api-provider-choice").count() > 1, "provider sort action did not return to provider choices");
   await adminPage.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
   await adminPage.locator("#systemSettingsModal").waitFor({ state: "visible" });
   await eventually(

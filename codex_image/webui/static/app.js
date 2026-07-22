@@ -33230,10 +33230,20 @@ ${hint}` : hint;
     });
   }
 
+  // codex_image/webui/frontend/src/workspace-model-compatibility.ts
+  function usesLegacyWorkspaceControls(modelId, familyId = null) {
+    const normalizedModelId = String(modelId || "").trim();
+    return normalizedModelId === "gpt-image-2" || familyId === "seedream-image" || /(?:^|[\/_-])seedream(?:[\/_-]|$)/i.test(normalizedModelId);
+  }
+  function usesLegacyMainModelControl(modelId) {
+    return !modelId || modelId === "gpt-image-2";
+  }
+
   // codex_image/webui/frontend/src/mode-settings-visibility.ts
   function resolveModeSettingsVisibility({
     catalogAvailable,
     modelId,
+    modelFamilyId,
     protocolProfile,
     legacyDirectApi
   }) {
@@ -33244,11 +33254,18 @@ ${hint}` : hint;
         showPromptFidelity: true
       };
     }
-    if (modelId !== "gpt-image-2") {
+    if (!usesLegacyWorkspaceControls(modelId, modelFamilyId)) {
       return {
         showMainModel: false,
         showApiDirectNotice: false,
         showPromptFidelity: false
+      };
+    }
+    if (modelId !== "gpt-image-2") {
+      return {
+        showMainModel: false,
+        showApiDirectNotice: Boolean(protocolProfile && !protocolProfile.endsWith("_responses")),
+        showPromptFidelity: true
       };
     }
     if (!protocolProfile) {
@@ -33335,10 +33352,14 @@ ${hint}` : hint;
   }
   function updateModeSpecificSettings(authSource = currentAuthSource()) {
     const binding = selectedProviderBinding();
+    const selectedModel = getLegacyBridge().state.generationCatalog?.models.find(
+      (model) => model.id === getLegacyBridge().state.selectedModelId
+    );
     const isDirectApi = binding ? !binding.protocol_profile.endsWith("_responses") : authSource === "api" && currentApiMode() !== "responses" || authSource === "codex" && currentCodexMode() !== "responses";
     setModeSettingsVariant(isDirectApi, resolveModeSettingsVisibility({
       catalogAvailable: Boolean(getLegacyBridge().state.generationCatalog),
       modelId: getLegacyBridge().state.selectedModelId,
+      modelFamilyId: selectedModel?.family_id || null,
       protocolProfile: binding?.protocol_profile || null,
       legacyDirectApi: isDirectApi
     }));
@@ -34122,11 +34143,30 @@ ${hint}` : hint;
   function advancedParametersAreExpanded(model, readOnly) {
     return readOnly || model.expand_advanced_parameters === true;
   }
-  function legacyParameterVisibility(modelId, sizeMode) {
-    const legacyGpt = modelId === "gpt-image-2";
+  function legacyParameterVisibility(modelId, sizeMode, familyId) {
+    const legacyWorkspace = usesLegacyWorkspaceControls(modelId, familyId);
     return {
-      legacyGpt,
-      customSize: legacyGpt && sizeMode === "custom"
+      legacyWorkspace,
+      customSize: legacyWorkspace && sizeMode === "custom"
+    };
+  }
+  var LEGACY_WORKSPACE_PARAMETER_IDS = /* @__PURE__ */ new Set([
+    "canvas.size",
+    "canvas.aspect_ratio",
+    "canvas.resolution",
+    "gpt.quality",
+    "gpt.background",
+    "output.format",
+    "gpt.moderation",
+    "gpt.output_compression",
+    "gpt.web_search",
+    "output.count"
+  ]);
+  function legacyWorkspaceParameterModel(model) {
+    if (!usesLegacyWorkspaceControls(model.id, model.family_id)) return model;
+    return {
+      ...model,
+      parameters: model.id === "gpt-image-2" ? [] : model.parameters.filter((definition) => !LEGACY_WORKSPACE_PARAMETER_IDS.has(definition.id))
     };
   }
   function parameterTranslations(definition) {
@@ -34219,8 +34259,8 @@ ${hint}` : hint;
       return;
     }
     ensureModelDraft(model);
-    const visibility = legacyParameterVisibility(model.id, els44.size?.value);
-    const legacyGpt = visibility.legacyGpt;
+    const visibility = legacyParameterVisibility(model.id, els44.size?.value, model.family_id);
+    const legacyWorkspace = visibility.legacyWorkspace;
     state33.customSizeTransitionSeq += 1;
     state33.customSizeMode = visibility.customSize;
     const legacyElements = [
@@ -34234,7 +34274,7 @@ ${hint}` : hint;
       els44.moderation?.closest(".moderation-field")
     ].filter(Boolean);
     legacyElements.forEach((element2) => {
-      element2.classList.toggle("hidden", !legacyGpt);
+      element2.classList.toggle("hidden", !legacyWorkspace);
     });
     if (els44.customSize) {
       els44.customSize.classList.toggle("hidden", !visibility.customSize);
@@ -34242,12 +34282,13 @@ ${hint}` : hint;
       els44.customSize.setAttribute("aria-hidden", visibility.customSize ? "false" : "true");
     }
     els44.settingsGrid?.classList.toggle("custom-size-mode", visibility.customSize);
-    els44.webSearchField?.classList.toggle("hidden", !legacyGpt);
-    root.classList.toggle("hidden", legacyGpt);
-    if (legacyGpt) root.replaceChildren();
+    els44.webSearchField?.classList.toggle("hidden", !legacyWorkspace);
+    const dynamicModel = legacyWorkspaceParameterModel(model);
+    root.classList.toggle("hidden", dynamicModel.parameters.length === 0);
+    if (!dynamicModel.parameters.length) root.replaceChildren();
     else renderInteractiveParameterDefinitionsInto(
       root,
-      model,
+      dynamicModel,
       state33.parameterDraftsByModel[model.id] || {},
       state33.mode
     );
@@ -34350,7 +34391,7 @@ ${hint}` : hint;
     const { state: state33, methods } = getLegacyBridge();
     const model = state33.generationCatalog?.models.find((item) => item.id === state33.selectedModelId);
     if (!model || typeof methods.currentTaskParams !== "function") return;
-    if (model.id !== "gpt-image-2") {
+    if (!usesLegacyWorkspaceControls(model.id, model.family_id)) {
       methods.persistModelSelection?.();
       return;
     }
@@ -34367,7 +34408,7 @@ ${hint}` : hint;
     const modelId = state33.selectedModelId || "";
     const model = state33.generationCatalog?.models.find((item) => item.id === modelId);
     if (!model) return;
-    if (model.id !== "gpt-image-2") {
+    if (!usesLegacyWorkspaceControls(model.id, model.family_id)) {
       renderCurrentModelParameters();
       return;
     }
@@ -35159,6 +35200,13 @@ ${hint}` : hint;
       modelSelect.className = "control";
       modelSelect.dataset.bindingModel = "";
       modelSelect.setAttribute("aria-labelledby", modelLabel.id);
+      if (!models.some((model) => model.id === binding.canonical_model_id)) {
+        modelSelect.append(option(
+          binding.canonical_model_id,
+          binding.canonical_model_id,
+          true
+        ));
+      }
       models.forEach((model) => modelSelect.append(option(model.id, model.display_name, model.id === binding.canonical_model_id)));
       modelField.append(modelLabel, modelSelect);
       const protocolField = document.createElement("div");
@@ -35177,7 +35225,9 @@ ${hint}` : hint;
         normalizedBindings,
         selectedModel
       ).join(",");
-      availableProtocolsForModel(binding.canonical_model_id).forEach((protocol) => {
+      const availableProtocols = availableProtocolsForModel(binding.canonical_model_id);
+      if (!availableProtocols.includes(selectedProtocol)) availableProtocols.unshift(selectedProtocol);
+      availableProtocols.forEach((protocol) => {
         protocolSelect.append(option(protocol, BINDING_PROTOCOL_LABELS[protocol], protocol === selectedProtocol));
       });
       protocolField.append(protocolLabel, protocolSelect);
@@ -35253,24 +35303,24 @@ ${hint}` : hint;
   function readProviderBindingCards(container) {
     if (!container) return [];
     return [...container.querySelectorAll("[data-binding-id]")].map((card) => {
-      const modelId = card.querySelector("[data-binding-model]")?.value || "";
-      const remoteModelId = card.querySelector("[data-binding-remote-model]")?.value || "";
-      const protocol = card.querySelector("[data-binding-protocol]")?.value || availableProtocolsForModel(modelId)[0];
-      const compatibility = card.querySelector("[data-binding-compatibility]")?.value || "standard";
-      const operations = normalizedOperations(
-        String(card.dataset.bindingModelOperations || "").split(",")
-      );
       const original = {
         id: card.dataset.bindingId || "binding",
-        canonical_model_id: card.dataset.bindingOriginalModelId || modelId,
-        remote_model_id: remoteModelId,
+        canonical_model_id: card.dataset.bindingOriginalModelId || "",
+        remote_model_id: card.querySelector("[data-binding-remote-model]")?.value || "",
         protocol_profile: card.dataset.bindingOriginalProtocolProfile || "",
         parameter_codec: card.dataset.bindingOriginalParameterCodec || "",
-        operations,
+        operations: normalizedOperations(
+          String(card.dataset.bindingModelOperations || "").split(",")
+        ),
         append_aspect_ratio_prompt: Boolean(
           card.querySelector("[data-binding-ratio-prompt]")?.checked
         )
       };
+      const modelId = card.querySelector("[data-binding-model]")?.value || original.canonical_model_id;
+      const remoteModelId = original.remote_model_id;
+      const protocol = card.querySelector("[data-binding-protocol]")?.value || availableProtocolsForModel(modelId)[0] || protocolForBinding(original);
+      const compatibility = card.querySelector("[data-binding-compatibility]")?.value || "standard";
+      const operations = original.operations;
       return {
         ...bindingForCompatibilitySelection(
           original,
@@ -36304,6 +36354,38 @@ ${hint}` : hint;
     if (!apiProviderEditorActive()) return;
     await saveApiSettings();
   }
+  function bindingForCatalogModel(bindingId, model) {
+    const catalogBinding = state9.generationCatalog?.providers.flatMap((provider) => provider.bindings || []).find((binding) => binding.canonical_model_id === model.id);
+    if (catalogBinding) {
+      return {
+        id: bindingId,
+        canonical_model_id: model.id,
+        remote_model_id: catalogBinding.remote_model_id || model.official_model_id || model.id,
+        protocol_profile: catalogBinding.protocol_profile,
+        parameter_codec: catalogBinding.parameter_codec,
+        operations: [...model.operations || catalogBinding.operations || ["generate", "edit"]],
+        append_aspect_ratio_prompt: Boolean(catalogBinding.append_aspect_ratio_prompt)
+      };
+    }
+    const protocol = availableProtocolsForModel(model.id)[0];
+    if (protocol) {
+      return bindingFromProtocol(
+        bindingId,
+        model.id,
+        model.official_model_id || model.id,
+        protocol,
+        [...model.operations]
+      );
+    }
+    return {
+      id: bindingId,
+      canonical_model_id: model.id,
+      remote_model_id: model.official_model_id || model.id,
+      protocol_profile: "openai_images",
+      parameter_codec: "gpt_openai_images",
+      operations: [...model.operations || ["generate", "edit"]]
+    };
+  }
   function addProviderBinding() {
     if (!apiProviderEditorActive()) return;
     const draft = draftProviderFromForm();
@@ -36314,18 +36396,7 @@ ${hint}` : hint;
       return;
     }
     const bindingId = `${draft.id}-binding-${Date.now()}`;
-    const protocol = availableProtocolsForModel(model.id)[0];
-    if (!protocol) {
-      setApiSettingsFeedback(translate("apiSettings.catalogRequiredForBinding"), "error");
-      return;
-    }
-    draft.bindings.push(bindingFromProtocol(
-      bindingId,
-      model.id,
-      model.official_model_id || model.id,
-      protocol,
-      [...model.operations]
-    ));
+    draft.bindings.push(bindingForCatalogModel(bindingId, model));
     if (!state9.apiSettings.default_provider_by_model?.[model.id]) {
       draft.default_model_ids = [.../* @__PURE__ */ new Set([...draft.default_model_ids || [], model.id])];
     }
@@ -36669,10 +36740,13 @@ ${hint}` : hint;
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || translate("apiSettings.saveFailed"));
+      const preserveNewEditor = autoSave && apiProviderEditorActive();
       state9.apiSettings = mergeApiProviderKeys(data.settings || {});
-      state9.apiProviderEditingId = null;
-      state9.apiProviderDraft = null;
-      state9.apiProviderDraftIsNew = false;
+      if (!preserveNewEditor) {
+        state9.apiProviderEditingId = null;
+        state9.apiProviderDraft = null;
+        state9.apiProviderDraftIsNew = false;
+      }
       if (!autoSave) clearSystemSettingsDirty(els10.apiProviderEditor);
       persistApiSettings();
       populateApiSettingsForm();
@@ -36694,10 +36768,13 @@ ${hint}` : hint;
       updateRequestPreview5();
       return true;
     } catch (error) {
+      const preserveNewEditor = autoSave && apiProviderEditorActive();
       state9.apiSettings = previousSettings;
-      state9.apiProviderEditingId = previousEditingId;
-      state9.apiProviderDraft = previousDraft;
-      state9.apiProviderDraftIsNew = previousDraftIsNew;
+      if (!preserveNewEditor) {
+        state9.apiProviderEditingId = previousEditingId;
+        state9.apiProviderDraft = previousDraft;
+        state9.apiProviderDraftIsNew = previousDraftIsNew;
+      }
       persistApiSettings();
       populateApiSettingsForm();
       setApiSettingsFeedback(error.message || translate("apiSettings.saveFailed"), "error");
@@ -40945,7 +41022,8 @@ ${galleryText}`;
   }
   function supportsGptPromptProcessing() {
     const { state: state33 } = getLegacyBridge();
-    return !state33.generationCatalog || state33.selectedModelId === "gpt-image-2";
+    const model = state33.generationCatalog?.models.find((item) => item.id === state33.selectedModelId);
+    return !state33.generationCatalog || usesLegacyWorkspaceControls(state33.selectedModelId, model?.family_id);
   }
   function initPromptModelFeature() {
     Object.assign(getLegacyBridge().methods, {
@@ -41719,9 +41797,12 @@ ${galleryText}`;
       output_compression: els26.outputFormat.value === "png" ? null : Number(els26.compression.value)
     };
     const { state: state33 } = getLegacyBridge();
-    if (!state33.generationCatalog || state33.selectedModelId === "gpt-image-2") {
-      params.main_model = currentMainModel();
+    const selectedModel = state33.generationCatalog?.models.find((item) => item.id === state33.selectedModelId);
+    if (!state33.generationCatalog || usesLegacyWorkspaceControls(state33.selectedModelId, selectedModel?.family_id)) {
       params.prompt_fidelity = currentPromptFidelity3();
+    }
+    if (!state33.generationCatalog || usesLegacyMainModelControl(state33.selectedModelId)) {
+      params.main_model = currentMainModel();
     }
     if (currentWebSearchEnabled()) {
       params.web_search = true;
@@ -42549,7 +42630,7 @@ ${galleryText}`;
     const bridge40 = getLegacyBridge();
     const legacy = legacyMethod30("currentTaskParams");
     const model = bridge40.state.generationCatalog?.models.find((item) => item.id === bridge40.state.selectedModelId);
-    const parameters = model && model.id !== "gpt-image-2" && typeof bridge40.methods.activeParameterValues === "function" ? bridge40.methods.activeParameterValues(model) : typeof bridge40.methods.currentCanonicalParameters === "function" ? bridge40.methods.currentCanonicalParameters() : {};
+    const parameters = model && !usesLegacyWorkspaceControls(model.id, model.family_id) && typeof bridge40.methods.activeParameterValues === "function" ? bridge40.methods.activeParameterValues(model) : typeof bridge40.methods.currentCanonicalParameters === "function" ? bridge40.methods.currentCanonicalParameters() : {};
     return normalizeOutputSettingsSnapshot({
       ...legacy,
       canonical_model_id: model?.id || "gpt-image-2",
@@ -45275,7 +45356,7 @@ ${galleryText}`;
       return { canonicalModelId: "", providerId: "", bindingId: "", parameters: {} };
     }
     let draft = state33.parameterDraftsByModel[model.id] || {};
-    if (model.id === "gpt-image-2" && typeof methods.currentTaskParams === "function") {
+    if (usesLegacyWorkspaceControls(model.id, model.family_id) && typeof methods.currentTaskParams === "function") {
       draft = {
         ...draft,
         ...canonicalControlValues(methods.currentTaskParams(), selectedProviderBinding()?.protocol_profile || "")
@@ -45581,8 +45662,9 @@ ${galleryText}`;
       reference_files: fileUploads.map((source) => source.filename),
       reference_file_ids: storedFiles.map((source) => source.id)
     };
-    const usesGptPromptProcessing = !state25.generationCatalog || state25.selectedModelId === "gpt-image-2";
-    if (usesGptPromptProcessing) payload2.prompt_fidelity = currentPromptFidelity4();
+    const selectedModel = state25.generationCatalog?.models.find((item) => item.id === state25.selectedModelId);
+    const usesWorkspacePromptProcessing = !state25.generationCatalog || usesLegacyWorkspaceControls(state25.selectedModelId, selectedModel?.family_id);
+    if (usesWorkspacePromptProcessing) payload2.prompt_fidelity = currentPromptFidelity4();
     if (isApi) {
       payload2.api_provider_id = state25.selectedProviderId;
       payload2.api_provider_name = state25.generationCatalog?.providers.find((provider) => provider.id === state25.selectedProviderId)?.name || "";
@@ -45591,7 +45673,7 @@ ${galleryText}`;
       payload2.endpoint = selectedProviderBinding()?.protocol_profile || "";
     } else if (isCodex) {
       payload2.codex_mode = codexMode;
-      if (usesGptPromptProcessing) payload2.main_model = params.main_model;
+      if (usesLegacyMainModelControl(state25.selectedModelId)) payload2.main_model = params.main_model;
     }
     return payload2;
   }
@@ -45682,9 +45764,12 @@ ${galleryText}`;
     const selection = currentGenerationSelection();
     appendCanonicalGenerationFields(form, selection);
     appendServerCompatibleGenerationFields(form, selection, currentTaskParams2());
-    if (!state25.generationCatalog || state25.selectedModelId === "gpt-image-2") {
-      form.append("main_model", currentMainModel2());
+    const selectedModel = state25.generationCatalog?.models.find((item) => item.id === state25.selectedModelId);
+    if (!state25.generationCatalog || usesLegacyWorkspaceControls(state25.selectedModelId, selectedModel?.family_id)) {
       form.append("prompt_fidelity", currentPromptFidelity4());
+    }
+    if (!state25.generationCatalog || usesLegacyMainModelControl(state25.selectedModelId)) {
+      form.append("main_model", currentMainModel2());
     }
     galleries.forEach((source) => {
       form.append("gallery_image_ids", source.id);

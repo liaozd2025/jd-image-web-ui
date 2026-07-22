@@ -5,6 +5,7 @@ import { currentMainModel } from "./main-model-combobox";
 import { currentQuantity } from "./output-controls";
 import { translate } from "./i18n";
 import { currentGenerationModel } from "./generation-model";
+import { usesLegacyMainModelControl, usesLegacyWorkspaceControls } from "./workspace-model-compatibility";
 
 export const DEFAULT_RESOLUTION = "standard";
 export const DEFAULT_RATIO = "1:1";
@@ -203,9 +204,12 @@ export function currentTaskParams(): any {
     output_compression: els.outputFormat.value === "png" ? null : Number(els.compression.value),
   };
   const { state } = getLegacyBridge();
-  if (!state.generationCatalog || state.selectedModelId === "gpt-image-2") {
-    params.main_model = currentMainModel();
+  const selectedModel = state.generationCatalog?.models.find((item) => item.id === state.selectedModelId);
+  if (!state.generationCatalog || usesLegacyWorkspaceControls(state.selectedModelId, selectedModel?.family_id)) {
     params.prompt_fidelity = currentPromptFidelity();
+  }
+  if (!state.generationCatalog || usesLegacyMainModelControl(state.selectedModelId)) {
+    params.main_model = currentMainModel();
   }
   if (currentWebSearchEnabled()) {
     params.web_search = true;

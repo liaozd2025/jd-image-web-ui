@@ -1161,6 +1161,41 @@ export async function saveApiProviderEdit(): Promise<void> {
   await saveApiSettings();
 }
 
+function bindingForCatalogModel(bindingId: string, model: any): any {
+  const catalogBinding = state.generationCatalog?.providers
+    .flatMap((provider: any) => provider.bindings || [])
+    .find((binding: any) => binding.canonical_model_id === model.id);
+  if (catalogBinding) {
+    return {
+      id: bindingId,
+      canonical_model_id: model.id,
+      remote_model_id: catalogBinding.remote_model_id || model.official_model_id || model.id,
+      protocol_profile: catalogBinding.protocol_profile,
+      parameter_codec: catalogBinding.parameter_codec,
+      operations: [...(model.operations || catalogBinding.operations || ["generate", "edit"])],
+      append_aspect_ratio_prompt: Boolean(catalogBinding.append_aspect_ratio_prompt),
+    };
+  }
+  const protocol = availableProtocolsForModel(model.id)[0];
+  if (protocol) {
+    return bindingFromProtocol(
+      bindingId,
+      model.id,
+      model.official_model_id || model.id,
+      protocol,
+      [...model.operations],
+    );
+  }
+  return {
+    id: bindingId,
+    canonical_model_id: model.id,
+    remote_model_id: model.official_model_id || model.id,
+    protocol_profile: "openai_images",
+    parameter_codec: "gpt_openai_images",
+    operations: [...(model.operations || ["generate", "edit"])],
+  };
+}
+
 export function addProviderBinding(): void {
   if (!apiProviderEditorActive()) return;
   const draft = draftProviderFromForm();
@@ -1172,18 +1207,7 @@ export function addProviderBinding(): void {
     return;
   }
   const bindingId = `${draft.id}-binding-${Date.now()}`;
-  const protocol = availableProtocolsForModel(model.id)[0];
-  if (!protocol) {
-    setApiSettingsFeedback(translate("apiSettings.catalogRequiredForBinding"), "error");
-    return;
-  }
-  draft.bindings.push(bindingFromProtocol(
-    bindingId,
-    model.id,
-    model.official_model_id || model.id,
-    protocol,
-    [...model.operations],
-  ));
+  draft.bindings.push(bindingForCatalogModel(bindingId, model));
   if (!state.apiSettings.default_provider_by_model?.[model.id]) {
     draft.default_model_ids = [...new Set([...(draft.default_model_ids || []), model.id])];
   }
@@ -1572,10 +1596,13 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || translate("apiSettings.saveFailed"));
+    const preserveNewEditor = autoSave && apiProviderEditorActive();
     state.apiSettings = mergeApiProviderKeys(data.settings || {});
-    state.apiProviderEditingId = null;
-    state.apiProviderDraft = null;
-    state.apiProviderDraftIsNew = false;
+    if (!preserveNewEditor) {
+      state.apiProviderEditingId = null;
+      state.apiProviderDraft = null;
+      state.apiProviderDraftIsNew = false;
+    }
     if (!autoSave) clearSystemSettingsDirty(els.apiProviderEditor);
     persistApiSettings();
     populateApiSettingsForm();
@@ -1597,10 +1624,13 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
     updateRequestPreview();
     return true;
   } catch (error: any) {
+    const preserveNewEditor = autoSave && apiProviderEditorActive();
     state.apiSettings = previousSettings;
-    state.apiProviderEditingId = previousEditingId;
-    state.apiProviderDraft = previousDraft;
-    state.apiProviderDraftIsNew = previousDraftIsNew;
+    if (!preserveNewEditor) {
+      state.apiProviderEditingId = previousEditingId;
+      state.apiProviderDraft = previousDraft;
+      state.apiProviderDraftIsNew = previousDraftIsNew;
+    }
     persistApiSettings();
     populateApiSettingsForm();
     setApiSettingsFeedback(error.message || translate("apiSettings.saveFailed"), "error");

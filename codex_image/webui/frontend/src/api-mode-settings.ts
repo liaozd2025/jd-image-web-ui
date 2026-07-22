@@ -75,6 +75,9 @@ export function setModeSettingsVariant(isDirectApi: any, visibility?: ModeSettin
 
 export function updateModeSpecificSettings(authSource: any = currentAuthSource()): void {
   const binding = selectedProviderBinding();
+  const selectedModel = getLegacyBridge().state.generationCatalog?.models.find(
+    (model) => model.id === getLegacyBridge().state.selectedModelId,
+  );
   const isDirectApi = binding
     ? !binding.protocol_profile.endsWith("_responses")
     : (authSource === "api" && currentApiMode() !== "responses")
@@ -82,6 +85,7 @@ export function updateModeSpecificSettings(authSource: any = currentAuthSource()
   setModeSettingsVariant(isDirectApi, resolveModeSettingsVisibility({
     catalogAvailable: Boolean(getLegacyBridge().state.generationCatalog),
     modelId: getLegacyBridge().state.selectedModelId,
+    modelFamilyId: selectedModel?.family_id || null,
     protocolProfile: binding?.protocol_profile || null,
     legacyDirectApi: isDirectApi,
   }));

@@ -250,6 +250,40 @@ test("binding cards use the model-resolved operations instead of editable operat
   assert.equal(bindings[0].append_aspect_ratio_prompt, true);
 });
 
+test("a Seedream binding stays editable while the generation catalog is still loading", () => {
+  const card = {
+    dataset: {
+      bindingId: "seedream-pro",
+      bindingOriginalModelId: "doubao-seedream-5-0-pro-260628",
+      bindingOriginalProtocolProfile: "openai_images",
+      bindingOriginalParameterCodec: "gpt_openai_images",
+      bindingProtocolChanged: "false",
+      bindingCompatibilityChanged: "false",
+      bindingModelOperations: "generate,edit",
+    },
+    querySelector(selector: string) {
+      if (selector === "[data-binding-model]") return { value: "" };
+      if (selector === "[data-binding-remote-model]") return { value: "doubao-seedream-5-0-pro-260628" };
+      if (selector === "[data-binding-protocol]") return { value: "" };
+      if (selector === "[data-binding-compatibility]") return { value: "standard" };
+      if (selector === "[data-binding-ratio-prompt]") return { checked: false };
+      if (selector === "[data-binding-default]") return { checked: true };
+      return null;
+    },
+  } as unknown as HTMLElement;
+  const container = {
+    querySelectorAll() {
+      return [card];
+    },
+  } as unknown as HTMLElement;
+
+  const bindings = readProviderBindingCards(container);
+
+  assert.equal(bindings[0].canonical_model_id, "doubao-seedream-5-0-pro-260628");
+  assert.equal(bindings[0].protocol_profile, "openai_images");
+  assert.equal(bindings[0].parameter_codec, "gpt_openai_images");
+});
+
 test("binding cards preserve legacy split operations while single bindings adopt the model operations", () => {
   const model = {
     id: "gpt-image-2",

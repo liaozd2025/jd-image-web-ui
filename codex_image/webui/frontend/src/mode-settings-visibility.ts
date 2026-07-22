@@ -1,6 +1,9 @@
+import { usesLegacyWorkspaceControls } from "./workspace-model-compatibility";
+
 export interface ModeSettingsVisibilityInput {
   catalogAvailable: boolean;
   modelId: string | null;
+  modelFamilyId?: string | null;
   protocolProfile: string | null;
   legacyDirectApi: boolean;
 }
@@ -14,6 +17,7 @@ export interface ModeSettingsVisibility {
 export function resolveModeSettingsVisibility({
   catalogAvailable,
   modelId,
+  modelFamilyId,
   protocolProfile,
   legacyDirectApi,
 }: ModeSettingsVisibilityInput): ModeSettingsVisibility {
@@ -25,11 +29,19 @@ export function resolveModeSettingsVisibility({
     };
   }
 
-  if (modelId !== "gpt-image-2") {
+  if (!usesLegacyWorkspaceControls(modelId, modelFamilyId)) {
     return {
       showMainModel: false,
       showApiDirectNotice: false,
       showPromptFidelity: false,
+    };
+  }
+
+  if (modelId !== "gpt-image-2") {
+    return {
+      showMainModel: false,
+      showApiDirectNotice: Boolean(protocolProfile && !protocolProfile.endsWith("_responses")),
+      showPromptFidelity: true,
     };
   }
 

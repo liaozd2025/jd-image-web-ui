@@ -2,6 +2,7 @@ import { canonicalControlValues } from "./model-parameter-drafts";
 import { activeParameterValuesFor } from "./model-parameters";
 import { selectedProviderBinding } from "./provider-selection";
 import { getLegacyBridge } from "./state";
+import { usesLegacyWorkspaceControls } from "./workspace-model-compatibility";
 
 export interface CanonicalGenerationSelection {
   canonicalModelId: string;
@@ -30,7 +31,7 @@ export function currentGenerationSelection(): CanonicalGenerationSelection {
     return { canonicalModelId: "", providerId: "", bindingId: "", parameters: {} };
   }
   let draft = state.parameterDraftsByModel[model.id] || {};
-  if (model.id === "gpt-image-2" && typeof methods.currentTaskParams === "function") {
+  if (usesLegacyWorkspaceControls(model.id, model.family_id) && typeof methods.currentTaskParams === "function") {
     draft = {
       ...draft,
       ...canonicalControlValues(methods.currentTaskParams(), selectedProviderBinding()?.protocol_profile || ""),

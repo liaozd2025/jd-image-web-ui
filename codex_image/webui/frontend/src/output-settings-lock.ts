@@ -1,5 +1,6 @@
 import { LOCALE_CHANGE_EVENT, translate } from "./i18n";
 import { getLegacyBridge } from "./state";
+import { usesLegacyWorkspaceControls } from "./workspace-model-compatibility";
 
 const STORAGE_KEY = "codex-image-output-settings-lock-v1";
 
@@ -274,7 +275,8 @@ function snapshotFromCurrentSelection(): OutputSettingsSnapshot {
   const bridge = getLegacyBridge();
   const legacy = legacyMethod("currentTaskParams");
   const model = bridge.state.generationCatalog?.models.find((item: any) => item.id === bridge.state.selectedModelId);
-    const parameters = model && model.id !== "gpt-image-2" && typeof bridge.methods.activeParameterValues === "function"
+  const parameters = model && !usesLegacyWorkspaceControls(model.id, model.family_id)
+    && typeof bridge.methods.activeParameterValues === "function"
     ? bridge.methods.activeParameterValues(model)
     : typeof bridge.methods.currentCanonicalParameters === "function"
       ? bridge.methods.currentCanonicalParameters()

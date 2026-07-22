@@ -41,6 +41,7 @@ class OutputSettingsLockFrontendContractTests(WebUIStaticTestCase):
               require(name) {{
                 if (name === "./i18n") return {{ LOCALE_CHANGE_EVENT: "locale-change", translate: (key) => key }};
                 if (name === "./state") return {{ getLegacyBridge: () => {{ throw new Error("bridge must not be used by pure model tests"); }} }};
+                if (name === "./workspace-model-compatibility") return {{ usesLegacyWorkspaceControls: (modelId, familyId) => modelId === "gpt-image-2" || familyId === "seedream-image" }};
                 throw new Error(`unexpected require: ${{name}}`);
               }},
             }});

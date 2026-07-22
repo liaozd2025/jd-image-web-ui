@@ -367,6 +367,13 @@ export function renderProviderBindingCards(
     modelSelect.className = "control";
     modelSelect.dataset.bindingModel = "";
     modelSelect.setAttribute("aria-labelledby", modelLabel.id);
+    if (!models.some((model) => model.id === binding.canonical_model_id)) {
+      modelSelect.append(option(
+        binding.canonical_model_id,
+        binding.canonical_model_id,
+        true,
+      ));
+    }
     models.forEach((model) => modelSelect.append(option(model.id, model.display_name, model.id === binding.canonical_model_id)));
     modelField.append(modelLabel, modelSelect);
 
@@ -386,7 +393,9 @@ export function renderProviderBindingCards(
       normalizedBindings,
       selectedModel,
     ).join(",");
-    availableProtocolsForModel(binding.canonical_model_id).forEach((protocol) => {
+    const availableProtocols = availableProtocolsForModel(binding.canonical_model_id);
+    if (!availableProtocols.includes(selectedProtocol)) availableProtocols.unshift(selectedProtocol);
+    availableProtocols.forEach((protocol) => {
       protocolSelect.append(option(protocol, BINDING_PROTOCOL_LABELS[protocol], protocol === selectedProtocol));
     });
     protocolField.append(protocolLabel, protocolSelect);
@@ -470,26 +479,28 @@ export function renderProviderBindingCards(
 export function readProviderBindingCards(container: HTMLElement | null): Array<ProviderModelBindingSettings & { is_default: boolean }> {
   if (!container) return [];
   return [...container.querySelectorAll<HTMLElement>("[data-binding-id]")].map((card) => {
-    const modelId = card.querySelector<HTMLSelectElement>("[data-binding-model]")?.value || "";
-    const remoteModelId = card.querySelector<HTMLInputElement>("[data-binding-remote-model]")?.value || "";
-    const protocol = (card.querySelector<HTMLSelectElement>("[data-binding-protocol]")?.value
-      || availableProtocolsForModel(modelId)[0]) as BindingProtocol;
-    const compatibility = (card.querySelector<HTMLSelectElement>("[data-binding-compatibility]")?.value
-      || "standard") as BindingCompatibility;
-    const operations = normalizedOperations(
-      String(card.dataset.bindingModelOperations || "").split(","),
-    );
     const original: ProviderModelBindingSettings = {
       id: card.dataset.bindingId || "binding",
-      canonical_model_id: card.dataset.bindingOriginalModelId || modelId,
-      remote_model_id: remoteModelId,
+      canonical_model_id: card.dataset.bindingOriginalModelId || "",
+      remote_model_id: card.querySelector<HTMLInputElement>("[data-binding-remote-model]")?.value || "",
       protocol_profile: card.dataset.bindingOriginalProtocolProfile || "",
       parameter_codec: card.dataset.bindingOriginalParameterCodec || "",
-      operations,
+      operations: normalizedOperations(
+        String(card.dataset.bindingModelOperations || "").split(","),
+      ),
       append_aspect_ratio_prompt: Boolean(
         card.querySelector<HTMLInputElement>("[data-binding-ratio-prompt]")?.checked
       ),
     };
+    const modelId = card.querySelector<HTMLSelectElement>("[data-binding-model]")?.value
+      || original.canonical_model_id;
+    const remoteModelId = original.remote_model_id;
+    const protocol = (card.querySelector<HTMLSelectElement>("[data-binding-protocol]")?.value
+      || availableProtocolsForModel(modelId)[0]
+      || protocolForBinding(original)) as BindingProtocol;
+    const compatibility = (card.querySelector<HTMLSelectElement>("[data-binding-compatibility]")?.value
+      || "standard") as BindingCompatibility;
+    const operations = original.operations;
     return {
       ...bindingForCompatibilitySelection(
         original,

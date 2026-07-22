@@ -2,6 +2,7 @@ import { LOCALE_CHANGE_EVENT, translate } from "./i18n";
 import { aspectRatioSlots, createAspectRatioIcon } from "./aspect-ratio-controls";
 import { refreshSegmentedIndicators } from "./segmented-indicator";
 import { getLegacyBridge } from "./state";
+import { usesLegacyWorkspaceControls } from "./workspace-model-compatibility";
 import type {
   CatalogModel,
   CatalogObjectPreset,
@@ -654,14 +655,37 @@ export function advancedParametersAreExpanded(model: CatalogModel, readOnly: boo
   return readOnly || model.expand_advanced_parameters === true;
 }
 
-export function legacyParameterVisibility(modelId: string, sizeMode: unknown): {
-  legacyGpt: boolean;
+export function legacyParameterVisibility(modelId: string, sizeMode: unknown, familyId?: string): {
+  legacyWorkspace: boolean;
   customSize: boolean;
 } {
-  const legacyGpt = modelId === "gpt-image-2";
+  const legacyWorkspace = usesLegacyWorkspaceControls(modelId, familyId);
   return {
-    legacyGpt,
-    customSize: legacyGpt && sizeMode === "custom",
+    legacyWorkspace,
+    customSize: legacyWorkspace && sizeMode === "custom",
+  };
+}
+
+const LEGACY_WORKSPACE_PARAMETER_IDS = new Set([
+  "canvas.size",
+  "canvas.aspect_ratio",
+  "canvas.resolution",
+  "gpt.quality",
+  "gpt.background",
+  "output.format",
+  "gpt.moderation",
+  "gpt.output_compression",
+  "gpt.web_search",
+  "output.count",
+]);
+
+export function legacyWorkspaceParameterModel(model: CatalogModel): CatalogModel {
+  if (!usesLegacyWorkspaceControls(model.id, model.family_id)) return model;
+  return {
+    ...model,
+    parameters: model.id === "gpt-image-2"
+      ? []
+      : model.parameters.filter((definition) => !LEGACY_WORKSPACE_PARAMETER_IDS.has(definition.id)),
   };
 }
 
@@ -790,8 +814,8 @@ export function renderModelParameters(
     return;
   }
   ensureModelDraft(model);
-  const visibility = legacyParameterVisibility(model.id, els.size?.value);
-  const legacyGpt = visibility.legacyGpt;
+  const visibility = legacyParameterVisibility(model.id, els.size?.value, model.family_id);
+  const legacyWorkspace = visibility.legacyWorkspace;
   state.customSizeTransitionSeq += 1;
   state.customSizeMode = visibility.customSize;
   const legacyElements = [
@@ -805,7 +829,7 @@ export function renderModelParameters(
     els.moderation?.closest(".moderation-field"),
   ].filter(Boolean) as HTMLElement[];
   legacyElements.forEach((element) => {
-    element.classList.toggle("hidden", !legacyGpt);
+    element.classList.toggle("hidden", !legacyWorkspace);
   });
   if (els.customSize) {
     els.customSize.classList.toggle("hidden", !visibility.customSize);
@@ -813,12 +837,13 @@ export function renderModelParameters(
     els.customSize.setAttribute("aria-hidden", visibility.customSize ? "false" : "true");
   }
   els.settingsGrid?.classList.toggle("custom-size-mode", visibility.customSize);
-  els.webSearchField?.classList.toggle("hidden", !legacyGpt);
-  root.classList.toggle("hidden", legacyGpt);
-  if (legacyGpt) root.replaceChildren();
+  els.webSearchField?.classList.toggle("hidden", !legacyWorkspace);
+  const dynamicModel = legacyWorkspaceParameterModel(model);
+  root.classList.toggle("hidden", dynamicModel.parameters.length === 0);
+  if (!dynamicModel.parameters.length) root.replaceChildren();
   else renderInteractiveParameterDefinitionsInto(
     root,
-    model,
+    dynamicModel,
     state.parameterDraftsByModel[model.id] || {},
     state.mode as GenerationOperation,
   );

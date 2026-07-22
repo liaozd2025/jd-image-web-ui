@@ -7,6 +7,7 @@ import {
   currentGenerationSelection,
 } from "./generation-request";
 import { taskOutputControlValues } from "./task-model-summary";
+import { usesLegacyMainModelControl, usesLegacyWorkspaceControls } from "./workspace-model-compatibility";
 
 const bridge = getLegacyBridge();
 const state = bridge.state;
@@ -210,8 +211,10 @@ function buildPreviewRequest() {
     reference_files: fileUploads.map((source: any) => source.filename),
     reference_file_ids: storedFiles.map((source: any) => source.id),
   };
-  const usesGptPromptProcessing = !state.generationCatalog || state.selectedModelId === "gpt-image-2";
-  if (usesGptPromptProcessing) payload.prompt_fidelity = currentPromptFidelity();
+  const selectedModel = state.generationCatalog?.models.find((item: any) => item.id === state.selectedModelId);
+  const usesWorkspacePromptProcessing = !state.generationCatalog
+    || usesLegacyWorkspaceControls(state.selectedModelId, selectedModel?.family_id);
+  if (usesWorkspacePromptProcessing) payload.prompt_fidelity = currentPromptFidelity();
   if (isApi) {
     payload.api_provider_id = state.selectedProviderId;
     payload.api_provider_name = state.generationCatalog?.providers.find((provider: any) => provider.id === state.selectedProviderId)?.name || "";
@@ -220,7 +223,7 @@ function buildPreviewRequest() {
     payload.endpoint = selectedProviderBinding()?.protocol_profile || "";
   } else if (isCodex) {
     payload.codex_mode = codexMode;
-    if (usesGptPromptProcessing) payload.main_model = params.main_model;
+    if (usesLegacyMainModelControl(state.selectedModelId)) payload.main_model = params.main_model;
   }
   return payload;
 }
@@ -315,9 +318,12 @@ async function runTask() {
   const selection = currentGenerationSelection();
   appendCanonicalGenerationFields(form, selection);
   appendServerCompatibleGenerationFields(form, selection, currentTaskParams());
-  if (!state.generationCatalog || state.selectedModelId === "gpt-image-2") {
-    form.append("main_model", currentMainModel());
+  const selectedModel = state.generationCatalog?.models.find((item: any) => item.id === state.selectedModelId);
+  if (!state.generationCatalog || usesLegacyWorkspaceControls(state.selectedModelId, selectedModel?.family_id)) {
     form.append("prompt_fidelity", currentPromptFidelity());
+  }
+  if (!state.generationCatalog || usesLegacyMainModelControl(state.selectedModelId)) {
+    form.append("main_model", currentMainModel());
   }
   galleries.forEach((source: any) => {
     form.append("gallery_image_ids", source.id);

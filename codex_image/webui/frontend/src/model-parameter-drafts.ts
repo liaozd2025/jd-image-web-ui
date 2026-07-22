@@ -2,6 +2,7 @@ import type { CatalogModel, CatalogParameterDefinition, GenerationOperation } fr
 import { selectedProviderBinding } from "./provider-selection";
 import { getLegacyBridge } from "./state";
 import { renderCurrentModelParameters } from "./model-parameters";
+import { usesLegacyWorkspaceControls } from "./workspace-model-compatibility";
 
 function cloneValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(cloneValue);
@@ -106,7 +107,7 @@ export function saveCurrentModelParameterDraft(): void {
   const { state, methods } = getLegacyBridge();
   const model = state.generationCatalog?.models.find((item) => item.id === state.selectedModelId);
   if (!model || typeof methods.currentTaskParams !== "function") return;
-  if (model.id !== "gpt-image-2") {
+  if (!usesLegacyWorkspaceControls(model.id, model.family_id)) {
     methods.persistModelSelection?.();
     return;
   }
@@ -124,7 +125,7 @@ export function restoreCurrentModelParameterDraft(): void {
   const modelId = state.selectedModelId || "";
   const model = state.generationCatalog?.models.find((item) => item.id === modelId);
   if (!model) return;
-  if (model.id !== "gpt-image-2") {
+  if (!usesLegacyWorkspaceControls(model.id, model.family_id)) {
     renderCurrentModelParameters();
     return;
   }

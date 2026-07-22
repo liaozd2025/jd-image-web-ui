@@ -1,5 +1,6 @@
 import { getLegacyBridge } from "./state";
 import { formatTranslation, translate } from "./i18n";
+import { usesLegacyWorkspaceControls } from "./workspace-model-compatibility";
 
 const bridge = getLegacyBridge();
 const els = bridge.els;
@@ -61,7 +62,8 @@ export function currentPromptFidelity(): string {
 
 export function supportsGptPromptProcessing(): boolean {
   const { state } = getLegacyBridge();
-  return !state.generationCatalog || state.selectedModelId === "gpt-image-2";
+  const model = state.generationCatalog?.models.find((item) => item.id === state.selectedModelId);
+  return !state.generationCatalog || usesLegacyWorkspaceControls(state.selectedModelId, model?.family_id);
 }
 
 export function initPromptModelFeature(): void {
