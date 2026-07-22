@@ -1660,14 +1660,29 @@ def _available_providers(
                     catalog_item,
                     scope="personal",
                     credential=credential,
-                    models=personal_models,
+                    models=[model for model in personal_models if model.get("is_enabled")],
                 )
             )
     for provider_version_id, credential in department.items():
         catalog_item = catalog.get(provider_version_id)
         if catalog_item is None or not credential.has_credential or not credential.is_active:
             continue
-        result.append(_provider_item(catalog_item, scope="department", credential=credential))
+        department_models = providers.list_generation_models(
+            provider_version_id=provider_version_id,
+            owner_user_id=None,
+        )
+        result.append(
+            _provider_item(
+                catalog_item,
+                scope="department",
+                credential=credential,
+                models=[
+                    model
+                    for model in department_models
+                    if model.get("is_enabled") and model.get("validation_status") == "verified"
+                ],
+            )
+        )
     return result
 
 
@@ -1771,14 +1786,35 @@ def _workspace_provider_payload(
     *,
     existing: ProviderVersion | None = None,
 ) -> ProviderVersionPayload:
-    image_model = str(
-        item.get("image_model")
-        or (_first_provider_model(existing) if existing is not None else "")
-    ).strip()
     api_mode = str(item.get("api_mode") or (existing.api_mode if existing is not None else "images")).strip()
-    capabilities = ["image_generation", "image_input"]
-    if api_mode == "responses":
-        capabilities.append("text_input")
+    raw_models = item.get("models")
+    if isinstance(raw_models, list) and raw_models:
+        models: list[dict[str, object]] = []
+        for raw_model in raw_models:
+            if not isinstance(raw_model, dict):
+                raise ValueError("invalid generation model")
+            models.append(
+                {
+                    key: raw_model[key]
+                    for key in (
+                        "display_name",
+                        "model_id",
+                        "capability_profile_id",
+                        "is_default",
+                        "is_enabled",
+                    )
+                    if key in raw_model and raw_model[key] is not None
+                }
+            )
+    else:
+        image_model = str(
+            item.get("image_model")
+            or (_first_provider_model(existing) if existing is not None else "")
+        ).strip()
+        capabilities = ["image_generation", "image_input"]
+        if api_mode == "responses":
+            capabilities.append("text_input")
+        models = [{"model_id": image_model, "capabilities": capabilities}]
     return ProviderVersionPayload.model_validate(
         {
             "provider_key": existing.provider_key if existing is not None else _workspace_provider_key(item),
@@ -1791,7 +1827,7 @@ def _workspace_provider_payload(
                 or (existing.base_url if existing is not None else "")
             ).strip(),
             "api_mode": api_mode,
-            "models": [{"model_id": image_model, "capabilities": capabilities}],
+            "models": models,
             "parameter_constraints": dict(existing.parameter_constraints) if existing is not None else {},
         }
     )
@@ -1812,12 +1848,33 @@ def _first_provider_model(provider: ProviderVersion | None) -> str:
 
 
 def _workspace_provider_changed(existing: ProviderVersion, desired: ProviderVersionPayload) -> bool:
+    existing_models = [
+        {
+            "display_name": str(model.get("display_name") or model.get("model_id") or ""),
+            "model_id": str(model.get("model_id") or ""),
+            "capability_profile_id": str(model.get("capability_profile_id") or "generic-basic"),
+            "is_default": bool(model.get("is_default")),
+            "is_enabled": bool(model.get("is_enabled", True)),
+        }
+        for model in existing.models
+        if isinstance(model, dict)
+    ]
+    desired_models = [
+        {
+            "display_name": model.display_name or model.model_id,
+            "model_id": model.model_id,
+            "capability_profile_id": model.capability_profile_id or "generic-basic",
+            "is_default": bool(model.is_default),
+            "is_enabled": model.is_enabled,
+        }
+        for model in desired.models
+    ]
     return any(
         (
             existing.display_name != desired.display_name,
             existing.base_url.rstrip("/") != desired.base_url.rstrip("/"),
             existing.api_mode != desired.api_mode,
-            _first_provider_model(existing) != desired.models[0].model_id,
+            existing_models != desired_models,
         )
     )
 
@@ -1839,6 +1896,10 @@ def _api_settings(
                     catalog_item,
                     scope="department",
                     credential=department.get(catalog_item.provider_version_id),
+                    models=providers.list_generation_models(
+                        provider_version_id=catalog_item.provider_version_id,
+                        owner_user_id=None,
+                    ),
                     read_only=False,
                     catalog_fields_read_only=False,
                     include_scope_label=False,
@@ -1870,6 +1931,15 @@ def _api_settings(
                         catalog_item,
                         scope="department",
                         credential=credential,
+                        models=[
+                            model
+                            for model in providers.list_generation_models(
+                                provider_version_id=catalog_item.provider_version_id,
+                                owner_user_id=None,
+                            )
+                            if model.get("is_enabled")
+                            and model.get("validation_status") == "verified"
+                        ],
                         read_only=True,
                         catalog_fields_read_only=True,
                     )

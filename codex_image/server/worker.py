@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+from io import BytesIO
 import signal
 import threading
 from uuid import uuid4
@@ -13,6 +14,7 @@ from .config import ServerSettings
 from .database import PostgresConnections, ServerRuntimeRepository
 from .department_providers import DepartmentProviderRepository
 from .migrations import MigrationRunner
+from .model_validation import ClaimedModelValidation, ModelValidationRepository
 from .provider_secrets import ProviderSecretCipher
 from .shared_assets import SharedAssetRepository
 from .tasks import ClaimedGenerationTask, GenerationTaskRepository
@@ -36,6 +38,7 @@ class HeartbeatWorker:
         self.assets = AssetRepository(connections, settings.data_root)
         self.shared_assets = SharedAssetRepository(connections, settings.data_root)
         self.departments = DepartmentProviderRepository(connections, self.provider_cipher)
+        self.model_validations = ModelValidationRepository(connections)
         self.tasks = GenerationTaskRepository(
             connections,
             self.provider_cipher,
@@ -76,7 +79,8 @@ class HeartbeatWorker:
                         self.reconciled = True
                 if self.schema_ready:
                     try:
-                        self._process_one_task()
+                        if not self._process_one_validation():
+                            self._process_one_task()
                     except Exception:
                         pass
                 self.stop_event.wait(self.settings.worker_heartbeat_interval_seconds)
@@ -215,6 +219,46 @@ class HeartbeatWorker:
                 return
             self.tasks.settle_quota(failed, consumed=False)
 
+    def _process_one_validation(self) -> bool:
+        claimed = self.model_validations.claim_next()
+        if claimed is None:
+            return False
+        api_key = ""
+        try:
+            api_key = self.departments.resolve_api_key(
+                provider_version_id=claimed.provider_version_id
+            )
+            client = self._validation_client(claimed, api_key=api_key)
+            parameters = claimed.request_parameters
+            common_parameters = {
+                "prompt": "A simple blue circle on a plain white background.",
+                "main_model": claimed.model_id,
+                "model": claimed.model_id,
+                "reference_images": None,
+                "size": str(parameters["size"]),
+                "quality": "auto",
+                "output_format": str(parameters["output_format"]),
+                "moderation": "auto",
+                "output_compression": None,
+            }
+            if claimed.api_mode == "images":
+                result = client.generate_images(**common_parameters, n=1)[0]
+            else:
+                result = client.generate_image(
+                    **common_parameters,
+                    reference_files=None,
+                    web_search=False,
+                )
+            from PIL import Image
+
+            with Image.open(BytesIO(result.image_bytes)) as image:
+                image.verify()
+            self.model_validations.complete(claimed)
+        except Exception as error:
+            safe_error = str(error).replace(api_key, "<redacted credential>") if api_key else str(error)
+            self.model_validations.fail(claimed, error_message=safe_error)
+        return True
+
     @staticmethod
     def _provider_client(claimed: ClaimedGenerationTask):
         if claimed.api_mode == "images":
@@ -228,6 +272,22 @@ class HeartbeatWorker:
                 api_key=claimed.api_key or "",
                 base_url=claimed.base_url or "",
                 image_model=claimed.task.model_id,
+            )
+        raise RuntimeError("provider API mode is unsupported")
+
+    @staticmethod
+    def _validation_client(claimed: ClaimedModelValidation, *, api_key: str):
+        if claimed.api_mode == "images":
+            return OpenAIImagesImageClient(
+                api_key=api_key,
+                base_url=claimed.base_url,
+                image_model=claimed.model_id,
+            )
+        if claimed.api_mode == "responses":
+            return OpenAIResponsesImageClient(
+                api_key=api_key,
+                base_url=claimed.base_url,
+                image_model=claimed.model_id,
             )
         raise RuntimeError("provider API mode is unsupported")
 

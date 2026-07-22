@@ -1548,6 +1548,15 @@
     "apiSettings.validation.verifying": "Validating",
     "apiSettings.validation.verified": "Validated",
     "apiSettings.validation.failed": "Validation failed",
+    "apiSettings.validateModel": "Validate",
+    "apiSettings.validatingModel": "Validating",
+    "apiSettings.validateModelHint": "Run one real image request at the profile's minimum size",
+    "apiSettings.saveBeforeValidation": "Save the model configuration before validating it",
+    "apiSettings.validationStarting": "Starting model validation\u2026",
+    "apiSettings.validationStartFailed": "Could not start model validation",
+    "apiSettings.validationQueued": "Model validation queued",
+    "apiSettings.validationVerified": "Model validation succeeded",
+    "apiSettings.validationFailed": "Model validation failed",
     "apiSettings.concurrency": "Concurrency limit",
     "apiSettings.concurrencyShort": "Concurrency",
     "apiSettings.advancedSettings": "Advanced settings",
@@ -11545,6 +11554,15 @@
     "apiSettings.validation.verifying": "\u9A8C\u8BC1\u4E2D",
     "apiSettings.validation.verified": "\u9A8C\u8BC1\u6210\u529F",
     "apiSettings.validation.failed": "\u9A8C\u8BC1\u5931\u8D25",
+    "apiSettings.validateModel": "\u9A8C\u8BC1",
+    "apiSettings.validatingModel": "\u9A8C\u8BC1\u4E2D",
+    "apiSettings.validateModelHint": "\u4F7F\u7528\u6700\u5C0F\u89C4\u683C\u6267\u884C\u4E00\u6B21\u771F\u5B9E\u751F\u56FE\u9A8C\u8BC1",
+    "apiSettings.saveBeforeValidation": "\u5148\u4FDD\u5B58\u6A21\u578B\u914D\u7F6E\uFF0C\u518D\u6267\u884C\u9A8C\u8BC1",
+    "apiSettings.validationStarting": "\u6B63\u5728\u53D1\u8D77\u6A21\u578B\u9A8C\u8BC1\u2026",
+    "apiSettings.validationStartFailed": "\u65E0\u6CD5\u53D1\u8D77\u6A21\u578B\u9A8C\u8BC1",
+    "apiSettings.validationQueued": "\u6A21\u578B\u9A8C\u8BC1\u5DF2\u8FDB\u5165\u961F\u5217",
+    "apiSettings.validationVerified": "\u6A21\u578B\u9A8C\u8BC1\u6210\u529F",
+    "apiSettings.validationFailed": "\u6A21\u578B\u9A8C\u8BC1\u5931\u8D25",
     "apiSettings.concurrency": "\u5E76\u53D1\u4E0A\u9650",
     "apiSettings.concurrencyShort": "\u5E76\u53D1",
     "apiSettings.advancedSettings": "\u9AD8\u7EA7\u8BBE\u7F6E",
@@ -32100,6 +32118,70 @@ ${hint}` : hint;
       els10.apiImageModel.dispatchEvent(new Event("input", { bubbles: true }));
     }
   }
+  async function queueDepartmentModelValidation(generationModelId) {
+    if (!generationModelId) return;
+    setApiSettingsFeedback(translate("apiSettings.validationStarting"), "running");
+    try {
+      const response = await fetch(
+        `/api/admin/generation-models/${encodeURIComponent(generationModelId)}/validate`,
+        {
+          method: "POST",
+          headers: { "X-CSRF-Token": getCsrfToken() }
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || translate("apiSettings.validationStartFailed"));
+      setApiSettingsFeedback(translate("apiSettings.validationQueued"), "running");
+      await refreshApiSettings();
+      syncDraftModelValidationFromSettings(generationModelId);
+      pollDepartmentModelValidation(generationModelId, 0);
+    } catch (error) {
+      setApiSettingsFeedback(error.message || translate("apiSettings.validationStartFailed"), "error");
+    }
+  }
+  function syncDraftModelValidationFromSettings(generationModelId) {
+    if (!state9.apiProviderDraft) return;
+    const serverProvider = state9.apiSettings.providers.find(
+      (provider) => provider.id === state9.apiProviderDraft.id
+    );
+    const serverModel = serverProvider?.models?.find(
+      (model) => model.generation_model_id === generationModelId
+    );
+    const draftModel = state9.apiProviderDraft.models?.find(
+      (model) => model.generation_model_id === generationModelId
+    );
+    if (!serverModel || !draftModel) return;
+    draftModel.validation_status = serverModel.validation_status;
+    draftModel.validation_error = serverModel.validation_error;
+    renderProviderModelEditor(state9.apiProviderDraft);
+  }
+  function pollDepartmentModelValidation(generationModelId, attempt) {
+    if (attempt >= 120) return;
+    window.setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `/api/admin/generation-models/${encodeURIComponent(generationModelId)}/validation`
+        );
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || translate("apiSettings.validationStartFailed"));
+        const status = String(data.validation?.status || "");
+        await refreshApiSettings();
+        syncDraftModelValidationFromSettings(generationModelId);
+        if (status === "verified") {
+          setApiSettingsFeedback(translate("apiSettings.validationVerified"), "ok");
+        } else if (status === "failed") {
+          setApiSettingsFeedback(
+            data.validation?.error_message || translate("apiSettings.validationFailed"),
+            "error"
+          );
+        } else {
+          pollDepartmentModelValidation(generationModelId, attempt + 1);
+        }
+      } catch (error) {
+        setApiSettingsFeedback(error.message || translate("apiSettings.validationStartFailed"), "error");
+      }
+    }, 1e3);
+  }
   function renderProviderModelEditor(provider) {
     if (!els10.apiModelList) return;
     const models = (provider.models || []).map((model, index) => normalizeApiModel(model, index));
@@ -32169,12 +32251,24 @@ ${hint}` : hint;
       status.textContent = translate(`apiSettings.validation.${model.validation_status}`);
       status.title = model.validation_error;
       status.hidden = provider.provider_scope !== "department";
+      const validate = document.createElement("button");
+      validate.type = "button";
+      validate.className = "ghost-button api-model-validate";
+      validate.textContent = translate(
+        model.validation_status === "queued" || model.validation_status === "verifying" ? "apiSettings.validatingModel" : "apiSettings.validateModel"
+      );
+      validate.hidden = provider.provider_scope !== "department" || readOnly;
+      validate.disabled = !model.generation_model_id || model.validation_status === "queued" || model.validation_status === "verifying";
+      validate.title = model.generation_model_id ? translate("apiSettings.validateModelHint") : translate("apiSettings.saveBeforeValidation");
+      validate.addEventListener("click", () => {
+        void queueDepartmentModelValidation(model.generation_model_id);
+      });
       [displayName, modelId, profile, defaultInput, enabledInput].forEach((control) => {
         control.disabled = readOnly;
         control.addEventListener("input", syncModelDraftFromRows);
         control.addEventListener("change", syncModelDraftFromRows);
       });
-      row.append(displayName, modelId, profile, defaultLabel, enabledLabel, status, remove);
+      row.append(displayName, modelId, profile, defaultLabel, enabledLabel, status, validate, remove);
       return row;
     });
     els10.apiModelList.replaceChildren(...rows);

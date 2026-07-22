@@ -193,6 +193,15 @@ class ServerDepartmentProviderTests(unittest.TestCase):
                     )
                     self.assertEqual(saved.status_code, 200, saved.text)
                     self.assertNotIn(DEPARTMENT_KEY, saved.text)
+                    with psycopg.connect(database_url) as connection:
+                        connection.execute(
+                            """
+                            UPDATE generation_models
+                            SET validation_status = 'verified', validated_at = CURRENT_TIMESTAMP
+                            WHERE provider_version_id = %s AND owner_user_id IS NULL
+                            """,
+                            (provider_id,),
+                        )
                     listed = user.get("/api/providers/department")
                     self.assertEqual(listed.status_code, 200)
                     self.assertNotIn(DEPARTMENT_KEY, listed.text)

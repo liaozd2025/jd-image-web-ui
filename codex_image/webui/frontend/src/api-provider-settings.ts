@@ -301,6 +301,73 @@ function syncModelDraftFromRows(): void {
   }
 }
 
+async function queueDepartmentModelValidation(generationModelId: string): Promise<void> {
+  if (!generationModelId) return;
+  setApiSettingsFeedback(translate("apiSettings.validationStarting"), "running");
+  try {
+    const response = await fetch(
+      `/api/admin/generation-models/${encodeURIComponent(generationModelId)}/validate`,
+      {
+        method: "POST",
+        headers: { "X-CSRF-Token": getCsrfToken() },
+      },
+    );
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || translate("apiSettings.validationStartFailed"));
+    setApiSettingsFeedback(translate("apiSettings.validationQueued"), "running");
+    await refreshApiSettings();
+    syncDraftModelValidationFromSettings(generationModelId);
+    pollDepartmentModelValidation(generationModelId, 0);
+  } catch (error: any) {
+    setApiSettingsFeedback(error.message || translate("apiSettings.validationStartFailed"), "error");
+  }
+}
+
+function syncDraftModelValidationFromSettings(generationModelId: string): void {
+  if (!state.apiProviderDraft) return;
+  const serverProvider = state.apiSettings.providers.find(
+    (provider: any) => provider.id === state.apiProviderDraft.id,
+  );
+  const serverModel = serverProvider?.models?.find(
+    (model: any) => model.generation_model_id === generationModelId,
+  );
+  const draftModel = state.apiProviderDraft.models?.find(
+    (model: any) => model.generation_model_id === generationModelId,
+  );
+  if (!serverModel || !draftModel) return;
+  draftModel.validation_status = serverModel.validation_status;
+  draftModel.validation_error = serverModel.validation_error;
+  renderProviderModelEditor(state.apiProviderDraft);
+}
+
+function pollDepartmentModelValidation(generationModelId: string, attempt: number): void {
+  if (attempt >= 120) return;
+  window.setTimeout(async () => {
+    try {
+      const response = await fetch(
+        `/api/admin/generation-models/${encodeURIComponent(generationModelId)}/validation`,
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || translate("apiSettings.validationStartFailed"));
+      const status = String(data.validation?.status || "");
+      await refreshApiSettings();
+      syncDraftModelValidationFromSettings(generationModelId);
+      if (status === "verified") {
+        setApiSettingsFeedback(translate("apiSettings.validationVerified"), "ok");
+      } else if (status === "failed") {
+        setApiSettingsFeedback(
+          data.validation?.error_message || translate("apiSettings.validationFailed"),
+          "error",
+        );
+      } else {
+        pollDepartmentModelValidation(generationModelId, attempt + 1);
+      }
+    } catch (error: any) {
+      setApiSettingsFeedback(error.message || translate("apiSettings.validationStartFailed"), "error");
+    }
+  }, 1000);
+}
+
 function renderProviderModelEditor(provider: any): void {
   if (!els.apiModelList) return;
   const models = (provider.models || []).map((model: any, index: number) => normalizeApiModel(model, index));
@@ -378,12 +445,31 @@ function renderProviderModelEditor(provider: any): void {
     status.title = model.validation_error;
     status.hidden = provider.provider_scope !== "department";
 
+    const validate = document.createElement("button");
+    validate.type = "button";
+    validate.className = "ghost-button api-model-validate";
+    validate.textContent = translate(
+      model.validation_status === "queued" || model.validation_status === "verifying"
+        ? "apiSettings.validatingModel"
+        : "apiSettings.validateModel",
+    );
+    validate.hidden = provider.provider_scope !== "department" || readOnly;
+    validate.disabled = !model.generation_model_id
+      || model.validation_status === "queued"
+      || model.validation_status === "verifying";
+    validate.title = model.generation_model_id
+      ? translate("apiSettings.validateModelHint")
+      : translate("apiSettings.saveBeforeValidation");
+    validate.addEventListener("click", () => {
+      void queueDepartmentModelValidation(model.generation_model_id);
+    });
+
     [displayName, modelId, profile, defaultInput, enabledInput].forEach((control: any) => {
       control.disabled = readOnly;
       control.addEventListener("input", syncModelDraftFromRows);
       control.addEventListener("change", syncModelDraftFromRows);
     });
-    row.append(displayName, modelId, profile, defaultLabel, enabledLabel, status, remove);
+    row.append(displayName, modelId, profile, defaultLabel, enabledLabel, status, validate, remove);
     return row;
   });
   els.apiModelList.replaceChildren(...rows);

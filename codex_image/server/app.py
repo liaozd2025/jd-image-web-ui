@@ -20,6 +20,8 @@ from .identity import IdentityRepository
 from .migrations import MigrationRunner
 from .maintenance import MaintenanceLockError, is_locked
 from .model_capabilities_api import install_model_capability_routes
+from .model_validation import ModelValidationRepository
+from .model_validation_api import install_model_validation_routes
 from .provider_secrets import ProviderSecretCipher
 from .providers import ProviderRepository
 from .providers_api import install_provider_routes
@@ -118,7 +120,9 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
 
     install_authentication(app, settings=settings, identity=identity)
     provider_repository = ProviderRepository(connections, provider_cipher)
+    model_validation_repository = ModelValidationRepository(connections)
     install_model_capability_routes(app)
+    install_model_validation_routes(app, validations=model_validation_repository)
     install_provider_routes(app, providers=provider_repository)
     install_asset_routes(app, assets=asset_repository)
     install_admin_view_routes(

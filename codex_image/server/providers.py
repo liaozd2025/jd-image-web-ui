@@ -96,7 +96,43 @@ class ProviderRepository:
                     ORDER BY provider_key, version_number
                     """
                 )
-                return [self._provider_from_row(row) for row in cursor.fetchall()]
+                catalog = [self._provider_from_row(row) for row in cursor.fetchall()]
+                if not catalog:
+                    return []
+                cursor.execute(
+                    """
+                    SELECT generation_model_id, provider_version_id, display_name,
+                           model_id, capability_profile_id, capability_profile_version,
+                           is_default, is_enabled, validation_status,
+                           validation_request_id, validation_error, validated_at,
+                           created_at, updated_at
+                    FROM generation_models
+                    WHERE owner_user_id IS NULL
+                      AND provider_version_id = ANY(%s)
+                    ORDER BY is_default DESC, created_at, generation_model_id
+                    """,
+                    ([provider.provider_version_id for provider in catalog],),
+                )
+                models_by_provider: dict[str, list[dict[str, object]]] = {}
+                for row in cursor.fetchall():
+                    models_by_provider.setdefault(str(row["provider_version_id"]), []).append(
+                        self._generation_model_from_row(row)
+                    )
+                return [
+                    ProviderVersion(
+                        provider_version_id=provider.provider_version_id,
+                        provider_key=provider.provider_key,
+                        version_number=provider.version_number,
+                        display_name=provider.display_name,
+                        base_url=provider.base_url,
+                        api_mode=provider.api_mode,
+                        models=models_by_provider.get(provider.provider_version_id, provider.models),
+                        parameter_constraints=provider.parameter_constraints,
+                        is_active=provider.is_active,
+                        created_at=provider.created_at,
+                    )
+                    for provider in catalog
+                ]
 
     def create_provider_version(
         self,
@@ -160,7 +196,7 @@ class ProviderRepository:
                         actor_user_id,
                     ),
                 )
-                created_at = cursor.fetchone()["created_at"]
+                cursor.fetchone()
                 cursor.executemany(
                     """
                     INSERT INTO generation_models (
@@ -195,17 +231,10 @@ class ProviderRepository:
                         "version_number": version_number,
                     },
                 )
-        return ProviderVersion(
-            provider_version_id=provider_version_id,
-            provider_key=provider_key,
-            version_number=version_number,
-            display_name=display_name,
-            base_url=base_url,
-            api_mode=api_mode,
-            models=canonical_models,
-            parameter_constraints=parameter_constraints,
-            is_active=True,
-            created_at=created_at,
+        return next(
+            provider
+            for provider in self.list_catalog(active_only=False)
+            if provider.provider_version_id == provider_version_id
         )
 
     def set_provider_active(
