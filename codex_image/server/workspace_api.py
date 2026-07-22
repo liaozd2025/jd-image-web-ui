@@ -1853,11 +1853,7 @@ def _available_providers(
                 catalog_item,
                 scope="department",
                 credential=credential,
-                models=[
-                    model
-                    for model in department_models
-                    if model.get("is_enabled") and model.get("validation_status") == "verified"
-                ],
+                models=[model for model in department_models if model.get("is_enabled")],
             )
         )
     return result
@@ -2115,7 +2111,6 @@ def _api_settings(
                                 owner_user_id=None,
                             )
                             if model.get("is_enabled")
-                            and model.get("validation_status") == "verified"
                         ],
                         read_only=True,
                         catalog_fields_read_only=True,
@@ -2132,15 +2127,7 @@ def _api_settings(
     }
     for item in items:
         models = [model for model in item.get("models", []) if isinstance(model, dict)]
-        available_models = [
-            model
-            for model in models
-            if model.get("is_enabled")
-            and (
-                item.get("provider_scope") != "department"
-                or model.get("validation_status") == "verified"
-            )
-        ]
+        available_models = [model for model in models if model.get("is_enabled")]
         available_ids = {
             str(model.get("generation_model_id") or "")
             for model in available_models

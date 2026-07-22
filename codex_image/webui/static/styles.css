@@ -4211,7 +4211,8 @@ svg.button-icon {
 
 .prompt-template-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px) var(--prompt-action-column-width);
+  grid-template-areas: "utilities model template";
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px) var(--prompt-action-column-width);
   gap: var(--prompt-action-gap);
   align-items: center;
   min-height: var(--prompt-secondary-action-height);
@@ -4222,8 +4223,9 @@ svg.button-icon {
   align-items: center;
   display: grid;
   gap: 4px 8px;
+  grid-area: model;
   grid-template-columns: auto minmax(170px, 260px);
-  min-width: 220px;
+  min-width: 0;
 }
 
 .generation-model-field > label {
@@ -4248,6 +4250,7 @@ svg.button-icon {
 .generation-model-summary,
 .generation-model-notice {
   grid-column: 1 / -1;
+  overflow-wrap: anywhere;
 }
 
 .generation-model-notice:not(:empty) {
@@ -4269,8 +4272,27 @@ svg.button-icon {
   max-width: 220px;
 }
 
+@media (max-width: 1100px) {
+  .prompt-template-row {
+    grid-template-areas:
+      "utilities utilities"
+      "model template";
+    grid-template-columns: minmax(0, 1fr) var(--prompt-action-column-width);
+    align-items: start;
+  }
+
+  .generation-model-field {
+    grid-template-columns: auto minmax(0, 1fr);
+    width: 100%;
+  }
+}
+
 @media (max-width: 760px) {
   .prompt-template-row {
+    grid-template-areas:
+      "utilities"
+      "model"
+      "template";
     grid-template-columns: 1fr;
   }
 
@@ -4293,6 +4315,7 @@ svg.button-icon {
 
 .prompt-template-entry {
   display: flex;
+  grid-area: template;
   align-items: center;
   justify-content: flex-end;
   min-width: 0;
@@ -4300,6 +4323,7 @@ svg.button-icon {
 
 .prompt-template-recent-cell {
   display: flex;
+  grid-area: utilities;
   justify-content: space-between;
   align-items: center;
   gap: 10px;

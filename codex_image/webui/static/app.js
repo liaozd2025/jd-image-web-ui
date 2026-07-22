@@ -33543,7 +33543,9 @@ ${hint}` : hint;
   var generationModelFeatureInitialized = false;
   function availableModels() {
     const provider = activeApiProvider();
-    return (Array.isArray(provider?.models) ? provider.models : []).filter((model) => model?.is_enabled !== false && (provider.provider_scope !== "department" || model.validation_status === "verified"));
+    return (Array.isArray(provider?.models) ? provider.models : []).filter(
+      (model) => model?.is_enabled !== false
+    );
   }
   function currentGenerationModel() {
     const selectedId = String(els11.generationModelSelect?.value || "");

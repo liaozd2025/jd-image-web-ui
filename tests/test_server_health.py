@@ -43,6 +43,7 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0026_personal_generation_models",
     "0027_generation_model_validations",
     "0028_generation_model_preferences",
+    "0029_configured_department_models",
 ]
 
 

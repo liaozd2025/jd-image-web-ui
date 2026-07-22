@@ -465,8 +465,6 @@ class ProviderRepository:
                 model = cursor.fetchone()
                 if model is None or not bool(model["is_enabled"]):
                     raise GenerationModelNotFound("generation model was not found")
-                if provider_scope == "department" and model["validation_status"] != "verified":
-                    raise GenerationModelNotFound("generation model is not verified")
                 cursor.execute(
                     """
                     INSERT INTO generation_model_selection_preferences (

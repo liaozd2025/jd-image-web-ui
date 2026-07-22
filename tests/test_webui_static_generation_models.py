@@ -63,9 +63,20 @@ class WebUIGenerationModelContractTests(unittest.TestCase):
         self.assertIn("LOCALE_CHANGE_EVENT", source)
         self.assertIn("renderGenerationModelSelector(false)", source)
 
+    def test_enabled_team_models_are_not_hidden_by_validation_status(self) -> None:
+        source = (ROOT / "codex_image/webui/frontend/src/generation-model.ts").read_text(encoding="utf-8")
+        available_models = source[source.index("function availableModels"):source.index("export function currentGenerationModel")]
+        self.assertIn("model?.is_enabled !== false", available_models)
+        self.assertNotIn("validation_status", available_models)
+
     def test_model_selector_css_has_a_narrow_screen_contract(self) -> None:
         css = (ROOT / "codex_image/webui/static/styles/60-prompt.css").read_text(encoding="utf-8")
         self.assertIn(".generation-model-field", css)
+        self.assertIn("@media (max-width: 1100px)", css)
+        self.assertRegex(
+            css,
+            r"@media \(max-width: 1100px\)\s*\{[\s\S]*?\.prompt-template-row\s*\{[^}]*grid-template-areas:\s*\"utilities utilities\"\s*\"model template\"",
+        )
         self.assertIn("@media (max-width: 760px)", css)
         self.assertRegex(css, r"\.prompt-template-row\s*\{[^}]*grid-template-columns:\s*1fr")
 

@@ -64,7 +64,8 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                         'legacy-provider', 'legacy-provider', 1, 'Legacy Provider',
                         'https://legacy.example.invalid/v1', 'images',
                         '[{"model_id":"legacy-first","capabilities":["image_generation"]},
-                          {"model_id":"legacy-second","capabilities":["image_generation"]}]'::jsonb,
+                          {"model_id":"legacy-second","capabilities":["image_generation"]},
+                          {"model_id":"doubao-seedream-5-0-pro-260628","capabilities":["image_generation"]}]'::jsonb,
                         'legacy-admin'
                     )
                     """
@@ -85,6 +86,7 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                 PostgresConnections(database_url, connect_timeout_seconds=5)
             ).apply()
             self.assertIn("0025_generation_models", applied)
+            self.assertIn("0029_configured_department_models", applied)
             with psycopg.connect(database_url) as connection:
                 models = connection.execute(
                     """
@@ -106,6 +108,13 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                 models,
                 [
                     ("legacy-first", "legacy-first", "generic-basic", True, True),
+                    (
+                        "doubao-seedream-5-0-pro-260628",
+                        "doubao-seedream-5-0-pro-260628",
+                        "seedream-5-pro",
+                        False,
+                        True,
+                    ),
                     ("legacy-second", "legacy-second", "generic-basic", False, True),
                 ],
             )

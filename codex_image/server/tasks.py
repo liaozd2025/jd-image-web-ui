@@ -219,11 +219,6 @@ class GenerationTaskRepository:
                 generation_model = cursor.fetchone()
                 if generation_model is None or not bool(generation_model["is_enabled"]):
                     raise TaskConfigurationError("model is not allowed for this provider version")
-                if (
-                    provider_scope == "department"
-                    and generation_model["validation_status"] != "verified"
-                ):
-                    raise TaskConfigurationError("department model is not verified")
                 profile_id = str(generation_model.get("capability_profile_id") or "generic-basic")
                 try:
                     capability_snapshot = get_model_capability_profile(profile_id)

@@ -141,6 +141,7 @@ class ServerWorkspaceBrowserReleaseGateTests(unittest.TestCase):
                             ("browser-no-model", "Browser No Model"),
                             ("browser-single-model", "Browser Single Model"),
                             ("browser-reference-files", "Browser Reference Files"),
+                            ("browser-configured-team", "Browser Configured Team"),
                         ):
                             extra_provider = admin.post(
                                 "/api/admin/provider-catalog",
@@ -210,6 +211,15 @@ class ServerWorkspaceBrowserReleaseGateTests(unittest.TestCase):
                                 FROM provider_catalog_versions AS versions
                                 WHERE versions.provider_version_id = models.provider_version_id
                                   AND versions.provider_key = 'browser-no-model'
+                                """
+                            )
+                            connection.execute(
+                                """
+                                UPDATE generation_models AS models
+                                SET validation_status = 'unverified', validated_at = NULL
+                                FROM provider_catalog_versions AS versions
+                                WHERE versions.provider_version_id = models.provider_version_id
+                                  AND versions.provider_key = 'browser-configured-team'
                                 """
                             )
                             connection.execute(

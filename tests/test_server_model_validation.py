@@ -61,7 +61,7 @@ class ValidationProviderHandler(BaseHTTPRequestHandler):
 
 @unittest.skipUnless(TEST_DATABASE_URL, "set JD_IMAGE_TEST_DATABASE_URL to a real PostgreSQL database")
 class ServerGenerationModelValidationTests(unittest.TestCase):
-    def test_department_model_requires_async_real_validation_and_credential_change_invalidates_it(self) -> None:
+    def test_department_model_is_usable_while_async_validation_remains_diagnostic(self) -> None:
         from codex_image.server.app import create_server_app
         from codex_image.server.config import ServerSettings
         from codex_image.server.worker import HeartbeatWorker
@@ -164,19 +164,36 @@ class ServerGenerationModelValidationTests(unittest.TestCase):
                         self.assertEqual(provider["models"][0]["validation_status"], "unverified")
 
                         before_models = self._department_models(user, provider_id)
-                        self.assertEqual(before_models, [])
-                        blocked = user.post(
+                        self.assertEqual(
+                            [model["model_id"] for model in before_models],
+                            ["validation-lite", "validation-generic"],
+                        )
+                        preference = user.put(
+                            "/api/generation-model-preferences",
+                            json={
+                                "provider_scope": "department",
+                                "provider_version_id": provider_id,
+                                "generation_model_id": model_id,
+                                "parameters": {},
+                            },
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(preference.status_code, 200, preference.text)
+                        accepted_before_validation = user.post(
                             "/api/tasks",
                             json={
                                 "provider_version_id": provider_id,
                                 "provider_scope": "department",
                                 "model_id": "validation-lite",
-                                "prompt": "must validate first",
+                                "prompt": "configured team model is immediately available",
                             },
                             headers={"X-CSRF-Token": user_csrf},
                         )
-                        self.assertEqual(blocked.status_code, 409, blocked.text)
-                        self.assertIn("not verified", blocked.json()["detail"])
+                        self.assertEqual(
+                            accepted_before_validation.status_code,
+                            201,
+                            accepted_before_validation.text,
+                        )
                         denied = user.post(
                             f"/api/admin/generation-models/{model_id}/validate",
                             headers={"X-CSRF-Token": user_csrf},
@@ -213,7 +230,7 @@ class ServerGenerationModelValidationTests(unittest.TestCase):
                         )
                         self.assertEqual(
                             [model["model_id"] for model in self._department_models(user, provider_id)],
-                            ["validation-lite"],
+                            ["validation-lite", "validation-generic"],
                         )
                         self.assertEqual(len(ValidationProviderHandler.requests), 1)
                         request = ValidationProviderHandler.requests[0]
@@ -250,7 +267,7 @@ class ServerGenerationModelValidationTests(unittest.TestCase):
                                     (SELECT COUNT(*) FROM server_shared_assets)
                                 """
                             ).fetchone()
-                        self.assertEqual(counts, (0, 0, 0))
+                        self.assertEqual(counts, (1, 0, 0))
                         self.assertFalse(any("validation" in path.name for path in data_root.rglob("*")))
 
                         changed_key = admin.put(
@@ -259,7 +276,10 @@ class ServerGenerationModelValidationTests(unittest.TestCase):
                             headers={"X-CSRF-Token": admin_csrf},
                         )
                         self.assertEqual(changed_key.status_code, 200, changed_key.text)
-                        self.assertEqual(self._department_models(user, provider_id), [])
+                        self.assertEqual(
+                            [model["model_id"] for model in self._department_models(user, provider_id)],
+                            ["validation-lite", "validation-generic"],
+                        )
 
                         ValidationProviderHandler.fail_models = {"validation-lite"}
                         requeued = admin.post(

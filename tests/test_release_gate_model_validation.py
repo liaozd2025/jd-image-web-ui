@@ -9,7 +9,6 @@ import tempfile
 import unittest
 
 from fastapi.testclient import TestClient
-import psycopg
 
 from tests.server_test_database import TEST_MASTER_KEY, temporary_postgres_database
 from tests.test_server_auth import bootstrap_admin
@@ -22,7 +21,7 @@ TEST_DATABASE_URL = os.environ.get("JD_IMAGE_TEST_DATABASE_URL", "")
 
 @unittest.skipUnless(TEST_DATABASE_URL, "set JD_IMAGE_TEST_DATABASE_URL to a real PostgreSQL database")
 class ReleaseGateModelValidationTests(unittest.TestCase):
-    def test_release_gate_rejects_an_unverified_department_default_model(self) -> None:
+    def test_release_gate_allows_an_unverified_configured_department_default_model(self) -> None:
         from codex_image.server.app import create_server_app
         from codex_image.server.config import ServerSettings
 
@@ -73,26 +72,10 @@ class ReleaseGateModelValidationTests(unittest.TestCase):
                     )
                     self.assertEqual(credential_response.status_code, 200, credential_response.text)
 
-                    rejected = self._run_gate(database_url)
-                    self.assertEqual(rejected.returncode, 1, rejected.stdout + rejected.stderr)
-                    self.assertIn(
-                        "department default model is not verified: Release Gate Model / Default Unverified (unverified)",
-                        rejected.stderr,
-                    )
-                    self.assertNotIn("release-gate-secret", rejected.stdout + rejected.stderr)
-
-                    with psycopg.connect(database_url) as connection:
-                        connection.execute(
-                            """
-                            UPDATE generation_models
-                            SET validation_status = 'verified', validated_at = CURRENT_TIMESTAMP
-                            WHERE provider_version_id = %s AND is_default = TRUE
-                            """,
-                            (provider_id,),
-                        )
                     accepted = self._run_gate(database_url)
                     self.assertEqual(accepted.returncode, 0, accepted.stdout + accepted.stderr)
                     self.assertIn("static release gate passed", accepted.stdout)
+                    self.assertNotIn("release-gate-secret", accepted.stdout + accepted.stderr)
 
     @staticmethod
     def _run_gate(database_url: str) -> subprocess.CompletedProcess[str]:

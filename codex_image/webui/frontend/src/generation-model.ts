@@ -12,10 +12,9 @@ let generationModelFeatureInitialized = false;
 
 function availableModels(): any[] {
   const provider = activeApiProvider();
-  return (Array.isArray(provider?.models) ? provider.models : []).filter((model: any) => (
-    model?.is_enabled !== false
-    && (provider.provider_scope !== "department" || model.validation_status === "verified")
-  ));
+  return (Array.isArray(provider?.models) ? provider.models : []).filter(
+    (model: any) => model?.is_enabled !== false,
+  );
 }
 
 export function currentGenerationModel(): any | null {
