@@ -73,7 +73,7 @@ class ModelValidationRepository:
                     "size": str(profile["sizes"][0]),
                     "n": 1,
                     "output_format": str(profile["default_output_format"]),
-                    "prompt_optimization": "off",
+                    "prompt_optimization_mode": "off",
                     "watermark": False,
                 }
                 cursor.execute(

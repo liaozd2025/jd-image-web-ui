@@ -150,6 +150,7 @@ class GenerationTaskRepository:
                     cursor.execute(
                         """
                         SELECT versions.provider_key, versions.version_number, versions.is_active,
+                               versions.api_mode,
                                versions.models, credentials.encrypted_api_key
                         FROM provider_catalog_versions AS versions
                         LEFT JOIN department_provider_credentials AS credentials
@@ -164,6 +165,7 @@ class GenerationTaskRepository:
                     cursor.execute(
                         """
                         SELECT versions.provider_key, versions.version_number, versions.is_active,
+                               versions.api_mode,
                                versions.models, credentials.encrypted_api_key
                         FROM provider_catalog_versions AS versions
                         LEFT JOIN personal_provider_credentials AS credentials
@@ -227,6 +229,10 @@ class GenerationTaskRepository:
                     capability_snapshot = get_model_capability_profile(profile_id)
                 except KeyError as error:
                     raise TaskConfigurationError("model capability profile is unavailable") from error
+                if str(provider["api_mode"]) not in capability_snapshot.get("api_modes", []):
+                    raise TaskConfigurationError(
+                        "selected model capability profile does not support this provider API mode"
+                    )
                 profile_version = int(
                     generation_model.get("capability_profile_version")
                     or capability_snapshot["version"]
@@ -254,6 +260,7 @@ class GenerationTaskRepository:
                     capability_snapshot,
                     reference_image_count=image_reference_count,
                 )
+                request_parameters["api_mode"] = str(provider["api_mode"])
                 encrypted_api_key = provider["encrypted_api_key"]
                 if not encrypted_api_key:
                     scope_label = "department" if provider_scope == "department" else "personal"

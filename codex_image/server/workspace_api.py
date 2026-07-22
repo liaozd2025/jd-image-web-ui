@@ -1352,6 +1352,15 @@ def _normalize_model_preference_parameters(
         raw = str(value.get(key) or "")[:32]
         if raw:
             result[key] = raw
+    try:
+        output_count = int(value.get("n", profile.get("min_output_count") or 1))
+    except (TypeError, ValueError) as error:
+        raise ValueError("output count must be an integer") from error
+    minimum_output_count = int(profile.get("min_output_count") or 1)
+    maximum_output_count = int(profile.get("max_output_count") or minimum_output_count)
+    if output_count < minimum_output_count or output_count > maximum_output_count:
+        raise ValueError("output count is not supported by this model")
+    result["n"] = output_count
     output_format = str(value.get("output_format") or "").lower()
     supported_formats = [str(item) for item in profile.get("output_formats", [])]
     if output_format:

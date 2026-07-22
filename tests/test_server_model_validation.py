@@ -49,6 +49,8 @@ class ValidationProviderHandler(BaseHTTPRequestHandler):
             ).encode()
             self.send_response(200)
         self.send_header("Content-Type", "application/json")
+        if body.get("model") not in type(self).fail_models:
+            self.send_header("X-Request-Id", "validation-provider-request-123")
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)
@@ -132,6 +134,13 @@ class ServerGenerationModelValidationTests(unittest.TestCase):
                                                 "capability_profile_id": "seedream-5-lite",
                                                 "is_default": True,
                                                 "is_enabled": True,
+                                            },
+                                            {
+                                                "display_name": "Validation Generic",
+                                                "model_id": "validation-generic",
+                                                "capability_profile_id": "generic-basic",
+                                                "is_default": False,
+                                                "is_enabled": True,
                                             }
                                         ],
                                     }
@@ -147,6 +156,11 @@ class ServerGenerationModelValidationTests(unittest.TestCase):
                         )
                         provider_id = provider["provider_version_id"]
                         model_id = provider["models"][0]["generation_model_id"]
+                        generic_model_id = next(
+                            model["generation_model_id"]
+                            for model in provider["models"]
+                            if model["model_id"] == "validation-generic"
+                        )
                         self.assertEqual(provider["models"][0]["validation_status"], "unverified")
 
                         before_models = self._department_models(user, provider_id)
@@ -181,7 +195,7 @@ class ServerGenerationModelValidationTests(unittest.TestCase):
                                 "size": "1024x1024",
                                 "n": 1,
                                 "output_format": "png",
-                                "prompt_optimization": "off",
+                                "prompt_optimization_mode": "off",
                                 "watermark": False,
                             },
                         )
@@ -194,6 +208,10 @@ class ServerGenerationModelValidationTests(unittest.TestCase):
                         self.assertEqual(verified.status_code, 200, verified.text)
                         self.assertEqual(verified.json()["validation"]["status"], "verified")
                         self.assertEqual(
+                            verified.json()["validation"]["provider_request_id"],
+                            "validation-provider-request-123",
+                        )
+                        self.assertEqual(
                             [model["model_id"] for model in self._department_models(user, provider_id)],
                             ["validation-lite"],
                         )
@@ -202,8 +220,26 @@ class ServerGenerationModelValidationTests(unittest.TestCase):
                         self.assertEqual(request["path"], "/v1/images/generations")
                         self.assertEqual(request["body"]["model"], "validation-lite")
                         self.assertEqual(request["body"]["size"], "1024x1024")
-                        self.assertEqual(request["body"]["n"], 1)
+                        self.assertEqual(request["body"]["response_format"], "b64_json")
+                        self.assertNotIn("n", request["body"])
+                        self.assertIs(request["body"]["watermark"], False)
                         self.assertNotIn(DEPARTMENT_KEY, queued.text + verified.text)
+
+                        generic_queued = admin.post(
+                            f"/api/admin/generation-models/{generic_model_id}/validate",
+                            headers={"X-CSRF-Token": admin_csrf},
+                        )
+                        self.assertEqual(generic_queued.status_code, 202, generic_queued.text)
+                        self.assertTrue(worker._process_one_validation())
+                        generic_verified = admin.get(
+                            f"/api/admin/generation-models/{generic_model_id}/validation"
+                        )
+                        self.assertEqual(generic_verified.status_code, 200, generic_verified.text)
+                        generic_request = ValidationProviderHandler.requests[-1]["body"]
+                        self.assertEqual(generic_request["model"], "validation-generic")
+                        self.assertEqual(generic_request["n"], 1)
+                        self.assertNotIn("watermark", generic_request)
+                        self.assertNotIn("optimize_prompt_options", generic_request)
 
                         with psycopg.connect(database_url) as connection:
                             counts = connection.execute(

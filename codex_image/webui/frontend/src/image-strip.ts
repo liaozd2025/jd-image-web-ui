@@ -98,6 +98,7 @@ function renderImageStrip() {
   if (!hasImages) {
     thumbItems.innerHTML = "";
     legacyMethod("updateCustomRatioReferenceButtonState");
+    legacyMethod("renderGenerationModelSelector", false);
     return;
   }
 
@@ -157,6 +158,7 @@ function renderImageStrip() {
       legacyMethod("updateRequestPreview");
     });
     wrapper.append(image, badge, remove);
+    legacyMethod("decorateGenerationModelReferenceThumb", wrapper, index);
     if (legacyMethod("canAddSourceToGallery", source)) {
       const addToGallery = document.createElement("button");
       addToGallery.type = "button";
@@ -179,6 +181,7 @@ function renderImageStrip() {
     thumbItems.append(wrapper);
   });
   legacyMethod("updateCustomRatioReferenceButtonState");
+  legacyMethod("renderGenerationModelSelector", false);
 }
 
 function bindImageStripEvents() {

@@ -12,6 +12,7 @@ from .audit import record_audit_event
 from .database import PostgresConnections
 from .provider_secrets import ProviderSecretCipher
 from .maintenance import assert_writes_allowed
+from .model_capabilities import get_model_capability_profile
 
 
 ProviderApiMode = Literal["responses", "images"]
@@ -145,6 +146,7 @@ class ProviderRepository:
         models: list[dict[str, object]],
         parameter_constraints: dict[str, object],
     ) -> ProviderVersion:
+        self._validate_model_api_modes(models, api_mode=api_mode)
         provider_version_id = str(uuid4())
         canonical_models = [
             {
@@ -517,19 +519,25 @@ class ProviderRepository:
                 assert_writes_allowed(cursor)
                 cursor.execute(
                     """
-                    SELECT 1
-                    FROM personal_provider_credentials
-                    WHERE user_id = %s AND provider_version_id = %s
+                    SELECT versions.api_mode
+                    FROM personal_provider_credentials AS credentials
+                    JOIN provider_catalog_versions AS versions
+                      ON versions.provider_version_id = credentials.provider_version_id
+                    WHERE credentials.user_id = %s
+                      AND credentials.provider_version_id = %s
                     FOR UPDATE
                     """,
                     (user_id, provider_version_id),
                 )
-                if cursor.fetchone() is None:
+                credential = cursor.fetchone()
+                if credential is None:
                     raise PersonalCredentialNotFound("personal provider credential was not found")
+                self._validate_model_api_modes(models, api_mode=credential["api_mode"])
                 self._ensure_personal_models(cursor, user_id, provider_version_id)
                 cursor.execute(
                     """
-                    SELECT generation_model_id, model_id
+                    SELECT generation_model_id, model_id, capability_profile_id,
+                           capability_profile_version
                     FROM generation_models
                     WHERE provider_version_id = %s AND owner_user_id = %s
                     FOR UPDATE
@@ -542,6 +550,37 @@ class ProviderRepository:
                     str(row["model_id"]): str(row["generation_model_id"])
                     for row in existing_rows
                 }
+                existing_by_id = {
+                    str(row["generation_model_id"]): row
+                    for row in existing_rows
+                }
+
+                for model in models:
+                    requested_id = str(model.get("generation_model_id") or "")
+                    if requested_id not in existing_ids:
+                        requested_id = existing_ids_by_model_id.get(
+                            str(model.get("model_id") or ""),
+                            "",
+                        )
+                    existing = existing_by_id.get(requested_id)
+                    if existing is None:
+                        continue
+                    existing_identity = (
+                        str(existing["model_id"]),
+                        str(existing["capability_profile_id"]),
+                        int(existing["capability_profile_version"]),
+                    )
+                    requested_identity = (
+                        str(model.get("model_id") or ""),
+                        str(model.get("capability_profile_id") or ""),
+                        int(model.get("capability_profile_version") or 1),
+                    )
+                    if requested_identity == existing_identity:
+                        continue
+                    raise GenerationModelInUse(
+                        "a generation model identity cannot be changed; "
+                        "add a new model and disable or remove the old one"
+                    )
 
                 def requested_generation_model_id(model: dict[str, object]) -> str:
                     requested_id = str(model.get("generation_model_id") or "")
@@ -631,6 +670,20 @@ class ProviderRepository:
             provider_version_id=provider_version_id,
             owner_user_id=user_id,
         )
+
+    @staticmethod
+    def _validate_model_api_modes(
+        models: list[dict[str, object]],
+        *,
+        api_mode: ProviderApiMode,
+    ) -> None:
+        for model in models:
+            profile_id = str(model.get("capability_profile_id") or "generic-basic")
+            profile = get_model_capability_profile(profile_id)
+            if api_mode not in profile.get("api_modes", []):
+                raise ValueError(
+                    f"capability profile {profile_id} does not support provider API mode {api_mode}"
+                )
 
     def delete_personal_model(
         self,

@@ -41,9 +41,27 @@ class WebUIGenerationModelContractTests(unittest.TestCase):
         self.assertNotIn("streaming", source)
         self.assertIn('fetch("/api/generation-model-preferences"', source)
         self.assertIn("currentImageReferenceCount", source)
+        self.assertIn("decorateGenerationModelReferenceThumb", source)
+        self.assertIn('"generationModel.referenceOverLimit"', source)
+        self.assertIn("n: Math.max(1", source)
         self.assertIn('translate("generationModel.parametersAdjusted")', source)
         self.assertIn('translate("generationModel.seedInvalid")', source)
         self.assertIn("storedProvider.selected_generation_model_id", source)
+
+    def test_every_locale_has_explicit_generation_model_copy(self) -> None:
+        source = (ROOT / "codex_image/webui/frontend/src/generation-model-translations.ts").read_text(encoding="utf-8")
+        for locale in ("zh-TW", "zh-HK", "ja", "ko", "es", "pt", "fr", "de", "ru", "it", "hi"):
+            self.assertIn(f'{locale}: dictionary(' if "-" not in locale else f'"{locale}": dictionary(', source)
+        self.assertIn('"generationModel.referenceOverLimit"', source)
+        self.assertIn('"taskActions.retryWithCurrentCapability"', source)
+        self.assertIn('"generationModel.summarySeedreamLite"', source)
+
+    def test_dynamic_model_copy_rerenders_on_locale_change(self) -> None:
+        source = (ROOT / "codex_image/webui/frontend/src/generation-model.ts").read_text(encoding="utf-8")
+        self.assertIn("profileSummary", source)
+        self.assertIn("profile.summary_key", source)
+        self.assertIn("LOCALE_CHANGE_EVENT", source)
+        self.assertIn("renderGenerationModelSelector(false)", source)
 
     def test_model_selector_css_has_a_narrow_screen_contract(self) -> None:
         css = (ROOT / "codex_image/webui/static/styles/60-prompt.css").read_text(encoding="utf-8")

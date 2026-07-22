@@ -1,7 +1,7 @@
 import { activeApiProvider } from "./api-provider-settings";
 import { getCsrfToken } from "./server-account";
 import { getLegacyBridge } from "./state";
-import { translate } from "./i18n";
+import { LOCALE_CHANGE_EVENT, translate } from "./i18n";
 
 const bridge = getLegacyBridge();
 const state = bridge.state;
@@ -47,6 +47,28 @@ function currentImageReferenceCount(): number {
     : 0;
 }
 
+function decorateGenerationModelReferenceThumb(wrapper: HTMLElement, index: number): void {
+  const profile = currentGenerationProfile();
+  const maximumReferences = Number(profile?.max_reference_images ?? Number.MAX_SAFE_INTEGER);
+  const exceedsLimit = index >= maximumReferences;
+  wrapper.classList.toggle("generation-model-reference-over-limit", exceedsLimit);
+  wrapper.querySelector(".generation-model-reference-limit-badge")?.remove();
+  if (!exceedsLimit) return;
+  const badge = document.createElement("span");
+  badge.className = "generation-model-reference-limit-badge";
+  badge.textContent = translate("generationModel.referenceOverLimit");
+  badge.setAttribute("role", "status");
+  badge.setAttribute("aria-label", translate("generationModel.referenceOverLimitDetail"));
+  wrapper.append(badge);
+}
+
+function updateGenerationModelReferenceLimits(): void {
+  const wrappers = els.imageThumbItems?.querySelectorAll(".thumb") as NodeListOf<HTMLElement> | undefined;
+  wrappers?.forEach((wrapper, index) => {
+    decorateGenerationModelReferenceThumb(wrapper, index);
+  });
+}
+
 function sizeSupported(profile: any, size: string): boolean {
   if (!profile || !size) return false;
   if ((profile.sizes || []).includes(size)) return true;
@@ -63,6 +85,10 @@ function sizeSupported(profile: any, size: string): boolean {
     && height <= Number(constraints.max_dimension || Number.MAX_SAFE_INTEGER)
     && aspect >= Number(constraints.min_aspect_ratio || 0)
     && aspect <= Number(constraints.max_aspect_ratio || Number.MAX_SAFE_INTEGER);
+}
+
+function profileSummary(profile: any): string {
+  return profile?.summary_key ? translate(String(profile.summary_key)) : String(profile?.summary || "");
 }
 
 export function generationModelConstraintMessage(): string {
@@ -121,6 +147,7 @@ function setRadioValue(select: HTMLSelectElement | null, group: HTMLElement | nu
 
 function applyProfile(profile: any, model: any, restorePreference: boolean): string {
   let parametersAdjusted = false;
+  const preference = modelParameterPreference(model.generation_model_id);
   const supportedResolutions = new Set<string>((profile?.sizes || []).map((size: string) => {
     const dimension = Number.parseInt(size.split("x", 1)[0] || "0", 10);
     return dimension >= 4096 ? "4k" : dimension >= 2048 ? "2k" : "standard";
@@ -128,20 +155,26 @@ function applyProfile(profile: any, model: any, restorePreference: boolean): str
   (els.resolutionGroup?.querySelectorAll("[data-val]") as NodeListOf<HTMLElement> | undefined)?.forEach((button) => {
     button.classList.toggle("hidden", !supportedResolutions.has(String(button.dataset.val || "")));
   });
-  const maximumOutputCount = Number(profile?.max_output_count || 1);
+  const minimumOutputCount = Number(profile?.min_output_count || 1);
+  const maximumOutputCount = Number(profile?.max_output_count || minimumOutputCount);
   (els.quantityGroup?.querySelectorAll("[data-val]") as NodeListOf<HTMLElement> | undefined)?.forEach((button) => {
     button.classList.toggle("hidden", Number(button.dataset.val || 1) > maximumOutputCount);
   });
   const currentOutputCount = Math.max(1, Number.parseInt(els.nInput?.value || "1", 10) || 1);
-  if (currentOutputCount > maximumOutputCount) {
-    setRadioValue(els.nInput, els.quantityGroup, String(maximumOutputCount));
+  const preferredOutputCount = Number.parseInt(String(preference.n || ""), 10);
+  const outputCount = restorePreference
+    ? (preferredOutputCount >= minimumOutputCount && preferredOutputCount <= maximumOutputCount
+      ? preferredOutputCount
+      : minimumOutputCount)
+    : Math.max(minimumOutputCount, Math.min(maximumOutputCount, currentOutputCount));
+  if (outputCount !== currentOutputCount) {
+    setRadioValue(els.nInput, els.quantityGroup, String(outputCount));
     parametersAdjusted = true;
   }
   const supportedFormats = new Set<string>(profile?.output_formats || []);
   (els.outputFormatGroup?.querySelectorAll("[data-val]") as NodeListOf<HTMLElement> | undefined)?.forEach((button) => {
     button.classList.toggle("hidden", !supportedFormats.has(String(button.dataset.val || "")));
   });
-  const preference = modelParameterPreference(model.generation_model_id);
   const preferredSize = String(preference.size || "");
   const existingSize = currentSize();
   const defaultSize = String(profile?.default_size || profile?.sizes?.[0] || "1024x1024");
@@ -244,7 +277,8 @@ export function renderGenerationModelSelector(restorePreference = true): void {
     const profile = profiles.get(model.capability_profile_id);
     const option = document.createElement("option");
     option.value = model.generation_model_id;
-    option.textContent = `${model.display_name}${profile?.summary ? ` — ${profile.summary}` : ""}${model.is_default ? ` (${translate("generationModel.default")})` : ""}`;
+    const summary = profileSummary(profile);
+    option.textContent = `${model.display_name}${summary ? ` — ${summary}` : ""}${model.is_default ? ` (${translate("generationModel.default")})` : ""}`;
     els.generationModelSelect.append(option);
   }
   els.generationModelSelect.disabled = models.length <= 1;
@@ -253,7 +287,7 @@ export function renderGenerationModelSelector(restorePreference = true): void {
   if (selected) {
     const profile = profiles.get(selected.capability_profile_id);
     els.model.value = selected.model_id;
-    els.generationModelSummary.textContent = profile?.summary || "";
+    els.generationModelSummary.textContent = profileSummary(profile);
     if (profile) adjustment = applyProfile(profile, selected, restorePreference);
   } else {
     els.model.value = "";
@@ -261,9 +295,10 @@ export function renderGenerationModelSelector(restorePreference = true): void {
   }
   const reason = selected ? selectionReason(provider) : "";
   const constraint = generationModelConstraintMessage();
-  els.generationModelNotice.textContent = constraint || adjustment || reason;
+  els.generationModelNotice.textContent = constraint || [reason, adjustment].filter(Boolean).join(" ");
   if (els.runButton) els.runButton.disabled = !state.authAvailable || Boolean(constraint);
   updateCallNotice();
+  updateGenerationModelReferenceLimits();
 }
 
 function currentPreferenceParameters(): any {
@@ -272,6 +307,7 @@ function currentPreferenceParameters(): any {
     resolution: String(els.resolution?.value || ""),
     ratio: String(els.ratio?.value || ""),
     orientation: String(els.orientation?.value || ""),
+    n: Math.max(1, Number.parseInt(els.nInput?.value || "1", 10) || 1),
     output_format: String(els.outputFormat?.value || "png"),
     prompt_optimization_mode: String(els.promptOptimizationMode?.value || "off"),
     seed_mode: String(els.seedMode?.value || "random"),
@@ -367,6 +403,7 @@ export function initGenerationModelFeature(): void {
   });
   els.seedValue?.addEventListener("change", handleParameterChange);
   document.addEventListener("generation-model-settings-changed", () => renderGenerationModelSelector(true));
+  document.addEventListener(LOCALE_CHANGE_EVENT, () => renderGenerationModelSelector(false));
   document.addEventListener("click", (event: Event) => {
     if ((event.target as HTMLElement).closest("[data-mode], #generateModeButton, #editModeButton")) {
       window.setTimeout(() => renderGenerationModelSelector(false), 0);
@@ -377,6 +414,8 @@ export function initGenerationModelFeature(): void {
     currentGenerationProfile,
     currentGenerationModelParams,
     generationModelConstraintMessage,
+    decorateGenerationModelReferenceThumb,
+    updateGenerationModelReferenceLimits,
     renderGenerationModelSelector,
   });
   void loadProfiles().catch((error: Error) => {

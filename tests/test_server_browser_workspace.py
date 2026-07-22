@@ -135,9 +135,12 @@ class ServerWorkspaceBrowserReleaseGateTests(unittest.TestCase):
                             headers={"X-CSRF-Token": csrf},
                         )
                         self.assertEqual(department.status_code, 200, department.text)
+                        single_provider_id = ""
+                        single_retired_model_id = ""
                         for provider_key, display_name in (
                             ("browser-no-model", "Browser No Model"),
                             ("browser-single-model", "Browser Single Model"),
+                            ("browser-reference-files", "Browser Reference Files"),
                         ):
                             extra_provider = admin.post(
                                 "/api/admin/provider-catalog",
@@ -145,19 +148,47 @@ class ServerWorkspaceBrowserReleaseGateTests(unittest.TestCase):
                                     "provider_key": provider_key,
                                     "display_name": display_name,
                                     "base_url": f"http://127.0.0.1:{fake_provider.server_port}/v1",
-                                    "api_mode": "images",
-                                    "models": [{
-                                        "display_name": display_name,
-                                        "model_id": f"{provider_key}-image",
-                                        "capability_profile_id": "generic-basic",
-                                        "is_default": True,
-                                        "is_enabled": True,
-                                    }],
+                                    "api_mode": "responses" if provider_key == "browser-reference-files" else "images",
+                                    "models": [
+                                        {
+                                            "display_name": display_name,
+                                            "model_id": f"{provider_key}-image",
+                                            "capability_profile_id": "generic-basic",
+                                            "is_default": True,
+                                            "is_enabled": True,
+                                        },
+                                        *(
+                                            [{
+                                                "display_name": "Browser Retired Model",
+                                                "model_id": "browser-single-retired-image",
+                                                "capability_profile_id": "generic-basic",
+                                                "is_default": False,
+                                                "is_enabled": True,
+                                            }]
+                                            if provider_key == "browser-single-model"
+                                            else [{
+                                                "display_name": "Browser Reference Files Secondary",
+                                                "model_id": "browser-reference-files-secondary-image",
+                                                "capability_profile_id": "generic-basic",
+                                                "is_default": False,
+                                                "is_enabled": True,
+                                            }]
+                                            if provider_key == "browser-reference-files"
+                                            else []
+                                        ),
+                                    ],
                                 },
                                 headers={"X-CSRF-Token": csrf},
                             )
                             self.assertEqual(extra_provider.status_code, 201, extra_provider.text)
                             extra_provider_id = extra_provider.json()["provider"]["provider_version_id"]
+                            if provider_key == "browser-single-model":
+                                single_provider_id = extra_provider_id
+                                single_retired_model_id = next(
+                                    model["generation_model_id"]
+                                    for model in extra_provider.json()["provider"]["models"]
+                                    if model["model_id"] == "browser-single-retired-image"
+                                )
                             extra_credential = admin.put(
                                 f"/api/admin/providers/department/{extra_provider_id}",
                                 json={"api_key": "browser-department-provider-key"},
@@ -180,6 +211,26 @@ class ServerWorkspaceBrowserReleaseGateTests(unittest.TestCase):
                                 WHERE versions.provider_version_id = models.provider_version_id
                                   AND versions.provider_key = 'browser-no-model'
                                 """
+                            )
+                            connection.execute(
+                                """
+                                UPDATE generation_models
+                                SET is_enabled = FALSE
+                                WHERE generation_model_id = %s
+                                """,
+                                (single_retired_model_id,),
+                            )
+                            connection.execute(
+                                """
+                                INSERT INTO generation_model_selection_preferences (
+                                    user_id, provider_scope, provider_version_id, generation_model_id
+                                ) VALUES (%s, 'department', %s, %s)
+                                """,
+                                (
+                                    user_a_payload["user"]["user_id"],
+                                    single_provider_id,
+                                    single_retired_model_id,
+                                ),
                             )
                         self.assertEqual(
                             admin.patch(

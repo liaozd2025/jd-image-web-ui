@@ -1743,10 +1743,15 @@
     "history.downloadReferenceFile": "Download file",
     "history.readdReferenceFile": "Add again",
     "generationModel.label": "Generation model",
+    "generationModel.summaryGeneric": "Basic generation \xB7 Compatibility mode",
+    "generationModel.summarySeedreamLite": "Image series \xB7 Up to 4K",
+    "generationModel.summarySeedreamPro": "Precise editing \xB7 Up to 2K",
     "generationModel.none": "No generation model is configured. Add or validate one in System settings.",
     "generationModel.profileUnavailable": "The model capability profile is unavailable. Refresh and try again.",
     "generationModel.modeUnsupported": "This model does not support the current task mode. Your inputs were preserved.",
     "generationModel.tooManyReferences": "This model supports at most {count} reference images. Remove extras before submitting.",
+    "generationModel.referenceOverLimit": "Over limit",
+    "generationModel.referenceOverLimitDetail": "This reference image exceeds the current model's reference-image limit.",
     "generationModel.sizeUnsupported": "The selected model does not support this output size.",
     "generationModel.formatUnsupported": "The selected model does not support this output format.",
     "generationModel.independentCalls": "Will make {count} independent calls",
@@ -11777,10 +11782,15 @@
     "history.downloadReferenceFile": "\u4E0B\u8F7D\u6587\u4EF6",
     "history.readdReferenceFile": "\u91CD\u65B0\u52A0\u5165",
     "generationModel.label": "\u751F\u56FE\u6A21\u578B",
+    "generationModel.summaryGeneric": "\u57FA\u7840\u751F\u6210 \xB7 \u517C\u5BB9\u6A21\u5F0F",
+    "generationModel.summarySeedreamLite": "\u8FDE\u7EED\u7EC4\u56FE \xB7 \u6700\u9AD8 4K",
+    "generationModel.summarySeedreamPro": "\u7CBE\u51C6\u7F16\u8F91 \xB7 \u6700\u9AD8 2K",
     "generationModel.none": "\u672A\u914D\u7F6E\u751F\u56FE\u6A21\u578B\uFF0C\u8BF7\u524D\u5F80\u7CFB\u7EDF\u8BBE\u7F6E\u6DFB\u52A0\u6216\u9A8C\u8BC1\u6A21\u578B",
     "generationModel.profileUnavailable": "\u6A21\u578B\u80FD\u529B\u6863\u6848\u6682\u4E0D\u53EF\u7528\uFF0C\u8BF7\u5237\u65B0\u540E\u91CD\u8BD5",
     "generationModel.modeUnsupported": "\u5F53\u524D\u6A21\u578B\u4E0D\u652F\u6301\u8FD9\u4E00\u4EFB\u52A1\u6A21\u5F0F\uFF0C\u5DF2\u4FDD\u7559\u73B0\u6709\u8F93\u5165",
     "generationModel.tooManyReferences": "\u5F53\u524D\u6A21\u578B\u6700\u591A\u652F\u6301 {count} \u5F20\u53C2\u8003\u56FE\u7247\uFF0C\u8BF7\u79FB\u9664\u591A\u4F59\u56FE\u7247\u540E\u63D0\u4EA4",
+    "generationModel.referenceOverLimit": "\u8D85\u9650",
+    "generationModel.referenceOverLimitDetail": "\u8FD9\u5F20\u53C2\u8003\u56FE\u7247\u8D85\u51FA\u5F53\u524D\u6A21\u578B\u652F\u6301\u7684\u6570\u91CF\u9650\u5236",
     "generationModel.sizeUnsupported": "\u5F53\u524D\u5C3A\u5BF8\u4E0D\u53D7\u6240\u9009\u6A21\u578B\u652F\u6301",
     "generationModel.formatUnsupported": "\u5F53\u524D\u8F93\u51FA\u683C\u5F0F\u4E0D\u53D7\u6240\u9009\u6A21\u578B\u652F\u6301",
     "generationModel.independentCalls": "\u5C06\u53D1\u8D77 {count} \u6B21\u72EC\u7ACB\u8C03\u7528",
@@ -13776,6 +13786,398 @@
     "history.readdReferenceFile": "\u91CD\u65B0\u52A0\u5165"
   };
 
+  // codex_image/webui/frontend/src/generation-model-translations.ts
+  function dictionary(copy) {
+    return {
+      "generationModel.label": copy.label,
+      "generationModel.none": copy.none,
+      "generationModel.profileUnavailable": copy.unavailable,
+      "generationModel.modeUnsupported": copy.mode,
+      "generationModel.tooManyReferences": copy.references,
+      "generationModel.referenceOverLimit": copy.over,
+      "generationModel.referenceOverLimitDetail": copy.overDetail,
+      "generationModel.sizeUnsupported": copy.size,
+      "generationModel.formatUnsupported": copy.format,
+      "generationModel.independentCalls": copy.calls,
+      "generationModel.promptOptimization": copy.optimization,
+      "generationModel.promptOptimizationOff": copy.off,
+      "generationModel.promptOptimizationStandard": copy.standard,
+      "generationModel.promptOptimizationFast": copy.fast,
+      "generationModel.seed": "Seed",
+      "generationModel.seedRandom": copy.random,
+      "generationModel.seedFixed": copy.fixed,
+      "generationModel.seedHint": copy.seedHint,
+      "generationModel.seedInvalid": copy.seedInvalid,
+      "generationModel.defaultSelected": copy.defaultSelected,
+      "generationModel.firstAvailableSelected": copy.firstSelected,
+      "generationModel.savedUnavailableSelected": copy.fallbackSelected,
+      "generationModel.parametersAdjusted": copy.adjusted,
+      "generationModel.default": copy.defaultLabel,
+      "generationModel.preferenceSaveFailed": copy.saveFailed,
+      "generationModel.legacyCompatibility": copy.legacy,
+      "taskActions.capabilityChangedTitle": copy.changedTitle,
+      "taskActions.capabilityChangedMessage": copy.changedMessage,
+      "taskActions.capabilityChangedDetail": copy.changedDetail,
+      "taskActions.retryWithCurrentCapability": copy.retry
+    };
+  }
+  var GENERATION_MODEL_TRANSLATIONS = {
+    "zh-TW": dictionary({
+      label: "\u751F\u5716\u6A21\u578B",
+      none: "\u5C1A\u672A\u8A2D\u5B9A\u751F\u5716\u6A21\u578B\uFF0C\u8ACB\u524D\u5F80\u7CFB\u7D71\u8A2D\u5B9A\u65B0\u589E\u6216\u9A57\u8B49\u6A21\u578B",
+      unavailable: "\u6A21\u578B\u80FD\u529B\u8A2D\u5B9A\u6A94\u66AB\u6642\u7121\u6CD5\u4F7F\u7528\uFF0C\u8ACB\u91CD\u65B0\u6574\u7406\u5F8C\u518D\u8A66",
+      mode: "\u6B64\u6A21\u578B\u4E0D\u652F\u63F4\u76EE\u524D\u7684\u4EFB\u52D9\u6A21\u5F0F\uFF1B\u73FE\u6709\u8F38\u5165\u5DF2\u4FDD\u7559",
+      references: "\u6B64\u6A21\u578B\u6700\u591A\u652F\u63F4 {count} \u5F35\u53C3\u8003\u5716\u7247\uFF0C\u8ACB\u5148\u79FB\u9664\u8D85\u51FA\u7684\u5716\u7247",
+      over: "\u8D85\u51FA\u9650\u5236",
+      overDetail: "\u6B64\u53C3\u8003\u5716\u7247\u8D85\u51FA\u76EE\u524D\u6A21\u578B\u652F\u63F4\u7684\u6578\u91CF\u9650\u5236",
+      size: "\u6240\u9078\u6A21\u578B\u4E0D\u652F\u63F4\u76EE\u524D\u7684\u8F38\u51FA\u5C3A\u5BF8",
+      format: "\u6240\u9078\u6A21\u578B\u4E0D\u652F\u63F4\u76EE\u524D\u7684\u8F38\u51FA\u683C\u5F0F",
+      calls: "\u5C07\u767C\u51FA {count} \u6B21\u7368\u7ACB\u547C\u53EB",
+      optimization: "Prompt \u6700\u4F73\u5316",
+      off: "\u95DC\u9589",
+      standard: "\u6A19\u6E96\u6700\u4F73\u5316",
+      fast: "\u5FEB\u901F\u6700\u4F73\u5316",
+      random: "\u96A8\u6A5F",
+      fixed: "\u56FA\u5B9A",
+      seedHint: "\u76F8\u540C Seed \u53EF\u63D0\u9AD8\u7D50\u679C\u4E00\u81F4\u6027\uFF0C\u4F46\u4E0D\u4FDD\u8B49\u50CF\u7D20\u5B8C\u5168\u76F8\u540C",
+      seedInvalid: "\u8ACB\u8F38\u5165\u6B64\u6A21\u578B\u652F\u63F4\u7BC4\u570D\u5167\u7684\u6574\u6578 Seed",
+      defaultSelected: "\u5DF2\u9078\u53D6\u4F9B\u61C9\u5546\u7684\u9810\u8A2D\u6A21\u578B",
+      firstSelected: "\u5148\u524D\u7684\u6A21\u578B\u5DF2\u7121\u6CD5\u4F7F\u7528\uFF1B\u5DF2\u9078\u53D6\u7B2C\u4E00\u500B\u53EF\u7528\u6A21\u578B",
+      fallbackSelected: "\u5148\u524D\u7684\u6A21\u578B\u5DF2\u7121\u6CD5\u4F7F\u7528\uFF1B\u5DF2\u56DE\u5230\u4F9B\u61C9\u5546\u9810\u8A2D\u6A21\u578B",
+      adjusted: "\u4E0D\u652F\u63F4\u7684\u53C3\u6578\u5DF2\u8ABF\u6574\u70BA\u6B64\u6A21\u578B\u7684\u9810\u8A2D\u503C",
+      defaultLabel: "\u9810\u8A2D",
+      saveFailed: "\u5132\u5B58\u6A21\u578B\u504F\u597D\u5931\u6557",
+      legacy: "\u901A\u7528\u57FA\u790E\uFF08\u820A\u7248\u76F8\u5BB9\uFF09",
+      changedTitle: "\u6A21\u578B\u80FD\u529B\u5DF2\u8B8A\u66F4",
+      changedMessage: "\u6B64\u4EFB\u52D9\u5132\u5B58\u7684\u6A21\u578B\u80FD\u529B\u7248\u672C\u8207\u76EE\u524D\u8A2D\u5B9A\u4E0D\u540C",
+      changedDetail: "\u78BA\u8A8D\u5F8C\u6703\u4F9D\u76EE\u524D\u80FD\u529B\u91CD\u65B0\u9A57\u8B49\u539F\u59CB\u53C3\u6578\uFF1B\u4E0D\u652F\u63F4\u7684\u53C3\u6578\u4E0D\u6703\u88AB\u975C\u9ED8\u6368\u68C4",
+      retry: "\u78BA\u8A8D\u4E26\u91CD\u8A66"
+    }),
+    "zh-HK": dictionary({
+      label: "\u751F\u5716\u6A21\u578B",
+      none: "\u5C1A\u672A\u8A2D\u5B9A\u751F\u5716\u6A21\u578B\uFF0C\u8ACB\u5230\u7CFB\u7D71\u8A2D\u5B9A\u65B0\u589E\u6216\u9A57\u8B49\u6A21\u578B",
+      unavailable: "\u6A21\u578B\u80FD\u529B\u8A2D\u5B9A\u6A94\u66AB\u6642\u7121\u6CD5\u4F7F\u7528\uFF0C\u8ACB\u91CD\u65B0\u6574\u7406\u5F8C\u518D\u8A66",
+      mode: "\u6B64\u6A21\u578B\u4E0D\u652F\u63F4\u76EE\u524D\u7684\u4EFB\u52D9\u6A21\u5F0F\uFF1B\u73FE\u6709\u8F38\u5165\u5DF2\u4FDD\u7559",
+      references: "\u6B64\u6A21\u578B\u6700\u591A\u652F\u63F4 {count} \u5F35\u53C3\u8003\u5716\u7247\uFF0C\u8ACB\u5148\u79FB\u9664\u8D85\u51FA\u7684\u5716\u7247",
+      over: "\u8D85\u51FA\u9650\u5236",
+      overDetail: "\u6B64\u53C3\u8003\u5716\u7247\u8D85\u51FA\u76EE\u524D\u6A21\u578B\u652F\u63F4\u7684\u6578\u91CF\u9650\u5236",
+      size: "\u6240\u9078\u6A21\u578B\u4E0D\u652F\u63F4\u76EE\u524D\u7684\u8F38\u51FA\u5C3A\u5BF8",
+      format: "\u6240\u9078\u6A21\u578B\u4E0D\u652F\u63F4\u76EE\u524D\u7684\u8F38\u51FA\u683C\u5F0F",
+      calls: "\u5C07\u767C\u51FA {count} \u6B21\u7368\u7ACB\u547C\u53EB",
+      optimization: "Prompt \u512A\u5316",
+      off: "\u95DC\u9589",
+      standard: "\u6A19\u6E96\u512A\u5316",
+      fast: "\u5FEB\u901F\u512A\u5316",
+      random: "\u96A8\u6A5F",
+      fixed: "\u56FA\u5B9A",
+      seedHint: "\u76F8\u540C Seed \u53EF\u63D0\u9AD8\u7D50\u679C\u4E00\u81F4\u6027\uFF0C\u4F46\u4E0D\u4FDD\u8B49\u50CF\u7D20\u5B8C\u5168\u76F8\u540C",
+      seedInvalid: "\u8ACB\u8F38\u5165\u6B64\u6A21\u578B\u652F\u63F4\u7BC4\u570D\u5167\u7684\u6574\u6578 Seed",
+      defaultSelected: "\u5DF2\u9078\u53D6\u4F9B\u61C9\u5546\u7684\u9810\u8A2D\u6A21\u578B",
+      firstSelected: "\u5148\u524D\u7684\u6A21\u578B\u5DF2\u7121\u6CD5\u4F7F\u7528\uFF1B\u5DF2\u9078\u53D6\u7B2C\u4E00\u500B\u53EF\u7528\u6A21\u578B",
+      fallbackSelected: "\u5148\u524D\u7684\u6A21\u578B\u5DF2\u7121\u6CD5\u4F7F\u7528\uFF1B\u5DF2\u8FD4\u56DE\u4F9B\u61C9\u5546\u9810\u8A2D\u6A21\u578B",
+      adjusted: "\u4E0D\u652F\u63F4\u7684\u53C3\u6578\u5DF2\u8ABF\u6574\u70BA\u6B64\u6A21\u578B\u7684\u9810\u8A2D\u503C",
+      defaultLabel: "\u9810\u8A2D",
+      saveFailed: "\u5132\u5B58\u6A21\u578B\u504F\u597D\u5931\u6557",
+      legacy: "\u901A\u7528\u57FA\u790E\uFF08\u820A\u7248\u517C\u5BB9\uFF09",
+      changedTitle: "\u6A21\u578B\u80FD\u529B\u5DF2\u8B8A\u66F4",
+      changedMessage: "\u6B64\u4EFB\u52D9\u5132\u5B58\u7684\u6A21\u578B\u80FD\u529B\u7248\u672C\u8207\u76EE\u524D\u8A2D\u5B9A\u4E0D\u540C",
+      changedDetail: "\u78BA\u8A8D\u5F8C\u6703\u6309\u76EE\u524D\u80FD\u529B\u91CD\u65B0\u9A57\u8B49\u539F\u59CB\u53C3\u6578\uFF1B\u4E0D\u652F\u63F4\u7684\u53C3\u6578\u4E0D\u6703\u88AB\u975C\u9ED8\u6368\u68C4",
+      retry: "\u78BA\u8A8D\u4E26\u91CD\u8A66"
+    }),
+    ja: dictionary({
+      label: "\u753B\u50CF\u751F\u6210\u30E2\u30C7\u30EB",
+      none: "\u753B\u50CF\u751F\u6210\u30E2\u30C7\u30EB\u304C\u8A2D\u5B9A\u3055\u308C\u3066\u3044\u307E\u305B\u3093\u3002\u30B7\u30B9\u30C6\u30E0\u8A2D\u5B9A\u3067\u8FFD\u52A0\u307E\u305F\u306F\u691C\u8A3C\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+      unavailable: "\u30E2\u30C7\u30EB\u6A5F\u80FD\u30D7\u30ED\u30D5\u30A1\u30A4\u30EB\u3092\u5229\u7528\u3067\u304D\u307E\u305B\u3093\u3002\u66F4\u65B0\u3057\u3066\u3082\u3046\u4E00\u5EA6\u304A\u8A66\u3057\u304F\u3060\u3055\u3044\u3002",
+      mode: "\u3053\u306E\u30E2\u30C7\u30EB\u306F\u73FE\u5728\u306E\u30BF\u30B9\u30AF\u30E2\u30FC\u30C9\u306B\u5BFE\u5FDC\u3057\u3066\u3044\u307E\u305B\u3093\u3002\u5165\u529B\u5185\u5BB9\u306F\u4FDD\u6301\u3055\u308C\u3066\u3044\u307E\u3059\u3002",
+      references: "\u3053\u306E\u30E2\u30C7\u30EB\u3067\u4F7F\u7528\u3067\u304D\u308B\u53C2\u7167\u753B\u50CF\u306F\u6700\u5927 {count} \u679A\u3067\u3059\u3002\u8D85\u904E\u5206\u3092\u524A\u9664\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+      over: "\u4E0A\u9650\u8D85\u904E",
+      overDetail: "\u3053\u306E\u53C2\u7167\u753B\u50CF\u306F\u73FE\u5728\u306E\u30E2\u30C7\u30EB\u306E\u679A\u6570\u4E0A\u9650\u3092\u8D85\u3048\u3066\u3044\u307E\u3059",
+      size: "\u9078\u629E\u3057\u305F\u30E2\u30C7\u30EB\u306F\u3053\u306E\u51FA\u529B\u30B5\u30A4\u30BA\u306B\u5BFE\u5FDC\u3057\u3066\u3044\u307E\u305B\u3093\u3002",
+      format: "\u9078\u629E\u3057\u305F\u30E2\u30C7\u30EB\u306F\u3053\u306E\u51FA\u529B\u5F62\u5F0F\u306B\u5BFE\u5FDC\u3057\u3066\u3044\u307E\u305B\u3093\u3002",
+      calls: "{count} \u56DE\u306E\u72EC\u7ACB\u3057\u305F\u547C\u3073\u51FA\u3057\u3092\u5B9F\u884C\u3057\u307E\u3059",
+      optimization: "\u30D7\u30ED\u30F3\u30D7\u30C8\u6700\u9069\u5316",
+      off: "\u30AA\u30D5",
+      standard: "\u6A19\u6E96",
+      fast: "\u9AD8\u901F",
+      random: "\u30E9\u30F3\u30C0\u30E0",
+      fixed: "\u56FA\u5B9A",
+      seedHint: "\u540C\u3058 Seed \u3067\u4E00\u8CAB\u6027\u3092\u9AD8\u3081\u3089\u308C\u307E\u3059\u304C\u3001\u30D4\u30AF\u30BB\u30EB\u5358\u4F4D\u3067\u540C\u4E00\u306B\u306A\u308B\u4FDD\u8A3C\u306F\u3042\u308A\u307E\u305B\u3093\u3002",
+      seedInvalid: "\u3053\u306E\u30E2\u30C7\u30EB\u306E\u5BFE\u5FDC\u7BC4\u56F2\u5185\u306E\u6574\u6570 Seed \u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+      defaultSelected: "\u30D7\u30ED\u30D0\u30A4\u30C0\u30FC\u306E\u65E2\u5B9A\u30E2\u30C7\u30EB\u3092\u9078\u629E\u3057\u307E\u3057\u305F\u3002",
+      firstSelected: "\u4EE5\u524D\u306E\u30E2\u30C7\u30EB\u306F\u5229\u7528\u3067\u304D\u306A\u3044\u305F\u3081\u3001\u6700\u521D\u306E\u5229\u7528\u53EF\u80FD\u306A\u30E2\u30C7\u30EB\u3092\u9078\u629E\u3057\u307E\u3057\u305F\u3002",
+      fallbackSelected: "\u4EE5\u524D\u306E\u30E2\u30C7\u30EB\u306F\u5229\u7528\u3067\u304D\u306A\u3044\u305F\u3081\u3001\u30D7\u30ED\u30D0\u30A4\u30C0\u30FC\u306E\u65E2\u5B9A\u30E2\u30C7\u30EB\u306B\u623B\u3057\u307E\u3057\u305F\u3002",
+      adjusted: "\u672A\u5BFE\u5FDC\u306E\u30D1\u30E9\u30E1\u30FC\u30BF\u30FC\u3092\u3053\u306E\u30E2\u30C7\u30EB\u306E\u65E2\u5B9A\u5024\u306B\u8ABF\u6574\u3057\u307E\u3057\u305F\u3002",
+      defaultLabel: "\u65E2\u5B9A",
+      saveFailed: "\u30E2\u30C7\u30EB\u8A2D\u5B9A\u3092\u4FDD\u5B58\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F",
+      legacy: "\u6C4E\u7528\u57FA\u672C\uFF08\u5F93\u6765\u4E92\u63DB\uFF09",
+      changedTitle: "\u30E2\u30C7\u30EB\u6A5F\u80FD\u304C\u5909\u66F4\u3055\u308C\u307E\u3057\u305F",
+      changedMessage: "\u3053\u306E\u30BF\u30B9\u30AF\u306F\u73FE\u5728\u3068\u7570\u306A\u308B\u30E2\u30C7\u30EB\u6A5F\u80FD\u30D0\u30FC\u30B8\u30E7\u30F3\u3067\u4FDD\u5B58\u3055\u308C\u3066\u3044\u307E\u3059\u3002",
+      changedDetail: "\u78BA\u8A8D\u3059\u308B\u3068\u3001\u5143\u306E\u30D1\u30E9\u30E1\u30FC\u30BF\u30FC\u3092\u73FE\u5728\u306E\u30D7\u30ED\u30D5\u30A1\u30A4\u30EB\u3067\u518D\u691C\u8A3C\u3057\u307E\u3059\u3002\u672A\u5BFE\u5FDC\u306E\u5024\u306F\u81EA\u52D5\u7684\u306B\u7834\u68C4\u3055\u308C\u307E\u305B\u3093\u3002",
+      retry: "\u78BA\u8A8D\u3057\u3066\u518D\u8A66\u884C"
+    }),
+    ko: dictionary({
+      label: "\uC774\uBBF8\uC9C0 \uC0DD\uC131 \uBAA8\uB378",
+      none: "\uC774\uBBF8\uC9C0 \uC0DD\uC131 \uBAA8\uB378\uC774 \uAD6C\uC131\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uC2DC\uC2A4\uD15C \uC124\uC815\uC5D0\uC11C \uCD94\uAC00\uD558\uAC70\uB098 \uAC80\uC99D\uD558\uC138\uC694.",
+      unavailable: "\uBAA8\uB378 \uAE30\uB2A5 \uD504\uB85C\uD544\uC744 \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. \uC0C8\uB85C \uACE0\uCE5C \uD6C4 \uB2E4\uC2DC \uC2DC\uB3C4\uD558\uC138\uC694.",
+      mode: "\uC774 \uBAA8\uB378\uC740 \uD604\uC7AC \uC791\uC5C5 \uBAA8\uB4DC\uB97C \uC9C0\uC6D0\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uC785\uB825\uC740 \uADF8\uB300\uB85C \uC720\uC9C0\uB418\uC5C8\uC2B5\uB2C8\uB2E4.",
+      references: "\uC774 \uBAA8\uB378\uC740 \uCC38\uC870 \uC774\uBBF8\uC9C0\uB97C \uCD5C\uB300 {count}\uAC1C\uAE4C\uC9C0 \uC9C0\uC6D0\uD569\uB2C8\uB2E4. \uCD08\uACFC \uC774\uBBF8\uC9C0\uB97C \uC81C\uAC70\uD558\uC138\uC694.",
+      over: "\uD55C\uB3C4 \uCD08\uACFC",
+      overDetail: "\uC774 \uCC38\uC870 \uC774\uBBF8\uC9C0\uB294 \uD604\uC7AC \uBAA8\uB378\uC758 \uC218\uB7C9 \uD55C\uB3C4\uB97C \uCD08\uACFC\uD569\uB2C8\uB2E4",
+      size: "\uC120\uD0DD\uD55C \uBAA8\uB378\uC740 \uC774 \uCD9C\uB825 \uD06C\uAE30\uB97C \uC9C0\uC6D0\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
+      format: "\uC120\uD0DD\uD55C \uBAA8\uB378\uC740 \uC774 \uCD9C\uB825 \uD615\uC2DD\uC744 \uC9C0\uC6D0\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
+      calls: "\uB3C5\uB9BD \uD638\uCD9C {count}\uD68C\uB97C \uC2E4\uD589\uD569\uB2C8\uB2E4",
+      optimization: "\uD504\uB86C\uD504\uD2B8 \uCD5C\uC801\uD654",
+      off: "\uB044\uAE30",
+      standard: "\uD45C\uC900",
+      fast: "\uBE60\uB974\uAC8C",
+      random: "\uBB34\uC791\uC704",
+      fixed: "\uACE0\uC815",
+      seedHint: "\uAC19\uC740 Seed\uB294 \uACB0\uACFC \uC77C\uAD00\uC131\uC744 \uB192\uC77C \uC218 \uC788\uC9C0\uB9CC \uD53D\uC140 \uB2E8\uC704 \uB3D9\uC77C\uC131\uC744 \uBCF4\uC7A5\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
+      seedInvalid: "\uC774 \uBAA8\uB378\uC774 \uC9C0\uC6D0\uD558\uB294 \uBC94\uC704\uC758 \uC815\uC218 Seed\uB97C \uC785\uB825\uD558\uC138\uC694.",
+      defaultSelected: "\uACF5\uAE09\uC790\uC758 \uAE30\uBCF8 \uBAA8\uB378\uC744 \uC120\uD0DD\uD588\uC2B5\uB2C8\uB2E4.",
+      firstSelected: "\uC774\uC804 \uBAA8\uB378\uC744 \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC5B4 \uCCAB \uBC88\uC9F8 \uC0AC\uC6A9 \uAC00\uB2A5\uD55C \uBAA8\uB378\uC744 \uC120\uD0DD\uD588\uC2B5\uB2C8\uB2E4.",
+      fallbackSelected: "\uC774\uC804 \uBAA8\uB378\uC744 \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uC5B4 \uACF5\uAE09\uC790\uC758 \uAE30\uBCF8 \uBAA8\uB378\uB85C \uB3CC\uC544\uAC14\uC2B5\uB2C8\uB2E4.",
+      adjusted: "\uC9C0\uC6D0\uB418\uC9C0 \uC54A\uB294 \uB9E4\uAC1C\uBCC0\uC218\uB97C \uC774 \uBAA8\uB378\uC758 \uAE30\uBCF8\uAC12\uC73C\uB85C \uC870\uC815\uD588\uC2B5\uB2C8\uB2E4.",
+      defaultLabel: "\uAE30\uBCF8",
+      saveFailed: "\uBAA8\uB378 \uAE30\uBCF8 \uC124\uC815\uC744 \uC800\uC7A5\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4",
+      legacy: "\uC77C\uBC18 \uAE30\uBCF8(\uB808\uAC70\uC2DC \uD638\uD658)",
+      changedTitle: "\uBAA8\uB378 \uAE30\uB2A5\uC774 \uBCC0\uACBD\uB428",
+      changedMessage: "\uC774 \uC791\uC5C5\uC740 \uD604\uC7AC\uC640 \uB2E4\uB978 \uBAA8\uB378 \uAE30\uB2A5 \uBC84\uC804\uC73C\uB85C \uC800\uC7A5\uB418\uC5C8\uC2B5\uB2C8\uB2E4.",
+      changedDetail: "\uD655\uC778\uD558\uBA74 \uC6D0\uB798 \uB9E4\uAC1C\uBCC0\uC218\uB97C \uD604\uC7AC \uD504\uB85C\uD544\uB85C \uB2E4\uC2DC \uAC80\uC99D\uD569\uB2C8\uB2E4. \uC9C0\uC6D0\uB418\uC9C0 \uC54A\uB294 \uAC12\uC740 \uC790\uB3D9\uC73C\uB85C \uC0AD\uC81C\uB418\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.",
+      retry: "\uD655\uC778 \uD6C4 \uC7AC\uC2DC\uB3C4"
+    }),
+    es: dictionary({
+      label: "Modelo de generaci\xF3n",
+      none: "No hay ning\xFAn modelo de generaci\xF3n configurado. A\xF1ade o valida uno en Ajustes del sistema.",
+      unavailable: "El perfil de capacidades del modelo no est\xE1 disponible. Actualiza e int\xE9ntalo de nuevo.",
+      mode: "Este modelo no admite el modo de tarea actual. Se conservaron tus entradas.",
+      references: "Este modelo admite como m\xE1ximo {count} im\xE1genes de referencia. Elimina las que sobren.",
+      over: "Supera el l\xEDmite",
+      overDetail: "Esta imagen de referencia supera el l\xEDmite del modelo actual",
+      size: "El modelo seleccionado no admite este tama\xF1o de salida.",
+      format: "El modelo seleccionado no admite este formato de salida.",
+      calls: "Se realizar\xE1n {count} llamadas independientes",
+      optimization: "Optimizaci\xF3n del prompt",
+      off: "Desactivada",
+      standard: "Est\xE1ndar",
+      fast: "R\xE1pida",
+      random: "Aleatoria",
+      fixed: "Fija",
+      seedHint: "Usar la misma Seed puede mejorar la coherencia, pero no garantiza resultados id\xE9nticos p\xEDxel a p\xEDxel.",
+      seedInvalid: "Introduce una Seed entera dentro del intervalo admitido por este modelo.",
+      defaultSelected: "Se seleccion\xF3 el modelo predeterminado del proveedor.",
+      firstSelected: "El modelo anterior no est\xE1 disponible; se seleccion\xF3 el primer modelo disponible.",
+      fallbackSelected: "El modelo anterior no est\xE1 disponible; se volvi\xF3 al modelo predeterminado del proveedor.",
+      adjusted: "Los par\xE1metros no admitidos se ajustaron a los valores predeterminados de este modelo.",
+      defaultLabel: "predeterminado",
+      saveFailed: "No se pudieron guardar las preferencias del modelo",
+      legacy: "B\xE1sico gen\xE9rico (compatibilidad heredada)",
+      changedTitle: "Las capacidades del modelo cambiaron",
+      changedMessage: "Esta tarea se guard\xF3 con una versi\xF3n distinta de capacidades del modelo.",
+      changedDetail: "Al confirmar, los par\xE1metros originales se volver\xE1n a validar con el perfil actual. Los valores no admitidos no se descartar\xE1n sin avisar.",
+      retry: "Confirmar y reintentar"
+    }),
+    pt: dictionary({
+      label: "Modelo de gera\xE7\xE3o",
+      none: "Nenhum modelo de gera\xE7\xE3o est\xE1 configurado. Adicione ou valide um nas Defini\xE7\xF5es do sistema.",
+      unavailable: "O perfil de capacidades do modelo n\xE3o est\xE1 dispon\xEDvel. Atualize e tente novamente.",
+      mode: "Este modelo n\xE3o suporta o modo de tarefa atual. As entradas foram mantidas.",
+      references: "Este modelo suporta no m\xE1ximo {count} imagens de refer\xEAncia. Remova as excedentes.",
+      over: "Acima do limite",
+      overDetail: "Esta imagem de refer\xEAncia excede o limite do modelo atual",
+      size: "O modelo selecionado n\xE3o suporta este tamanho de sa\xEDda.",
+      format: "O modelo selecionado n\xE3o suporta este formato de sa\xEDda.",
+      calls: "Ser\xE3o feitas {count} chamadas independentes",
+      optimization: "Otimiza\xE7\xE3o do prompt",
+      off: "Desativada",
+      standard: "Padr\xE3o",
+      fast: "R\xE1pida",
+      random: "Aleat\xF3ria",
+      fixed: "Fixa",
+      seedHint: "Usar a mesma Seed pode melhorar a consist\xEAncia, mas n\xE3o garante resultados id\xEAnticos ao n\xEDvel do pixel.",
+      seedInvalid: "Introduza uma Seed inteira no intervalo suportado por este modelo.",
+      defaultSelected: "O modelo padr\xE3o do fornecedor foi selecionado.",
+      firstSelected: "O modelo anterior n\xE3o est\xE1 dispon\xEDvel; foi selecionado o primeiro modelo dispon\xEDvel.",
+      fallbackSelected: "O modelo anterior n\xE3o est\xE1 dispon\xEDvel; voltou-se ao modelo padr\xE3o do fornecedor.",
+      adjusted: "Os par\xE2metros n\xE3o suportados foram ajustados para os valores padr\xE3o deste modelo.",
+      defaultLabel: "padr\xE3o",
+      saveFailed: "N\xE3o foi poss\xEDvel guardar as prefer\xEAncias do modelo",
+      legacy: "B\xE1sico gen\xE9rico (compatibilidade legada)",
+      changedTitle: "As capacidades do modelo mudaram",
+      changedMessage: "Esta tarefa foi guardada com uma vers\xE3o diferente das capacidades do modelo.",
+      changedDetail: "Ao confirmar, os par\xE2metros originais ser\xE3o revalidados com o perfil atual. Valores n\xE3o suportados n\xE3o ser\xE3o descartados silenciosamente.",
+      retry: "Confirmar e tentar novamente"
+    }),
+    fr: dictionary({
+      label: "Mod\xE8le de g\xE9n\xE9ration",
+      none: "Aucun mod\xE8le de g\xE9n\xE9ration n\u2019est configur\xE9. Ajoutez-en ou validez-en un dans les param\xE8tres syst\xE8me.",
+      unavailable: "Le profil de capacit\xE9s du mod\xE8le est indisponible. Actualisez puis r\xE9essayez.",
+      mode: "Ce mod\xE8le ne prend pas en charge le mode de t\xE2che actuel. Vos entr\xE9es ont \xE9t\xE9 conserv\xE9es.",
+      references: "Ce mod\xE8le accepte au maximum {count} images de r\xE9f\xE9rence. Supprimez les images en trop.",
+      over: "Limite d\xE9pass\xE9e",
+      overDetail: "Cette image de r\xE9f\xE9rence d\xE9passe la limite du mod\xE8le actuel",
+      size: "Le mod\xE8le s\xE9lectionn\xE9 ne prend pas en charge cette taille de sortie.",
+      format: "Le mod\xE8le s\xE9lectionn\xE9 ne prend pas en charge ce format de sortie.",
+      calls: "{count} appels ind\xE9pendants seront effectu\xE9s",
+      optimization: "Optimisation du prompt",
+      off: "D\xE9sactiv\xE9e",
+      standard: "Standard",
+      fast: "Rapide",
+      random: "Al\xE9atoire",
+      fixed: "Fixe",
+      seedHint: "La m\xEAme Seed peut am\xE9liorer la coh\xE9rence, sans garantir un r\xE9sultat identique au pixel pr\xE8s.",
+      seedInvalid: "Saisissez une Seed enti\xE8re dans la plage prise en charge par ce mod\xE8le.",
+      defaultSelected: "Le mod\xE8le par d\xE9faut du fournisseur a \xE9t\xE9 s\xE9lectionn\xE9.",
+      firstSelected: "Le mod\xE8le pr\xE9c\xE9dent est indisponible ; le premier mod\xE8le disponible a \xE9t\xE9 s\xE9lectionn\xE9.",
+      fallbackSelected: "Le mod\xE8le pr\xE9c\xE9dent est indisponible ; le mod\xE8le par d\xE9faut du fournisseur a \xE9t\xE9 s\xE9lectionn\xE9.",
+      adjusted: "Les param\xE8tres non pris en charge ont \xE9t\xE9 ajust\xE9s aux valeurs par d\xE9faut de ce mod\xE8le.",
+      defaultLabel: "par d\xE9faut",
+      saveFailed: "\xC9chec de l\u2019enregistrement des pr\xE9f\xE9rences du mod\xE8le",
+      legacy: "G\xE9n\xE9rique de base (compatibilit\xE9 h\xE9rit\xE9e)",
+      changedTitle: "Les capacit\xE9s du mod\xE8le ont chang\xE9",
+      changedMessage: "Cette t\xE2che a \xE9t\xE9 enregistr\xE9e avec une autre version des capacit\xE9s du mod\xE8le.",
+      changedDetail: "Apr\xE8s confirmation, les param\xE8tres d\u2019origine seront revalid\xE9s avec le profil actuel. Les valeurs non prises en charge ne seront pas supprim\xE9es silencieusement.",
+      retry: "Confirmer et r\xE9essayer"
+    }),
+    de: dictionary({
+      label: "Generierungsmodell",
+      none: "Es ist kein Generierungsmodell eingerichtet. F\xFCgen Sie eines in den Systemeinstellungen hinzu oder validieren Sie es.",
+      unavailable: "Das Modellf\xE4higkeitsprofil ist nicht verf\xFCgbar. Aktualisieren Sie die Seite und versuchen Sie es erneut.",
+      mode: "Dieses Modell unterst\xFCtzt den aktuellen Aufgabenmodus nicht. Ihre Eingaben wurden beibehalten.",
+      references: "Dieses Modell unterst\xFCtzt h\xF6chstens {count} Referenzbilder. Entfernen Sie \xFCberz\xE4hlige Bilder.",
+      over: "Limit \xFCberschritten",
+      overDetail: "Dieses Referenzbild \xFCberschreitet das Limit des aktuellen Modells",
+      size: "Das ausgew\xE4hlte Modell unterst\xFCtzt diese Ausgabegr\xF6\xDFe nicht.",
+      format: "Das ausgew\xE4hlte Modell unterst\xFCtzt dieses Ausgabeformat nicht.",
+      calls: "Es werden {count} unabh\xE4ngige Aufrufe ausgef\xFChrt",
+      optimization: "Prompt-Optimierung",
+      off: "Aus",
+      standard: "Standard",
+      fast: "Schnell",
+      random: "Zuf\xE4llig",
+      fixed: "Fest",
+      seedHint: "Dieselbe Seed kann die Konsistenz verbessern, garantiert aber keine pixelgleichen Ergebnisse.",
+      seedInvalid: "Geben Sie eine ganzzahlige Seed im unterst\xFCtzten Bereich dieses Modells ein.",
+      defaultSelected: "Das Standardmodell des Anbieters wurde ausgew\xE4hlt.",
+      firstSelected: "Das vorherige Modell ist nicht verf\xFCgbar; das erste verf\xFCgbare Modell wurde ausgew\xE4hlt.",
+      fallbackSelected: "Das vorherige Modell ist nicht verf\xFCgbar; das Standardmodell des Anbieters wurde ausgew\xE4hlt.",
+      adjusted: "Nicht unterst\xFCtzte Parameter wurden auf die Standardwerte dieses Modells gesetzt.",
+      defaultLabel: "Standard",
+      saveFailed: "Die Modelleinstellungen konnten nicht gespeichert werden",
+      legacy: "Generisch, Basis (Legacy-Kompatibilit\xE4t)",
+      changedTitle: "Modellf\xE4higkeiten wurden ge\xE4ndert",
+      changedMessage: "Diese Aufgabe wurde mit einer anderen Version der Modellf\xE4higkeiten gespeichert.",
+      changedDetail: "Nach der Best\xE4tigung werden die urspr\xFCnglichen Parameter mit dem aktuellen Profil erneut validiert. Nicht unterst\xFCtzte Werte werden nicht stillschweigend verworfen.",
+      retry: "Best\xE4tigen und erneut versuchen"
+    }),
+    ru: dictionary({
+      label: "\u041C\u043E\u0434\u0435\u043B\u044C \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u0438",
+      none: "\u041C\u043E\u0434\u0435\u043B\u044C \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u0438 \u043D\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0430. \u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0438\u043B\u0438 \u043F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u0435\u0451 \u0432 \u0441\u0438\u0441\u0442\u0435\u043C\u043D\u044B\u0445 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445.",
+      unavailable: "\u041F\u0440\u043E\u0444\u0438\u043B\u044C \u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E\u0441\u0442\u0435\u0439 \u043C\u043E\u0434\u0435\u043B\u0438 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D. \u041E\u0431\u043D\u043E\u0432\u0438\u0442\u0435 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0443 \u0438 \u043F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u043F\u043E\u043F\u044B\u0442\u043A\u0443.",
+      mode: "\u042D\u0442\u0430 \u043C\u043E\u0434\u0435\u043B\u044C \u043D\u0435 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u0442\u0435\u043A\u0443\u0449\u0438\u0439 \u0440\u0435\u0436\u0438\u043C \u0437\u0430\u0434\u0430\u0447\u0438. \u0412\u0432\u0435\u0434\u0451\u043D\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u044B.",
+      references: "\u042D\u0442\u0430 \u043C\u043E\u0434\u0435\u043B\u044C \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u043D\u0435 \u0431\u043E\u043B\u0435\u0435 {count} \u044D\u0442\u0430\u043B\u043E\u043D\u043D\u044B\u0445 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439. \u0423\u0434\u0430\u043B\u0438\u0442\u0435 \u043B\u0438\u0448\u043D\u0438\u0435.",
+      over: "\u041F\u0440\u0435\u0432\u044B\u0448\u0435\u043D \u043B\u0438\u043C\u0438\u0442",
+      overDetail: "\u042D\u0442\u043E \u044D\u0442\u0430\u043B\u043E\u043D\u043D\u043E\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u043F\u0440\u0435\u0432\u044B\u0448\u0430\u0435\u0442 \u043B\u0438\u043C\u0438\u0442 \u0442\u0435\u043A\u0443\u0449\u0435\u0439 \u043C\u043E\u0434\u0435\u043B\u0438",
+      size: "\u0412\u044B\u0431\u0440\u0430\u043D\u043D\u0430\u044F \u043C\u043E\u0434\u0435\u043B\u044C \u043D\u0435 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u044D\u0442\u043E\u0442 \u0440\u0430\u0437\u043C\u0435\u0440 \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u0430.",
+      format: "\u0412\u044B\u0431\u0440\u0430\u043D\u043D\u0430\u044F \u043C\u043E\u0434\u0435\u043B\u044C \u043D\u0435 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u044D\u0442\u043E\u0442 \u0444\u043E\u0440\u043C\u0430\u0442 \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u0430.",
+      calls: "\u0411\u0443\u0434\u0435\u0442 \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u043E \u043D\u0435\u0437\u0430\u0432\u0438\u0441\u0438\u043C\u044B\u0445 \u0432\u044B\u0437\u043E\u0432\u043E\u0432: {count}",
+      optimization: "\u041E\u043F\u0442\u0438\u043C\u0438\u0437\u0430\u0446\u0438\u044F \u0437\u0430\u043F\u0440\u043E\u0441\u0430",
+      off: "\u0412\u044B\u043A\u043B.",
+      standard: "\u0421\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u0430\u044F",
+      fast: "\u0411\u044B\u0441\u0442\u0440\u0430\u044F",
+      random: "\u0421\u043B\u0443\u0447\u0430\u0439\u043D\u043E\u0435",
+      fixed: "\u0424\u0438\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u043E\u0435",
+      seedHint: "\u041E\u0434\u0438\u043D\u0430\u043A\u043E\u0432\u0430\u044F Seed \u043C\u043E\u0436\u0435\u0442 \u043F\u043E\u0432\u044B\u0441\u0438\u0442\u044C \u0441\u043E\u0433\u043B\u0430\u0441\u043E\u0432\u0430\u043D\u043D\u043E\u0441\u0442\u044C, \u043D\u043E \u043D\u0435 \u0433\u0430\u0440\u0430\u043D\u0442\u0438\u0440\u0443\u0435\u0442 \u043F\u043E\u043F\u0438\u043A\u0441\u0435\u043B\u044C\u043D\u043E\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0435.",
+      seedInvalid: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0446\u0435\u043B\u043E\u0447\u0438\u0441\u043B\u0435\u043D\u043D\u0443\u044E Seed \u0432 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D\u0435, \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u043C\u043E\u043C \u044D\u0442\u043E\u0439 \u043C\u043E\u0434\u0435\u043B\u044C\u044E.",
+      defaultSelected: "\u0412\u044B\u0431\u0440\u0430\u043D\u0430 \u043C\u043E\u0434\u0435\u043B\u044C \u043F\u043E\u0441\u0442\u0430\u0432\u0449\u0438\u043A\u0430 \u043F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E.",
+      firstSelected: "\u041F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0430\u044F \u043C\u043E\u0434\u0435\u043B\u044C \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430; \u0432\u044B\u0431\u0440\u0430\u043D\u0430 \u043F\u0435\u0440\u0432\u0430\u044F \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430\u044F \u043C\u043E\u0434\u0435\u043B\u044C.",
+      fallbackSelected: "\u041F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0430\u044F \u043C\u043E\u0434\u0435\u043B\u044C \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430; \u0432\u044B\u0431\u0440\u0430\u043D\u0430 \u043C\u043E\u0434\u0435\u043B\u044C \u043F\u043E\u0441\u0442\u0430\u0432\u0449\u0438\u043A\u0430 \u043F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E.",
+      adjusted: "\u041D\u0435\u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u043C\u044B\u0435 \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u044B \u0437\u0430\u043C\u0435\u043D\u0435\u043D\u044B \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F\u043C\u0438 \u044D\u0442\u043E\u0439 \u043C\u043E\u0434\u0435\u043B\u0438 \u043F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E.",
+      defaultLabel: "\u043F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E",
+      saveFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u043C\u043E\u0434\u0435\u043B\u0438",
+      legacy: "\u0423\u043D\u0438\u0432\u0435\u0440\u0441\u0430\u043B\u044C\u043D\u0430\u044F \u0431\u0430\u0437\u043E\u0432\u0430\u044F (\u0441\u043E\u0432\u043C\u0435\u0441\u0442\u0438\u043C\u043E\u0441\u0442\u044C)",
+      changedTitle: "\u0412\u043E\u0437\u043C\u043E\u0436\u043D\u043E\u0441\u0442\u0438 \u043C\u043E\u0434\u0435\u043B\u0438 \u0438\u0437\u043C\u0435\u043D\u0438\u043B\u0438\u0441\u044C",
+      changedMessage: "\u042D\u0442\u0430 \u0437\u0430\u0434\u0430\u0447\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0430 \u0441 \u0434\u0440\u0443\u0433\u043E\u0439 \u0432\u0435\u0440\u0441\u0438\u0435\u0439 \u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E\u0441\u0442\u0435\u0439 \u043C\u043E\u0434\u0435\u043B\u0438.",
+      changedDetail: "\u041F\u043E\u0441\u043B\u0435 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u044F \u0438\u0441\u0445\u043E\u0434\u043D\u044B\u0435 \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u044B \u0431\u0443\u0434\u0443\u0442 \u043F\u043E\u0432\u0442\u043E\u0440\u043D\u043E \u043F\u0440\u043E\u0432\u0435\u0440\u0435\u043D\u044B \u043F\u043E \u0442\u0435\u043A\u0443\u0449\u0435\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E. \u041D\u0435\u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u043C\u044B\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u043D\u0435 \u0431\u0443\u0434\u0443\u0442 \u043E\u0442\u0431\u0440\u043E\u0448\u0435\u043D\u044B \u0431\u0435\u0437 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F.",
+      retry: "\u041F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044C \u0438 \u043F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C"
+    }),
+    it: dictionary({
+      label: "Modello di generazione",
+      none: "Nessun modello di generazione \xE8 configurato. Aggiungine o convalidane uno nelle impostazioni di sistema.",
+      unavailable: "Il profilo delle capacit\xE0 del modello non \xE8 disponibile. Aggiorna e riprova.",
+      mode: "Questo modello non supporta la modalit\xE0 attivit\xE0 corrente. Gli input sono stati conservati.",
+      references: "Questo modello supporta al massimo {count} immagini di riferimento. Rimuovi quelle in eccesso.",
+      over: "Limite superato",
+      overDetail: "Questa immagine di riferimento supera il limite del modello corrente",
+      size: "Il modello selezionato non supporta questa dimensione di output.",
+      format: "Il modello selezionato non supporta questo formato di output.",
+      calls: "Verranno effettuate {count} chiamate indipendenti",
+      optimization: "Ottimizzazione del prompt",
+      off: "Disattivata",
+      standard: "Standard",
+      fast: "Rapida",
+      random: "Casuale",
+      fixed: "Fissa",
+      seedHint: "La stessa Seed pu\xF2 migliorare la coerenza, ma non garantisce risultati identici a livello di pixel.",
+      seedInvalid: "Inserisci una Seed intera nell\u2019intervallo supportato da questo modello.",
+      defaultSelected: "\xC8 stato selezionato il modello predefinito del fornitore.",
+      firstSelected: "Il modello precedente non \xE8 disponibile; \xE8 stato selezionato il primo modello disponibile.",
+      fallbackSelected: "Il modello precedente non \xE8 disponibile; \xE8 stato ripristinato il modello predefinito del fornitore.",
+      adjusted: "I parametri non supportati sono stati impostati sui valori predefiniti di questo modello.",
+      defaultLabel: "predefinito",
+      saveFailed: "Impossibile salvare le preferenze del modello",
+      legacy: "Generico di base (compatibilit\xE0 precedente)",
+      changedTitle: "Le capacit\xE0 del modello sono cambiate",
+      changedMessage: "Questa attivit\xE0 \xE8 stata salvata con una versione diversa delle capacit\xE0 del modello.",
+      changedDetail: "Dopo la conferma, i parametri originali verranno riconvalidati con il profilo corrente. I valori non supportati non verranno eliminati senza avviso.",
+      retry: "Conferma e riprova"
+    }),
+    hi: dictionary({
+      label: "\u0907\u092E\u0947\u091C \u091C\u0928\u0930\u0947\u0936\u0928 \u092E\u0949\u0921\u0932",
+      none: "\u0915\u094B\u0908 \u091C\u0928\u0930\u0947\u0936\u0928 \u092E\u0949\u0921\u0932 \u0915\u0949\u0928\u094D\u092B\u093C\u093F\u0917\u0930 \u0928\u0939\u0940\u0902 \u0939\u0948\u0964 \u0938\u093F\u0938\u094D\u091F\u092E \u0938\u0947\u091F\u093F\u0902\u0917 \u092E\u0947\u0902 \u092E\u0949\u0921\u0932 \u091C\u094B\u0921\u093C\u0947\u0902 \u092F\u093E \u0938\u0924\u094D\u092F\u093E\u092A\u093F\u0924 \u0915\u0930\u0947\u0902\u0964",
+      unavailable: "\u092E\u0949\u0921\u0932 \u0915\u094D\u0937\u092E\u0924\u093E \u092A\u094D\u0930\u094B\u092B\u093C\u093E\u0907\u0932 \u0909\u092A\u0932\u092C\u094D\u0927 \u0928\u0939\u0940\u0902 \u0939\u0948\u0964 \u0930\u0940\u092B\u093C\u094D\u0930\u0947\u0936 \u0915\u0930\u0915\u0947 \u092B\u093F\u0930 \u092A\u094D\u0930\u092F\u093E\u0938 \u0915\u0930\u0947\u0902\u0964",
+      mode: "\u092F\u0939 \u092E\u0949\u0921\u0932 \u0935\u0930\u094D\u0924\u092E\u093E\u0928 \u091F\u093E\u0938\u094D\u0915 \u092E\u094B\u0921 \u0915\u093E \u0938\u092E\u0930\u094D\u0925\u0928 \u0928\u0939\u0940\u0902 \u0915\u0930\u0924\u093E\u0964 \u0906\u092A\u0915\u0947 \u0907\u0928\u092A\u0941\u091F \u0938\u0941\u0930\u0915\u094D\u0937\u093F\u0924 \u0930\u0916\u0947 \u0917\u090F \u0939\u0948\u0902\u0964",
+      references: "\u092F\u0939 \u092E\u0949\u0921\u0932 \u0905\u0927\u093F\u0915\u0924\u092E {count} \u0938\u0902\u0926\u0930\u094D\u092D \u091A\u093F\u0924\u094D\u0930\u094B\u0902 \u0915\u093E \u0938\u092E\u0930\u094D\u0925\u0928 \u0915\u0930\u0924\u093E \u0939\u0948\u0964 \u0905\u0924\u093F\u0930\u093F\u0915\u094D\u0924 \u091A\u093F\u0924\u094D\u0930 \u0939\u091F\u093E\u090F\u0901\u0964",
+      over: "\u0938\u0940\u092E\u093E \u0938\u0947 \u0905\u0927\u093F\u0915",
+      overDetail: "\u092F\u0939 \u0938\u0902\u0926\u0930\u094D\u092D \u091A\u093F\u0924\u094D\u0930 \u0935\u0930\u094D\u0924\u092E\u093E\u0928 \u092E\u0949\u0921\u0932 \u0915\u0940 \u0938\u0940\u092E\u093E \u0938\u0947 \u0905\u0927\u093F\u0915 \u0939\u0948",
+      size: "\u091A\u0941\u0928\u093E \u0917\u092F\u093E \u092E\u0949\u0921\u0932 \u0907\u0938 \u0906\u0909\u091F\u092A\u0941\u091F \u0906\u0915\u093E\u0930 \u0915\u093E \u0938\u092E\u0930\u094D\u0925\u0928 \u0928\u0939\u0940\u0902 \u0915\u0930\u0924\u093E\u0964",
+      format: "\u091A\u0941\u0928\u093E \u0917\u092F\u093E \u092E\u0949\u0921\u0932 \u0907\u0938 \u0906\u0909\u091F\u092A\u0941\u091F \u092B\u093C\u0949\u0930\u094D\u092E\u0948\u091F \u0915\u093E \u0938\u092E\u0930\u094D\u0925\u0928 \u0928\u0939\u0940\u0902 \u0915\u0930\u0924\u093E\u0964",
+      calls: "{count} \u0938\u094D\u0935\u0924\u0902\u0924\u094D\u0930 \u0915\u0949\u0932 \u0915\u093F\u090F \u091C\u093E\u090F\u0901\u0917\u0947",
+      optimization: "\u092A\u094D\u0930\u0949\u092E\u094D\u092A\u094D\u091F \u0911\u092A\u094D\u091F\u093F\u092E\u093E\u0907\u091C\u093C\u0947\u0936\u0928",
+      off: "\u092C\u0902\u0926",
+      standard: "\u092E\u093E\u0928\u0915",
+      fast: "\u0924\u0947\u091C\u093C",
+      random: "\u0930\u0948\u0902\u0921\u092E",
+      fixed: "\u0928\u093F\u0936\u094D\u091A\u093F\u0924",
+      seedHint: "\u090F\u0915 \u0939\u0940 Seed \u092A\u0930\u093F\u0923\u093E\u092E\u094B\u0902 \u092E\u0947\u0902 \u0938\u0902\u0917\u0924\u093F \u092C\u0922\u093C\u093E \u0938\u0915\u0924\u093E \u0939\u0948, \u0932\u0947\u0915\u093F\u0928 \u092A\u093F\u0915\u094D\u0938\u0947\u0932-\u0938\u092E\u093E\u0928 \u092A\u0930\u093F\u0923\u093E\u092E \u0915\u0940 \u0917\u093E\u0930\u0902\u091F\u0940 \u0928\u0939\u0940\u0902 \u0926\u0947\u0924\u093E\u0964",
+      seedInvalid: "\u0907\u0938 \u092E\u0949\u0921\u0932 \u0915\u0940 \u0938\u092E\u0930\u094D\u0925\u093F\u0924 \u0938\u0940\u092E\u093E \u092E\u0947\u0902 \u092A\u0942\u0930\u094D\u0923\u093E\u0902\u0915 Seed \u0926\u0930\u094D\u091C \u0915\u0930\u0947\u0902\u0964",
+      defaultSelected: "\u092A\u094D\u0930\u0926\u093E\u0924\u093E \u0915\u093E \u0921\u093F\u092B\u093C\u0949\u0932\u094D\u091F \u092E\u0949\u0921\u0932 \u091A\u0941\u0928\u093E \u0917\u092F\u093E\u0964",
+      firstSelected: "\u092A\u093F\u091B\u0932\u093E \u092E\u0949\u0921\u0932 \u0909\u092A\u0932\u092C\u094D\u0927 \u0928\u0939\u0940\u0902 \u0939\u0948; \u092A\u0939\u0932\u093E \u0909\u092A\u0932\u092C\u094D\u0927 \u092E\u0949\u0921\u0932 \u091A\u0941\u0928\u093E \u0917\u092F\u093E\u0964",
+      fallbackSelected: "\u092A\u093F\u091B\u0932\u093E \u092E\u0949\u0921\u0932 \u0909\u092A\u0932\u092C\u094D\u0927 \u0928\u0939\u0940\u0902 \u0939\u0948; \u092A\u094D\u0930\u0926\u093E\u0924\u093E \u0915\u093E \u0921\u093F\u092B\u093C\u0949\u0932\u094D\u091F \u092E\u0949\u0921\u0932 \u091A\u0941\u0928\u093E \u0917\u092F\u093E\u0964",
+      adjusted: "\u0905\u0938\u092E\u0930\u094D\u0925\u093F\u0924 \u092A\u0948\u0930\u093E\u092E\u0940\u091F\u0930 \u0907\u0938 \u092E\u0949\u0921\u0932 \u0915\u0947 \u0921\u093F\u092B\u093C\u0949\u0932\u094D\u091F \u092E\u093E\u0928\u094B\u0902 \u092A\u0930 \u0938\u092E\u093E\u092F\u094B\u091C\u093F\u0924 \u0915\u093F\u090F \u0917\u090F\u0964",
+      defaultLabel: "\u0921\u093F\u092B\u093C\u0949\u0932\u094D\u091F",
+      saveFailed: "\u092E\u0949\u0921\u0932 \u092A\u094D\u0930\u093E\u0925\u092E\u093F\u0915\u0924\u093E\u090F\u0901 \u0938\u0939\u0947\u091C\u0940 \u0928\u0939\u0940\u0902 \u091C\u093E \u0938\u0915\u0940\u0902",
+      legacy: "\u0938\u093E\u092E\u093E\u0928\u094D\u092F \u092C\u0947\u0938\u093F\u0915 (\u092A\u0941\u0930\u093E\u0928\u0940 \u0938\u0902\u0917\u0924\u0924\u093E)",
+      changedTitle: "\u092E\u0949\u0921\u0932 \u0915\u094D\u0937\u092E\u0924\u093E\u090F\u0901 \u092C\u0926\u0932 \u0917\u0908\u0902",
+      changedMessage: "\u092F\u0939 \u091F\u093E\u0938\u094D\u0915 \u092E\u0949\u0921\u0932 \u0915\u094D\u0937\u092E\u0924\u093E\u0913\u0902 \u0915\u0947 \u0905\u0932\u0917 \u0938\u0902\u0938\u094D\u0915\u0930\u0923 \u0915\u0947 \u0938\u093E\u0925 \u0938\u0939\u0947\u091C\u093E \u0917\u092F\u093E \u0925\u093E\u0964",
+      changedDetail: "\u092A\u0941\u0937\u094D\u091F\u093F \u0915\u0930\u0928\u0947 \u092A\u0930 \u092E\u0942\u0932 \u092A\u0948\u0930\u093E\u092E\u0940\u091F\u0930 \u0935\u0930\u094D\u0924\u092E\u093E\u0928 \u092A\u094D\u0930\u094B\u092B\u093C\u093E\u0907\u0932 \u0915\u0947 \u0935\u093F\u0930\u0941\u0926\u094D\u0927 \u092B\u093F\u0930 \u0938\u0924\u094D\u092F\u093E\u092A\u093F\u0924 \u0939\u094B\u0902\u0917\u0947\u0964 \u0905\u0938\u092E\u0930\u094D\u0925\u093F\u0924 \u092E\u093E\u0928 \u092C\u093F\u0928\u093E \u0938\u0942\u091A\u0928\u093E \u0939\u091F\u093E\u090F \u0928\u0939\u0940\u0902 \u091C\u093E\u090F\u0901\u0917\u0947\u0964",
+      retry: "\u092A\u0941\u0937\u094D\u091F\u093F \u0915\u0930\u0947\u0902 \u0914\u0930 \u092A\u0941\u0928\u0903 \u092A\u094D\u0930\u092F\u093E\u0938 \u0915\u0930\u0947\u0902"
+    })
+  };
+  var GENERATION_MODEL_SUMMARY_TRANSLATIONS = {
+    "zh-TW": { "generationModel.summaryGeneric": "\u57FA\u790E\u751F\u6210 \xB7 \u76F8\u5BB9\u6A21\u5F0F", "generationModel.summarySeedreamLite": "\u9023\u7E8C\u7D44\u5716 \xB7 \u6700\u9AD8 4K", "generationModel.summarySeedreamPro": "\u7CBE\u6E96\u7DE8\u8F2F \xB7 \u6700\u9AD8 2K" },
+    "zh-HK": { "generationModel.summaryGeneric": "\u57FA\u790E\u751F\u6210 \xB7 \u517C\u5BB9\u6A21\u5F0F", "generationModel.summarySeedreamLite": "\u9023\u7E8C\u7D44\u5716 \xB7 \u6700\u9AD8 4K", "generationModel.summarySeedreamPro": "\u7CBE\u6E96\u7DE8\u8F2F \xB7 \u6700\u9AD8 2K" },
+    ja: { "generationModel.summaryGeneric": "\u57FA\u672C\u751F\u6210 \xB7 \u4E92\u63DB\u30E2\u30FC\u30C9", "generationModel.summarySeedreamLite": "\u9023\u7D9A\u753B\u50CF \xB7 \u6700\u5927 4K", "generationModel.summarySeedreamPro": "\u7CBE\u5BC6\u7DE8\u96C6 \xB7 \u6700\u5927 2K" },
+    ko: { "generationModel.summaryGeneric": "\uAE30\uBCF8 \uC0DD\uC131 \xB7 \uD638\uD658 \uBAA8\uB4DC", "generationModel.summarySeedreamLite": "\uC5F0\uC18D \uC774\uBBF8\uC9C0 \xB7 \uCD5C\uB300 4K", "generationModel.summarySeedreamPro": "\uC815\uBC00 \uD3B8\uC9D1 \xB7 \uCD5C\uB300 2K" },
+    es: { "generationModel.summaryGeneric": "Generaci\xF3n b\xE1sica \xB7 Modo compatible", "generationModel.summarySeedreamLite": "Serie de im\xE1genes \xB7 Hasta 4K", "generationModel.summarySeedreamPro": "Edici\xF3n precisa \xB7 Hasta 2K" },
+    pt: { "generationModel.summaryGeneric": "Gera\xE7\xE3o b\xE1sica \xB7 Modo compat\xEDvel", "generationModel.summarySeedreamLite": "S\xE9rie de imagens \xB7 At\xE9 4K", "generationModel.summarySeedreamPro": "Edi\xE7\xE3o precisa \xB7 At\xE9 2K" },
+    fr: { "generationModel.summaryGeneric": "G\xE9n\xE9ration de base \xB7 Mode compatible", "generationModel.summarySeedreamLite": "S\xE9rie d\u2019images \xB7 Jusqu\u2019\xE0 4K", "generationModel.summarySeedreamPro": "\xC9dition pr\xE9cise \xB7 Jusqu\u2019\xE0 2K" },
+    de: { "generationModel.summaryGeneric": "Basisgenerierung \xB7 Kompatibilit\xE4tsmodus", "generationModel.summarySeedreamLite": "Bildserie \xB7 Bis 4K", "generationModel.summarySeedreamPro": "Pr\xE4zise Bearbeitung \xB7 Bis 2K" },
+    ru: { "generationModel.summaryGeneric": "\u0411\u0430\u0437\u043E\u0432\u0430\u044F \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u044F \xB7 \u0420\u0435\u0436\u0438\u043C \u0441\u043E\u0432\u043C\u0435\u0441\u0442\u0438\u043C\u043E\u0441\u0442\u0438", "generationModel.summarySeedreamLite": "\u0421\u0435\u0440\u0438\u044F \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439 \xB7 \u0414\u043E 4K", "generationModel.summarySeedreamPro": "\u0422\u043E\u0447\u043D\u043E\u0435 \u0440\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u0435 \xB7 \u0414\u043E 2K" },
+    it: { "generationModel.summaryGeneric": "Generazione di base \xB7 Modalit\xE0 compatibile", "generationModel.summarySeedreamLite": "Serie di immagini \xB7 Fino a 4K", "generationModel.summarySeedreamPro": "Modifica precisa \xB7 Fino a 2K" },
+    hi: { "generationModel.summaryGeneric": "\u092C\u0947\u0938\u093F\u0915 \u091C\u0928\u0930\u0947\u0936\u0928 \xB7 \u0938\u0902\u0917\u0924 \u092E\u094B\u0921", "generationModel.summarySeedreamLite": "\u0907\u092E\u0947\u091C \u0936\u094D\u0930\u0943\u0902\u0916\u0932\u093E \xB7 \u0905\u0927\u093F\u0915\u0924\u092E 4K", "generationModel.summarySeedreamPro": "\u0938\u091F\u0940\u0915 \u0938\u0902\u092A\u093E\u0926\u0928 \xB7 \u0905\u0927\u093F\u0915\u0924\u092E 2K" }
+  };
+
   // codex_image/webui/frontend/src/i18n/dictionaries.ts
   var DEFAULT_LOCALE = "zh-CN";
   var LOCALES = ["zh-CN", "zh-TW", "zh-HK", "ja", "ko", "en", "es", "pt", "fr", "de", "ru", "it", "hi"];
@@ -13794,6 +14196,13 @@
     "it": IT_DICTIONARY,
     "hi": HI_DICTIONARY
   };
+  for (const locale of LOCALES) {
+    Object.assign(
+      DICTIONARIES[locale],
+      GENERATION_MODEL_TRANSLATIONS[locale] || {},
+      GENERATION_MODEL_SUMMARY_TRANSLATIONS[locale] || {}
+    );
+  }
 
   // codex_image/webui/frontend/src/i18n.ts
   var LOCALE_STORAGE_KEY = "codex-image-locale-preference";
@@ -28786,6 +29195,7 @@ ${hint}` : hint;
     if (!hasImages) {
       thumbItems.innerHTML = "";
       legacyMethod5("updateCustomRatioReferenceButtonState");
+      legacyMethod5("renderGenerationModelSelector", false);
       return;
     }
     thumbItems.innerHTML = "";
@@ -28838,6 +29248,7 @@ ${hint}` : hint;
         legacyMethod5("updateRequestPreview");
       });
       wrapper.append(image, badge, remove);
+      legacyMethod5("decorateGenerationModelReferenceThumb", wrapper, index);
       if (legacyMethod5("canAddSourceToGallery", source)) {
         const addToGallery = document.createElement("button");
         addToGallery.type = "button";
@@ -28860,6 +29271,7 @@ ${hint}` : hint;
       thumbItems.append(wrapper);
     });
     legacyMethod5("updateCustomRatioReferenceButtonState");
+    legacyMethod5("renderGenerationModelSelector", false);
   }
   function bindImageStripEvents() {
     const els44 = getEls();
@@ -33151,6 +33563,26 @@ ${hint}` : hint;
   function currentImageReferenceCount() {
     return Array.isArray(state10.images) ? state10.images.filter((item) => item?.kind !== "file").length : 0;
   }
+  function decorateGenerationModelReferenceThumb(wrapper, index) {
+    const profile = currentGenerationProfile();
+    const maximumReferences = Number(profile?.max_reference_images ?? Number.MAX_SAFE_INTEGER);
+    const exceedsLimit = index >= maximumReferences;
+    wrapper.classList.toggle("generation-model-reference-over-limit", exceedsLimit);
+    wrapper.querySelector(".generation-model-reference-limit-badge")?.remove();
+    if (!exceedsLimit) return;
+    const badge = document.createElement("span");
+    badge.className = "generation-model-reference-limit-badge";
+    badge.textContent = translate("generationModel.referenceOverLimit");
+    badge.setAttribute("role", "status");
+    badge.setAttribute("aria-label", translate("generationModel.referenceOverLimitDetail"));
+    wrapper.append(badge);
+  }
+  function updateGenerationModelReferenceLimits() {
+    const wrappers = els11.imageThumbItems?.querySelectorAll(".thumb");
+    wrappers?.forEach((wrapper, index) => {
+      decorateGenerationModelReferenceThumb(wrapper, index);
+    });
+  }
   function sizeSupported(profile, size) {
     if (!profile || !size) return false;
     if ((profile.sizes || []).includes(size)) return true;
@@ -33162,6 +33594,9 @@ ${hint}` : hint;
     const constraints = profile.size_constraints || {};
     const aspect = height ? width / height : 0;
     return width >= Number(constraints.min_dimension || 1) && height >= Number(constraints.min_dimension || 1) && width <= Number(constraints.max_dimension || Number.MAX_SAFE_INTEGER) && height <= Number(constraints.max_dimension || Number.MAX_SAFE_INTEGER) && aspect >= Number(constraints.min_aspect_ratio || 0) && aspect <= Number(constraints.max_aspect_ratio || Number.MAX_SAFE_INTEGER);
+  }
+  function profileSummary(profile) {
+    return profile?.summary_key ? translate(String(profile.summary_key)) : String(profile?.summary || "");
   }
   function generationModelConstraintMessage() {
     const model = currentGenerationModel();
@@ -33209,6 +33644,7 @@ ${hint}` : hint;
   }
   function applyProfile(profile, model, restorePreference) {
     let parametersAdjusted = false;
+    const preference = modelParameterPreference(model.generation_model_id);
     const supportedResolutions = new Set((profile?.sizes || []).map((size) => {
       const dimension = Number.parseInt(size.split("x", 1)[0] || "0", 10);
       return dimension >= 4096 ? "4k" : dimension >= 2048 ? "2k" : "standard";
@@ -33216,20 +33652,22 @@ ${hint}` : hint;
     els11.resolutionGroup?.querySelectorAll("[data-val]")?.forEach((button) => {
       button.classList.toggle("hidden", !supportedResolutions.has(String(button.dataset.val || "")));
     });
-    const maximumOutputCount = Number(profile?.max_output_count || 1);
+    const minimumOutputCount = Number(profile?.min_output_count || 1);
+    const maximumOutputCount = Number(profile?.max_output_count || minimumOutputCount);
     els11.quantityGroup?.querySelectorAll("[data-val]")?.forEach((button) => {
       button.classList.toggle("hidden", Number(button.dataset.val || 1) > maximumOutputCount);
     });
     const currentOutputCount = Math.max(1, Number.parseInt(els11.nInput?.value || "1", 10) || 1);
-    if (currentOutputCount > maximumOutputCount) {
-      setRadioValue(els11.nInput, els11.quantityGroup, String(maximumOutputCount));
+    const preferredOutputCount = Number.parseInt(String(preference.n || ""), 10);
+    const outputCount = restorePreference ? preferredOutputCount >= minimumOutputCount && preferredOutputCount <= maximumOutputCount ? preferredOutputCount : minimumOutputCount : Math.max(minimumOutputCount, Math.min(maximumOutputCount, currentOutputCount));
+    if (outputCount !== currentOutputCount) {
+      setRadioValue(els11.nInput, els11.quantityGroup, String(outputCount));
       parametersAdjusted = true;
     }
     const supportedFormats = new Set(profile?.output_formats || []);
     els11.outputFormatGroup?.querySelectorAll("[data-val]")?.forEach((button) => {
       button.classList.toggle("hidden", !supportedFormats.has(String(button.dataset.val || "")));
     });
-    const preference = modelParameterPreference(model.generation_model_id);
     const preferredSize = String(preference.size || "");
     const existingSize = currentSize();
     const defaultSize = String(profile?.default_size || profile?.sizes?.[0] || "1024x1024");
@@ -33312,7 +33750,8 @@ ${hint}` : hint;
       const profile = profiles.get(model.capability_profile_id);
       const option = document.createElement("option");
       option.value = model.generation_model_id;
-      option.textContent = `${model.display_name}${profile?.summary ? ` \u2014 ${profile.summary}` : ""}${model.is_default ? ` (${translate("generationModel.default")})` : ""}`;
+      const summary = profileSummary(profile);
+      option.textContent = `${model.display_name}${summary ? ` \u2014 ${summary}` : ""}${model.is_default ? ` (${translate("generationModel.default")})` : ""}`;
       els11.generationModelSelect.append(option);
     }
     els11.generationModelSelect.disabled = models.length <= 1;
@@ -33321,7 +33760,7 @@ ${hint}` : hint;
     if (selected) {
       const profile = profiles.get(selected.capability_profile_id);
       els11.model.value = selected.model_id;
-      els11.generationModelSummary.textContent = profile?.summary || "";
+      els11.generationModelSummary.textContent = profileSummary(profile);
       if (profile) adjustment = applyProfile(profile, selected, restorePreference);
     } else {
       els11.model.value = "";
@@ -33329,9 +33768,10 @@ ${hint}` : hint;
     }
     const reason = selected ? selectionReason(provider) : "";
     const constraint = generationModelConstraintMessage();
-    els11.generationModelNotice.textContent = constraint || adjustment || reason;
+    els11.generationModelNotice.textContent = constraint || [reason, adjustment].filter(Boolean).join(" ");
     if (els11.runButton) els11.runButton.disabled = !state10.authAvailable || Boolean(constraint);
     updateCallNotice();
+    updateGenerationModelReferenceLimits();
   }
   function currentPreferenceParameters() {
     return {
@@ -33339,6 +33779,7 @@ ${hint}` : hint;
       resolution: String(els11.resolution?.value || ""),
       ratio: String(els11.ratio?.value || ""),
       orientation: String(els11.orientation?.value || ""),
+      n: Math.max(1, Number.parseInt(els11.nInput?.value || "1", 10) || 1),
       output_format: String(els11.outputFormat?.value || "png"),
       prompt_optimization_mode: String(els11.promptOptimizationMode?.value || "off"),
       seed_mode: String(els11.seedMode?.value || "random"),
@@ -33425,6 +33866,7 @@ ${hint}` : hint;
     });
     els11.seedValue?.addEventListener("change", handleParameterChange);
     document.addEventListener("generation-model-settings-changed", () => renderGenerationModelSelector(true));
+    document.addEventListener(LOCALE_CHANGE_EVENT, () => renderGenerationModelSelector(false));
     document.addEventListener("click", (event) => {
       if (event.target.closest("[data-mode], #generateModeButton, #editModeButton")) {
         window.setTimeout(() => renderGenerationModelSelector(false), 0);
@@ -33435,6 +33877,8 @@ ${hint}` : hint;
       currentGenerationProfile,
       currentGenerationModelParams,
       generationModelConstraintMessage,
+      decorateGenerationModelReferenceThumb,
+      updateGenerationModelReferenceLimits,
       renderGenerationModelSelector
     });
     void loadProfiles().catch((error) => {

@@ -153,6 +153,10 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                         "连续组图 · 最高 4K",
                     )
                     self.assertEqual(
+                        profiles.json()["profiles"][1]["summary_key"],
+                        "generationModel.summarySeedreamLite",
+                    )
+                    self.assertEqual(
                         profiles.json()["profiles"][1]["protocol_adapter"],
                         "volcengine-ark-images",
                     )
@@ -160,6 +164,28 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                         profiles.json()["profiles"][2]["summary"],
                         "精准编辑 · 最高 2K",
                     )
+
+                    incompatible_mode = admin.post(
+                        "/api/admin/provider-catalog",
+                        json={
+                            "provider_key": "invalid-seedream-responses",
+                            "display_name": "Invalid Seedream Responses",
+                            "base_url": "https://invalid.example.invalid/v1",
+                            "api_mode": "responses",
+                            "models": [
+                                {
+                                    "display_name": "Seedream Invalid",
+                                    "model_id": "seedream-invalid-responses",
+                                    "capability_profile_id": "seedream-5-lite",
+                                    "is_default": True,
+                                    "is_enabled": True,
+                                }
+                            ],
+                        },
+                        headers={"X-CSRF-Token": csrf},
+                    )
+                    self.assertEqual(incompatible_mode.status_code, 422, incompatible_mode.text)
+                    self.assertIn("does not support provider API mode", incompatible_mode.text)
 
                     created = admin.post(
                         "/api/admin/provider-catalog",

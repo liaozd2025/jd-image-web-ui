@@ -42,6 +42,7 @@ class VolcengineArkImagesClientTests(unittest.TestCase):
             api_key="test-ark-key",
             base_url="https://ark.cn-beijing.volces.com/api/v3",
             image_model="doubao-seedream-test",
+            protocol_adapter="volcengine-ark-images",
             transport=transport,
         )
 
@@ -77,6 +78,31 @@ class VolcengineArkImagesClientTests(unittest.TestCase):
         self.assertEqual(payload["optimize_prompt_options"], {"mode": "standard"})
         self.assertIs(payload["watermark"], False)
         self.assertNotIn("quality", payload)
+
+    def test_explicit_generic_adapter_does_not_guess_from_host_or_model_name(self) -> None:
+        transport = FakeTransport(
+            [
+                FakeResponse(
+                    status=200,
+                    body=json.dumps(
+                        {"data": [{"b64_json": base64.b64encode(PNG_1X1).decode("ascii")}]}
+                    ).encode("utf-8"),
+                )
+            ]
+        )
+        client = OpenAIImagesImageClient(
+            api_key="test-key",
+            base_url="https://ark.cn-beijing.volces.com/api/v3",
+            image_model="doubao-seedream-custom-endpoint",
+            protocol_adapter="openai-compatible",
+            transport=transport,
+        )
+
+        client.generate_images(prompt="generic", n=2)
+
+        payload = json.loads(transport.requests[0]["body"])
+        self.assertEqual(payload["n"], 2)
+        self.assertNotIn("sequential_image_generation", payload)
 
 
 if __name__ == "__main__":

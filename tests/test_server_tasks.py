@@ -592,7 +592,9 @@ class ServerGenerationTaskTests(unittest.TestCase):
                             if isinstance(item.get("body"), dict)
                             and item["body"].get("prompt") == "seeded independent results"
                         ]
-                        self.assertEqual([item["n"] for item in seeded_requests], [1, 1, 1])
+                        self.assertEqual(len(seeded_requests), 3)
+                        self.assertTrue(all("n" not in item for item in seeded_requests))
+                        self.assertTrue(all(item["sequential_image_generation"] == "disabled" for item in seeded_requests))
                         self.assertEqual([item["seed"] for item in seeded_requests], [2147483646, 2147483647, 0])
                         self.assertTrue(all(item["watermark"] is False for item in seeded_requests))
                         self.assertTrue(all(item["optimize_prompt_options"] == {"mode": "standard"} for item in seeded_requests))

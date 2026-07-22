@@ -14,6 +14,7 @@ from .config import ServerSettings
 from .database import PostgresConnections, ServerRuntimeRepository
 from .department_providers import DepartmentProviderRepository
 from .migrations import MigrationRunner
+from .model_capabilities import get_model_capability_profile
 from .model_validation import ClaimedModelValidation, ModelValidationRepository
 from .provider_secrets import ProviderSecretCipher
 from .shared_assets import SharedAssetRepository
@@ -198,7 +199,10 @@ class HeartbeatWorker:
                 seed_profile = seed_profile if isinstance(seed_profile, dict) else {}
                 base_seed = parameters.get("seed") if seed_profile.get("supported") else None
                 prompt_optimization_mode = str(parameters.get("prompt_optimization_mode") or "off")
-                is_seedream = claimed.task.capability_profile_id.startswith("seedream-")
+                uses_volcengine_ark = (
+                    claimed.task.capability_snapshot.get("protocol_adapter")
+                    == "volcengine-ark-images"
+                )
                 results = []
                 actual_seeds: list[int | None] = []
                 successful_output_indices: list[int] = []
@@ -209,7 +213,7 @@ class HeartbeatWorker:
                         else None
                     )
                     request_parameters = dict(common_parameters)
-                    if is_seedream:
+                    if uses_volcengine_ark:
                         request_parameters.update(
                             {
                                 "seed": actual_seed,
@@ -309,7 +313,20 @@ class HeartbeatWorker:
                 "output_compression": None,
             }
             if claimed.api_mode == "images":
-                result = client.generate_images(**common_parameters, n=1)[0]
+                profile = get_model_capability_profile(claimed.capability_profile_id)
+                adapter_parameters = {}
+                if profile.get("protocol_adapter") == "volcengine-ark-images":
+                    adapter_parameters = {
+                        "prompt_optimization_mode": str(
+                            parameters.get("prompt_optimization_mode") or "off"
+                        ),
+                        "watermark": bool(parameters.get("watermark", False)),
+                    }
+                result = client.generate_images(
+                    **common_parameters,
+                    n=1,
+                    **adapter_parameters,
+                )[0]
             else:
                 result = client.generate_image(
                     **common_parameters,
@@ -320,7 +337,10 @@ class HeartbeatWorker:
 
             with Image.open(BytesIO(result.image_bytes)) as image:
                 image.verify()
-            self.model_validations.complete(claimed)
+            self.model_validations.complete(
+                claimed,
+                provider_request_id=result.provider_request_id,
+            )
         except Exception as error:
             safe_error = str(error).replace(api_key, "<redacted credential>") if api_key else str(error)
             self.model_validations.fail(claimed, error_message=safe_error)
@@ -333,6 +353,9 @@ class HeartbeatWorker:
                 api_key=claimed.api_key or "",
                 base_url=claimed.base_url or "",
                 image_model=claimed.task.model_id,
+                protocol_adapter=str(
+                    claimed.task.capability_snapshot.get("protocol_adapter") or "openai-compatible"
+                ),
             )
         if claimed.api_mode == "responses":
             return OpenAIResponsesImageClient(
@@ -345,10 +368,12 @@ class HeartbeatWorker:
     @staticmethod
     def _validation_client(claimed: ClaimedModelValidation, *, api_key: str):
         if claimed.api_mode == "images":
+            profile = get_model_capability_profile(claimed.capability_profile_id)
             return OpenAIImagesImageClient(
                 api_key=api_key,
                 base_url=claimed.base_url,
                 image_model=claimed.model_id,
+                protocol_adapter=str(profile.get("protocol_adapter") or "openai-compatible"),
             )
         if claimed.api_mode == "responses":
             return OpenAIResponsesImageClient(

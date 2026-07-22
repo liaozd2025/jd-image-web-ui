@@ -136,6 +136,40 @@ class ServerPersonalGenerationModelTests(unittest.TestCase):
                         for model in stored
                         if model["model_id"] == "alice-arbitrary-pro"
                     )
+                    alice_lite_id_initial = next(
+                        model["generation_model_id"]
+                        for model in stored
+                        if model["model_id"] == "alice-arbitrary-lite"
+                    )
+                    unreferenced_identity_change = alice.put(
+                        f"/api/providers/personal/{provider_id}/models",
+                        json={
+                            "models": [
+                                {
+                                    "generation_model_id": alice_lite_id_initial,
+                                    "display_name": "Alice Lite Replacement",
+                                    "model_id": "alice-arbitrary-lite-replacement",
+                                    "capability_profile_id": "seedream-5-lite",
+                                    "is_default": True,
+                                    "is_enabled": True,
+                                },
+                                {
+                                    "generation_model_id": alice_pro_id,
+                                    "display_name": "Alice Pro",
+                                    "model_id": "alice-arbitrary-pro",
+                                    "capability_profile_id": "seedream-5-pro",
+                                    "is_default": False,
+                                    "is_enabled": True,
+                                },
+                            ]
+                        },
+                        headers={"X-CSRF-Token": alice_csrf},
+                    )
+                    self.assertEqual(
+                        unreferenced_identity_change.status_code,
+                        409,
+                        unreferenced_identity_change.text,
+                    )
                     bob_cannot_delete = bob.delete(
                         f"/api/providers/personal/{provider_id}/models/{alice_pro_id}",
                         headers={"X-CSRF-Token": bob_csrf},
@@ -153,6 +187,7 @@ class ServerPersonalGenerationModelTests(unittest.TestCase):
                                 "resolution": "2k",
                                 "ratio": "1:1",
                                 "orientation": "square",
+                                "n": 4,
                                 "output_format": "jpeg",
                                 "prompt_optimization_mode": "fast",
                                 "seed_mode": "fixed",
@@ -171,6 +206,12 @@ class ServerPersonalGenerationModelTests(unittest.TestCase):
                     )
                     self.assertEqual(personal_provider["selected_generation_model_id"], alice_pro_id)
                     self.assertEqual(personal_provider["model_selection_reason"], "saved")
+                    parameter_preference = next(
+                        item["parameters"]
+                        for item in api_settings.json()["settings"]["model_preferences"]["parameters"]
+                        if item["generation_model_id"] == alice_pro_id
+                    )
+                    self.assertEqual(parameter_preference["n"], 4)
 
                     workspace_task = alice.post(
                         "/api/generate",
@@ -227,6 +268,62 @@ class ServerPersonalGenerationModelTests(unittest.TestCase):
                     )
                     self.assertEqual(submitted.status_code, 201, submitted.text)
                     self.assertEqual(submitted.json()["task"]["generation_model_id"], alice_pro_id)
+
+                    alice_lite = next(model for model in stored if model["model_id"] == "alice-arbitrary-lite")
+                    identity_change = alice.put(
+                        f"/api/providers/personal/{provider_id}/models",
+                        json={
+                            "models": [
+                                {
+                                    "generation_model_id": alice_lite["generation_model_id"],
+                                    "display_name": "Alice Lite",
+                                    "model_id": "alice-arbitrary-lite",
+                                    "capability_profile_id": "seedream-5-lite",
+                                    "is_default": True,
+                                    "is_enabled": True,
+                                },
+                                {
+                                    "generation_model_id": alice_pro_id,
+                                    "display_name": "Alice Pro Replacement",
+                                    "model_id": "alice-arbitrary-pro-replacement",
+                                    "capability_profile_id": "seedream-5-pro",
+                                    "is_default": False,
+                                    "is_enabled": True,
+                                },
+                            ]
+                        },
+                        headers={"X-CSRF-Token": alice_csrf},
+                    )
+                    self.assertEqual(identity_change.status_code, 409, identity_change.text)
+                    self.assertIn("identity cannot be changed", identity_change.json()["detail"])
+                    unchanged = alice.get(f"/api/providers/personal/{provider_id}/models").json()["models"]
+                    self.assertEqual(
+                        next(model for model in unchanged if model["generation_model_id"] == alice_pro_id)["model_id"],
+                        "alice-arbitrary-pro",
+                    )
+                    implicit_identity_change = alice.put(
+                        f"/api/providers/personal/{provider_id}/models",
+                        json={
+                            "models": [
+                                {
+                                    "display_name": "Alice Lite",
+                                    "model_id": "alice-arbitrary-lite",
+                                    "capability_profile_id": "seedream-5-lite",
+                                    "is_default": True,
+                                    "is_enabled": True,
+                                },
+                                {
+                                    "display_name": "Alice Pro",
+                                    "model_id": "alice-arbitrary-pro",
+                                    "capability_profile_id": "generic-basic",
+                                    "is_default": False,
+                                    "is_enabled": True,
+                                },
+                            ]
+                        },
+                        headers={"X-CSRF-Token": alice_csrf},
+                    )
+                    self.assertEqual(implicit_identity_change.status_code, 409, implicit_identity_change.text)
 
                     referenced_delete = alice.delete(
                         f"/api/providers/personal/{provider_id}/models/{alice_pro_id}",

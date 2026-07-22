@@ -20,7 +20,11 @@ from .providers import (
     ProviderVersionInactive,
     ProviderVersionNotFound,
 )
-from .model_capabilities import PROFILE_VERSION, model_capability_profile_exists
+from .model_capabilities import (
+    PROFILE_VERSION,
+    get_model_capability_profile,
+    model_capability_profile_exists,
+)
 
 
 ModelCapability = Literal["image_generation", "image_input", "text_input"]
@@ -84,6 +88,12 @@ class ProviderVersionPayload(BaseModel):
             raise ValueError("exactly one default model is required")
         if not explicit_defaults[0].is_enabled:
             raise ValueError("the default model must be enabled")
+        for model in self.models:
+            profile = get_model_capability_profile(model.capability_profile_id or "generic-basic")
+            if self.api_mode not in profile.get("api_modes", []):
+                raise ValueError(
+                    f"capability profile {profile['profile_id']} does not support provider API mode {self.api_mode}"
+                )
         return self
 
     @field_validator("base_url")
@@ -275,6 +285,8 @@ def install_provider_routes(app: FastAPI, *, providers: ProviderRepository) -> N
             return JSONResponse(status_code=404, content={"detail": str(error)})
         except GenerationModelInUse as error:
             return JSONResponse(status_code=409, content={"detail": str(error)})
+        except ValueError as error:
+            return JSONResponse(status_code=422, content={"detail": str(error)})
         return JSONResponse(content={"models": models})
 
     @app.delete(

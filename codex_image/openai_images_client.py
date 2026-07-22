@@ -31,6 +31,7 @@ class OpenAIImagesImageClient:
         api_key: str,
         base_url: str = DEFAULT_OPENAI_API_BASE_URL,
         image_model: str = DEFAULT_IMAGE_MODEL,
+        protocol_adapter: str | None = None,
         transport: Transport | None = None,
     ) -> None:
         clean_key = str(api_key or "").strip()
@@ -39,6 +40,7 @@ class OpenAIImagesImageClient:
         self.api_key = clean_key
         self.base_url = self._normalize_base_url(base_url)
         self.image_model = str(image_model or DEFAULT_IMAGE_MODEL).strip() or DEFAULT_IMAGE_MODEL
+        self.protocol_adapter = str(protocol_adapter).strip() if protocol_adapter is not None else None
         self.transport = transport or UrllibTransport()
         self.generations_url = f"{self.base_url}/images/generations"
         self.edits_url = f"{self.base_url}/images/edits"
@@ -311,12 +313,41 @@ class OpenAIImagesImageClient:
             else:
                 detail = f"OpenAI-compatible images request failed: HTTP {response.status}"
             raise RuntimeError(detail)
-        return self.parse_response_json_items(response.body, request_payload=payload, url_fetcher=self._fetch_image_url)
+        results = self.parse_response_json_items(
+            response.body,
+            request_payload=payload,
+            url_fetcher=self._fetch_image_url,
+        )
+        provider_request_id = self._provider_request_id(response.headers, response.body)
+        if provider_request_id:
+            for result in results:
+                result.provider_request_id = provider_request_id
+        return results
 
     def _uses_volcengine_ark_dialect(self, payload: dict[str, Any]) -> bool:
+        if self.protocol_adapter is not None:
+            return self.protocol_adapter == "volcengine-ark-images"
         host = str(urlsplit(self.base_url).hostname or "").lower()
         model = str(payload.get("model") or self.image_model or "").lower()
         return host.endswith(".volces.com") and model.startswith("doubao-seedream-")
+
+    @staticmethod
+    def _provider_request_id(headers: dict[str, str], body: bytes) -> str | None:
+        normalized_headers = {str(key).lower(): str(value).strip() for key, value in headers.items()}
+        for name in ("x-request-id", "x-tt-logid", "request-id"):
+            if normalized_headers.get(name):
+                return normalized_headers[name][:512]
+        try:
+            payload = json.loads(body.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return None
+        if not isinstance(payload, dict):
+            return None
+        for name in ("request_id", "id"):
+            value = str(payload.get(name) or "").strip()
+            if value:
+                return value[:512]
+        return None
 
     @staticmethod
     def _volcengine_ark_request_payload(payload: dict[str, Any]) -> dict[str, Any]:
