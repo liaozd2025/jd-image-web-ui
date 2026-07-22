@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import sys
 
@@ -11,6 +12,11 @@ ROOT = Path(__file__).resolve().parents[1]
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the server-only release gate")
     parser.add_argument("--static-only", action="store_true")
+    parser.add_argument(
+        "--database-url",
+        default=os.environ.get("JD_IMAGE_DATABASE_URL", ""),
+        help="production PostgreSQL URL used to verify deployment database connectivity",
+    )
     args = parser.parse_args(argv)
     failures: list[str] = []
     for forbidden in (
@@ -53,6 +59,14 @@ def main(argv: list[str] | None = None) -> int:
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     if "Local-first" in pyproject or "WebUI and CLI" in pyproject:
         failures.append("pyproject still describes the removed local product")
+    if args.database_url:
+        try:
+            import psycopg
+
+            with psycopg.connect(args.database_url, connect_timeout=5) as connection:
+                connection.execute("SELECT 1").fetchone()
+        except Exception as error:
+            failures.append(f"deployment database check failed: {type(error).__name__}")
     if failures:
         print("\n".join(failures), file=sys.stderr)
         return 1

@@ -44,15 +44,121 @@
 
 .prompt-template-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--prompt-action-column-width);
+  grid-template-areas: "utilities model template";
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px) var(--prompt-action-column-width);
   gap: var(--prompt-action-gap);
   align-items: center;
   min-height: var(--prompt-secondary-action-height);
   margin-top: 8px;
 }
 
+.generation-model-field {
+  align-items: center;
+  display: grid;
+  gap: 4px 8px;
+  grid-area: model;
+  grid-template-columns: auto minmax(160px, 220px);
+  justify-content: start;
+  min-width: 0;
+}
+
+.generation-model-field > label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.generation-model-select {
+  max-width: 240px;
+  min-height: 34px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.generation-model-summary,
+.generation-model-notice,
+.generation-call-notice {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.generation-model-summary,
+.generation-model-notice {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+}
+
+.generation-model-notice:not(:empty) {
+  color: var(--danger);
+}
+
+.generation-call-notice {
+  display: block;
+  margin-top: 5px;
+  text-align: center;
+}
+
+.generation-advanced-field {
+  align-content: start;
+}
+
+.seed-value {
+  margin-top: 8px;
+  max-width: 220px;
+}
+
+@media (max-width: 1100px) {
+  .prompt-template-row {
+    grid-template-areas:
+      "utilities utilities"
+      "model template";
+    grid-template-columns: minmax(0, 1fr) var(--prompt-action-column-width);
+    align-items: start;
+  }
+
+  .generation-model-field {
+    grid-template-columns: auto minmax(180px, 240px);
+    justify-content: start;
+    width: 100%;
+  }
+}
+
+@media (max-width: 760px) {
+  .prompt-template-row {
+    grid-template-areas:
+      "utilities"
+      "model"
+      "template";
+    grid-template-columns: 1fr;
+  }
+
+  .generation-model-field {
+    grid-template-columns: 1fr;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .generation-model-select {
+    max-width: 100%;
+  }
+
+  .generation-model-field > label,
+  .generation-model-summary,
+  .generation-model-notice {
+    grid-column: 1;
+  }
+
+  .prompt-template-entry {
+    justify-content: stretch;
+  }
+}
+
 .prompt-template-entry {
   display: flex;
+  grid-area: template;
   align-items: center;
   justify-content: flex-end;
   min-width: 0;
@@ -60,6 +166,7 @@
 
 .prompt-template-recent-cell {
   display: flex;
+  grid-area: utilities;
   justify-content: space-between;
   align-items: center;
   gap: 10px;

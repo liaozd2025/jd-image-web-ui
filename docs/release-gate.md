@@ -8,6 +8,7 @@
 | 个人/共享资产、版本、回收站、额度 | `tests.test_server_assets`、`tests.test_server_shared_assets`、`tests.test_server_shared_gallery` | 个人额度保持生效；共享存储不设产品额度，磁盘失败不留半成品 |
 | 管理员内容审阅 | `tests.test_server_admin_views`、`tests.test_webui_static_layout` | 三类列表服务端分页；缩略图受鉴权保护；分页与详情审阅分别审计 |
 | 供应商、部门额度、密钥保密 | `tests.test_server_providers`、`tests.test_server_department_providers` | 响应、日志、审计无明文密钥 |
+| 生图模型契约与部门验证 | `tests.test_server_model_capabilities`、`tests.test_server_model_validation`、`release_gate.py --database-url ...` | 已启用的团队模型可用；验证结果保留为管理员诊断信息，不阻止发布 |
 | 公平队列、并发、尝试、取消、重试 | `tests.test_server_scheduler`、`tests.test_server_tasks` | 任务不可重复执行，最终状态和额度一致 |
 | 备份、恢复、核对、清理 | `tests.test_server_maintenance`、`jd-image-ops reconcile-storage/backup/restore` | 维护锁生效，清理必须显式确认 |
 | Docker 内网部署 | `tests.test_server_health`、`tests.test_server_compose_smoke` | 只有反向代理暴露 HTTP，重启后数据持久 |
@@ -17,6 +18,7 @@
 
 ```sh
 .venv/bin/python scripts/release_gate.py --static-only
+.venv/bin/python scripts/release_gate.py --static-only --database-url "$JD_IMAGE_DATABASE_URL"
 .venv/bin/python -m unittest discover -s tests -v
 JD_IMAGE_RUN_BROWSER=1 .venv/bin/python -m unittest tests.test_server_browser_workspace
 ```

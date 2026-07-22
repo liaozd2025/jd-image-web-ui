@@ -235,11 +235,18 @@ class OpenAIResponsesImageClient:
                 status=response.status,
                 body="",
             )
-        return self.parse_sse_response(
+        result = self.parse_sse_response(
             response.body,
             debug_sse_path=debug_sse_path,
             sensitive_values=_collect_responses_file_data_values(payload),
         )
+        if not result.provider_request_id:
+            normalized_headers = {str(key).lower(): str(value).strip() for key, value in response.headers.items()}
+            for name in ("x-request-id", "x-tt-logid", "request-id"):
+                if normalized_headers.get(name):
+                    result.provider_request_id = normalized_headers[name][:512]
+                    break
+        return result
 
     @staticmethod
     def _json_request_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -309,6 +316,7 @@ class OpenAIResponsesImageClient:
                 quality=str(result.get("quality", "")),
                 usage=response.get("usage") if isinstance(response.get("usage"), dict) else {},
                 tool_usage=response.get("tool_usage") if isinstance(response.get("tool_usage"), dict) else {},
+                provider_request_id=str(response.get("id") or "").strip()[:512] or None,
             )
         raise RuntimeError("No response.completed event found in SSE stream")
 

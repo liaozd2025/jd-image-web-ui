@@ -12,6 +12,10 @@ import type { Locale, TranslationDictionary } from "./types";
 import { ZH_CN_DICTIONARY } from "./zh-cn";
 import { ZH_HK_DICTIONARY } from "./zh-hk";
 import { ZH_TW_DICTIONARY } from "./zh-tw";
+import {
+  GENERATION_MODEL_SUMMARY_TRANSLATIONS,
+  GENERATION_MODEL_TRANSLATIONS,
+} from "../generation-model-translations";
 
 export const DEFAULT_LOCALE: Locale = "zh-CN";
 export const LOCALES: readonly Locale[] = ["zh-CN", "zh-TW", "zh-HK", "ja", "ko", "en", "es", "pt", "fr", "de", "ru", "it", "hi"];
@@ -31,3 +35,11 @@ export const DICTIONARIES: Record<Locale, TranslationDictionary> = {
   "it": IT_DICTIONARY,
   "hi": HI_DICTIONARY
 };
+
+for (const locale of LOCALES) {
+  Object.assign(
+    DICTIONARIES[locale],
+    GENERATION_MODEL_TRANSLATIONS[locale] || {},
+    GENERATION_MODEL_SUMMARY_TRANSLATIONS[locale] || {},
+  );
+}

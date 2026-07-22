@@ -5,11 +5,13 @@ from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .auth import require_admin
 from .identity import AuthenticatedSession
 from .providers import (
+    GenerationModelInUse,
+    GenerationModelNotFound,
     PersonalCredentialNotFound,
     PersonalProviderCredential,
     ProviderApiMode,
@@ -18,6 +20,11 @@ from .providers import (
     ProviderVersionInactive,
     ProviderVersionNotFound,
 )
+from .model_capabilities import (
+    PROFILE_VERSION,
+    get_model_capability_profile,
+    model_capability_profile_exists,
+)
 
 
 ModelCapability = Literal["image_generation", "image_input", "text_input"]
@@ -25,8 +32,35 @@ ConstraintValue = int | float | str | bool
 
 
 class ProviderModelPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    generation_model_id: str | None = Field(default=None, min_length=1, max_length=80)
     model_id: str = Field(min_length=1, max_length=160)
-    capabilities: list[ModelCapability] = Field(min_length=1, max_length=8)
+    display_name: str | None = Field(default=None, min_length=1, max_length=160)
+    capability_profile_id: str | None = Field(default=None, min_length=1, max_length=80)
+    is_default: bool | None = None
+    is_enabled: bool = True
+    capabilities: list[ModelCapability] | None = Field(default=None, min_length=1, max_length=8)
+
+    @model_validator(mode="after")
+    def validate_profile(self) -> "ProviderModelPayload":
+        profile_id = self.capability_profile_id or "generic-basic"
+        if not model_capability_profile_exists(profile_id):
+            raise ValueError("capability_profile_id is not a built-in profile")
+        self.capability_profile_id = profile_id
+        self.display_name = (self.display_name or self.model_id).strip()
+        return self
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            "display_name": self.display_name or self.model_id,
+            "model_id": self.model_id,
+            "capability_profile_id": self.capability_profile_id or "generic-basic",
+            "capability_profile_version": PROFILE_VERSION,
+            "is_default": bool(self.is_default),
+            "is_enabled": self.is_enabled,
+            "validation_status": "unverified",
+        }
 
 
 class ProviderVersionPayload(BaseModel):
@@ -36,6 +70,31 @@ class ProviderVersionPayload(BaseModel):
     api_mode: ProviderApiMode
     models: list[ProviderModelPayload] = Field(min_length=1, max_length=100)
     parameter_constraints: dict[str, ConstraintValue] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_models(self) -> "ProviderVersionPayload":
+        if len({model.model_id for model in self.models}) != len(self.models):
+            raise ValueError("model_id must be unique within a provider version")
+        explicit_defaults = [model for model in self.models if model.is_default is True]
+        if not explicit_defaults:
+            if all(model.capabilities is not None for model in self.models):
+                # Expand-only compatibility for old callers. Structured callers
+                # must make the default an explicit, reviewable decision.
+                self.models[0].is_default = True
+                explicit_defaults = [self.models[0]]
+            else:
+                raise ValueError("exactly one default model is required")
+        if len(explicit_defaults) != 1:
+            raise ValueError("exactly one default model is required")
+        if not explicit_defaults[0].is_enabled:
+            raise ValueError("the default model must be enabled")
+        for model in self.models:
+            profile = get_model_capability_profile(model.capability_profile_id or "generic-basic")
+            if self.api_mode not in profile.get("api_modes", []):
+                raise ValueError(
+                    f"capability profile {profile['profile_id']} does not support provider API mode {self.api_mode}"
+                )
+        return self
 
     @field_validator("base_url")
     @classmethod
@@ -52,6 +111,21 @@ class ProviderVersionPayload(BaseModel):
         ):
             raise ValueError("base_url must be an HTTP(S) origin/path without credentials or query")
         return normalized.rstrip("/")
+
+
+class PersonalModelsPayload(BaseModel):
+    models: list[ProviderModelPayload] = Field(min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def validate_models(self) -> "PersonalModelsPayload":
+        if len({model.model_id for model in self.models}) != len(self.models):
+            raise ValueError("model_id must be unique within a personal provider")
+        defaults = [model for model in self.models if model.is_default is True]
+        if len(defaults) != 1:
+            raise ValueError("exactly one default model is required")
+        if not defaults[0].is_enabled:
+            raise ValueError("the default model must be enabled")
+        return self
 
 
 class ProviderStatusPayload(BaseModel):
@@ -83,7 +157,7 @@ def install_provider_routes(app: FastAPI, *, providers: ProviderRepository) -> N
             display_name=payload.display_name,
             base_url=payload.base_url,
             api_mode=payload.api_mode,
-            models=[model.model_dump() for model in payload.models],
+            models=[model.canonical_payload() for model in payload.models],
             parameter_constraints=payload.parameter_constraints,
         )
         return JSONResponse(status_code=201, content={"provider": _provider_payload(provider)})
@@ -165,8 +239,83 @@ def install_provider_routes(app: FastAPI, *, providers: ProviderRepository) -> N
             return JSONResponse(status_code=404, content={"detail": str(error)})
         return JSONResponse(content={"credential": _credential_payload(credential)})
 
+    @app.get("/api/providers/personal/{provider_version_id}/models", response_model=None)
+    def personal_models(request: Request, provider_version_id: str) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        if session.user.role == "admin":
+            return JSONResponse(status_code=403, content={"detail": "administrators_use_department_models"})
+        credential_ids = {
+            item.provider_version_id
+            for item in providers.list_personal_credentials(session.user.user_id)
+        }
+        if provider_version_id not in credential_ids:
+            return JSONResponse(status_code=404, content={"detail": "personal provider credential was not found"})
+        return JSONResponse(
+            content={
+                "models": providers.list_generation_models(
+                    provider_version_id=provider_version_id,
+                    owner_user_id=session.user.user_id,
+                )
+            }
+        )
+
+    @app.put("/api/providers/personal/{provider_version_id}/models", response_model=None)
+    def replace_personal_models(
+        request: Request,
+        provider_version_id: str,
+        payload: PersonalModelsPayload,
+    ) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        if session.user.role == "admin":
+            return JSONResponse(status_code=403, content={"detail": "administrators_use_department_models"})
+        try:
+            models = providers.replace_personal_models(
+                session.user.user_id,
+                provider_version_id=provider_version_id,
+                models=[
+                    {
+                        **model.canonical_payload(),
+                        "generation_model_id": model.generation_model_id,
+                        "validation_status": "not_required",
+                    }
+                    for model in payload.models
+                ],
+            )
+        except PersonalCredentialNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        except GenerationModelInUse as error:
+            return JSONResponse(status_code=409, content={"detail": str(error)})
+        except ValueError as error:
+            return JSONResponse(status_code=422, content={"detail": str(error)})
+        return JSONResponse(content={"models": models})
+
+    @app.delete(
+        "/api/providers/personal/{provider_version_id}/models/{generation_model_id}",
+        response_model=None,
+    )
+    def delete_personal_model(
+        request: Request,
+        provider_version_id: str,
+        generation_model_id: str,
+    ) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        if session.user.role == "admin":
+            return JSONResponse(status_code=403, content={"detail": "administrators_use_department_models"})
+        try:
+            providers.delete_personal_model(
+                session.user.user_id,
+                provider_version_id=provider_version_id,
+                generation_model_id=generation_model_id,
+            )
+        except GenerationModelNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        except GenerationModelInUse as error:
+            return JSONResponse(status_code=409, content={"detail": str(error)})
+        return JSONResponse(status_code=204, content=None)
+
 
 def _provider_payload(provider: ProviderVersion) -> dict[str, object]:
+    default_model = next((model for model in provider.models if model.get("is_default")), None)
     return {
         "provider_version_id": provider.provider_version_id,
         "provider_key": provider.provider_key,
@@ -175,6 +324,7 @@ def _provider_payload(provider: ProviderVersion) -> dict[str, object]:
         "base_url": provider.base_url,
         "api_mode": provider.api_mode,
         "models": provider.models,
+        "default_generation_model_id": default_model.get("generation_model_id") if default_model else None,
         "parameter_constraints": provider.parameter_constraints,
         "is_active": provider.is_active,
         "created_at": provider.created_at.isoformat(),

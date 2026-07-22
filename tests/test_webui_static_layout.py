@@ -187,8 +187,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn('/static/app.js?v=runtime-576', html)
-        self.assertIn('/static/styles.css?v=runtime-574', html)
+        self.assertIn('/static/app.js?v=runtime-579', html)
+        self.assertIn('/static/styles.css?v=runtime-576', html)
         self.assertIn('id="recentAssetDock"', html)
         self.assertRegex(html, r'class="image-input-footer"[\s\S]*id="recentAssetDock"[\s\S]*id="recentAssetList"')
         self.assertRegex(html, r'id="recentAssetDock"[\s\S]*id="quickGalleryDock"[\s\S]*id="galleryManagePanel"')
@@ -956,7 +956,7 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
             compact,
         )
         self.assertIn(
-            ".controls-col .prompt-compose {\n    flex: 1 1 0;\n    min-height: 0;",
+            ".controls-col .prompt-compose {\n    flex: 1 1 96px;\n    min-height: 96px;",
             compact,
         )
     def test_sidebar_width_can_be_resized_and_persisted(self) -> None:
@@ -1757,7 +1757,7 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         api_mode_field_start = html.index('class="field api-mode-field"')
         endpoint_preview_start = html.index('class="api-request-endpoint-preview"')
         advanced_settings_start = html.index('id="apiAdvancedSettings"')
-        image_model_field_start = html.index('class="field api-image-model-field"')
+        image_model_field_start = html.index('class="api-model-editor"')
         concurrency_field_start = html.index('class="field api-concurrency-field"')
         self.assertLess(provider_name_field_start, base_url_field_start)
         self.assertLess(base_url_field_start, api_key_field_start)
@@ -1768,7 +1768,9 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertLess(image_model_field_start, concurrency_field_start)
         self.assertIn('id="apiKey"', html)
         self.assertIn('id="apiImageModel"', html)
-        self.assertIn('data-i18n="apiSettings.imageModel">图像生成模型</span>', html)
+        self.assertIn('id="apiModelList" class="api-model-list" role="list"', html)
+        self.assertIn('id="addApiModelButton"', html)
+        self.assertIn('data-i18n="apiSettings.imageModels">生图模型</span>', html)
         self.assertIn('<details id="apiAdvancedSettings" class="api-advanced-settings">', html)
         self.assertIn('data-i18n="apiSettings.advancedSettings">高级设置</strong>', html)
         self.assertIn('id="apiAdvancedImageModelSummary"', html)
@@ -1865,6 +1867,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertIn("apiKey: document.querySelector", script)
         self.assertIn("apiKeyRevealButton: document.querySelector", script)
         self.assertIn("apiImageModel: document.querySelector", script)
+        self.assertIn("apiModelList: document.querySelector", script)
+        self.assertIn("addApiModelButton: document.querySelector", script)
         self.assertIn("apiImagesConcurrency: document.querySelector", script)
         self.assertIn("codexMode: document.querySelector", script)
         self.assertIn("codexModeGroup: document.querySelector", script)
@@ -3110,8 +3114,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn('/static/app.js?v=runtime-576', html)
-        self.assertIn('/static/styles.css?v=runtime-574', html)
+        self.assertIn('/static/app.js?v=runtime-579', html)
+        self.assertIn('/static/styles.css?v=runtime-576', html)
         self.assertIn('id="pasteClipboardButton"', html)
         self.assertIn('id="statusText"', html)
         self.assertRegex(
@@ -3557,8 +3561,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn("/static/app.js?v=runtime-576", html)
-        self.assertIn("/static/styles.css?v=runtime-574", html)
+        self.assertIn("/static/app.js?v=runtime-579", html)
+        self.assertIn("/static/styles.css?v=runtime-576", html)
         self.assertIn('const THEME_STORAGE_KEY = "codex-image-theme-preference";', script)
         self.assertIn('themePreference: "system"', script)
         self.assertIn('call(methods, "restoreThemePreference")', script)

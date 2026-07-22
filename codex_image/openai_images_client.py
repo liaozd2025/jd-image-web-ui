@@ -31,6 +31,7 @@ class OpenAIImagesImageClient:
         api_key: str,
         base_url: str = DEFAULT_OPENAI_API_BASE_URL,
         image_model: str = DEFAULT_IMAGE_MODEL,
+        protocol_adapter: str | None = None,
         transport: Transport | None = None,
     ) -> None:
         clean_key = str(api_key or "").strip()
@@ -39,6 +40,7 @@ class OpenAIImagesImageClient:
         self.api_key = clean_key
         self.base_url = self._normalize_base_url(base_url)
         self.image_model = str(image_model or DEFAULT_IMAGE_MODEL).strip() or DEFAULT_IMAGE_MODEL
+        self.protocol_adapter = str(protocol_adapter).strip() if protocol_adapter is not None else None
         self.transport = transport or UrllibTransport()
         self.generations_url = f"{self.base_url}/images/generations"
         self.edits_url = f"{self.base_url}/images/edits"
@@ -58,6 +60,9 @@ class OpenAIImagesImageClient:
         output_compression: int | None = None,
         partial_images: int | None = None,
         debug_sse_path: str | PathLike[str] | None = None,
+        seed: int | None = None,
+        prompt_optimization_mode: str | None = None,
+        watermark: bool | None = None,
     ) -> ImageResult:
         return self.generate_images(
             prompt=prompt,
@@ -72,6 +77,9 @@ class OpenAIImagesImageClient:
             output_compression=output_compression,
             partial_images=partial_images,
             debug_sse_path=debug_sse_path,
+            seed=seed,
+            prompt_optimization_mode=prompt_optimization_mode,
+            watermark=watermark,
             n=1,
         )[0]
 
@@ -91,6 +99,9 @@ class OpenAIImagesImageClient:
         partial_images: int | None = None,
         debug_sse_path: str | PathLike[str] | None = None,
         n: int = 1,
+        seed: int | None = None,
+        prompt_optimization_mode: str | None = None,
+        watermark: bool | None = None,
     ) -> list[ImageResult]:
         del partial_images, debug_sse_path
         action = "edit" if reference_images else "generate"
@@ -107,6 +118,9 @@ class OpenAIImagesImageClient:
             moderation=moderation,
             output_compression=output_compression,
             n=n,
+            seed=seed,
+            prompt_optimization_mode=prompt_optimization_mode,
+            watermark=watermark,
         )
         return self._request_and_parse_many(payload)
 
@@ -127,6 +141,9 @@ class OpenAIImagesImageClient:
         output_compression: int | None = None,
         partial_images: int | None = None,
         debug_sse_path: str | PathLike[str] | None = None,
+        seed: int | None = None,
+        prompt_optimization_mode: str | None = None,
+        watermark: bool | None = None,
     ) -> ImageResult:
         return self.edit_images(
             prompt=prompt,
@@ -144,6 +161,9 @@ class OpenAIImagesImageClient:
             partial_images=partial_images,
             debug_sse_path=debug_sse_path,
             n=1,
+            seed=seed,
+            prompt_optimization_mode=prompt_optimization_mode,
+            watermark=watermark,
         )[0]
 
     def edit_images(
@@ -164,6 +184,9 @@ class OpenAIImagesImageClient:
         partial_images: int | None = None,
         debug_sse_path: str | PathLike[str] | None = None,
         n: int = 1,
+        seed: int | None = None,
+        prompt_optimization_mode: str | None = None,
+        watermark: bool | None = None,
     ) -> list[ImageResult]:
         del partial_images, debug_sse_path
         if not images:
@@ -184,6 +207,9 @@ class OpenAIImagesImageClient:
             moderation=moderation,
             output_compression=output_compression,
             n=n,
+            seed=seed,
+            prompt_optimization_mode=prompt_optimization_mode,
+            watermark=watermark,
         )
         return self._request_and_parse_many(payload)
 
@@ -204,6 +230,9 @@ class OpenAIImagesImageClient:
         moderation: str | None = None,
         output_compression: int | None = None,
         n: int = 1,
+        seed: int | None = None,
+        prompt_optimization_mode: str | None = None,
+        watermark: bool | None = None,
     ) -> dict[str, Any]:
         del main_model
         image_model = str(model or self.image_model or DEFAULT_IMAGE_MODEL).strip() or DEFAULT_IMAGE_MODEL
@@ -233,6 +262,12 @@ class OpenAIImagesImageClient:
             payload["images"] = [{"image_url": image_url} for image_url in images]
         if mask_image:
             payload["mask"] = {"image_url": mask_image}
+        if seed is not None:
+            payload["seed"] = int(seed)
+        if prompt_optimization_mode and prompt_optimization_mode != "off":
+            payload["optimize_prompt_options"] = {"mode": prompt_optimization_mode}
+        if watermark is not None:
+            payload["watermark"] = bool(watermark)
         return payload
 
     def _request_and_parse(self, payload: dict[str, Any]) -> ImageResult:
@@ -278,12 +313,41 @@ class OpenAIImagesImageClient:
             else:
                 detail = f"OpenAI-compatible images request failed: HTTP {response.status}"
             raise RuntimeError(detail)
-        return self.parse_response_json_items(response.body, request_payload=payload, url_fetcher=self._fetch_image_url)
+        results = self.parse_response_json_items(
+            response.body,
+            request_payload=payload,
+            url_fetcher=self._fetch_image_url,
+        )
+        provider_request_id = self._provider_request_id(response.headers, response.body)
+        if provider_request_id:
+            for result in results:
+                result.provider_request_id = provider_request_id
+        return results
 
     def _uses_volcengine_ark_dialect(self, payload: dict[str, Any]) -> bool:
+        if self.protocol_adapter is not None:
+            return self.protocol_adapter == "volcengine-ark-images"
         host = str(urlsplit(self.base_url).hostname or "").lower()
         model = str(payload.get("model") or self.image_model or "").lower()
         return host.endswith(".volces.com") and model.startswith("doubao-seedream-")
+
+    @staticmethod
+    def _provider_request_id(headers: dict[str, str], body: bytes) -> str | None:
+        normalized_headers = {str(key).lower(): str(value).strip() for key, value in headers.items()}
+        for name in ("x-request-id", "x-tt-logid", "request-id"):
+            if normalized_headers.get(name):
+                return normalized_headers[name][:512]
+        try:
+            payload = json.loads(body.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return None
+        if not isinstance(payload, dict):
+            return None
+        for name in ("request_id", "id"):
+            value = str(payload.get(name) or "").strip()
+            if value:
+                return value[:512]
+        return None
 
     @staticmethod
     def _volcengine_ark_request_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -294,6 +358,16 @@ class OpenAIImagesImageClient:
         }
         if payload.get("size"):
             request_payload["size"] = payload["size"]
+        if payload.get("output_format"):
+            request_payload["output_format"] = payload["output_format"]
+        if payload.get("seed") is not None:
+            request_payload["seed"] = payload["seed"]
+        if payload.get("optimize_prompt_options"):
+            request_payload["optimize_prompt_options"] = payload["optimize_prompt_options"]
+        if payload.get("watermark") is not None:
+            request_payload["watermark"] = payload["watermark"]
+        request_payload["sequential_image_generation"] = "disabled"
+        request_payload["stream"] = False
         images = payload.get("images")
         image_values = [
             str(item.get("image_url") or "")

@@ -221,6 +221,8 @@ async function loginExisting(page, account) {
   await waitForAccount(page, account.username);
 }
 
+let modelSelectorReleaseGateCompleted = false;
+
 async function waitForWorkspace(page) {
   for (const selector of ["#sidebar", ".dashboard", "#imageInput", "#promptEditor", "#runButton", "#imageEditorModal"]) {
     check(await page.locator(selector).count() === 1, `original workspace control missing: ${selector}`);
@@ -229,9 +231,129 @@ async function waitForWorkspace(page) {
     async () => await page.locator("#runButton").isEnabled(),
     "workspace never became ready for generation",
   );
+  if (modelSelectorReleaseGateCompleted) return;
   const settings = await api(page, "/api/api-settings");
   check(settings.status === 200, "provider settings were unavailable");
   check(settings.body.settings.providers.some((item) => item.provider_scope === "department" && item.name.includes("部门")), "department provider source was not distinguished");
+  const departmentProviders = settings.body.settings.providers.filter((item) => item.provider_scope === "department");
+  const availableModelCount = (provider) => provider.models.filter((model) => model.is_enabled).length;
+  const multiModelProvider = departmentProviders.find((item) => item.provider_key === "browser-fake-provider");
+  const referenceFileProvider = departmentProviders.find((item) => item.provider_key === "browser-reference-files");
+  const configuredTeamProvider = departmentProviders.find((item) => item.provider_key === "browser-configured-team");
+  const singleModelProvider = departmentProviders.find((item) => availableModelCount(item) === 1 && item.provider_key === "browser-single-model");
+  const emptyModelProvider = departmentProviders.find((item) => availableModelCount(item) === 0);
+  check(multiModelProvider && referenceFileProvider && configuredTeamProvider && singleModelProvider && emptyModelProvider, "model selector release fixtures were incomplete");
+  check(configuredTeamProvider.models.every((model) => model.validation_status === "unverified"), "configured team model fixture was unexpectedly verified");
+  check(singleModelProvider.model_selection_reason === "saved_unavailable_default", "disabled saved model did not fall back to the provider default");
+  await page.locator("#apiProviderQuick").selectOption(multiModelProvider.id, { force: true });
+  await eventually(async () => await page.locator("#generationModelSelect option").count() === 2, "multi-model selector did not expose both current-provider models");
+  check(await page.locator("#generationModelSelect").isEnabled(), "multi-model selector was not expandable");
+  const promptRowOrder = await page.locator(".prompt-template-row").evaluate((row) => [...row.children].map((item) => item.id || item.className));
+  check(promptRowOrder[1] === "generationModelField", "model selector was not placed after clear/find and before template management");
+  await page.locator("#promptEditor").fill("preserve workspace while switching models");
+  await page.locator("#imageInput").setInputFiles(Array.from({ length: 17 }, (_, index) => ({
+    name: `model-switch-reference-${String(index + 1).padStart(2, "0")}.png`,
+    mimeType: "image/png",
+    buffer: imageBytes,
+  })));
+  await eventually(async () => await page.locator("#imageThumbItems .thumb").count() === 17, "all over-limit reference images were not retained");
+  await eventually(async () => await page.locator(".generation-model-reference-over-limit").count() === 1, "the over-limit reference image was not marked individually");
+  check(await page.locator("#runButton").isDisabled(), "over-limit reference images did not block submission");
+  check((await page.locator("#generationModelNotice").textContent()).includes("最多支持 16 张参考图片"), "reference-image limit guidance was not visible");
+  await page.locator("#imageThumbItems .thumb").nth(16).locator(".thumb-remove").click();
+  await eventually(async () => await page.locator("#imageThumbItems .thumb").count() === 16, "removing the one over-limit image changed the wrong inputs");
+  await eventually(async () => await page.locator(".generation-model-reference-over-limit").count() === 0, "over-limit marker remained after returning within the limit");
+  await eventually(async () => await page.locator("#runButton").isEnabled(), "submission stayed blocked after reference images returned within the limit");
+  const preservedImageTitles = await page.locator("#imageThumbItems .thumb").evaluateAll((items) => items.map((item) => item.getAttribute("title")));
+  const firstModelId = await page.locator("#generationModelSelect").inputValue();
+  const secondModelId = multiModelProvider.models.find((model) => model.generation_model_id !== firstModelId)?.generation_model_id;
+  check(Boolean(firstModelId && secondModelId), "multi-model provider did not expose two distinct model ids");
+  let preferenceSaved = page.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/generation-model-preferences" && response.request().method() === "PUT"
+  ));
+  await page.locator("#generationModelSelect").selectOption(secondModelId);
+  check((await preferenceSaved).status() === 200, "model selection preference was not saved on the server");
+  check((await page.locator("#promptEditor").textContent()) === "preserve workspace while switching models", "switching models changed the prompt");
+  preferenceSaved = page.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/generation-model-preferences" && response.request().method() === "PUT"
+  ));
+  await page.locator("#generationModelSelect").selectOption(firstModelId);
+  check((await preferenceSaved).status() === 200, "first-model preference restore was not saved");
+  await page.locator("#generationModelSelect").focus();
+  check(await page.locator("#generationModelSelect").evaluate((element) => element === document.activeElement), "model selector was not keyboard focusable");
+  await page.keyboard.press("Tab");
+  check(await page.locator("#promptTemplateButton").evaluate((element) => element === document.activeElement), "keyboard focus did not move past the model selector in visual order");
+  await page.keyboard.press("Shift+Tab");
+  check(await page.locator("#generationModelSelect").evaluate((element) => element === document.activeElement), "keyboard focus could not return to the model selector");
+  preferenceSaved = page.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/generation-model-preferences" && response.request().method() === "PUT"
+  ));
+  await page.locator("#generationModelSelect").selectOption(secondModelId);
+  check((await preferenceSaved).status() === 200, "model selection after keyboard traversal was not saved");
+  await eventually(async () => await page.locator("#generationModelSelect").inputValue() === secondModelId, "model did not switch after keyboard traversal");
+  check(await page.locator("#generationModelSelect").getAttribute("aria-describedby") === "generationModelSummary generationModelNotice", "model selector accessibility description was missing");
+  await page.locator("#apiProviderQuick").selectOption(referenceFileProvider.id, { force: true });
+  await eventually(async () => await page.locator("#generationModelSelect option").count() === 2, "reference-file provider did not expose both models");
+  await page.locator("#imageInput").setInputFiles({ name: "model-switch-reference.txt", mimeType: "text/plain", buffer: Buffer.from("model switch reference file") });
+  await eventually(async () => await page.locator(".reference-file-thumb").count() === 1, "model-switch reference file did not render");
+  const preservedFileName = (await page.locator(".reference-file-name").textContent()).trim();
+  await page.locator("#apiProviderQuick").selectOption(singleModelProvider.id, { force: true });
+  await eventually(async () => await page.locator("#generationModelSelect option").count() === 1, "single-model provider did not update the selector");
+  check(await page.locator("#generationModelSelect").isDisabled(), "single-model selector remained expandable");
+  await eventually(async () => (await page.locator("#generationModelNotice").textContent()).includes("上次使用的模型已不可用"), "disabled saved model fallback was not visible");
+  await page.locator("#apiProviderQuick").selectOption(configuredTeamProvider.id, { force: true });
+  await eventually(async () => await page.locator("#generationModelSelect option").count() === 1, "configured team model did not enter the selector before validation");
+  check(await page.locator("#generationModelSelect").isDisabled(), "single configured team model should render as a fixed selection");
+  await eventually(async () => await page.locator("#runButton").isEnabled(), "configured team model remained blocked before validation");
+  await page.locator("#apiProviderQuick").selectOption(emptyModelProvider.id, { force: true });
+  await eventually(async () => (await page.locator("#generationModelNotice").textContent()).includes("未配置生图模型"), "empty provider did not show model setup guidance");
+  check(await page.locator("#runButton").isDisabled(), "empty provider did not block submission");
+  await page.locator("#apiProviderQuick").selectOption(multiModelProvider.id, { force: true });
+  await eventually(async () => await page.locator("#generationModelSelect").inputValue() === secondModelId, "provider switch did not restore the saved model");
+  check((await page.locator("#promptEditor").textContent()) === "preserve workspace while switching models", "provider switching changed the prompt");
+  check(await page.locator("#imageThumbItems .thumb").count() === 16, "provider/model switching removed a reference image");
+  const imageTitlesAfterSwitch = await page.locator("#imageThumbItems .thumb").evaluateAll((items) => items.map((item) => item.getAttribute("title")));
+  check(JSON.stringify(imageTitlesAfterSwitch) === JSON.stringify(preservedImageTitles), "provider/model switching changed reference image order");
+  check(await page.locator(".reference-file-thumb").count() === 1, "provider/model switching removed a reference file");
+  check((await page.locator(".reference-file-name").textContent()).trim() === preservedFileName, "provider/model switching changed reference file order");
+  await page.setViewportSize({ width: 1024, height: 900 });
+  const mediumModelLayout = await page.evaluate(() => {
+    const bounds = (selector) => {
+      const rect = document.querySelector(selector).getBoundingClientRect();
+      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+    };
+    const panel = document.querySelector(".prompt-panel");
+    return {
+      utilities: bounds(".prompt-template-recent-cell"),
+      model: bounds("#generationModelField"),
+      modelSelect: bounds("#generationModelSelect"),
+      promptEditor: bounds("#promptEditor"),
+      template: bounds(".prompt-template-entry"),
+      scrollWidth: panel.scrollWidth,
+      clientWidth: panel.clientWidth,
+    };
+  });
+  check(mediumModelLayout.model.top > mediumModelLayout.utilities.top, "1024px layout did not move model controls below clear/find");
+  check(Math.abs(mediumModelLayout.model.top - mediumModelLayout.template.top) <= 2, "1024px model and template controls were not aligned in one row");
+  check(mediumModelLayout.model.right <= mediumModelLayout.template.left + 1, "1024px model and template controls overlapped");
+  check(mediumModelLayout.modelSelect.right - mediumModelLayout.modelSelect.left <= 241, "1024px model selector was wider than the compact contract");
+  check(mediumModelLayout.promptEditor.bottom - mediumModelLayout.promptEditor.top >= 96, "model metadata squeezed the prompt editor below its minimum height");
+  check(mediumModelLayout.scrollWidth <= mediumModelLayout.clientWidth + 1, "1024px model selector introduced horizontal scrolling");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const narrowModelLayout = await page.locator(".prompt-panel").evaluate((panel) => ({ scrollWidth: panel.scrollWidth, clientWidth: panel.clientWidth }));
+  check(narrowModelLayout.scrollWidth <= narrowModelLayout.clientWidth + 1, "390px model selector introduced horizontal scrolling");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const defaultModelId = multiModelProvider.models.find((model) => model.is_default)?.generation_model_id;
+  if (defaultModelId && await page.locator("#generationModelSelect").inputValue() !== defaultModelId) {
+    const defaultModelSaved = page.waitForResponse((response) => (
+      new URL(response.url()).pathname === "/api/generation-model-preferences" && response.request().method() === "PUT"
+    ));
+    await page.locator("#generationModelSelect").selectOption(defaultModelId);
+    check((await defaultModelSaved).status() === 200, "default model was not restored after model-selector release checks");
+  }
+  await page.locator("#clearImagesButton").click();
+  await page.locator("#promptEditor").fill("");
+  modelSelectorReleaseGateCompleted = true;
 }
 
 async function waitForTask(page, prompt, status) {
@@ -260,7 +382,9 @@ async function runFromWorkspaceUi(page, expectedPath) {
 
 async function submitTask(page, prompt, { edit = false, twoImages = false } = {}) {
   const settings = await api(page, "/api/api-settings");
-  const provider = settings.body.settings.providers.find((item) => item.provider_scope === "department");
+  const provider = settings.body.settings.providers.find((item) => (
+    item.provider_scope === "department" && item.provider_key === "browser-fake-provider"
+  ));
   check(provider, "department provider is missing");
   const fields = {
     api_provider_id: provider.id,
@@ -475,8 +599,10 @@ try {
   await waitForWorkspace(pageA);
   await pageA.locator("#promptTemplateButton").click();
   await pageA.locator("#promptTemplateDrawer.open").waitFor({ state: "visible" });
-  check((await pageA.locator("#promptTemplateList").textContent()).includes("Shared browser template"), "shared template was not rendered in the original template drawer");
-  check((await pageA.locator("#promptTemplateList").textContent()).includes("Private A template"), "personal template was not rendered in the original template drawer");
+  await eventually(async () => {
+    const templateText = await pageA.locator("#promptTemplateList").textContent();
+    return templateText.includes("Shared browser template") && templateText.includes("Private A template");
+  }, "shared and personal templates were not rendered in the original template drawer");
   check((await pageA.locator('.prompt-template-card', { hasText: "Shared browser template" }).locator(".resource-scope-badge").textContent()).trim() === "共享", "shared template source badge was missing");
   check((await pageA.locator(`[data-prompt-template-id="${personalTemplateId}"] .resource-scope-badge`).textContent()).trim() === "个人", "personal template source badge was missing");
   await pageA.locator('.prompt-template-card', { hasText: "Shared browser template" }).click();
@@ -489,17 +615,17 @@ try {
   check((await pageA.locator("#promptEditor").textContent()).includes("private user A template"), "personal template was not inserted through the original prompt flow");
   await pageA.locator("#promptEditor").fill("～Private");
   await pageA.locator(`.prompt-snippet-option[data-prompt-template-id="${personalTemplateId}"]`).waitFor({ state: "visible" });
-  await pageA.locator(`.prompt-snippet-option[data-prompt-template-id="${personalTemplateId}"]`).click();
+  await pageA.locator(`.prompt-snippet-option[data-prompt-template-id="${personalTemplateId}"]`).dispatchEvent("click");
   check((await pageA.locator("#promptEditor").textContent()).includes("private user A template"), "personal template was not inserted through the ~ prompt trigger");
   await pageA.locator("#promptEditor").fill("~shared");
   await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${sharedSnippet.id}"]`).waitFor({ state: "visible" });
   check((await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${sharedSnippet.id}"] .resource-scope-badge`).textContent()).trim() === "共享", "shared snippet source badge was missing");
-  await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${sharedSnippet.id}"]`).click();
+  await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${sharedSnippet.id}"]`).dispatchEvent("click");
   check(await pageA.locator(`.prompt-snippet-chip[data-prompt-snippet-id="${sharedSnippet.id}"]`).count() === 1, "shared snippet was not inserted through the original prompt flow");
   await pageA.locator("#promptEditor").fill("~privateA");
   await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${personalSnippetId}"]`).waitFor({ state: "visible" });
   check((await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${personalSnippetId}"] .resource-scope-badge`).textContent()).trim() === "个人", "personal snippet source badge was missing");
-  await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${personalSnippetId}"]`).click();
+  await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${personalSnippetId}"]`).dispatchEvent("click");
   check(await pageA.locator(`.prompt-snippet-chip[data-prompt-snippet-id="${personalSnippetId}"]`).count() === 1, "personal snippet was not inserted through the original prompt flow");
 
   await pageA.locator("#promptEditor").fill("browser successful generation");

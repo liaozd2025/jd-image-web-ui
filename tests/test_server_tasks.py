@@ -42,6 +42,14 @@ class FakeProviderHandler(BaseHTTPRequestHandler):
         else:
             body = json.loads(raw_body)
             should_fail = isinstance(body, dict) and body.get("prompt") == "force provider failure"
+            if isinstance(body, dict) and body.get("prompt") == "partial provider failure":
+                prior_calls = sum(
+                    1
+                    for item in type(self).requests
+                    if isinstance(item.get("body"), dict)
+                    and item["body"].get("prompt") == "partial provider failure"
+                )
+                should_fail = prior_calls == 1
             output_count = int(body.get("n", 1)) if isinstance(body, dict) else 1
             if isinstance(body, dict) and body.get("prompt") == "hold provider for cancellation":
                 time.sleep(5.0)
@@ -77,7 +85,10 @@ class FakeProviderHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             content_type = "text/event-stream"
         elif should_fail:
-            response = json.dumps({"error": {"message": "fake provider failure"}}).encode("utf-8")
+            error_message = "fake provider failure"
+            if isinstance(body, dict) and body.get("prompt") == "partial provider failure":
+                error_message += f" {self.headers.get('Authorization')}"
+            response = json.dumps({"error": {"message": error_message}}).encode("utf-8")
             self.send_response(502)
             content_type = "application/json"
         else:
@@ -163,10 +174,22 @@ class ServerGenerationTaskTests(unittest.TestCase):
                                 "display_name": "Fake Task Provider",
                                 "base_url": f"http://127.0.0.1:{fake_server.server_port}/v1",
                                 "api_mode": "images",
-                                "models": [{
-                                    "model_id": "fake-image-1",
-                                    "capabilities": ["image_generation"],
-                                }],
+                                "models": [
+                                    {
+                                        "display_name": "Fake Generic",
+                                        "model_id": "fake-image-1",
+                                        "capability_profile_id": "generic-basic",
+                                        "is_default": True,
+                                        "is_enabled": True,
+                                    },
+                                    {
+                                        "display_name": "Fake Seedream Lite",
+                                        "model_id": "doubao-seedream-5-0-lite-fake",
+                                        "capability_profile_id": "seedream-5-lite",
+                                        "is_default": False,
+                                        "is_enabled": True,
+                                    },
+                                ],
                                 "parameter_constraints": {},
                             },
                             headers={"X-CSRF-Token": admin_csrf},
@@ -221,6 +244,17 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         workspace_settings = user.get("/api/api-settings")
                         self.assertEqual(workspace_settings.status_code, 200, workspace_settings.text)
                         workspace_provider_id = f"personal-{provider_version_id}"
+                        workspace_provider = next(
+                            item
+                            for item in workspace_settings.json()["settings"]["providers"]
+                            if item["id"] == workspace_provider_id
+                        )
+                        workspace_generation_model_id = workspace_provider["models"][0]["generation_model_id"]
+                        seedream_generation_model_id = next(
+                            model["generation_model_id"]
+                            for model in workspace_provider["models"]
+                            if model["capability_profile_id"] == "seedream-5-lite"
+                        )
                         self.assertIn(
                             workspace_provider_id,
                             [item["id"] for item in workspace_settings.json()["settings"]["providers"]],
@@ -268,6 +302,14 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         task_id = submitted.json()["task"]["task_id"]
                         self.assertEqual(submitted.json()["task"]["status"], "queued")
                         self.assertEqual(submitted.json()["task"]["total_count"], 2)
+                        self.assertTrue(submitted.json()["task"]["generation_model_id"])
+                        self.assertEqual(submitted.json()["task"]["model_display_name"], "Fake Generic")
+                        self.assertEqual(submitted.json()["task"]["capability_profile_id"], "generic-basic")
+                        self.assertEqual(submitted.json()["task"]["capability_profile_version"], 1)
+                        self.assertEqual(
+                            submitted.json()["task"]["capability_snapshot"]["profile_id"],
+                            "generic-basic",
+                        )
                         self.assertGreater(submitted.json()["task"]["input_bytes"], 0)
                         self.assertTrue(submitted.json()["task"]["input_sha256"])
                         recent = user.get("/api/tasks/recent?limit=50")
@@ -482,14 +524,15 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         self.assertEqual(completed.json()["task"]["request_parameters"]["moderation"], "low")
                         self.assertEqual(completed.json()["task"]["request_parameters"]["prompt_fidelity"], "original")
                         self.assertTrue(completed.json()["task"]["request_parameters"]["web_search"])
-                        images_request = next(
+                        images_requests = [
                             item
                             for item in FakeProviderHandler.requests
                             if str(item["path"]).endswith("/images/generations")
                             and item["body"].get("prompt") == "a test image"
-                        )
-                        self.assertEqual(images_request["body"]["n"], 2)
-                        self.assertEqual(images_request["authorization"], f"Bearer {TASK_API_KEY}")
+                        ]
+                        self.assertEqual(len(images_requests), 2)
+                        self.assertEqual([item["body"]["n"] for item in images_requests], [1, 1])
+                        self.assertTrue(all(item["authorization"] == f"Bearer {TASK_API_KEY}" for item in images_requests))
 
                         with psycopg.connect(database_url) as connection:
                             asset_bytes = connection.execute(
@@ -520,6 +563,44 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         self.assertEqual(
                             user.get("/api/assets/quota").json()["quota"]["used_bytes"],
                             expected_used_bytes,
+                        )
+
+                        seeded_task = user.post(
+                            "/api/generate",
+                            data={
+                                "api_provider_id": workspace_provider_id,
+                                "generation_model_id": seedream_generation_model_id,
+                                "prompt": "seeded independent results",
+                                "size": "2048x2048",
+                                "output_format": "png",
+                                "n": "3",
+                                "prompt_optimization_mode": "standard",
+                                "seed_mode": "fixed",
+                                "seed": "2147483646",
+                            },
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(seeded_task.status_code, 201, seeded_task.text)
+                        seeded_completed = self._wait_for_status(
+                            user,
+                            seeded_task.json()["task"]["task_id"],
+                            "completed",
+                        ).json()["task"]
+                        seeded_requests = [
+                            item["body"]
+                            for item in FakeProviderHandler.requests
+                            if isinstance(item.get("body"), dict)
+                            and item["body"].get("prompt") == "seeded independent results"
+                        ]
+                        self.assertEqual(len(seeded_requests), 3)
+                        self.assertTrue(all("n" not in item for item in seeded_requests))
+                        self.assertTrue(all(item["sequential_image_generation"] == "disabled" for item in seeded_requests))
+                        self.assertEqual([item["seed"] for item in seeded_requests], [2147483646, 2147483647, 0])
+                        self.assertTrue(all(item["watermark"] is False for item in seeded_requests))
+                        self.assertTrue(all(item["optimize_prompt_options"] == {"mode": "standard"} for item in seeded_requests))
+                        self.assertEqual(
+                            [item["seed"] for item in seeded_completed["outputs"]],
+                            [2147483646, 2147483647, 0],
                         )
 
                         with TestClient(create_server_app(settings)) as admin_view:
@@ -571,6 +652,64 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         )
                         self.assertEqual(restored_task.status_code, 200)
                         self.assertEqual(user.get(f"/api/tasks/{uploaded_task_id}/result").status_code, 200)
+
+                        partial_task = user.post(
+                            "/api/generate",
+                            data={
+                                "api_provider_id": workspace_provider_id,
+                                "generation_model_id": workspace_generation_model_id,
+                                "model": "fake-image-1",
+                                "prompt": "partial provider failure",
+                                "size": "1024x1024",
+                                "output_format": "png",
+                                "n": "3",
+                            },
+                            headers={"X-CSRF-Token": user_csrf},
+                        ).json()["task"]["task_id"]
+                        partial = self._wait_for_status(user, partial_task, "partial_failed")
+                        partial_payload = partial.json()["task"]
+                        self.assertEqual(partial_payload["generated_count"], 2)
+                        self.assertEqual(partial_payload["failed_count"], 1)
+                        self.assertEqual(partial_payload["total_count"], 3)
+                        self.assertEqual(
+                            [item["status"] for item in partial_payload["outputs"]],
+                            ["completed", "failed", "completed"],
+                        )
+                        self.assertIsNone(partial_payload["outputs"][0]["error"])
+                        self.assertIn("fake provider failure", partial_payload["outputs"][1]["error"])
+                        self.assertIsNone(partial_payload["outputs"][2]["error"])
+                        self.assertNotIn(TASK_API_KEY, partial.text)
+                        self.assertEqual(
+                            user.get(f"/api/tasks/{partial_task}/outputs/2/download").content,
+                            FAKE_PNG,
+                        )
+                        partial_deselected = user.patch(
+                            f"/api/tasks/{partial_task}/outputs/3/selected",
+                            json={"selected": False},
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(partial_deselected.status_code, 200, partial_deselected.text)
+                        self.assertEqual(partial_deselected.json()["task"]["selected_output_indexes"], [1])
+                        partial_selected_archive = user.get(
+                            f"/api/tasks/{partial_task}/outputs.zip?selected=1"
+                        )
+                        self.assertEqual(partial_selected_archive.status_code, 200)
+                        self.assertIn(f"task-{partial_task}-image-1.png".encode(), partial_selected_archive.content)
+                        self.assertNotIn(f"task-{partial_task}-image-3.png".encode(), partial_selected_archive.content)
+                        partial_archive = user.get(f"/api/tasks/archive?ids={partial_task}")
+                        self.assertEqual(partial_archive.status_code, 200)
+                        self.assertIn(f"task-{partial_task}-image-1.png".encode(), partial_archive.content)
+                        self.assertIn(f"task-{partial_task}-image-3.png".encode(), partial_archive.content)
+                        partial_retry = user.post(
+                            f"/api/tasks/{partial_task}/retry-failed",
+                            json={},
+                            headers={"X-CSRF-Token": user_csrf},
+                        )
+                        self.assertEqual(partial_retry.status_code, 201, partial_retry.text)
+                        partial_retry_task = partial_retry.json()["task"]
+                        self.assertEqual(partial_retry_task["request_parameters"]["output_indices"], [2])
+                        retried_partial = self._wait_for_status(user, partial_retry_task["task_id"], "completed")
+                        self.assertEqual(retried_partial.json()["task"]["outputs"][0]["index"], 2)
 
                         failed_task = user.post(
                             "/api/tasks",

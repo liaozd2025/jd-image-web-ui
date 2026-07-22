@@ -52,6 +52,7 @@ class ImageResult:
     quality: str
     usage: dict[str, Any]
     tool_usage: dict[str, Any] = field(default_factory=dict)
+    provider_request_id: str | None = None
 
 
 @dataclass(frozen=True)

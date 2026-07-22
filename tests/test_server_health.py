@@ -39,6 +39,11 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0022_workspace_task_state",
     "0023_workspace_outputs_queue_and_files",
     "0024_shared_gallery",
+    "0025_generation_models",
+    "0026_personal_generation_models",
+    "0027_generation_model_validations",
+    "0028_generation_model_preferences",
+    "0029_configured_department_models",
 ]
 
 

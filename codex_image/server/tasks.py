@@ -6,6 +6,7 @@ import hashlib
 from io import BytesIO
 import json
 from pathlib import Path
+import secrets
 from typing import Any, Literal, cast
 from uuid import uuid4
 
@@ -18,9 +19,10 @@ from .department_providers import DepartmentCredentialNotFound, DepartmentProvid
 from .provider_secrets import MasterKeyMismatch, ProviderSecretCipher
 from .shared_assets import SharedAssetRepository
 from .maintenance import assert_writes_allowed
+from .model_capabilities import get_model_capability_profile
 
 
-TaskStatus = Literal["queued", "running", "interrupted", "completed", "failed", "cancelled"]
+TaskStatus = Literal["queued", "running", "interrupted", "completed", "partial_failed", "failed", "cancelled"]
 
 
 class TaskConfigurationError(RuntimeError):
@@ -37,7 +39,12 @@ class GenerationTask:
     user_id: str
     provider_version_id: str
     provider_scope: Literal["personal", "department"]
+    generation_model_id: str | None
+    model_display_name: str
     model_id: str
+    capability_profile_id: str
+    capability_profile_version: int
+    capability_snapshot: dict[str, object]
     prompt: str
     request_parameters: dict[str, object]
     input_relative_path: str | None
@@ -108,6 +115,7 @@ class GenerationTaskRepository:
         *,
         provider_version_id: str,
         model_id: str,
+        generation_model_id: str | None = None,
         prompt: str,
         request_parameters: dict[str, object],
         input_bytes: bytes | None = None,
@@ -142,6 +150,7 @@ class GenerationTaskRepository:
                     cursor.execute(
                         """
                         SELECT versions.provider_key, versions.version_number, versions.is_active,
+                               versions.api_mode,
                                versions.models, credentials.encrypted_api_key
                         FROM provider_catalog_versions AS versions
                         LEFT JOIN department_provider_credentials AS credentials
@@ -156,6 +165,7 @@ class GenerationTaskRepository:
                     cursor.execute(
                         """
                         SELECT versions.provider_key, versions.version_number, versions.is_active,
+                               versions.api_mode,
                                versions.models, credentials.encrypted_api_key
                         FROM provider_catalog_versions AS versions
                         LEFT JOIN personal_provider_credentials AS credentials
@@ -172,8 +182,80 @@ class GenerationTaskRepository:
                     raise TaskConfigurationError("provider version was not found")
                 if not provider["is_active"]:
                     raise TaskConfigurationError("provider version is inactive")
-                if not _model_is_allowed(provider["models"], model_id):
+                if generation_model_id:
+                    cursor.execute(
+                        """
+                        SELECT generation_model_id, display_name, model_id,
+                               capability_profile_id, capability_profile_version,
+                               is_enabled, validation_status
+                        FROM generation_models
+                        WHERE provider_version_id = %s
+                          AND owner_user_id IS NOT DISTINCT FROM %s
+                          AND generation_model_id = %s
+                        """,
+                        (
+                            provider_version_id,
+                            user_id if provider_scope == "personal" else None,
+                            generation_model_id,
+                        ),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        SELECT generation_model_id, display_name, model_id,
+                               capability_profile_id, capability_profile_version,
+                               is_enabled, validation_status
+                        FROM generation_models
+                        WHERE provider_version_id = %s
+                          AND owner_user_id IS NOT DISTINCT FROM %s
+                          AND model_id = %s
+                        """,
+                        (
+                            provider_version_id,
+                            user_id if provider_scope == "personal" else None,
+                            model_id,
+                        ),
+                    )
+                generation_model = cursor.fetchone()
+                if generation_model is None or not bool(generation_model["is_enabled"]):
                     raise TaskConfigurationError("model is not allowed for this provider version")
+                profile_id = str(generation_model.get("capability_profile_id") or "generic-basic")
+                try:
+                    capability_snapshot = get_model_capability_profile(profile_id)
+                except KeyError as error:
+                    raise TaskConfigurationError("model capability profile is unavailable") from error
+                if str(provider["api_mode"]) not in capability_snapshot.get("api_modes", []):
+                    raise TaskConfigurationError(
+                        "selected model capability profile does not support this provider API mode"
+                    )
+                profile_version = int(
+                    generation_model.get("capability_profile_version")
+                    or capability_snapshot["version"]
+                )
+                expected_profile_version = request_parameters.get("capability_profile_version")
+                if expected_profile_version not in {None, ""}:
+                    try:
+                        version_matches = int(expected_profile_version) == profile_version
+                    except (TypeError, ValueError):
+                        version_matches = False
+                    if not version_matches:
+                        raise TaskConfigurationError("model capability changed; refresh and try again")
+                model_id = str(generation_model.get("model_id") or model_id)
+                model_display_name = str(generation_model.get("display_name") or model_id)
+                generation_model_id = generation_model.get("generation_model_id")
+                image_reference_count = int(
+                    bool(input_bytes is not None and str(input_media_type or "").startswith("image/"))
+                ) + sum(
+                    1
+                    for snapshot in [*asset_snapshots, *shared_asset_snapshots]
+                    if str(snapshot.get("asset_kind") or "") in {"image", "reference"}
+                )
+                request_parameters = _validated_task_parameters(
+                    request_parameters,
+                    capability_snapshot,
+                    reference_image_count=image_reference_count,
+                )
+                request_parameters["api_mode"] = str(provider["api_mode"])
                 encrypted_api_key = provider["encrypted_api_key"]
                 if not encrypted_api_key:
                     scope_label = "department" if provider_scope == "department" else "personal"
@@ -192,11 +274,12 @@ class GenerationTaskRepository:
                     raise TaskConfigurationError("provider credential is unavailable") from error
 
                 quota_period_start: str | None = None
+                quota_units = int(request_parameters.get("n") or 1)
                 if provider_scope == "department":
                     if self.departments is None:
                         raise TaskConfigurationError("department provider is unavailable")
                     try:
-                        quota_period_start = self.departments.reserve(user_id, 1)
+                        quota_period_start = self.departments.reserve(user_id, quota_units)
                     except DepartmentQuotaExceeded as error:
                         raise TaskConfigurationError(str(error)) from error
 
@@ -209,14 +292,14 @@ class GenerationTaskRepository:
                     try:
                         self.assets.ensure_capacity_cursor(cursor, user_id, len(input_content))
                     except (AssetNotFound, AssetQuotaExceeded, AssetValidationError) as error:
-                        self._release_department_reservation(user_id, quota_period_start)
+                        self._release_department_reservation(user_id, quota_period_start, quota_units)
                         raise TaskConfigurationError(str(error)) from error
                 temporary_path = input_path.with_name(f".{input_path.name}.{uuid4().hex}.tmp")
                 try:
                     temporary_path.write_bytes(input_content)
                     temporary_path.replace(input_path)
                 except Exception:
-                    self._release_department_reservation(user_id, quota_period_start)
+                    self._release_department_reservation(user_id, quota_period_start, quota_units)
                     raise
                 try:
                     cursor.execute(
@@ -231,18 +314,29 @@ class GenerationTaskRepository:
                     cursor.execute(
                         """
                         INSERT INTO server_generation_tasks (
-                            task_id, user_id, provider_version_id, model_id, prompt,
+                            task_id, user_id, provider_version_id, generation_model_id,
+                            model_display_name, model_id, capability_profile_id,
+                            capability_profile_version, capability_snapshot, prompt,
                             request_parameters, status, input_relative_path,
                             input_media_type, input_sha256, input_bytes, asset_versions, shared_asset_versions,
                             provider_scope, quota_units, quota_period_start, queue_position
-                        ) VALUES (%s, %s, %s, %s, %s, %s::jsonb, 'queued', %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s)
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s,
+                            %s::jsonb, 'queued', %s, %s, %s, %s, %s::jsonb,
+                            %s::jsonb, %s, %s, %s, %s
+                        )
                         RETURNING *
                         """,
                         (
                             task_id,
                             user_id,
                             provider_version_id,
+                            generation_model_id,
+                            model_display_name,
                             model_id,
+                            profile_id,
+                            profile_version,
+                            json.dumps(capability_snapshot, separators=(",", ":")),
                             prompt,
                             json.dumps(request_parameters, separators=(",", ":")),
                             input_relative_path.as_posix(),
@@ -252,7 +346,7 @@ class GenerationTaskRepository:
                             json.dumps(asset_snapshots, separators=(",", ":")),
                             json.dumps(shared_asset_snapshots, separators=(",", ":")),
                             provider_scope,
-                            1,
+                            quota_units,
                             quota_period_start,
                             queue_position,
                         ),
@@ -267,11 +361,12 @@ class GenerationTaskRepository:
                             "task_id": task_id,
                             "provider_version_id": provider_version_id,
                             "model_id": model_id,
+                            "generation_model_id": generation_model_id,
                         },
                     )
                 except Exception:
                     input_path.unlink(missing_ok=True)
-                    self._release_department_reservation(user_id, quota_period_start)
+                    self._release_department_reservation(user_id, quota_period_start, quota_units)
                     raise
         return self._task_from_row(row)
 
@@ -424,9 +519,15 @@ class GenerationTaskRepository:
             raise TaskNotFound("queued task was not found")
         return self.reorder_queue(user_id, [task_id, *[item for item in queued if item != task_id]])
 
-    def resubmit_task(self, user_id: str, task_id: str) -> GenerationTask:
+    def resubmit_task(
+        self,
+        user_id: str,
+        task_id: str,
+        *,
+        confirm_capability_change: bool = False,
+    ) -> GenerationTask:
         task = self.get_task(user_id, task_id)
-        if task.status not in {"failed", "interrupted", "cancelled"}:
+        if task.status not in {"failed", "partial_failed", "interrupted", "cancelled"}:
             raise TaskConfigurationError("task is not retryable")
         try:
             input_path = self.input_path(task)
@@ -438,18 +539,38 @@ class GenerationTaskRepository:
         shared_asset_version_ids = [
             str(item.get("asset_version_id")) for item in task.shared_asset_versions if item.get("asset_version_id")
         ]
-        created = self.create_task(
-            user_id,
-            provider_version_id=task.provider_version_id,
-            model_id=task.model_id,
-            prompt=task.prompt,
-            request_parameters={**task.request_parameters, "retry_of_task_id": task.task_id},
-            input_bytes=input_bytes,
-            input_media_type=task.input_media_type if input_bytes is not None else None,
-            asset_version_ids=asset_version_ids,
-            shared_asset_version_ids=shared_asset_version_ids,
-            provider_scope=task.provider_scope,
-        )
+        retry_parameters = {**task.request_parameters, "retry_of_task_id": task.task_id}
+        if confirm_capability_change:
+            retry_parameters["capability_change_confirmed_from_version"] = task.capability_profile_version
+            retry_parameters.pop("capability_profile_version", None)
+        if task.status == "partial_failed":
+            failed_indices = [
+                int(item)
+                for item in task.request_parameters.get("failed_output_indices", [])
+                if isinstance(item, int) or str(item).isdigit()
+            ]
+            if not failed_indices:
+                raise TaskConfigurationError("partial task has no failed outputs to retry")
+            retry_parameters["n"] = len(failed_indices)
+            retry_parameters["output_indices"] = failed_indices
+        try:
+            created = self.create_task(
+                user_id,
+                provider_version_id=task.provider_version_id,
+                model_id=task.model_id,
+                generation_model_id=task.generation_model_id,
+                prompt=task.prompt,
+                request_parameters=retry_parameters,
+                input_bytes=input_bytes,
+                input_media_type=task.input_media_type if input_bytes is not None else None,
+                asset_version_ids=asset_version_ids,
+                shared_asset_version_ids=shared_asset_version_ids,
+                provider_scope=task.provider_scope,
+            )
+        except TaskConfigurationError as error:
+            if not confirm_capability_change and "model capability changed" in str(error):
+                raise TaskConfigurationError("model_capability_changed_confirmation_required") from error
+            raise
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
                 assert_writes_allowed(cursor)
@@ -521,14 +642,21 @@ class GenerationTaskRepository:
     ) -> GenerationTask:
         task = self.get_task(user_id, task_id)
         outputs = task_output_records(task)
+        output_position = next(
+            (
+                position
+                for position, output in enumerate(outputs)
+                if int(output.get("index") or position + 1) == output_index
+            ),
+            None,
+        )
         if (
-            task.status != "completed"
-            or output_index < 1
-            or output_index > len(outputs)
-            or bool(outputs[output_index - 1].get("deleted"))
+            task.status not in {"completed", "partial_failed"}
+            or output_position is None
+            or bool(outputs[output_position].get("deleted"))
         ):
             raise TaskNotFound("task output was not found")
-        outputs[output_index - 1]["selected"] = bool(selected)
+        outputs[output_position]["selected"] = bool(selected)
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
                 assert_writes_allowed(cursor)
@@ -546,6 +674,34 @@ class GenerationTaskRepository:
                     raise TaskNotFound("task was not found")
         return self._task_from_row(row)
 
+    def accept_partial_successes(self, user_id: str, task_id: str) -> GenerationTask:
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
+                cursor.execute(
+                    """
+                    UPDATE server_generation_tasks
+                    SET status = 'completed', error_message = NULL,
+                        request_parameters = request_parameters - 'failed_output_indices',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE task_id = %s AND user_id = %s AND status = 'partial_failed'
+                      AND jsonb_array_length(COALESCE(output_files, '[]'::jsonb)) > 0
+                    RETURNING *
+                    """,
+                    (task_id, user_id),
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    raise TaskConfigurationError("task has no partial successes to accept")
+                record_audit_event(
+                    cursor,
+                    action="task.partial_successes_accepted",
+                    actor_user_id=user_id,
+                    subject_user_id=user_id,
+                    details={"task_id": task_id},
+                )
+        return self._task_from_row(row)
+
     def delete_unselected_outputs(self, user_id: str, task_id: str) -> GenerationTask:
         task = self.get_task(user_id, task_id)
         outputs = task_output_records(task)
@@ -553,7 +709,7 @@ class GenerationTaskRepository:
         existing_deleted = [dict(item) for item in outputs if bool(item.get("deleted"))]
         selected = [item for item in active if bool(item.get("selected", True))]
         removed = [item for item in active if not bool(item.get("selected", True))]
-        if task.status != "completed" or not selected or not removed:
+        if task.status not in {"completed", "partial_failed"} or not selected or not removed:
             raise TaskConfigurationError("select at least one result and leave at least one unselected result")
         deleted_at = datetime.now(timezone.utc)
         for index, item in enumerate(selected, start=1):
@@ -629,9 +785,17 @@ class GenerationTaskRepository:
     def restore_output(self, user_id: str, task_id: str, output_index: int) -> GenerationTask:
         task = self.get_task(user_id, task_id)
         outputs = task_output_records(task)
-        if task.status != "completed" or output_index < 1 or output_index > len(outputs):
+        output_position = next(
+            (
+                position
+                for position, output in enumerate(outputs)
+                if int(output.get("index") or position + 1) == output_index
+            ),
+            None,
+        )
+        if task.status not in {"completed", "partial_failed"} or output_position is None:
             raise TaskNotFound("task output was not found")
-        output = outputs[output_index - 1]
+        output = outputs[output_position]
         if not bool(output.get("deleted")) or output.get("storage_purged_at"):
             raise TaskNotFound("deleted task output was not found")
         for key in ("deleted", "deleted_at", "purge_after"):
@@ -910,10 +1074,15 @@ class GenerationTaskRepository:
             consumed=consumed,
         )
 
-    def _release_department_reservation(self, user_id: str, period_start: str | None) -> None:
+    def _release_department_reservation(
+        self,
+        user_id: str,
+        period_start: str | None,
+        units: int = 1,
+    ) -> None:
         if period_start and self.departments is not None:
             try:
-                self.departments.settle(user_id, period_start, units=1, consumed=False)
+                self.departments.settle(user_id, period_start, units=units, consumed=False)
             except Exception:
                 # Preserve the original submission error; reconciliation can repair a stale reservation.
                 pass
@@ -1104,7 +1273,10 @@ class GenerationTaskRepository:
         task: GenerationTask,
         *,
         attempt_id: str,
-        outputs: list[tuple[bytes, str, str]],
+        outputs: list[tuple[bytes, str, str] | tuple[bytes, str, str, dict[str, object]]],
+        final_status: Literal["completed", "partial_failed"] = "completed",
+        error_message: str | None = None,
+        failed_output_indices: list[int] | None = None,
     ) -> GenerationTask:
         if not outputs or len(outputs) > 4:
             raise TaskConfigurationError("task output count is invalid")
@@ -1118,6 +1290,9 @@ class GenerationTaskRepository:
                     task,
                     attempt_id=attempt_id,
                     outputs=outputs,
+                    final_status=final_status,
+                    error_message=error_message,
+                    failed_output_indices=failed_output_indices,
                 )
 
     def _complete_task_outputs_unlocked(
@@ -1125,11 +1300,17 @@ class GenerationTaskRepository:
         task: GenerationTask,
         *,
         attempt_id: str,
-        outputs: list[tuple[bytes, str, str]],
+        outputs: list[tuple[bytes, str, str] | tuple[bytes, str, str, dict[str, object]]],
+        final_status: Literal["completed", "partial_failed"],
+        error_message: str | None,
+        failed_output_indices: list[int] | None,
     ) -> GenerationTask:
         output_files: list[dict[str, object]] = []
         written_paths: list[Path] = []
-        for output_index, (image_bytes, output_format, revised_prompt) in enumerate(outputs, start=1):
+        for fallback_index, output in enumerate(outputs, start=1):
+            image_bytes, output_format, revised_prompt = output[:3]
+            output_metadata = output[3] if len(output) > 3 else {}
+            output_index = int(output_metadata.get("index") or fallback_index)
             suffix = "" if output_index == 1 else f"-{output_index}"
             relative_path = (
                 Path("tasks") / task.user_id / task.task_id
@@ -1166,6 +1347,11 @@ class GenerationTaskRepository:
                     "revised_prompt": revised_prompt,
                     "output_format": _safe_extension(output_format),
                     "selected": True,
+                    **(
+                        {"seed": output_metadata.get("seed")}
+                        if output_metadata.get("seed") is not None
+                        else {}
+                    ),
                 }
             )
         first = output_files[0]
@@ -1187,11 +1373,13 @@ class GenerationTaskRepository:
                     cursor.execute(
                         """
                         UPDATE server_generation_tasks
-                        SET status = 'completed', result_relative_path = %s,
+                        SET status = %s, result_relative_path = %s,
                             thumbnail_relative_path = %s,
                             thumbnail_bytes = %s,
                             result_media_type = %s, result_sha256 = %s,
                             result_bytes = %s, revised_prompt = %s, output_files = %s::jsonb,
+                            error_message = %s,
+                            request_parameters = request_parameters || %s::jsonb,
                             completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
                         WHERE task_id = %s AND status = 'running' AND cancel_requested = FALSE
                           AND EXISTS (
@@ -1201,6 +1389,7 @@ class GenerationTaskRepository:
                         RETURNING *
                         """,
                         (
+                            final_status,
                             first["relative_path"],
                             first["thumbnail_relative_path"],
                             first["thumbnail_bytes"],
@@ -1209,6 +1398,11 @@ class GenerationTaskRepository:
                             first["byte_size"],
                             first["revised_prompt"],
                             json.dumps(output_files, separators=(",", ":")),
+                            " ".join(str(error_message or "").split())[:2000] or None,
+                            json.dumps(
+                                {"failed_output_indices": list(failed_output_indices or [])},
+                                separators=(",", ":"),
+                            ),
                             task.task_id,
                             attempt_id,
                             task.task_id,
@@ -1269,22 +1463,24 @@ class GenerationTaskRepository:
                     cursor.execute(
                         """
                         UPDATE server_generation_task_attempts
-                        SET status = 'completed', completed_at = CURRENT_TIMESTAMP,
+                        SET status = %s, completed_at = CURRENT_TIMESTAMP,
                             updated_at = CURRENT_TIMESTAMP, result_relative_path = %s,
-                            result_sha256 = %s, result_bytes = %s
+                            result_sha256 = %s, result_bytes = %s, error_message = %s
                         WHERE attempt_id = %s AND task_id = %s AND status = 'running'
                         """,
                         (
+                            final_status,
                             first["relative_path"],
                             first["sha256"],
                             sum(int(item["byte_size"]) for item in output_files),
+                            " ".join(str(error_message or "").split())[:2000] or None,
                             attempt_id,
                             task.task_id,
                         ),
                     )
                     record_audit_event(
                         cursor,
-                        action="task.completed",
+                        action="task.completed" if final_status == "completed" else "task.partial_failed",
                         actor_user_id=None,
                         subject_user_id=task.user_id,
                         details={
@@ -1505,7 +1701,12 @@ class GenerationTaskRepository:
             user_id=row["user_id"],
             provider_version_id=row["provider_version_id"],
             provider_scope=cast(Literal["personal", "department"], row.get("provider_scope") or "personal"),
+            generation_model_id=row.get("generation_model_id"),
+            model_display_name=str(row.get("model_display_name") or row["model_id"]),
             model_id=row["model_id"],
+            capability_profile_id=str(row.get("capability_profile_id") or "generic-basic"),
+            capability_profile_version=int(row.get("capability_profile_version") or 1),
+            capability_snapshot=dict(row.get("capability_snapshot") or {}),
             prompt=row["prompt"],
             request_parameters=row["request_parameters"],
             input_relative_path=row["input_relative_path"],
@@ -1573,14 +1774,126 @@ def task_output_records(task: GenerationTask) -> list[dict[str, object]]:
 
 
 def _model_is_allowed(models: object, model_id: str) -> bool:
+    model = _resolve_generation_model(models, model_id)
+    return model is not None and bool(model.get("is_enabled", True))
+
+
+def _resolve_generation_model(models: object, model_id: str) -> dict[str, object] | None:
     if not isinstance(models, list):
-        return False
-    return any(
-        isinstance(model, dict)
-        and model.get("model_id") == model_id
-        and "image_generation" in model.get("capabilities", [])
+        return None
+    matches = [
+        model
         for model in models
-    )
+        if isinstance(model, dict)
+        and model.get("model_id") == model_id
+        and (
+            "capability_profile_id" in model
+            or "image_generation" in model.get("capabilities", [])
+        )
+    ]
+    if len(matches) != 1:
+        return None
+    return cast(dict[str, object], matches[0])
+
+
+def _validated_task_parameters(
+    value: dict[str, object],
+    profile: dict[str, object],
+    *,
+    reference_image_count: int,
+) -> dict[str, object]:
+    parameters = dict(value)
+    mode = str(parameters.get("mode") or "generate")
+    supported_modes = [str(item) for item in profile.get("task_modes", [])]
+    if mode not in supported_modes:
+        raise TaskConfigurationError("selected model does not support this task mode")
+    maximum_references = int(profile.get("max_reference_images") or 0)
+    if reference_image_count > maximum_references:
+        raise TaskConfigurationError(
+            f"selected model supports at most {maximum_references} reference images"
+        )
+
+    size = str(parameters.get("size") or profile.get("default_size") or "")
+    supported_sizes = [str(item) for item in profile.get("sizes", [])]
+    if size not in supported_sizes:
+        if not bool(profile.get("custom_size")):
+            raise TaskConfigurationError("selected model does not support this output size")
+        try:
+            width_text, height_text = size.lower().split("x", 1)
+            width, height = int(width_text), int(height_text)
+        except (TypeError, ValueError) as error:
+            raise TaskConfigurationError("output size is invalid") from error
+        constraints = profile.get("size_constraints")
+        constraints = constraints if isinstance(constraints, dict) else {}
+        minimum = int(constraints.get("min_dimension") or 1)
+        maximum = int(constraints.get("max_dimension") or 32768)
+        aspect = width / height if height else 0
+        if (
+            width < minimum
+            or height < minimum
+            or width > maximum
+            or height > maximum
+            or aspect < float(constraints.get("min_aspect_ratio") or 0)
+            or aspect > float(constraints.get("max_aspect_ratio") or 1_000_000)
+        ):
+            raise TaskConfigurationError("selected model does not support this output size")
+    parameters["size"] = size
+
+    output_format = str(
+        parameters.get("output_format") or profile.get("default_output_format") or "png"
+    ).lower()
+    if output_format not in [str(item) for item in profile.get("output_formats", [])]:
+        raise TaskConfigurationError("selected model does not support this output format")
+    parameters["output_format"] = output_format
+    try:
+        output_count = int(parameters.get("n") or 1)
+    except (TypeError, ValueError) as error:
+        raise TaskConfigurationError("output count is invalid") from error
+    if output_count < int(profile.get("min_output_count") or 1) or output_count > int(
+        profile.get("max_output_count") or 1
+    ):
+        raise TaskConfigurationError("selected model does not support this output count")
+    parameters["n"] = output_count
+
+    prompt_mode = str(parameters.get("prompt_optimization_mode") or "off").lower()
+    prompt_modes = [str(item) for item in profile.get("prompt_optimization_modes", [])]
+    if prompt_mode != "off" and prompt_mode not in prompt_modes:
+        raise TaskConfigurationError("selected model does not support this prompt optimization mode")
+    parameters["prompt_optimization_mode"] = prompt_mode
+
+    seed_profile = profile.get("seed")
+    seed_profile = seed_profile if isinstance(seed_profile, dict) else {}
+    seed_mode = str(parameters.get("seed_mode") or "random").lower()
+    if seed_mode not in {"random", "fixed", "unsupported"}:
+        raise TaskConfigurationError("seed mode is invalid")
+    if seed_profile.get("supported"):
+        if seed_mode == "unsupported":
+            seed_mode = "random"
+        minimum_seed = int(seed_profile.get("minimum") or 0)
+        maximum_seed = int(seed_profile.get("maximum") or 2147483647)
+        if seed_mode == "random":
+            if parameters.get("retry_of_task_id") and parameters.get("seed") not in {None, ""}:
+                seed = int(parameters["seed"])
+            else:
+                seed = secrets.randbelow(maximum_seed - minimum_seed + 1) + minimum_seed
+        else:
+            try:
+                seed = int(parameters.get("seed"))
+            except (TypeError, ValueError) as error:
+                raise TaskConfigurationError("seed must be an integer") from error
+            if seed < minimum_seed or seed > maximum_seed:
+                raise TaskConfigurationError("seed is outside the supported range")
+        parameters["seed_mode"] = seed_mode
+        parameters["seed"] = seed
+    else:
+        if seed_mode == "fixed" or parameters.get("seed") not in {None, ""}:
+            raise TaskConfigurationError("selected model does not support seed")
+        parameters.pop("seed", None)
+        parameters["seed_mode"] = "unsupported"
+
+    parameters["watermark"] = False
+    parameters["capability_profile_version"] = int(profile.get("version") or 1)
+    return parameters
 
 
 def _safe_extension(output_format: str) -> str:

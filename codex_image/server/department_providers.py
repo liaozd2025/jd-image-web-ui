@@ -106,12 +106,34 @@ class DepartmentProviderRepository:
                     (provider_version_id, encrypted, mask, actor_user_id),
                 )
                 updated_at = cursor.fetchone()["updated_at"]
+                cursor.execute(
+                    """
+                    UPDATE generation_models
+                    SET validation_status = 'unverified',
+                        validation_request_id = NULL,
+                        validation_error = NULL,
+                        validated_at = NULL,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE provider_version_id = %s AND owner_user_id IS NULL
+                    """,
+                    (provider_version_id,),
+                )
                 record_audit_event(
                     cursor,
                     action="provider.department_credential_saved",
                     actor_user_id=actor_user_id,
                     subject_user_id=None,
                     details={"provider_version_id": provider_version_id},
+                )
+                record_audit_event(
+                    cursor,
+                    action="model.validation_invalidated",
+                    actor_user_id=actor_user_id,
+                    subject_user_id=None,
+                    details={
+                        "provider_version_id": provider_version_id,
+                        "reason": "department_credential_changed",
+                    },
                 )
         return DepartmentProviderCredential(
             provider_version_id=provider_version_id,

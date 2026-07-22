@@ -9,7 +9,7 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <script src="/static/pwa.js?v=pwa-1" defer></script>
     <script src="/static/workspace-preload.js?v=server-1"></script>
-    <link rel="stylesheet" href="/static/styles.css?v=runtime-574" />
+    <link rel="stylesheet" href="/static/styles.css?v=runtime-576" />
   </head>
   <body>
     <div class="layout-container">
@@ -360,6 +360,7 @@
                 </div>
                 <div class="prompt-run-wrap">
                   <button id="runButton" class="run-button prompt-run-button" type="button" aria-keyshortcuts="Meta+Enter" title="开始生成（Cmd+Enter）" data-i18n="prompt.run" data-i18n-attr="title:prompt.runTitle">开始生成</button>
+                  <span id="generationCallNotice" class="generation-call-notice hidden" aria-live="polite"></span>
                 </div>
               </div>
               <div class="prompt-template-row">
@@ -390,6 +391,12 @@
                     </div>
                   </div>
                   <div id="promptTemplateRecentDock" class="prompt-template-recent-dock hidden" aria-label="最近使用模板" data-i18n-attr="aria-label:prompt.recentTemplates"></div>
+                </div>
+                <div id="generationModelField" class="generation-model-field">
+                  <label for="generationModelSelect" data-i18n="generationModel.label">生图模型</label>
+                  <select id="generationModelSelect" class="control generation-model-select" aria-describedby="generationModelSummary generationModelNotice"></select>
+                  <span id="generationModelSummary" class="generation-model-summary"></span>
+                  <span id="generationModelNotice" class="generation-model-notice" aria-live="polite"></span>
                 </div>
                 <div class="prompt-template-entry">
                   <button id="promptTemplateButton" class="ghost-button text-sm icon-text-button resource-manage-button prompt-template-button" type="button" aria-controls="promptTemplateDrawer" aria-expanded="false" title="管理模板库" data-i18n-attr="title:prompt.manageTemplates">
@@ -726,6 +733,27 @@
                   </div>
                 </div>
 
+                <div id="promptOptimizationField" class="field generation-advanced-field hidden">
+                  <label for="promptOptimizationMode" data-i18n="generationModel.promptOptimization">Prompt 优化</label>
+                  <select id="promptOptimizationMode" class="control">
+                    <option value="off" data-i18n="generationModel.promptOptimizationOff">关闭</option>
+                  </select>
+                </div>
+
+                <div id="seedField" class="field generation-advanced-field hidden">
+                  <span data-i18n="generationModel.seed">Seed</span>
+                  <div id="seedModeGroup" class="radio-group">
+                    <button class="radio-btn active" data-val="random" type="button" data-i18n="generationModel.seedRandom">随机</button>
+                    <button class="radio-btn" data-val="fixed" type="button" data-i18n="generationModel.seedFixed">固定</button>
+                  </div>
+                  <select id="seedMode" class="hidden">
+                    <option value="random" selected>random</option>
+                    <option value="fixed">fixed</option>
+                  </select>
+                  <input id="seedValue" class="control seed-value hidden" type="number" inputmode="numeric" min="0" max="2147483647" step="1" aria-label="固定 Seed" data-i18n-attr="aria-label:generationModel.seedFixed" />
+                  <span id="seedHint" class="generation-model-summary" data-i18n="generationModel.seedHint">相同 Seed 可提高结果一致性，但不保证像素级复现</span>
+                </div>
+
                 <div class="field moderation-field">
                   <span data-i18n="output.moderation">审核</span>
                   <div class="radio-group">
@@ -1030,10 +1058,14 @@
                   <span class="api-advanced-settings-chevron" aria-hidden="true"></span>
                 </summary>
                 <div class="api-advanced-settings-body">
-                  <label class="field api-image-model-field">
-                    <span data-i18n="apiSettings.imageModel">图像生成模型</span>
-                    <input id="apiImageModel" class="control" type="text" autocomplete="off" value="gpt-image-2" />
-                  </label>
+                  <section class="api-model-editor" aria-labelledby="apiModelEditorTitle">
+                    <div class="api-model-editor-heading">
+                      <span id="apiModelEditorTitle" data-i18n="apiSettings.imageModels">生图模型</span>
+                      <button id="addApiModelButton" class="ghost-button" type="button" data-i18n="apiSettings.addModel">添加模型</button>
+                    </div>
+                    <div id="apiModelList" class="api-model-list" role="list"></div>
+                    <input id="apiImageModel" type="hidden" value="gpt-image-2" />
+                  </section>
                   <label class="field api-concurrency-field">
                     <span data-i18n="apiSettings.concurrency">并发上限</span>
                     <input id="apiImagesConcurrency" class="control" type="number" min="1" max="32" step="1" value="4" />
@@ -1556,7 +1588,7 @@
     </div>
 
     <div id="taskNotificationToastRegion" class="task-notification-toast-region" aria-live="polite"></div>
-  <script src="/static/app.js?v=runtime-576"></script>
+  <script src="/static/app.js?v=runtime-579"></script>
   <script src="/static/workspace-controls.js?v=server-1"></script>
   </body>
 </html>

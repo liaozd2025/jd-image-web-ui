@@ -129,14 +129,14 @@ def install_task_routes(
                 task = tasks.get_task(session.user.user_id, task_id)
             except TaskNotFound as error:
                 return JSONResponse(status_code=404, content={"detail": str(error)})
-            if task.status != "completed":
+            if task.status not in {"completed", "partial_failed"}:
                 return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
-            for item in task_output_records(task):
+            for output_position, item in enumerate(task_output_records(task), start=1):
                 if bool(item.get("deleted")):
                     continue
                 output_index = int(item.get("index") or 0)
                 try:
-                    path = tasks.result_path(task, output_index)
+                    path = tasks.result_path(task, output_position)
                 except TaskNotFound as error:
                     return JSONResponse(status_code=404, content={"detail": str(error)})
                 if not path.is_file():
@@ -206,10 +206,20 @@ def install_task_routes(
         return JSONResponse(content={"task": _task_payload(task)})
 
     @app.post("/api/tasks/{task_id}/resubmit", response_model=None, status_code=201)
-    def resubmit_task(request: Request, task_id: str) -> JSONResponse:
+    async def resubmit_task(request: Request, task_id: str) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
         try:
-            task = tasks.resubmit_task(session.user.user_id, task_id)
+            payload = await request.json()
+        except ValueError:
+            payload = {}
+        try:
+            task = tasks.resubmit_task(
+                session.user.user_id,
+                task_id,
+                confirm_capability_change=bool(
+                    isinstance(payload, dict) and payload.get("confirm_capability_change") is True
+                ),
+            )
         except TaskNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
         except TaskConfigurationError as error:
@@ -251,13 +261,13 @@ def install_task_routes(
             return JSONResponse(status_code=404, content={"detail": str(error)})
         try:
             if kind == "result":
-                if task.status != "completed" or task.result_media_type is None:
+                if task.status not in {"completed", "partial_failed"} or task.result_media_type is None:
                     return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
                 result_path = tasks.result_path(task)
                 media_type = task.result_media_type
                 filename = f"task-{task.task_id}.{_output_extension(task)}"
             elif kind == "thumbnail":
-                if task.status != "completed":
+                if task.status not in {"completed", "partial_failed"}:
                     return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
                 result_path = tasks.thumbnail_path(task)
                 media_type = "image/jpeg"
@@ -296,34 +306,54 @@ def _task_payload(
     stored_outputs = task_output_records(task)
     active_outputs = [item for item in stored_outputs if not bool(item.get("deleted"))]
     requested_count = max(1, min(4, int(task.request_parameters.get("n") or 1)))
-    output_count = len(stored_outputs) if stored_outputs else requested_count
-    output_status = (
-        task.status
-        if task.status in {"queued", "running", "completed", "failed", "interrupted", "cancelled"}
-        else "queued"
+    requested_indices_value = task.request_parameters.get("output_indices")
+    requested_indices = (
+        [int(item) for item in requested_indices_value]
+        if isinstance(requested_indices_value, list) and len(requested_indices_value) == requested_count
+        else list(range(1, requested_count + 1))
     )
+    record_by_index = {int(item.get("index") or position): item for position, item in enumerate(stored_outputs, start=1)}
+    record_position_by_index = {
+        int(item.get("index") or position): position
+        for position, item in enumerate(stored_outputs, start=1)
+    }
+    failed_indices = {
+        int(item)
+        for item in task.request_parameters.get("failed_output_indices", [])
+        if isinstance(item, int) or str(item).isdigit()
+    }
     outputs = []
-    for output_index in range(1, output_count + 1):
-        record = stored_outputs[output_index - 1] if output_index <= len(stored_outputs) else {}
+    for output_index in requested_indices:
+        record = record_by_index.get(output_index, {})
+        stored_output_position = record_position_by_index.get(output_index, output_index)
+        output_status = (
+            "completed"
+            if record and task.status in {"completed", "partial_failed"}
+            else "failed"
+            if task.status == "failed" or output_index in failed_indices
+            else task.status
+            if task.status in {"queued", "running", "completed", "partial_failed", "interrupted", "cancelled"}
+            else "queued"
+        )
         file_available = bool(
-            task.status == "completed"
+            task.status in {"completed", "partial_failed"}
             and record.get("relative_path")
             and not record.get("deleted")
             and not record.get("storage_purged_at")
             and not task.storage_purged_at
         )
         completed_url = (
-            f"{task_url}/outputs/{output_index}/download"
+            f"{task_url}/outputs/{stored_output_position}/download"
             if file_available
             else None
         )
         thumbnail_url = (
-            f"{task_url}/outputs/{output_index}/thumbnail"
+            f"{task_url}/outputs/{stored_output_position}/thumbnail"
             if file_available and record.get("thumbnail_relative_path")
             else None
         )
         preview_url = (
-            f"{task_url}/outputs/{output_index}/preview"
+            f"{task_url}/outputs/{stored_output_position}/preview"
             if url_prefix.startswith("/api/admin/")
             and file_available
             else None
@@ -341,7 +371,8 @@ def _task_payload(
                 "format": str(record.get("output_format") or task.request_parameters.get("output_format") or "png"),
                 "quality": str(task.request_parameters.get("quality") or "auto"),
                 "revised_prompt": record.get("revised_prompt") or task.revised_prompt,
-                "error": task.error_message,
+                "seed": record.get("seed"),
+                "error": task.error_message if output_status == "failed" else None,
                 "deleted": bool(record.get("deleted")),
                 "deleted_at": record.get("deleted_at"),
                 "purge_after": record.get("purge_after"),
@@ -373,7 +404,12 @@ def _task_payload(
         "task_id": task.task_id,
         "provider_version_id": task.provider_version_id,
         "provider_scope": task.provider_scope,
+        "generation_model_id": task.generation_model_id,
+        "model_display_name": task.model_display_name,
         "model_id": task.model_id,
+        "capability_profile_id": task.capability_profile_id,
+        "capability_profile_version": task.capability_profile_version,
+        "capability_snapshot": task.capability_snapshot,
         "prompt": task.prompt,
         "request_parameters": task.request_parameters,
         "input_sha256": task.input_sha256,
@@ -398,7 +434,7 @@ def _task_payload(
         "result_bytes": task.result_bytes,
         "thumbnail_url": (
             f"{task_url}/thumbnail"
-            if task.status == "completed" and task.thumbnail_relative_path and not task.storage_purged_at
+            if task.status in {"completed", "partial_failed"} and task.thumbnail_relative_path and not task.storage_purged_at
             else None
         ),
         "input_url": f"{task_url}/input" if task.input_relative_path and not task.storage_purged_at else None,
@@ -410,7 +446,7 @@ def _task_payload(
         "updated_at": task.updated_at,
         "result_url": (
             f"{task_url}/result"
-            if task.status == "completed" and task.result_relative_path and not task.storage_purged_at
+            if task.status in {"completed", "partial_failed"} and task.result_relative_path and not task.storage_purged_at
             else None
         ),
         "mode": str(task.request_parameters.get("mode") or ("edit" if task.input_relative_path else "generate")),
@@ -430,16 +466,16 @@ def _task_payload(
         "output_size": str(task.request_parameters.get("size") or ""),
         "output_url": (
             f"{task_url}/result"
-            if task.status == "completed" and task.result_relative_path and not task.storage_purged_at
+            if task.status in {"completed", "partial_failed"} and task.result_relative_path and not task.storage_purged_at
             else None
         ),
         "output_urls": [item["url"] for item in outputs if item["url"]],
         "thumbnail_urls": [item["thumbnail_url"] for item in outputs if item["thumbnail_url"]],
         "input_urls": [f"{task_url}/input"] if task.input_relative_path and not task.storage_purged_at and (task.input_media_type or "").startswith("image/") else [],
         "outputs": outputs,
-        "generated_count": len(active_outputs) if task.status == "completed" else 0,
-        "failed_count": requested_count if task.status == "failed" else 0,
-        "total_count": output_count,
+        "generated_count": len(active_outputs) if task.status in {"completed", "partial_failed"} else 0,
+        "failed_count": requested_count if task.status == "failed" else len(failed_indices),
+        "total_count": requested_count,
         "last_error": task.error_message,
         "error": task.error_message,
         "backend": workspace_backend,
@@ -452,7 +488,7 @@ def _task_payload(
             int(item.get("index") or index)
             for index, item in enumerate(stored_outputs, start=1)
             if bool(item.get("selected", True)) and not bool(item.get("deleted"))
-        ] if task.status == "completed" else [],
+        ] if task.status in {"completed", "partial_failed"} else [],
         "deleted_output_indexes": [
             int(item.get("index") or index)
             for index, item in enumerate(stored_outputs, start=1)

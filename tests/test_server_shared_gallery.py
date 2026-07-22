@@ -33,7 +33,11 @@ class ServerSharedGalleryTests(unittest.TestCase):
 
         with temporary_postgres_database(TEST_DATABASE_URL) as database_url:
             migration_root = Path("codex_image/server/migrations")
-            legacy_migrations = sorted(migration_root.glob("*.sql"))[:-1]
+            legacy_migrations = [
+                migration
+                for migration in sorted(migration_root.glob("*.sql"))
+                if migration.stem < "0024_shared_gallery"
+            ]
             with psycopg.connect(database_url) as connection:
                 connection.execute(
                     """
