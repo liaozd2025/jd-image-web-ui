@@ -181,7 +181,11 @@ class BindingResolver:
             choices = {row.key: row for row in definition.object_choices}
             for key, item in value.items():
                 row = choices.get(str(key))
-                if row is not None and item not in row.allowed_values:
+                if row is None:
+                    raise ValueError(
+                        f"Unknown object parameter: {definition.id}.{key}"
+                    )
+                if item not in row.allowed_values:
                     raise ValueError(
                         f"Invalid parameter value: {definition.id}.{key}: "
                         f"invalid value {item!r}"

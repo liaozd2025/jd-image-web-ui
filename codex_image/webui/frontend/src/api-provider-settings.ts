@@ -8,6 +8,8 @@ import {
   DEFAULT_CODEX_MODE,
 } from "./state-defaults";
 import { refreshHealth } from "./auth-source";
+import { refreshGenerationCatalog } from "./model-catalog";
+import { providerBindingSelectionKey, selectedProviderBinding } from "./provider-selection";
 import { updateModeSpecificSettings } from "./api-mode-settings";
 import { formatTranslation, translate } from "./i18n";
 import {
@@ -18,11 +20,29 @@ import {
 } from "./system-settings";
 import { getCsrfToken } from "./server-account";
 import { resetApiAdvancedSettings } from "./api-advanced-settings";
+import { syncThemedSelect } from "./themed-select";
 import {
   apiProviderMatchesSearch,
   scrollActiveApiProviderCardIntoView,
   updateApiProviderListPresentation,
 } from "./api-provider-list-ui";
+import {
+  BINDING_PROTOCOL_LABELS,
+  BINDING_COMPATIBILITY_LABELS,
+  availableCompatibilityLayers,
+  availableProtocolsForModel,
+  bindingFromProtocol,
+  bindingTemplateForProtocol,
+  bindingTemplateForCompatibility,
+  bindingTemplateSuggestion,
+  isBindingTemplateBaseUrl,
+  normalizeProviderBindings,
+  readProviderBindingCards,
+  renderProviderBindingCards,
+  validateProviderBindingOverlaps,
+} from "./provider-model-bindings";
+import type { BindingProtocol } from "./provider-model-bindings";
+import type { BindingCompatibility } from "./provider-model-bindings";
 
 const bridge = getLegacyBridge();
 const state = bridge.state;
@@ -62,6 +82,25 @@ export function normalizeApiProvider(provider: any = {}, index: any = 0): any {
   const models = rawModels.map((model: any, modelIndex: number) => normalizeApiModel(model, modelIndex));
   if (models.length && !models.some((model: any) => model.is_default)) models[0].is_default = true;
   const defaultModel = models.find((model: any) => model.is_default) || models[0] || { model_id: "" };
+  const legacyMode = provider.api_mode === "responses" ? "responses" : DEFAULT_API_MODE;
+  const rawBindings = Array.isArray(provider.bindings) && provider.bindings.length
+    ? provider.bindings
+    : models.map((model: any, modelIndex: number) => ({
+      id: model.generation_model_id || `${id}-${modelIndex + 1}`,
+      canonical_model_id: model.canonical_model_id || model.model_id,
+      remote_model_id: model.model_id,
+      protocol_profile: model.protocol_profile || (legacyMode === "responses" ? "openai_responses" : "openai_images"),
+      parameter_codec: model.parameter_codec || (legacyMode === "responses" ? "gpt_openai_responses" : "gpt_openai_images"),
+      operations: model.supported_operations?.length ? model.supported_operations : ["generate", "edit"],
+      is_default: model.is_default,
+    }));
+  const bindings = normalizeProviderBindings(
+    rawBindings,
+    id,
+  );
+  const gptBinding = bindings.find((binding) => binding.canonical_model_id === "gpt-image-2") || bindings[0];
+  const apiMode = gptBinding?.protocol_profile === "openai_responses" ? "responses" : "images";
+  const concurrency = normalizeApiImagesConcurrency(provider.concurrency ?? provider.images_concurrency);
   return {
     id,
     provider_version_id: String(provider.provider_version_id || "").trim(),
@@ -71,8 +110,8 @@ export function normalizeApiProvider(provider: any = {}, index: any = 0): any {
     base_url: String(provider.base_url || DEFAULT_API_BASE_URL).trim() || DEFAULT_API_BASE_URL,
     api_key: String(provider.api_key || "").trim(),
     image_model: defaultModel.model_id,
-    api_mode: provider.api_mode === "responses" ? "responses" : DEFAULT_API_MODE,
-    images_concurrency: normalizeApiImagesConcurrency(provider.images_concurrency),
+    api_mode: apiMode,
+    images_concurrency: concurrency,
     api_key_set: Boolean(provider.api_key_set || provider.api_key),
     api_key_masked: String(provider.api_key_masked || ""),
     api_key_source_provider_id: String(provider.api_key_source_provider_id || "").trim(),
@@ -81,6 +120,12 @@ export function normalizeApiProvider(provider: any = {}, index: any = 0): any {
     model_selection_reason: String(provider.model_selection_reason || ""),
     read_only: Boolean(provider.read_only),
     catalog_fields_read_only: Boolean(provider.catalog_fields_read_only),
+    concurrency,
+    bindings,
+    icon_emoji: String(provider.icon_emoji || "").trim(),
+    default_model_ids: Array.isArray(provider.default_model_ids)
+      ? provider.default_model_ids.map((value: any) => String(value || "").trim()).filter(Boolean)
+      : models.filter((model: any) => model.is_default).map((model: any) => model.canonical_model_id || model.model_id),
   };
 }
 
@@ -110,6 +155,51 @@ function normalizeApiModel(model: any = {}, index = 0): any {
   };
 }
 
+function providerModelsFromBindings(provider: any): any[] {
+  const bindings = Array.isArray(provider.bindings) ? provider.bindings : [];
+  const existingModels = Array.isArray(provider.models) ? provider.models : [];
+  const existingDefault = existingModels.find((model: any) => model.is_default);
+  return bindings.map((binding: any, index: number) => {
+    const existing = existingModels.find((model: any) => (
+      model.generation_model_id === binding.id
+      || (model.canonical_model_id || model.model_id) === binding.canonical_model_id
+    ));
+    const manifest = state.generationCatalog?.models?.find((model: any) => model.id === binding.canonical_model_id);
+    const isDefault = existingDefault
+      ? existing === existingDefault
+      : index === 0;
+    return {
+      generation_model_id: existing?.generation_model_id || binding.id,
+      display_name: existing?.display_name || manifest?.display_name || binding.remote_model_id,
+      model_id: binding.remote_model_id,
+      capability_profile_id: existing?.capability_profile_id || binding.canonical_model_id || "generic-basic",
+      model_family_id: manifest?.family_id || existing?.model_family_id || "gpt-image",
+      canonical_model_id: binding.canonical_model_id,
+      protocol_profile: binding.protocol_profile,
+      parameter_codec: binding.parameter_codec,
+      supported_operations: binding.operations,
+      append_aspect_ratio_prompt: Boolean(binding.append_aspect_ratio_prompt),
+      is_default: isDefault,
+      is_enabled: existing?.is_enabled !== false,
+    };
+  });
+}
+
+function appendProviderIdentity(target: HTMLElement, provider: any, className: string): void {
+  const icon = String(provider?.icon_emoji || "").trim();
+  if (icon) {
+    const emoji = document.createElement("span");
+    emoji.className = "api-provider-emoji";
+    emoji.setAttribute("aria-hidden", "true");
+    emoji.textContent = icon;
+    target.append(emoji);
+  }
+  const label = document.createElement("span");
+  label.className = className;
+  label.textContent = provider?.name || provider?.id || "";
+  target.append(label);
+}
+
 export function normalizeApiImagesConcurrency(value: any): number {
   const parsed = Number.parseInt(value, 10);
   if (Number.isNaN(parsed)) return DEFAULT_API_IMAGES_CONCURRENCY;
@@ -126,7 +216,8 @@ function providerById(providerId: any, settings: any = state.apiSettings): any {
 }
 
 function providerMode(provider: any): string {
-  return provider?.api_mode === "responses" ? "responses" : DEFAULT_API_MODE;
+  const binding = provider?.bindings?.find?.((item: any) => item.canonical_model_id === "gpt-image-2") || provider?.bindings?.[0];
+  return binding?.protocol_profile === "openai_responses" ? "responses" : DEFAULT_API_MODE;
 }
 
 function apiBaseUrlForEndpoint(value: any): string {
@@ -144,11 +235,8 @@ export function updateApiRequestEndpointPreview(): void {
   if (!els.apiRequestEndpointPreview) return;
   const provider = state.apiProviderDraft || activeApiProvider();
   const baseUrl = apiBaseUrlForEndpoint(els.apiBaseUrl?.value || provider?.base_url);
-  const mode = els.apiMode?.value || providerMode(provider);
-  const endpoint = mode === "responses"
-    ? "/responses"
-    : state.mode === "edit" ? "/images/edits" : "/images/generations";
-  const preview = `POST ${baseUrl}${endpoint}`;
+  const bindingCount = readProviderBindingCards(els.apiProviderBindings).length || provider?.bindings?.length || 0;
+  const preview = `${baseUrl} · ${bindingCount} · ${translate("apiSettings.modelBindings")}`;
   els.apiRequestEndpointPreview.textContent = preview;
   els.apiRequestEndpointPreview.title = preview;
 }
@@ -164,10 +252,9 @@ function providerKeyLabel(provider: any): string {
 
 function providerMetaLabel(provider: any): string {
   return [
-    apiModeLabel(providerMode(provider)),
-    formatTranslation("apiSettings.modelCount", { count: String(provider?.models?.length || 0) }),
+    `${provider?.bindings?.length || 0} · ${translate("apiSettings.modelBindings")}`,
     formatTranslation("apiSettings.concurrencyValue", {
-      concurrency: String(normalizeApiImagesConcurrency(provider?.images_concurrency)),
+      concurrency: String(normalizeApiImagesConcurrency(provider?.concurrency ?? provider?.images_concurrency)),
     }),
   ].filter(Boolean).join(" · ");
 }
@@ -271,17 +358,16 @@ function apiProviderEditorActive(): boolean {
 
 function draftProviderFromForm(): any {
   const draft = state.apiProviderDraft || activeApiProvider();
-  const models = readModelDraftRows();
-  const defaultModel = models.find((model: any) => model.is_default) || models[0];
+  const bindingCards = readProviderBindingCards(els.apiProviderBindings);
   return normalizeApiProvider({
     ...draft,
     name: els.apiProviderName?.value || draft.name,
+    icon_emoji: els.apiProviderIconEmoji ? els.apiProviderIconEmoji.value : draft.icon_emoji,
     base_url: els.apiBaseUrl?.value || DEFAULT_API_BASE_URL,
     api_key: els.apiKey?.value || "",
-    api_mode: els.apiMode?.value || DEFAULT_API_MODE,
-    image_model: defaultModel?.model_id || DEFAULT_API_IMAGE_MODEL,
-    models,
-    images_concurrency: normalizeApiImagesConcurrency(els.apiImagesConcurrency?.value),
+    concurrency: normalizeApiImagesConcurrency(els.apiImagesConcurrency?.value),
+    bindings: bindingCards,
+    default_model_ids: bindingCards.filter((binding) => binding.is_default).map((binding) => binding.canonical_model_id),
     api_key_set: Boolean(draft.api_key_set || draft.api_key || draft.api_key_source_provider_id),
     api_key_masked: draft.api_key_masked,
     api_key_source_provider_id: draft.api_key_source_provider_id,
@@ -393,6 +479,7 @@ function renderProviderModelEditor(provider: any): void {
   if (!els.apiModelList) return;
   const models = (provider.models || []).map((model: any, index: number) => normalizeApiModel(model, index));
   const readOnly = Boolean(provider.read_only);
+  const validationOnly = Boolean(els.apiProviderBindings);
   const rows = models.map((model: any, index: number) => {
     const row = document.createElement("div");
     row.className = "api-model-row";
@@ -499,6 +586,19 @@ function renderProviderModelEditor(provider: any): void {
       void queueDepartmentModelValidation(model.generation_model_id);
     });
 
+    if (validationOnly) {
+      const identity = document.createElement("div");
+      identity.className = "api-model-validation-identity";
+      const name = document.createElement("strong");
+      name.textContent = model.display_name;
+      const remoteId = document.createElement("code");
+      remoteId.textContent = model.model_id;
+      identity.append(name, remoteId);
+      row.classList.add("api-model-validation-row");
+      row.append(identity, status, validate);
+      return row;
+    }
+
     [displayName, modelId, profile, defaultInput, enabledInput].forEach((control: any) => {
       control.disabled = readOnly;
       control.addEventListener("input", syncModelDraftFromRows);
@@ -532,29 +632,41 @@ function writeProviderForm(provider: any): void {
   const catalogFieldsReadOnly = Boolean(provider.catalog_fields_read_only);
   const providerReadOnly = Boolean(provider.read_only);
   if (els.apiProviderName) els.apiProviderName.value = provider.name || "";
+  if (els.apiProviderIconEmoji) els.apiProviderIconEmoji.value = provider.icon_emoji || "";
   if (els.apiBaseUrl) els.apiBaseUrl.value = provider.base_url || DEFAULT_API_BASE_URL;
-  if (els.apiMode) {
-    els.apiMode.value = providerMode(provider);
-    els.apiMode.dispatchEvent(new Event("change"));
-  }
-  if (els.apiImageModel) els.apiImageModel.value = provider.image_model || DEFAULT_API_IMAGE_MODEL;
-  renderProviderModelEditor(provider);
-  if (els.apiImagesConcurrency) els.apiImagesConcurrency.value = String(normalizeApiImagesConcurrency(provider.images_concurrency));
+  if (els.apiImagesConcurrency) els.apiImagesConcurrency.value = String(normalizeApiImagesConcurrency(provider.concurrency ?? provider.images_concurrency));
   if (els.apiKey) {
     els.apiKey.value = provider.api_key || "";
     els.apiKey.placeholder = provider.api_key_set && !provider.api_key
       ? translate("apiSettings.savedKeyPlaceholder")
       : "sk-...";
   }
-  [els.apiProviderName, els.apiBaseUrl, els.apiMode, els.apiImagesConcurrency]
+  [els.apiProviderName, els.apiBaseUrl, els.apiImagesConcurrency]
     .filter(Boolean)
     .forEach((element: any) => { element.disabled = catalogFieldsReadOnly || providerReadOnly; });
   if (els.apiKey) els.apiKey.disabled = providerReadOnly;
   if (els.apiKeyRevealButton) els.apiKeyRevealButton.disabled = providerReadOnly || !els.apiKey?.value;
   hideApiKeyReveal();
   updateApiKeyRevealButton();
+  renderProviderBindingCards(
+    els.apiProviderBindings,
+    provider.bindings || [],
+    state.generationCatalog?.models || [],
+    provider.id,
+    state.apiSettings.default_provider_by_model || {},
+  );
+  if (els.apiModelValidationSection) {
+    els.apiModelValidationSection.classList.toggle("hidden", provider.provider_scope !== "department");
+  }
+  renderProviderModelEditor(provider);
   updateApiRequestEndpointPreview();
   resetApiAdvancedSettings();
+}
+
+function defaultsForProviderDraft(provider: any): Record<string, string> {
+  const defaults = { ...(state.apiSettings.default_provider_by_model || {}) };
+  (provider.default_model_ids || []).forEach((modelId: string) => { defaults[modelId] = provider.id; });
+  return defaults;
 }
 
 export function renderApiProviderList(): void {
@@ -587,7 +699,8 @@ export function renderApiProviderList(): void {
       const content = document.createElement("div");
       content.className = "api-provider-sort-content";
       const name = document.createElement("strong");
-      name.textContent = provider.name || provider.id;
+      name.className = "api-provider-sort-name";
+      appendProviderIdentity(name, provider, "api-provider-choice-label");
       const meta = document.createElement("span");
       meta.textContent = providerMetaLabel(provider);
       content.append(name, meta);
@@ -623,7 +736,8 @@ export function renderApiProviderList(): void {
     button.setAttribute("role", "option");
     button.setAttribute("aria-selected", active ? "true" : "false");
     const name = document.createElement("strong");
-    name.textContent = provider.name || provider.id;
+    name.className = "api-provider-choice-name";
+    appendProviderIdentity(name, provider, "api-provider-choice-label");
     const meta = document.createElement("span");
     meta.textContent = providerMetaLabel(provider);
     button.append(name, meta);
@@ -644,8 +758,11 @@ function renderApiProviderDetail(): void {
   const provider = activeApiProvider();
   setElementText(els.apiProviderDetailBaseUrl, provider.base_url || DEFAULT_API_BASE_URL);
   setElementText(els.apiProviderDetailKey, providerKeyLabel(provider));
-  setElementText(els.apiProviderDetailMode, apiModeLabel(providerMode(provider)));
-  setElementText(els.apiProviderDetailConcurrency, normalizeApiImagesConcurrency(provider.images_concurrency));
+  setElementText(
+    els.apiProviderDetailMode,
+    `${provider.bindings?.length || 0} · ${translate("apiSettings.modelBindings")}`,
+  );
+  setElementText(els.apiProviderDetailConcurrency, normalizeApiImagesConcurrency(provider.concurrency ?? provider.images_concurrency));
   if (els.editApiProviderButton) els.editApiProviderButton.disabled = Boolean(provider.read_only);
   els.copyApiProviderButton?.classList.toggle("hidden", !state.apiSettings.allow_new_provider);
   const isServerWorkspace = Boolean(document.documentElement.dataset.userRole);
@@ -672,6 +789,18 @@ function applyApiProviderDraft(settings: any): any {
     normalized.providers.push(normalizeApiProvider(draft, normalized.providers.length));
   }
   normalized.active_provider_id = draft.id;
+  const defaultModelIds = new Set(draft.default_model_ids || []);
+  for (const binding of draft.bindings || []) {
+    const modelId = binding.canonical_model_id;
+    if (defaultModelIds.has(modelId)) normalized.default_provider_by_model[modelId] = draft.id;
+    else if (normalized.default_provider_by_model[modelId] === draft.id) delete normalized.default_provider_by_model[modelId];
+  }
+  for (const modelId of Object.keys(normalized.default_provider_by_model)) {
+    if (normalized.default_provider_by_model[modelId] !== draft.id) continue;
+    if (!(draft.bindings || []).some((binding: any) => binding.canonical_model_id === modelId)) {
+      delete normalized.default_provider_by_model[modelId];
+    }
+  }
   state.apiProviderEditingId = null;
   state.apiProviderDraft = null;
   state.apiProviderDraftIsNew = false;
@@ -704,8 +833,10 @@ export function normalizeApiSettings(settings: any = {}): any {
   const requestedActive = String(settings.active_provider_id || providers[0].id).trim().toLowerCase();
   const activeProvider = providers.find((provider) => provider.id === requestedActive) || providers[0];
   return {
+    schema_version: 2,
     codex_mode: normalizeCodexMode(settings.codex_mode),
     active_provider_id: activeProvider.id,
+    default_provider_by_model: { ...(settings.default_provider_by_model || { "gpt-image-2": activeProvider.id }) },
     providers,
     allow_new_provider: Boolean(settings.allow_new_provider),
     credential_scope: settings.credential_scope === "department" ? "department" : "personal",
@@ -735,7 +866,16 @@ export function persistApiSettings(): void {
     localStorage.setItem(API_SETTINGS_STORAGE_KEY, JSON.stringify({
       codex_mode: state.apiSettings.codex_mode,
       active_provider_id: state.apiSettings.active_provider_id,
-      providers: state.apiSettings.providers,
+      default_provider_by_model: state.apiSettings.default_provider_by_model,
+      providers: state.apiSettings.providers.map((provider: any) => ({
+        id: provider.id,
+        name: provider.name,
+        icon_emoji: provider.icon_emoji || "",
+        concurrency: provider.concurrency,
+        bindings: provider.bindings,
+        api_key_set: provider.api_key_set,
+        api_key_masked: provider.api_key_masked,
+      })),
     }));
   } catch {
     // Browser storage may be unavailable in restricted contexts.
@@ -771,11 +911,6 @@ export async function refreshApiSettings(): Promise<void> {
 
 export function populateApiSettingsForm(): void {
   const provider = activeApiProvider();
-  if (els.codexMode) {
-    els.codexMode.value = currentCodexMode();
-    els.codexMode.dispatchEvent(new Event("change"));
-    syncCodexModeNotes();
-  }
   if (els.apiProviderQuick) {
     els.apiProviderQuick.innerHTML = "";
     state.apiSettings.providers.forEach((item: any) => {
@@ -805,16 +940,18 @@ export function populateApiSettingsForm(): void {
 
 export function readApiSettingsForm(options: any = {}): any {
   const settings = normalizeApiSettings(state.apiSettings);
-  settings.codex_mode = normalizeCodexMode(els.codexMode?.value || settings.codex_mode);
   state.apiSettings = options.applyProviderDraft ? applyApiProviderDraft(settings) : normalizeApiSettings(settings);
   return state.apiSettings;
 }
 
 export function currentApiProviderId(): string {
+  if (state.selectedProviderId && state.selectedProviderId !== "codex") return state.selectedProviderId;
   return activeApiProvider().id;
 }
 
 export function currentApiProviderLabel(): string {
+  const selected = state.generationCatalog?.providers.find((provider: any) => provider.id === state.selectedProviderId);
+  if (selected) return String(selected.name || selected.id);
   const provider = activeApiProvider();
   return String(provider.name || provider.id || "").trim() || provider.id;
 }
@@ -833,9 +970,8 @@ export function addApiProvider(): void {
     id,
     name: translate("apiSettings.newProvider"),
     base_url: DEFAULT_API_BASE_URL,
-    image_model: DEFAULT_API_IMAGE_MODEL,
-    api_mode: DEFAULT_API_MODE,
-    images_concurrency: DEFAULT_API_IMAGES_CONCURRENCY,
+    concurrency: DEFAULT_API_IMAGES_CONCURRENCY,
+    bindings: [bindingFromProtocol(`${id}-gpt-image-2`, "gpt-image-2", DEFAULT_API_IMAGE_MODEL, "openai_images")],
   }, state.apiSettings.providers.length);
   populateApiSettingsForm();
   setApiSettingsFeedback(translate("apiSettings.newDraftStatus"), "running");
@@ -857,6 +993,7 @@ export function copyApiProvider(): void {
   state.apiProviderDraftIsNew = true;
   state.apiProviderDraft = normalizeApiProvider({
     ...provider,
+    bindings: provider.bindings.map((binding: any, index: number) => ({ ...binding, id: `${id}-binding-${index + 1}` })),
     id,
     name: copiedProviderName(provider),
     api_key: "",
@@ -879,6 +1016,12 @@ export function deleteApiProvider(): void {
   const activeId = state.apiSettings.active_provider_id;
   state.apiSettings.providers = state.apiSettings.providers.filter((provider: any) => provider.id !== activeId);
   state.apiSettings.active_provider_id = state.apiSettings.providers[0]?.id || "default";
+  Object.entries(state.apiSettings.default_provider_by_model || {}).forEach(([modelId, providerId]) => {
+    if (providerId === activeId) delete state.apiSettings.default_provider_by_model[modelId];
+  });
+  Object.entries(state.lastProviderByModel || {}).forEach(([modelId, providerId]) => {
+    if (providerId === activeId) delete state.lastProviderByModel[modelId];
+  });
   if (state.apiSettings.providers.length <= 1) state.apiProviderSortMode = false;
   populateApiSettingsForm();
   persistApiSettings();
@@ -917,6 +1060,10 @@ export function openApiSettingsModal(): void {
   scrollActiveApiProviderCardIntoView(activeApiProvider().id, "center");
 }
 
+export function openGenerationProviderSettings(): void {
+  openApiSettingsModal();
+}
+
 export function closeApiSettingsModal(): void {
   closeSystemSettingsModal();
 }
@@ -938,6 +1085,7 @@ export function selectApiProvider(providerId: any, anchor?: HTMLElement | null):
     populateApiSettingsForm();
     scrollActiveApiProviderCardIntoView(provider.id, "nearest");
     persistApiSettings();
+    legacyMethod("selectGenerationProvider", provider.id);
     renderAuthSourceAfterProviderChange();
     queueApiSettingsAutosave();
   };
@@ -965,6 +1113,7 @@ export function editApiProvider(): void {
 
 export function cancelApiProviderEdit(): void {
   if (!apiProviderEditorActive()) return;
+  els.systemSettingsApiTab?.focus({ preventScroll: true });
   state.apiProviderEditingId = null;
   state.apiProviderDraft = null;
   state.apiProviderDraftIsNew = false;
@@ -1012,27 +1161,201 @@ export async function saveApiProviderEdit(): Promise<void> {
   await saveApiSettings();
 }
 
+export function addProviderBinding(): void {
+  if (!apiProviderEditorActive()) return;
+  const draft = draftProviderFromForm();
+  const models = state.generationCatalog?.models || [];
+  const model = models.find((item: any) => !draft.bindings.some((binding: any) => binding.canonical_model_id === item.id))
+    || models[0];
+  if (!model) {
+    setApiSettingsFeedback(translate("apiSettings.catalogRequiredForBinding"), "error");
+    return;
+  }
+  const bindingId = `${draft.id}-binding-${Date.now()}`;
+  const protocol = availableProtocolsForModel(model.id)[0];
+  if (!protocol) {
+    setApiSettingsFeedback(translate("apiSettings.catalogRequiredForBinding"), "error");
+    return;
+  }
+  draft.bindings.push(bindingFromProtocol(
+    bindingId,
+    model.id,
+    model.official_model_id || model.id,
+    protocol,
+    [...model.operations],
+  ));
+  if (!state.apiSettings.default_provider_by_model?.[model.id]) {
+    draft.default_model_ids = [...new Set([...(draft.default_model_ids || []), model.id])];
+  }
+  state.apiProviderDraft = draft;
+  renderProviderBindingCards(
+    els.apiProviderBindings,
+    draft.bindings,
+    models,
+    draft.id,
+    defaultsForProviderDraft(draft),
+  );
+  updateApiRequestEndpointPreview();
+}
+
+export function removeProviderBinding(bindingId: string): void {
+  if (!apiProviderEditorActive()) return;
+  const draft = draftProviderFromForm();
+  if (draft.bindings.length <= 1) {
+    setApiSettingsFeedback(translate("apiSettings.keepOneBinding"), "error");
+    return;
+  }
+  draft.bindings = draft.bindings.filter((binding: any) => binding.id !== bindingId);
+  state.apiProviderDraft = draft;
+  renderProviderBindingCards(
+    els.apiProviderBindings,
+    draft.bindings,
+    state.generationCatalog?.models || [],
+    draft.id,
+    defaultsForProviderDraft(draft),
+  );
+  updateApiRequestEndpointPreview();
+}
+
+export function handleProviderBindingEditorChange(event: Event): void {
+  const target = event.target as HTMLInputElement | HTMLSelectElement | null;
+  const card = target?.closest<HTMLElement>("[data-binding-id]");
+  if (!target || !card) return;
+  if (target.matches("[data-binding-model]")) {
+    const modelId = target.value;
+    const protocols = availableProtocolsForModel(modelId);
+    const defaultProtocol = protocols[0];
+    const protocolSelect = card.querySelector<HTMLSelectElement>("[data-binding-protocol]");
+    if (protocolSelect) {
+      protocolSelect.replaceChildren(...protocols.map((protocol) => {
+        const option = document.createElement("option");
+        option.value = protocol;
+        option.textContent = BINDING_PROTOCOL_LABELS[protocol];
+        return option;
+      }));
+      protocolSelect.value = protocols[0] || "";
+      syncThemedSelect(protocolSelect);
+    }
+    const compatibilitySelect = card.querySelector<HTMLSelectElement>("[data-binding-compatibility]");
+    if (compatibilitySelect) {
+      compatibilitySelect.replaceChildren(...(defaultProtocol
+        ? availableCompatibilityLayers(modelId, defaultProtocol)
+        : []).map((compatibility) => {
+        const option = document.createElement("option");
+        option.value = compatibility;
+        option.textContent = BINDING_COMPATIBILITY_LABELS[compatibility];
+        return option;
+      }));
+      compatibilitySelect.value = "standard";
+      syncThemedSelect(compatibilitySelect);
+    }
+    card.dataset.bindingProtocolChanged = "true";
+    card.dataset.bindingCompatibilityChanged = "true";
+    if (state.apiProviderDraftIsNew && defaultProtocol) {
+      const suggestion = bindingTemplateSuggestion(bindingTemplateForProtocol(modelId, defaultProtocol));
+      const currentBase = String(els.apiBaseUrl?.value || "").trim();
+      if (!currentBase || isBindingTemplateBaseUrl(currentBase)) els.apiBaseUrl.value = suggestion.base_url;
+    }
+    const remoteInput = card.querySelector<HTMLInputElement>("[data-binding-remote-model]");
+    const model = state.generationCatalog?.models.find((item: any) => item.id === modelId);
+    if (remoteInput && !remoteInput.value.trim()) remoteInput.value = model?.official_model_id || modelId;
+    const existingOperations = String(card.dataset.bindingModelOperations || "")
+      .split(",")
+      .filter(Boolean);
+    card.dataset.bindingModelOperations = (model?.operations || existingOperations).join(",");
+  }
+  if (target.matches("[data-binding-default]")) {
+    const modelId = card.querySelector<HTMLSelectElement>("[data-binding-model]")?.value;
+    if (modelId) {
+      (els.apiProviderBindings as HTMLElement | null)?.querySelectorAll<HTMLElement>("[data-binding-id]").forEach((item) => {
+        if (item === card) return;
+        if (item.querySelector<HTMLSelectElement>("[data-binding-model]")?.value !== modelId) return;
+        const checkbox = item.querySelector<HTMLInputElement>("[data-binding-default]");
+        if (checkbox) checkbox.checked = (target as HTMLInputElement).checked;
+      });
+    }
+  }
+  if (target.matches("[data-binding-protocol]")) {
+    card.dataset.bindingProtocolChanged = "true";
+    const modelId = card.querySelector<HTMLSelectElement>("[data-binding-model]")?.value || "";
+    const compatibilitySelect = card.querySelector<HTMLSelectElement>("[data-binding-compatibility]");
+    const protocol = target.value as BindingProtocol;
+    if (compatibilitySelect) {
+      compatibilitySelect.replaceChildren(...availableCompatibilityLayers(modelId, protocol).map((compatibility) => {
+        const option = document.createElement("option");
+        option.value = compatibility;
+        option.textContent = BINDING_COMPATIBILITY_LABELS[compatibility];
+        return option;
+      }));
+      compatibilitySelect.value = "standard";
+      syncThemedSelect(compatibilitySelect);
+    }
+    card.dataset.bindingCompatibilityChanged = "true";
+    if (state.apiProviderDraftIsNew) {
+      const templateId = bindingTemplateForProtocol(modelId, protocol);
+      const suggestion = bindingTemplateSuggestion(templateId);
+      const currentBase = String(els.apiBaseUrl?.value || "").trim();
+      if (!currentBase || isBindingTemplateBaseUrl(currentBase)) els.apiBaseUrl.value = suggestion.base_url;
+    }
+  }
+  if (target.matches("[data-binding-compatibility]")) {
+    card.dataset.bindingCompatibilityChanged = "true";
+    if (state.apiProviderDraftIsNew) {
+      const modelId = card.querySelector<HTMLSelectElement>("[data-binding-model]")?.value || "";
+      const protocol = (card.querySelector<HTMLSelectElement>("[data-binding-protocol]")?.value
+        || availableProtocolsForModel(modelId)[0]) as BindingProtocol;
+      const templateId = bindingTemplateForCompatibility(
+        modelId,
+        protocol,
+        target.value as BindingCompatibility,
+      );
+      const suggestion = bindingTemplateSuggestion(templateId);
+      const currentBase = String(els.apiBaseUrl?.value || "").trim();
+      if (!currentBase || isBindingTemplateBaseUrl(currentBase)) els.apiBaseUrl.value = suggestion.base_url;
+    }
+  }
+  updateApiRequestEndpointPreview();
+}
+
 function renderAuthSourceAfterProviderChange(): void {
   legacyMethod("renderAuthSource", state.authStatus);
+  legacyMethod("renderProviderSelection");
   updateModeSpecificSettings();
   updateRequestPreview();
 }
 
+function runtimeApiProvider(): any {
+  const providers = Array.isArray(state.apiSettings?.providers) ? state.apiSettings.providers : [];
+  return providers.find((provider: any) => provider.id === state.selectedProviderId)
+    || activeApiProvider();
+}
+
 export function currentApiImageModel(): string {
-  return (activeApiProvider().image_model || DEFAULT_API_IMAGE_MODEL).trim() || DEFAULT_API_IMAGE_MODEL;
+  const provider = runtimeApiProvider();
+  const binding = provider.bindings?.find((item: any) => item.canonical_model_id === state.selectedModelId)
+    || provider.bindings?.find((item: any) => item.canonical_model_id === "gpt-image-2")
+    || provider.bindings?.[0];
+  return String(binding?.remote_model_id || provider.image_model || DEFAULT_API_IMAGE_MODEL).trim() || DEFAULT_API_IMAGE_MODEL;
 }
 
 export function currentApiMode(): string {
+  const binding = selectedProviderBinding();
+  if (binding) return String(binding.protocol_profile).includes("responses") ? "responses" : "images";
   return activeApiProvider().api_mode === "responses" ? "responses" : DEFAULT_API_MODE;
 }
 
 export function currentCodexMode(): string {
+  const binding = selectedProviderBinding();
+  if (state.selectedProviderId === "codex" && binding) {
+    return binding.protocol_profile === "codex_responses" ? "responses" : "images";
+  }
   state.apiSettings = normalizeApiSettings(state.apiSettings);
   return normalizeCodexMode(state.apiSettings.codex_mode);
 }
 
 export function currentApiImagesConcurrency(): number {
-  return normalizeApiImagesConcurrency(activeApiProvider().images_concurrency);
+  const provider = runtimeApiProvider();
+  return normalizeApiImagesConcurrency(provider.concurrency ?? provider.images_concurrency);
 }
 
 export function apiModeLabel(mode: any): string {
@@ -1058,30 +1381,21 @@ function backendModeLabel(backend: string): string {
 }
 
 export function syncCodexModeNotes(): void {
-  const mode = currentCodexMode();
-  els.codexModeNotes?.forEach?.((note: HTMLElement) => {
-    const active = note.dataset.codexModeNote === mode;
-    note.classList.toggle("active", active);
-    note.setAttribute("aria-current", active ? "true" : "false");
-  });
+  // Kept as a no-op bridge for older extension hooks. Codex protocol selection now lives in the provider menu.
 }
 
-export function selectCodexMode(mode: any, anchor?: HTMLElement | null): void {
+export function selectCodexMode(mode: any, anchor?: HTMLElement | null): boolean {
   const normalized = normalizeCodexMode(mode);
-  const continueSwitch = () => {
-    if (els.codexMode) {
-      els.codexMode.value = normalized;
-      els.codexMode.dispatchEvent(new Event("input", { bubbles: true }));
-      els.codexMode.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-    syncCodexModeNotes();
-  };
-  if (normalized === currentCodexMode()) {
-    continueSwitch();
-    return;
-  }
   void anchor;
-  continueSwitch();
+  state.apiSettings = normalizeApiSettings({ ...state.apiSettings, codex_mode: normalized });
+  legacyMethod("syncCodexCatalogMode", normalized);
+  legacyMethod("selectGenerationProvider", providerBindingSelectionKey("codex", `codex-gpt-image-2-${normalized}`));
+  legacyMethod("renderProviderSelection");
+  updateModeSpecificSettings();
+  updateRequestPreview();
+  persistApiSettings();
+  queueApiSettingsAutosave();
+  return true;
 }
 
 export function queueApiSettingsAutosave(): void {
@@ -1145,7 +1459,7 @@ export function taskBackendLabel(task: any): string {
 }
 
 export function setApiSettingsFeedback(message: any, type: any = ""): void {
-  [els.apiSettingsStatus, els.codexSettingsStatus].filter(Boolean).forEach((statusElement: any) => {
+  [els.apiSettingsStatus].filter(Boolean).forEach((statusElement: any) => {
     statusElement.textContent = message;
     statusElement.className = `api-settings-feedback settings-action-status ${type || ""}`.trim();
   });
@@ -1178,22 +1492,42 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
   }
   const previousSettings = normalizeApiSettings(state.apiSettings);
   const previousEditingId = state.apiProviderEditingId;
-  const previousDraft = state.apiProviderDraft ? { ...state.apiProviderDraft } : null;
+  const previousDraft = state.apiProviderDraft ? structuredClone(state.apiProviderDraft) : null;
   const previousDraftIsNew = state.apiProviderDraftIsNew;
+  if (!autoSave && apiProviderEditorActive()) {
+    const bindings = readProviderBindingCards(els.apiProviderBindings);
+    if (!bindings.length || bindings.some((binding) => !binding.canonical_model_id
+      || !binding.remote_model_id || !binding.operations.length)) {
+      setApiSettingsFeedback(translate("apiSettings.bindingRequiredFields"), "error");
+      return false;
+    }
+    const overlap = validateProviderBindingOverlaps(bindings);
+    if (overlap) {
+      setApiSettingsFeedback(formatTranslation("apiSettings.bindingOverlap", {
+        model: overlap.canonicalModelId,
+        operation: overlap.operation,
+      }), "error");
+      (els.apiProviderBindings as HTMLElement | null)?.querySelector<HTMLElement>(`[data-binding-id="${CSS.escape(overlap.secondBindingId)}"]`)?.scrollIntoView?.({ block: "nearest" });
+      return false;
+    }
+  }
   const settings = readApiSettingsForm({ applyProviderDraft: !autoSave });
   persistApiSettings();
   const payload: any = {
+    schema_version: 2,
     codex_mode: settings.codex_mode,
     active_provider_id: settings.active_provider_id,
+    default_provider_by_model: settings.default_provider_by_model,
     providers: settings.providers.map((provider: any) => {
       const item: any = {
         id: provider.id,
         provider_version_id: provider.provider_version_id,
         provider_key: provider.provider_key,
         name: provider.name,
+        icon_emoji: provider.icon_emoji || "",
         base_url: provider.base_url,
         image_model: provider.image_model,
-        models: provider.models.map((model: any) => ({
+        models: providerModelsFromBindings(provider).map((model: any) => ({
           generation_model_id: model.generation_model_id || undefined,
           display_name: model.display_name,
           model_id: model.model_id,
@@ -1210,6 +1544,8 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
           is_enabled: model.is_enabled,
         })),
         api_mode: provider.api_mode,
+        concurrency: provider.concurrency,
+        bindings: provider.bindings,
       };
       item.images_concurrency = provider.images_concurrency;
       item.api_key_set = provider.api_key_set;
@@ -1256,6 +1592,7 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
       state.apiSettingsSaveTimerId = null;
     }, 1600);
     setStatus(translate("apiSettings.savedStatus"), "ok");
+    await refreshGenerationCatalog();
     await refreshHealth();
     updateRequestPreview();
     return true;

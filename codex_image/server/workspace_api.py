@@ -43,6 +43,7 @@ from codex_image.generation.catalog import (
     list_model_manifests,
 )
 from codex_image.providers.registry import default_registry
+from codex_image.version import APP_VERSION_TAG
 
 
 WORKSPACE_UPLOAD_LIMIT = 16
@@ -238,8 +239,8 @@ def install_workspace_routes(
         request.state.auth_session
         return JSONResponse(
             content={
-                "current_version_label": "server",
-                "latest_version_label": "server",
+                "current_version_label": f"{APP_VERSION_TAG} · SaaS Server",
+                "latest_version_label": f"{APP_VERSION_TAG} · SaaS Server",
                 "source": "source",
                 "update_available": False,
                 "updater_available": False,
@@ -1058,7 +1059,13 @@ async def _workspace_task_from_form(
     shared_assets: SharedAssetRepository,
     tasks: GenerationTaskRepository,
 ) -> tuple[GenerationTask, dict[str, object]] | JSONResponse:
-    provider_scope, provider_version_id = _split_provider_id(form.get("api_provider_id"))
+    api_provider_id = str(form.get("api_provider_id") or "").strip()
+    canonical_provider_id = str(form.get("provider_id") or "").strip()
+    if api_provider_id and canonical_provider_id and api_provider_id != canonical_provider_id:
+        return JSONResponse(status_code=422, content={"detail": "供应商参数不一致"})
+    provider_scope, provider_version_id = _split_provider_id(
+        api_provider_id or canonical_provider_id
+    )
     if not provider_version_id:
         return JSONResponse(status_code=422, content={"detail": "请选择可用的供应商"})
     available = {item["id"]: item for item in _available_providers(session, providers, departments)}
@@ -1066,6 +1073,10 @@ async def _workspace_task_from_form(
     if provider is None:
         return JSONResponse(status_code=409, content={"detail": "所选供应商不可用，请检查凭据或联系管理员"})
     generation_model_id = str(form.get("generation_model_id") or "").strip()
+    binding_id = str(form.get("binding_id") or "").strip()
+    if generation_model_id and binding_id and generation_model_id != binding_id:
+        return JSONResponse(status_code=422, content={"detail": "模型绑定参数不一致"})
+    generation_model_id = generation_model_id or binding_id
     available_models = [item for item in provider.get("models", []) if isinstance(item, dict)]
     selected_model = next(
         (
@@ -1086,40 +1097,89 @@ async def _workspace_task_from_form(
         return JSONResponse(status_code=409, content={"detail": "所选模型不可用"})
     generation_model_id = str(selected_model.get("generation_model_id") or "")
     model_id = str(selected_model.get("model_id") or "")
+    canonical_model_id = str(form.get("canonical_model_id") or "").strip()
+    resolved_canonical_model_id = str(selected_model.get("canonical_model_id") or "")
+    if canonical_model_id and canonical_model_id != resolved_canonical_model_id:
+        return JSONResponse(status_code=422, content={"detail": "模型参数与服务端绑定不一致"})
+    canonical_parameters = _canonical_parameters_from_form(form)
     prompt = str(form.get("prompt_for_model") or form.get("prompt") or "").strip()
     if not prompt:
         return JSONResponse(status_code=422, content={"detail": "请输入提示词"})
-    size = _normalize_size(form.get("size"))
-    quality = str(form.get("quality") or "auto").lower()
+    canonical_resolution = str(
+        (canonical_parameters or {}).get("canvas.resolution") or ""
+    ).upper()
+    size = _normalize_size(
+        (canonical_parameters or {}).get("canvas.size")
+        or {
+            "512": "512x512",
+            "1K": "1024x1024",
+            "2K": "2048x2048",
+            "4K": "4096x4096",
+        }.get(canonical_resolution)
+        or form.get("size")
+    )
+    quality = str(
+        (canonical_parameters or {}).get("gpt.quality") or form.get("quality") or "auto"
+    ).lower()
     if quality not in {"auto", "low", "medium", "high"}:
         quality = "auto"
-    output_format = str(form.get("output_format") or "png").lower()
+    output_format = str(
+        (canonical_parameters or {}).get("output.format")
+        or form.get("output_format")
+        or "png"
+    ).lower()
     if output_format not in {"png", "jpeg", "webp"}:
         output_format = "png"
-    moderation = str(form.get("moderation") or "auto").lower()
+    moderation = str(
+        (canonical_parameters or {}).get("gpt.moderation")
+        or form.get("moderation")
+        or "auto"
+    ).lower()
     if moderation not in {"auto", "low"}:
         return JSONResponse(status_code=422, content={"detail": "审核参数无效"})
     prompt_fidelity = str(form.get("prompt_fidelity") or "strict").lower()
     if prompt_fidelity not in {"strict", "original", "off"}:
         return JSONResponse(status_code=422, content={"detail": "提示词模式无效"})
-    prompt_optimization_mode = str(form.get("prompt_optimization_mode") or "off").lower()
-    seed_mode = str(form.get("seed_mode") or "random").lower()
-    seed = form.get("seed")
+    prompt_optimization_mode = str(
+        (canonical_parameters or {}).get("legacy.prompt_optimization_mode")
+        or form.get("prompt_optimization_mode")
+        or "off"
+    ).lower()
+    seed_mode = str(
+        (canonical_parameters or {}).get("legacy.seed_mode")
+        or form.get("seed_mode")
+        or "random"
+    ).lower()
+    seed = (canonical_parameters or {}).get("legacy.seed", form.get("seed"))
     try:
-        output_count = int(str(form.get("n") or "1"))
+        output_count = int(
+            (canonical_parameters or {}).get("output.count") or form.get("n") or "1"
+        )
     except ValueError:
         output_count = 0
     if output_count < 1 or output_count > 4:
         return JSONResponse(status_code=422, content={"detail": "生成数量必须为 1 到 4"})
     output_compression: int | None = None
-    if output_format != "png" and form.get("output_compression") not in {None, ""}:
+    requested_compression = (canonical_parameters or {}).get(
+        "gpt.output_compression",
+        form.get("output_compression"),
+    )
+    if output_format != "png" and requested_compression not in {None, ""}:
         try:
-            output_compression = int(str(form.get("output_compression")))
+            output_compression = int(str(requested_compression))
         except ValueError:
             output_compression = -1
         if output_compression < 0 or output_compression > 100:
             return JSONResponse(status_code=422, content={"detail": "输出压缩参数无效"})
-    web_search = str(form.get("web_search") or "").lower() in {"1", "true", "yes", "on"}
+    requested_web_search = (canonical_parameters or {}).get(
+        "gemini.google_search",
+        (canonical_parameters or {}).get("gpt.web_search", form.get("web_search")),
+    )
+    web_search = (
+        requested_web_search
+        if isinstance(requested_web_search, bool)
+        else str(requested_web_search or "").lower() in {"1", "true", "yes", "on"}
+    )
     api_mode = str(provider.get("api_mode") or "images")
 
     uploads = [item for key, item in form.multi_items() if key in {"images", "reference_images"} and isinstance(item, UploadFile)]
@@ -1249,32 +1309,50 @@ async def _workspace_task_from_form(
             asset_version_ids.append(asset.current_version_id)
 
     try:
+        request_parameters: dict[str, object] = {
+            "size": size,
+            "quality": quality,
+            "background": str(
+                (canonical_parameters or {}).get("gpt.background")
+                or form.get("background")
+                or "auto"
+            ).lower(),
+            "output_format": output_format,
+            "output_compression": output_compression,
+            "moderation": moderation,
+            "n": output_count,
+            "prompt_fidelity": prompt_fidelity,
+            "web_search": web_search,
+            "main_model": str(form.get("main_model") or model_id),
+            "resolution": (
+                "standard" if canonical_resolution == "1K"
+                else canonical_resolution.lower() if canonical_resolution
+                else str(form.get("resolution") or "")
+            ),
+            "ratio": str(
+                (canonical_parameters or {}).get("canvas.aspect_ratio")
+                or form.get("ratio")
+                or ""
+            ),
+            "orientation": str(form.get("orientation") or ""),
+            "mode": mode,
+            "api_mode": api_mode,
+            "prompt_optimization_mode": prompt_optimization_mode,
+            "seed_mode": seed_mode,
+            "seed": str(seed) if seed not in {None, ""} else None,
+            "capability_profile_version": form.get("capability_profile_version"),
+        }
+        if canonical_parameters is not None and resolved_canonical_model_id in {
+            model.id for model in list_model_manifests()
+        }:
+            request_parameters["canonical_parameters"] = canonical_parameters
         task = tasks.create_task(
             session.user.user_id,
             provider_version_id=provider_version_id,
             model_id=model_id,
             generation_model_id=generation_model_id,
             prompt=prompt,
-            request_parameters={
-                "size": size,
-                "quality": quality,
-                "output_format": output_format,
-                "output_compression": output_compression,
-                "moderation": moderation,
-                "n": output_count,
-                "prompt_fidelity": prompt_fidelity,
-                "web_search": web_search,
-                "main_model": str(form.get("main_model") or model_id),
-                "resolution": str(form.get("resolution") or ""),
-                "ratio": str(form.get("ratio") or ""),
-                "orientation": str(form.get("orientation") or ""),
-                "mode": mode,
-                "api_mode": api_mode,
-                "prompt_optimization_mode": prompt_optimization_mode,
-                "seed_mode": seed_mode,
-                "seed": str(seed) if seed not in {None, ""} else None,
-                "capability_profile_version": form.get("capability_profile_version"),
-            },
+            request_parameters=request_parameters,
             input_bytes=input_bytes,
             input_media_type=input_media_type,
             asset_version_ids=asset_version_ids,
@@ -1289,7 +1367,7 @@ async def _workspace_task_from_form(
             provider_scope=provider_scope,
             provider_version_id=provider_version_id,
             generation_model_id=generation_model_id,
-            parameters={
+            parameters=canonical_parameters or {
                 "size": task.request_parameters.get("size"),
                 "resolution": task.request_parameters.get("resolution"),
                 "ratio": task.request_parameters.get("ratio"),
@@ -1343,6 +1421,18 @@ def _normalize_model_preference_parameters(
         return {}
     if not isinstance(value, dict):
         raise ValueError("invalid generation model parameters")
+    value = {
+        **value,
+        "size": value.get("size") or value.get("canvas.size"),
+        "resolution": value.get("resolution") or value.get("canvas.resolution"),
+        "ratio": value.get("ratio") or value.get("canvas.aspect_ratio"),
+        "n": value.get("n") if value.get("n") is not None else value.get("output.count"),
+        "output_format": value.get("output_format") or value.get("output.format"),
+        "prompt_optimization_mode": value.get("prompt_optimization_mode")
+        or value.get("legacy.prompt_optimization_mode"),
+        "seed_mode": value.get("seed_mode") or value.get("legacy.seed_mode"),
+        "seed": value.get("seed") if value.get("seed") is not None else value.get("legacy.seed"),
+    }
     result: dict[str, object] = {}
     size = str(value.get("size") or "")
     if size:
@@ -1368,7 +1458,12 @@ def _normalize_model_preference_parameters(
         if raw:
             result[key] = raw
     try:
-        output_count = int(value.get("n", profile.get("min_output_count") or 1))
+        raw_output_count = value.get("n")
+        output_count = int(
+            raw_output_count
+            if raw_output_count is not None
+            else profile.get("min_output_count") or 1
+        )
     except (TypeError, ValueError) as error:
         raise ValueError("output count must be an integer") from error
     minimum_output_count = int(profile.get("min_output_count") or 1)
@@ -1899,6 +1994,162 @@ def _parameter_catalog_payload(parameter: Any) -> dict[str, Any]:
     return payload
 
 
+def _legacy_parameter_payload(
+    *,
+    parameter_id: str,
+    label_key: str,
+    group: str,
+    control: str,
+    value_type: str,
+    default: object,
+    allowed_values: list[object] | None = None,
+    operations: list[str] | None = None,
+    minimum: int | None = None,
+    maximum: int | None = None,
+    step: int | None = None,
+    visible_when: list[dict[str, object]] | None = None,
+    full_width: bool = False,
+) -> dict[str, object]:
+    return {
+        "id": parameter_id,
+        "label_key": label_key,
+        "group": group,
+        "control": control,
+        "value_type": value_type,
+        "default": default,
+        "allowed_values": allowed_values or [],
+        "scope": "model",
+        "minimum": minimum,
+        "maximum": maximum,
+        "step": step,
+        "visible_when": visible_when or [],
+        "operations": operations or ["generate", "edit"],
+        "full_width": full_width,
+        "object_choices": [],
+        "object_presets": [],
+    }
+
+
+def _legacy_catalog_model_payload(model: dict[str, object]) -> dict[str, object]:
+    profile = get_model_capability_profile(
+        str(model.get("capability_profile_id") or "generic-basic")
+    )
+    operations = [str(item) for item in profile.get("task_modes", [])]
+    sizes = [str(item) for item in profile.get("sizes", [])]
+    output_formats = [str(item) for item in profile.get("output_formats", [])]
+    parameters = [
+        _legacy_parameter_payload(
+            parameter_id="canvas.size",
+            label_key="output.size",
+            group="canvas",
+            control="text" if profile.get("custom_size") else "select",
+            value_type="string",
+            default=str(
+                profile.get("default_size")
+                or (sizes[0] if sizes else "1024x1024")
+            ),
+            allowed_values=[] if profile.get("custom_size") else sizes,
+            operations=operations,
+            full_width=True,
+        ),
+        _legacy_parameter_payload(
+            parameter_id="output.format",
+            label_key="output.format",
+            group="generation",
+            control="segmented",
+            value_type="string",
+            default=str(profile.get("default_output_format") or "png"),
+            allowed_values=output_formats,
+            operations=operations,
+        ),
+        _legacy_parameter_payload(
+            parameter_id="output.count",
+            label_key="output.quantity",
+            group="generation",
+            control="segmented",
+            value_type="integer",
+            default=int(profile.get("min_output_count") or 1),
+            allowed_values=list(
+                range(
+                    int(profile.get("min_output_count") or 1),
+                    int(profile.get("max_output_count") or 1) + 1,
+                )
+            ),
+            operations=operations,
+            minimum=int(profile.get("min_output_count") or 1),
+            maximum=int(profile.get("max_output_count") or 1),
+            step=1,
+        ),
+    ]
+    prompt_modes = [str(item) for item in profile.get("prompt_optimization_modes", [])]
+    if prompt_modes:
+        parameters.append(
+            _legacy_parameter_payload(
+                parameter_id="legacy.prompt_optimization_mode",
+                label_key="generationModel.promptOptimization",
+                group="advanced",
+                control="segmented",
+                value_type="string",
+                default="off",
+                allowed_values=["off", *prompt_modes],
+                operations=operations,
+            )
+        )
+    seed = profile.get("seed") if isinstance(profile.get("seed"), dict) else {}
+    if seed.get("supported"):
+        parameters.extend(
+            [
+                _legacy_parameter_payload(
+                    parameter_id="legacy.seed_mode",
+                    label_key="generationModel.seed",
+                    group="advanced",
+                    control="segmented",
+                    value_type="string",
+                    default="random",
+                    allowed_values=["random", "fixed"],
+                    operations=operations,
+                ),
+                _legacy_parameter_payload(
+                    parameter_id="legacy.seed",
+                    label_key="generationModel.seed",
+                    group="advanced",
+                    control="number",
+                    value_type="integer",
+                    default=int(seed.get("minimum") or 0),
+                    operations=operations,
+                    minimum=int(seed.get("minimum") or 0),
+                    maximum=int(seed.get("maximum") or 2147483647),
+                    step=1,
+                    visible_when=[
+                        {
+                            "parameter_id": "legacy.seed_mode",
+                            "operator": "equals",
+                            "value": "fixed",
+                        }
+                    ],
+                ),
+            ]
+        )
+    return {
+        "id": str(model.get("canonical_model_id") or model.get("model_id") or ""),
+        "family_id": str(model.get("model_family_id") or "custom-image"),
+        "display_name": str(model.get("display_name") or model.get("model_id") or ""),
+        "official_model_id": str(model.get("model_id") or ""),
+        "version": int(model.get("capability_profile_version") or 1),
+        "operations": operations,
+        "parameters": parameters,
+        "input_constraints": {
+            "max_images": int(profile.get("max_reference_images") or 0),
+            "supports_mask": bool(
+                isinstance(profile.get("phase_features"), dict)
+                and profile["phase_features"].get("precise_edit")
+            ),
+            "supports_reference_files": "responses" in profile.get("api_modes", []),
+        },
+        "expand_advanced_parameters": bool(prompt_modes or seed.get("supported")),
+    }
+
+
 def _generation_catalog_payload(
     session: AuthenticatedSession,
     providers: ProviderRepository,
@@ -1908,25 +2159,41 @@ def _generation_catalog_payload(
     registry = default_registry()
     catalog_providers: list[dict[str, object]] = []
     canonical_ids: set[str] = set()
+    legacy_manifests: dict[str, dict[str, object]] = {}
     default_provider_by_model: dict[str, str] = {}
-    known_manifest_ids = {model.id for model in list_model_manifests()}
+    known_manifests = {model.id: model for model in list_model_manifests()}
     for provider in available:
         provider_id = str(provider["id"])
         bindings: list[dict[str, object]] = []
         for model in provider.get("models", []):
             if not isinstance(model, dict) or not model.get("is_enabled"):
                 continue
-            canonical_model_id = str(model.get("canonical_model_id") or "")
-            protocol_profile = str(model.get("protocol_profile") or "")
-            parameter_codec = str(model.get("parameter_codec") or "")
-            runtime_available = canonical_model_id in known_manifest_ids
-            try:
-                registry.protocol(protocol_profile)
-                registry.codec(parameter_codec)
-            except ValueError:
-                runtime_available = False
-            if not runtime_available:
-                continue
+            canonical_model_id = str(
+                model.get("canonical_model_id") or model.get("model_id") or ""
+            )
+            protocol_profile = str(model.get("protocol_profile") or "openai_images")
+            parameter_codec = str(model.get("parameter_codec") or "gpt_openai_images")
+            binding_operations = list(model.get("supported_operations") or [])
+            if canonical_model_id in known_manifests:
+                try:
+                    registry.protocol(protocol_profile)
+                    registry.codec(parameter_codec)
+                except ValueError:
+                    continue
+                if not binding_operations:
+                    binding_operations = list(
+                        known_manifests[canonical_model_id].operations
+                    )
+            else:
+                try:
+                    legacy_manifest = legacy_manifests.setdefault(
+                        canonical_model_id,
+                        _legacy_catalog_model_payload(model),
+                    )
+                except KeyError:
+                    continue
+                if not binding_operations:
+                    binding_operations = list(legacy_manifest["operations"])
             canonical_ids.add(canonical_model_id)
             if model.get("is_default"):
                 default_provider_by_model.setdefault(canonical_model_id, provider_id)
@@ -1939,7 +2206,7 @@ def _generation_catalog_payload(
                     "model_family_id": str(model.get("model_family_id") or ""),
                     "protocol_profile": protocol_profile,
                     "parameter_codec": parameter_codec,
-                    "operations": list(model.get("supported_operations") or []),
+                    "operations": binding_operations,
                     "append_aspect_ratio_prompt": bool(
                         model.get("append_aspect_ratio_prompt", False)
                     ),
@@ -1953,6 +2220,7 @@ def _generation_catalog_payload(
             {
                 "id": str(provider["id"]),
                 "name": str(provider["name"]),
+                "builtin": False,
                 "provider_scope": str(provider["provider_scope"]),
                 "provider_version_id": str(provider["provider_version_id"]),
                 "available": True,
@@ -1975,17 +2243,28 @@ def _generation_catalog_payload(
         }
         for model in list_model_manifests()
         if model.id in canonical_ids
-    ]
+    ] + list(legacy_manifests.values())
     family_ids = {model["family_id"] for model in manifests}
+    known_families = {
+        family.id: asdict(family) for family in list_model_families()
+    }
+    for family_id in family_ids - set(known_families):
+        family_name = "Seedream" if family_id == "seedream-image" else "自定义"
+        known_families[family_id] = {
+            "id": family_id,
+            "display_name": family_name,
+            "short_name": family_name,
+            "label_key": f"modelFamily.{family_id}",
+        }
     return {
         "schema_version": 1,
         "manifest_version": MODEL_MANIFEST_VERSION,
-        "families": [
-            asdict(family) for family in list_model_families() if family.id in family_ids
-        ],
+        "families": [known_families[family_id] for family_id in known_families if family_id in family_ids],
         "models": manifests,
         "providers": catalog_providers,
         "default_provider_by_model": default_provider_by_model,
+        "codex": {"available": False, "mode": "images"},
+        "preferences": providers.list_model_preferences(session.user.user_id),
     }
 
 
@@ -2402,6 +2681,22 @@ def _normalize_size(value: object) -> str:
         if width.isdigit() and height.isdigit() and 32 <= int(width) <= 99999 and 32 <= int(height) <= 99999:
             return f"{int(width)}x{int(height)}"
     return "1024x1024"
+
+
+def _canonical_parameters_from_form(form: FormData) -> dict[str, object] | None:
+    raw = form.get("parameters_json")
+    if raw is None or raw == "":
+        return None
+    text = str(raw)
+    if len(text.encode("utf-8")) > 64 * 1024:
+        raise ValueError("模型参数过大")
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise ValueError("模型参数格式无效") from error
+    if not isinstance(value, dict):
+        raise ValueError("模型参数必须是 JSON 对象")
+    return value
 
 
 def _friendly_task_error(message: str) -> str:

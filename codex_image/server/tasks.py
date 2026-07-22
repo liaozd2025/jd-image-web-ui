@@ -1864,7 +1864,11 @@ def _resolve_generation_snapshot(
             generation_model.get("capability_profile_version") or 1
         ),
         "capability_snapshot": capability_snapshot,
-        "actual_parameters": dict(request_parameters),
+        "actual_parameters": {
+            key: value
+            for key, value in request_parameters.items()
+            if key != "canonical_parameters"
+        },
     }
     try:
         manifest = get_model_manifest(canonical_model_id)
@@ -1873,10 +1877,15 @@ def _resolve_generation_snapshot(
 
     if reference_file_count and not manifest.input_constraints.supports_reference_files:
         raise TaskConfigurationError("selected model does not support reference files")
-    canonical_parameters = _canonical_generation_parameters(
-        canonical_model_id,
-        request_parameters,
-        capability_snapshot,
+    submitted_canonical_parameters = request_parameters.get("canonical_parameters")
+    canonical_parameters = (
+        dict(submitted_canonical_parameters)
+        if isinstance(submitted_canonical_parameters, dict)
+        else _canonical_generation_parameters(
+            canonical_model_id,
+            request_parameters,
+            capability_snapshot,
+        )
     )
     binding = ProviderModelBinding(
         id=str(generation_model["generation_model_id"]),

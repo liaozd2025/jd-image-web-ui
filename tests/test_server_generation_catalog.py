@@ -77,7 +77,25 @@ class _Providers:
                 "is_default": False,
                 "is_enabled": True,
             },
+            {
+                "generation_model_id": "seedream-model",
+                "display_name": "Seedream 5.0 Pro",
+                "model_id": "vendor/seedream-5-pro",
+                "capability_profile_id": "seedream-5-pro",
+                "capability_profile_version": 1,
+                "model_family_id": "seedream-image",
+                "canonical_model_id": "vendor/seedream-5-pro",
+                "protocol_profile": "volcengine_ark_images",
+                "parameter_codec": "seedream_ark_images",
+                "supported_operations": ["generate", "edit"],
+                "append_aspect_ratio_prompt": False,
+                "is_default": False,
+                "is_enabled": True,
+            },
         ]
+
+    def list_model_preferences(self, user_id: str):
+        return {"selections": [], "parameters": []}
 
 
 class _Departments:
@@ -102,10 +120,22 @@ class ServerGenerationCatalogTests(unittest.TestCase):
             _Departments(),  # type: ignore[arg-type]
         )
 
-        self.assertEqual([item["id"] for item in payload["models"]], ["nano-banana-2"])
+        self.assertEqual(
+            [item["id"] for item in payload["models"]],
+            ["nano-banana-2", "legacy-model", "vendor/seedream-5-pro"],
+        )
         self.assertEqual(payload["providers"][0]["provider_scope"], "personal")
-        self.assertEqual(len(payload["providers"][0]["bindings"]), 1)
+        self.assertFalse(payload["providers"][0]["builtin"])
+        self.assertEqual(payload["codex"], {"available": False, "mode": "images"})
+        self.assertEqual(len(payload["providers"][0]["bindings"]), 3)
         self.assertTrue(payload["providers"][0]["bindings"][0]["available"])
+        seedream = payload["models"][2]
+        self.assertEqual(seedream["family_id"], "seedream-image")
+        self.assertIn(
+            "legacy.prompt_optimization_mode",
+            [item["id"] for item in seedream["parameters"]],
+        )
+        self.assertIn("legacy.seed", [item["id"] for item in seedream["parameters"]])
         serialized = str(payload)
         self.assertNotIn("sensitive-provider.example", serialized)
         self.assertNotIn("cret", serialized)

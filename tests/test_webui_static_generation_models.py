@@ -8,22 +8,40 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class WebUIGenerationModelContractTests(unittest.TestCase):
+    def test_generation_model_feature_is_initialized_with_the_merged_catalog_ui(self) -> None:
+        source = (ROOT / "codex_image/webui/frontend/src/main.ts").read_text(encoding="utf-8")
+
+        self.assertIn('import { initGenerationModelFeature } from "./generation-model";', source)
+        self.assertIn("initGenerationModelFeature();", source)
+
     def test_selector_stays_between_prompt_utilities_and_template_management(self) -> None:
         html = (ROOT / "codex_image/webui/static/index.html").read_text(encoding="utf-8")
-        row_start = html.index('<div class="prompt-template-row">')
-        row_end = html.index("</section>", row_start)
-        row = html[row_start:row_end]
-        self.assertLess(row.index('id="promptFindButton"'), row.index('id="generationModelField"'))
-        self.assertLess(row.index('id="generationModelField"'), row.index('id="promptTemplateButton"'))
-        self.assertIn('aria-describedby="generationModelSummary generationModelNotice"', row)
+        sidebar = html[html.index('<div class="brand"'):html.index('<div class="sidebar-search">')]
+        prompt = html[html.index('<section class="panel prompt-panel"'):html.index('</section>', html.index('<section class="panel prompt-panel"'))]
+        output = html[html.index('id="settingsGrid"'):html.index('id="modelParameterGrid"') + 64]
+
+        self.assertLess(sidebar.index('class="brand-name"'), sidebar.index('id="modelFamilyOptions"'))
+        self.assertLess(prompt.index('id="promptFindButton"'), prompt.index('id="promptTemplateButton"'))
+        self.assertNotIn('id="generationModelField"', prompt)
+        self.assertLess(output.index('id="concreteModelSelect"'), output.index('id="modelParameterGrid"'))
 
     def test_submission_uses_stable_model_identity_and_explicit_advanced_parameters(self) -> None:
-        source = (ROOT / "codex_image/webui/frontend/src/task-submit.ts").read_text(encoding="utf-8")
-        self.assertIn('form.append("generation_model_id"', source)
-        self.assertIn('form.append("capability_profile_version"', source)
-        self.assertIn('form.append("prompt_optimization_mode"', source)
-        self.assertIn('form.append("seed_mode"', source)
-        self.assertIn("generationModelConstraintMessage()", source)
+        submit = (ROOT / "codex_image/webui/frontend/src/task-submit.ts").read_text(encoding="utf-8")
+        request = (ROOT / "codex_image/webui/frontend/src/generation-request.ts").read_text(encoding="utf-8")
+        server = (ROOT / "codex_image/server/workspace_api.py").read_text(encoding="utf-8")
+
+        self.assertIn('form.append("canonical_model_id"', request)
+        self.assertIn('form.append("provider_id"', request)
+        self.assertIn('form.append("binding_id"', request)
+        self.assertIn('form.append("parameters_json"', request)
+        self.assertIn("generation_model_id: selection.bindingId", request)
+        self.assertIn("prompt_optimization_mode:", request)
+        self.assertIn("seed_mode:", request)
+        self.assertIn("appendServerCompatibleGenerationFields(form, selection", submit)
+        self.assertIn('form.get("generation_model_id")', server)
+        self.assertIn('form.get("binding_id")', server)
+        self.assertIn("_canonical_parameters_from_form(form)", server)
+        self.assertIn("resolved_canonical_model_id", server)
 
     def test_provider_refresh_preserves_the_current_provider_for_model_preference_restore(self) -> None:
         source = (ROOT / "codex_image/webui/frontend/src/api-provider-settings.ts").read_text(encoding="utf-8")
@@ -32,21 +50,20 @@ class WebUIGenerationModelContractTests(unittest.TestCase):
 
     def test_capability_driven_controls_do_not_expose_phase_two_or_watermark_ui(self) -> None:
         html = (ROOT / "codex_image/webui/static/index.html").read_text(encoding="utf-8")
-        source = (ROOT / "codex_image/webui/frontend/src/generation-model.ts").read_text(encoding="utf-8")
-        self.assertIn('id="promptOptimizationMode"', html)
-        self.assertIn('id="seedMode"', html)
+        parameters = (ROOT / "codex_image/webui/frontend/src/model-parameters.ts").read_text(encoding="utf-8")
+        catalog = (ROOT / "codex_image/webui/frontend/src/model-catalog.ts").read_text(encoding="utf-8")
+        server = (ROOT / "codex_image/server/workspace_api.py").read_text(encoding="utf-8")
+
+        self.assertIn('id="modelParameterGrid"', html)
+        self.assertIn('id="taskParameterInspector"', html)
         self.assertNotIn('id="watermark', html)
-        self.assertNotIn("sequential_image_generation", source)
-        self.assertNotIn("precise_edit", source)
-        self.assertNotIn("streaming", source)
-        self.assertIn('fetch("/api/generation-model-preferences"', source)
-        self.assertIn("currentImageReferenceCount", source)
-        self.assertIn("decorateGenerationModelReferenceThumb", source)
-        self.assertIn('"generationModel.referenceOverLimit"', source)
-        self.assertIn("n: Math.max(1", source)
-        self.assertIn('translate("generationModel.parametersAdjusted")', source)
-        self.assertIn('translate("generationModel.seedInvalid")', source)
-        self.assertIn("storedProvider.selected_generation_model_id", source)
+        self.assertIn("export function renderModelParameters", parameters)
+        self.assertIn('"legacy.prompt_optimization_mode"', server)
+        self.assertIn('"legacy.seed_mode"', server)
+        self.assertIn('"legacy.seed"', server)
+        self.assertIn("get_model_capability_profile", server)
+        self.assertIn("applyServerModelPreferences(payload)", catalog)
+        self.assertIn("state.parameterDraftsByModel", catalog)
 
     def test_every_locale_has_explicit_generation_model_copy(self) -> None:
         source = (ROOT / "codex_image/webui/frontend/src/generation-model-translations.ts").read_text(encoding="utf-8")

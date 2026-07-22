@@ -11,14 +11,18 @@ let preferenceTimer: number | null = null;
 let generationModelFeatureInitialized = false;
 
 function availableModels(): any[] {
-  const provider = activeApiProvider();
+  const provider = state.apiSettings?.providers?.find(
+    (item: any) => item.id === state.selectedProviderId,
+  ) || activeApiProvider();
   return (Array.isArray(provider?.models) ? provider.models : []).filter(
     (model: any) => model?.is_enabled !== false,
   );
 }
 
 export function currentGenerationModel(): any | null {
-  const selectedId = String(els.generationModelSelect?.value || "");
+  const selectedId = String(
+    els.generationModelSelect?.value || state.selectedProviderBindingId || "",
+  );
   return availableModels().find((model: any) => model.generation_model_id === selectedId) || null;
 }
 
@@ -46,9 +50,18 @@ function currentImageReferenceCount(): number {
     : 0;
 }
 
+function currentCatalogModel(): any | null {
+  return state.generationCatalog?.models.find((model: any) => model.id === state.selectedModelId) || null;
+}
+
+function currentReferenceImageLimit(): number {
+  const catalogLimit = currentCatalogModel()?.input_constraints?.max_images;
+  if (Number.isInteger(catalogLimit) && catalogLimit >= 0) return Number(catalogLimit);
+  return Number(currentGenerationProfile()?.max_reference_images ?? Number.MAX_SAFE_INTEGER);
+}
+
 function decorateGenerationModelReferenceThumb(wrapper: HTMLElement, index: number): void {
-  const profile = currentGenerationProfile();
-  const maximumReferences = Number(profile?.max_reference_images ?? Number.MAX_SAFE_INTEGER);
+  const maximumReferences = currentReferenceImageLimit();
   const exceedsLimit = index >= maximumReferences;
   wrapper.classList.toggle("generation-model-reference-over-limit", exceedsLimit);
   wrapper.querySelector(".generation-model-reference-limit-badge")?.remove();
@@ -99,6 +112,17 @@ function compactModelDisplayName(value: unknown, maximumLength = 24): string {
 }
 
 export function generationModelConstraintMessage(): string {
+  const catalogModel = currentCatalogModel();
+  if (catalogModel) {
+    if (!(catalogModel.operations || []).includes(state.mode || "generate")) {
+      return translate("generationModel.modeUnsupported");
+    }
+    const maximumReferences = currentReferenceImageLimit();
+    if (currentImageReferenceCount() > maximumReferences) {
+      return translate("generationModel.tooManyReferences").replace("{count}", String(maximumReferences));
+    }
+    return "";
+  }
   const model = currentGenerationModel();
   if (!model) return translate("generationModel.none");
   const profile = currentGenerationProfile();
@@ -276,7 +300,18 @@ function selectionReason(provider: any): string {
 }
 
 export function renderGenerationModelSelector(restorePreference = true): void {
-  if (!els.generationModelSelect) return;
+  if (!els.generationModelSelect) {
+    const constraint = generationModelConstraintMessage();
+    if (els.generationModelNotice) els.generationModelNotice.textContent = constraint;
+    const errors = state.selectedModelId
+      ? state.parameterValidationErrorsByModel[state.selectedModelId] || {}
+      : {};
+    if (els.runButton) {
+      els.runButton.disabled = !state.authAvailable || Boolean(constraint) || Object.keys(errors).length > 0;
+    }
+    updateGenerationModelReferenceLimits();
+    return;
+  }
   const provider = activeApiProvider();
   const models = availableModels();
   const previous = String(els.generationModelSelect.value || "");
@@ -319,7 +354,9 @@ export function renderGenerationModelSelector(restorePreference = true): void {
   }
   const reason = selected ? selectionReason(provider) : "";
   const constraint = generationModelConstraintMessage();
-  els.generationModelNotice.textContent = constraint || [reason, adjustment].filter(Boolean).join(" ");
+  if (els.generationModelNotice) {
+    els.generationModelNotice.textContent = constraint || [reason, adjustment].filter(Boolean).join(" ");
+  }
   if (els.runButton) els.runButton.disabled = !state.authAvailable || Boolean(constraint);
   updateCallNotice();
   updateGenerationModelReferenceLimits();
@@ -370,7 +407,7 @@ function queuePreferenceSave(): void {
   preferenceTimer = window.setTimeout(() => {
     preferenceTimer = null;
     void persistPreference().catch((error: Error) => {
-      els.generationModelNotice.textContent = error.message;
+      if (els.generationModelNotice) els.generationModelNotice.textContent = error.message;
     });
   }, 250);
 }
@@ -411,21 +448,23 @@ export function currentGenerationModelParams(): any {
 export function initGenerationModelFeature(): void {
   if (generationModelFeatureInitialized) return;
   generationModelFeatureInitialized = true;
-  els.generationModelSelect?.addEventListener("change", handleModelChange);
-  els.promptOptimizationMode?.addEventListener("change", handleParameterChange);
-  els.outputFormat?.addEventListener("change", handleParameterChange);
-  els.nInput?.addEventListener("change", handleParameterChange);
-  els.resolution?.addEventListener("change", handleParameterChange);
-  els.ratio?.addEventListener("change", handleParameterChange);
-  els.customWidth?.addEventListener("change", handleParameterChange);
-  els.customHeight?.addEventListener("change", handleParameterChange);
-  els.seedModeGroup?.addEventListener("click", (event: Event) => {
-    const button = (event.target as HTMLElement).closest<HTMLElement>("[data-val]");
-    if (!button || !els.seedMode) return;
-    setRadioValue(els.seedMode, els.seedModeGroup, String(button.dataset.val || "random"));
-    handleParameterChange();
-  });
-  els.seedValue?.addEventListener("change", handleParameterChange);
+  if (els.generationModelSelect) {
+    els.generationModelSelect.addEventListener("change", handleModelChange);
+    els.promptOptimizationMode?.addEventListener("change", handleParameterChange);
+    els.outputFormat?.addEventListener("change", handleParameterChange);
+    els.nInput?.addEventListener("change", handleParameterChange);
+    els.resolution?.addEventListener("change", handleParameterChange);
+    els.ratio?.addEventListener("change", handleParameterChange);
+    els.customWidth?.addEventListener("change", handleParameterChange);
+    els.customHeight?.addEventListener("change", handleParameterChange);
+    els.seedModeGroup?.addEventListener("click", (event: Event) => {
+      const button = (event.target as HTMLElement).closest<HTMLElement>("[data-val]");
+      if (!button || !els.seedMode) return;
+      setRadioValue(els.seedMode, els.seedModeGroup, String(button.dataset.val || "random"));
+      handleParameterChange();
+    });
+    els.seedValue?.addEventListener("change", handleParameterChange);
+  }
   document.addEventListener("generation-model-settings-changed", () => renderGenerationModelSelector(true));
   document.addEventListener(LOCALE_CHANGE_EVENT, () => renderGenerationModelSelector(false));
   document.addEventListener("click", (event: Event) => {
@@ -443,7 +482,7 @@ export function initGenerationModelFeature(): void {
     renderGenerationModelSelector,
   });
   void loadProfiles().catch((error: Error) => {
-    els.generationModelNotice.textContent = error.message;
+    if (els.generationModelNotice) els.generationModelNotice.textContent = error.message;
     if (els.runButton) els.runButton.disabled = true;
   });
 }

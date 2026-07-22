@@ -175,7 +175,7 @@ class OutputSettingsLockFrontendContractTests(WebUIStaticTestCase):
         source = Path("codex_image/webui/frontend/src/output-settings-lock.ts").read_text(encoding="utf-8")
         styles = Path("codex_image/webui/static/styles/70-output-settings.css").read_text(encoding="utf-8")
 
-        self.assertIn("showModel: context.responses", source)
+        self.assertIn("showModel: gptImage ? context.responses : context.task || geminiImage", source)
         self.assertIn("if (model.showModel)", source)
         self.assertIn('createElement("div", "output-settings-summary-model-line")', source)
         self.assertIn("if (intro.childElementCount)", source)
@@ -191,7 +191,7 @@ class OutputSettingsLockFrontendContractTests(WebUIStaticTestCase):
         self.assertIn('const main = createElement("div", "output-settings-summary-main")', source)
         self.assertIn("if (intro.childElementCount) main.append(intro)", source)
         self.assertIn("main.append(cards, details)", source)
-        self.assertIn("root.append(main, createElement", source)
+        self.assertIn("root.append(main, footer)", source)
         self.assertRegex(styles, r"\.output-settings-summary-main\s*\{[^}]*flex:\s*1[^}]*justify-content:\s*center")
         self.assertRegex(styles, r"\.output-settings-summary-details\s*\{[^}]*border-top:\s*0")
         self.assertIn(".output-settings-summary-details::before", styles)
@@ -210,7 +210,7 @@ class OutputSettingsLockFrontendContractTests(WebUIStaticTestCase):
 
         self.assertRegex(styles, rf"\.output-settings-ratio-frame\s*\{{[^}}]*{shared_border}")
         self.assertRegex(styles, rf"\.output-settings-count-card\s*\{{[^}}]*{shared_border}")
-        self.assertRegex(styles, rf"\.output-settings-format-visual\s*\{{[^}}]*{shared_border}")
+        self.assertRegex(styles, rf"\.output-settings-format-visual,\s*\.output-settings-resolution-visual\s*\{{[^}}]*{shared_border}")
 
     def test_four_wide_outputs_use_a_two_by_two_count_grid(self) -> None:
         source = Path("codex_image/webui/frontend/src/output-settings-lock.ts").read_text(encoding="utf-8")
@@ -257,8 +257,9 @@ class OutputSettingsLockFrontendContractTests(WebUIStaticTestCase):
 
     def test_extra_short_summary_compacts_inside_the_original_grid_budget(self) -> None:
         responsive = Path("codex_image/webui/static/styles/80-utilities-responsive.css").read_text(encoding="utf-8")
-        marker = "@media (max-height: 1390px) and (min-width: 900px)"
-        block = responsive[responsive.index(marker):responsive.index("@media (max-width: 640px)")]
+        marker = "/* Continuous locked-summary density; viewport height changes do not create a new layout band. */"
+        desktop_marker = "@media (max-height: 1390px) and (min-width: 900px)"
+        block = responsive[responsive.index(marker):responsive.index(desktop_marker)]
         self.assertRegex(
             block,
             r"\.controls-col\s+\.output-settings-summary-card\s*\{[^}]*"

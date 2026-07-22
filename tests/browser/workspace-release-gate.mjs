@@ -245,11 +245,43 @@ async function waitForWorkspace(page) {
   check(multiModelProvider && referenceFileProvider && configuredTeamProvider && singleModelProvider && emptyModelProvider, "model selector release fixtures were incomplete");
   check(configuredTeamProvider.models.every((model) => model.validation_status === "unverified"), "configured team model fixture was unexpectedly verified");
   check(singleModelProvider.model_selection_reason === "saved_unavailable_default", "disabled saved model did not fall back to the provider default");
-  await page.locator("#apiProviderQuick").selectOption(multiModelProvider.id, { force: true });
-  await eventually(async () => await page.locator("#generationModelSelect option").count() === 2, "multi-model selector did not expose both current-provider models");
-  check(await page.locator("#generationModelSelect").isEnabled(), "multi-model selector was not expandable");
-  const promptRowOrder = await page.locator(".prompt-template-row").evaluate((row) => [...row.children].map((item) => item.id || item.className));
-  check(promptRowOrder[1] === "generationModelField", "model selector was not placed after clear/find and before template management");
+  const catalogResponse = await api(page, "/api/generation-catalog");
+  check(catalogResponse.status === 200, "generation catalog was unavailable");
+  const catalog = catalogResponse.body;
+  const catalogProvider = (provider) => catalog.providers.find((item) => item.id === provider.id);
+  const multiCatalogProvider = catalogProvider(multiModelProvider);
+  const referenceCatalogProvider = catalogProvider(referenceFileProvider);
+  const configuredCatalogProvider = catalogProvider(configuredTeamProvider);
+  const singleCatalogProvider = catalogProvider(singleModelProvider);
+  check(multiCatalogProvider?.bindings.length === 2, "multi-model provider was not represented by two v0.7 catalog bindings");
+  check(referenceCatalogProvider?.bindings.length === 2, "Responses provider was not represented by two v0.7 catalog bindings");
+  check(configuredCatalogProvider?.bindings.length === 1, "unverified configured team model was hidden from the v0.7 catalog");
+  check(singleCatalogProvider?.bindings.length === 1, "single-model provider was not represented in the v0.7 catalog");
+  check(!catalogProvider(emptyModelProvider), "provider without an enabled model leaked into the generation catalog");
+
+  const catalogModel = (modelId) => catalog.models.find((item) => item.id === modelId);
+  const selectCatalogModel = async (modelId) => {
+    const model = catalogModel(modelId);
+    check(Boolean(model), `catalog model was missing: ${modelId}`);
+    await page.locator(`[data-family-id="${model.family_id}"]`).click();
+    const concrete = page.locator(`[data-model-id="${modelId}"]`);
+    if (await concrete.count()) await concrete.click();
+    await eventually(async () => await page.evaluate((targetModelId) => (
+      window.__codexImageWebUI?.state?.selectedModelId === targetModelId
+    ), modelId), `v0.7 model selector did not select ${modelId}`);
+  };
+  const selectCatalogBinding = async (provider, binding) => {
+    const selectionKey = `${provider.id}::${binding.id}`;
+    await eventually(async () => await page.locator(`#generationProviderSelect option[value="${selectionKey}"]`).count() === 1, `provider binding did not become selectable: ${selectionKey}`);
+    await page.locator("#generationProviderSelect").selectOption(selectionKey);
+  };
+
+  const firstBinding = multiCatalogProvider.bindings[0];
+  const secondBinding = multiCatalogProvider.bindings[1];
+  await selectCatalogModel(firstBinding.canonical_model_id);
+  await selectCatalogBinding(multiCatalogProvider, firstBinding);
+  check(await page.locator(`[data-family-id="${catalogModel(firstBinding.canonical_model_id).family_id}"]`).getAttribute("aria-checked") === "true", "v0.7 model family selector did not expose the active family");
+  check(await page.locator("#generationProviderSelect").isEnabled(), "v0.7 provider selector was not keyboard selectable");
   await page.locator("#promptEditor").fill("preserve workspace while switching models");
   await page.locator("#imageInput").setInputFiles(Array.from({ length: 17 }, (_, index) => ({
     name: `model-switch-reference-${String(index + 1).padStart(2, "0")}.png`,
@@ -265,51 +297,35 @@ async function waitForWorkspace(page) {
   await eventually(async () => await page.locator(".generation-model-reference-over-limit").count() === 0, "over-limit marker remained after returning within the limit");
   await eventually(async () => await page.locator("#runButton").isEnabled(), "submission stayed blocked after reference images returned within the limit");
   const preservedImageTitles = await page.locator("#imageThumbItems .thumb").evaluateAll((items) => items.map((item) => item.getAttribute("title")));
-  const firstModelId = await page.locator("#generationModelSelect").inputValue();
-  const secondModelId = multiModelProvider.models.find((model) => model.generation_model_id !== firstModelId)?.generation_model_id;
-  check(Boolean(firstModelId && secondModelId), "multi-model provider did not expose two distinct model ids");
-  let preferenceSaved = page.waitForResponse((response) => (
-    new URL(response.url()).pathname === "/api/generation-model-preferences" && response.request().method() === "PUT"
-  ));
-  await page.locator("#generationModelSelect").selectOption(secondModelId);
-  check((await preferenceSaved).status() === 200, "model selection preference was not saved on the server");
+  let preferenceSaved = page.waitForResponse((response) => {
+    if (new URL(response.url()).pathname !== "/api/generation-model-preferences" || response.request().method() !== "PUT") return false;
+    try { return response.request().postDataJSON()?.generation_model_id === secondBinding.id; } catch { return false; }
+  });
+  await selectCatalogModel(secondBinding.canonical_model_id);
+  await selectCatalogBinding(multiCatalogProvider, secondBinding);
+  const preferenceResponse = await preferenceSaved;
+  check(preferenceResponse.status() === 200, `model selection preference was not saved on the server: ${JSON.stringify(preferenceResponse.request().postDataJSON())} ${await preferenceResponse.text()}`);
   check((await page.locator("#promptEditor").textContent()) === "preserve workspace while switching models", "switching models changed the prompt");
-  preferenceSaved = page.waitForResponse((response) => (
-    new URL(response.url()).pathname === "/api/generation-model-preferences" && response.request().method() === "PUT"
-  ));
-  await page.locator("#generationModelSelect").selectOption(firstModelId);
-  check((await preferenceSaved).status() === 200, "first-model preference restore was not saved");
-  await page.locator("#generationModelSelect").focus();
-  check(await page.locator("#generationModelSelect").evaluate((element) => element === document.activeElement), "model selector was not keyboard focusable");
-  await page.keyboard.press("Tab");
-  check(await page.locator("#promptTemplateButton").evaluate((element) => element === document.activeElement), "keyboard focus did not move past the model selector in visual order");
-  await page.keyboard.press("Shift+Tab");
-  check(await page.locator("#generationModelSelect").evaluate((element) => element === document.activeElement), "keyboard focus could not return to the model selector");
-  preferenceSaved = page.waitForResponse((response) => (
-    new URL(response.url()).pathname === "/api/generation-model-preferences" && response.request().method() === "PUT"
-  ));
-  await page.locator("#generationModelSelect").selectOption(secondModelId);
-  check((await preferenceSaved).status() === 200, "model selection after keyboard traversal was not saved");
-  await eventually(async () => await page.locator("#generationModelSelect").inputValue() === secondModelId, "model did not switch after keyboard traversal");
-  check(await page.locator("#generationModelSelect").getAttribute("aria-describedby") === "generationModelSummary generationModelNotice", "model selector accessibility description was missing");
-  await page.locator("#apiProviderQuick").selectOption(referenceFileProvider.id, { force: true });
-  await eventually(async () => await page.locator("#generationModelSelect option").count() === 2, "reference-file provider did not expose both models");
+  await page.locator("#generationProviderSelect").focus();
+  check(await page.locator("#generationProviderSelect").evaluate((element) => element === document.activeElement), "provider selector was not keyboard focusable");
+  await page.locator("#generationProviderSettingsButton").focus();
+  check(await page.locator("#generationProviderSettingsButton").evaluate((element) => element === document.activeElement), "provider settings button was not keyboard focusable");
+
+  const referenceBinding = referenceCatalogProvider.bindings[0];
+  await selectCatalogModel(referenceBinding.canonical_model_id);
+  await selectCatalogBinding(referenceCatalogProvider, referenceBinding);
   await page.locator("#imageInput").setInputFiles({ name: "model-switch-reference.txt", mimeType: "text/plain", buffer: Buffer.from("model switch reference file") });
   await eventually(async () => await page.locator(".reference-file-thumb").count() === 1, "model-switch reference file did not render");
   const preservedFileName = (await page.locator(".reference-file-name").textContent()).trim();
-  await page.locator("#apiProviderQuick").selectOption(singleModelProvider.id, { force: true });
-  await eventually(async () => await page.locator("#generationModelSelect option").count() === 1, "single-model provider did not update the selector");
-  check(await page.locator("#generationModelSelect").isDisabled(), "single-model selector remained expandable");
-  await eventually(async () => (await page.locator("#generationModelNotice").textContent()).includes("上次使用的模型已不可用"), "disabled saved model fallback was not visible");
-  await page.locator("#apiProviderQuick").selectOption(configuredTeamProvider.id, { force: true });
-  await eventually(async () => await page.locator("#generationModelSelect option").count() === 1, "configured team model did not enter the selector before validation");
-  check(await page.locator("#generationModelSelect").isDisabled(), "single configured team model should render as a fixed selection");
+  const singleBinding = singleCatalogProvider.bindings[0];
+  await selectCatalogModel(singleBinding.canonical_model_id);
+  await selectCatalogBinding(singleCatalogProvider, singleBinding);
+  const configuredBinding = configuredCatalogProvider.bindings[0];
+  await selectCatalogModel(configuredBinding.canonical_model_id);
+  await selectCatalogBinding(configuredCatalogProvider, configuredBinding);
   await eventually(async () => await page.locator("#runButton").isEnabled(), "configured team model remained blocked before validation");
-  await page.locator("#apiProviderQuick").selectOption(emptyModelProvider.id, { force: true });
-  await eventually(async () => (await page.locator("#generationModelNotice").textContent()).includes("未配置生图模型"), "empty provider did not show model setup guidance");
-  check(await page.locator("#runButton").isDisabled(), "empty provider did not block submission");
-  await page.locator("#apiProviderQuick").selectOption(multiModelProvider.id, { force: true });
-  await eventually(async () => await page.locator("#generationModelSelect").inputValue() === secondModelId, "provider switch did not restore the saved model");
+  await selectCatalogModel(secondBinding.canonical_model_id);
+  await selectCatalogBinding(multiCatalogProvider, secondBinding);
   check((await page.locator("#promptEditor").textContent()) === "preserve workspace while switching models", "provider switching changed the prompt");
   check(await page.locator("#imageThumbItems .thumb").count() === 16, "provider/model switching removed a reference image");
   const imageTitlesAfterSwitch = await page.locator("#imageThumbItems .thumb").evaluateAll((items) => items.map((item) => item.getAttribute("title")));
@@ -322,35 +338,26 @@ async function waitForWorkspace(page) {
       const rect = document.querySelector(selector).getBoundingClientRect();
       return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
     };
-    const panel = document.querySelector(".prompt-panel");
+    const panel = document.querySelector(".output-panel");
     return {
-      utilities: bounds(".prompt-template-recent-cell"),
-      model: bounds("#generationModelField"),
-      modelSelect: bounds("#generationModelSelect"),
+      family: bounds("#modelFamilyOptions"),
+      model: bounds(".concrete-model-field"),
+      provider: bounds(".generation-provider-control"),
       promptEditor: bounds("#promptEditor"),
-      template: bounds(".prompt-template-entry"),
       scrollWidth: panel.scrollWidth,
       clientWidth: panel.clientWidth,
     };
   });
-  check(mediumModelLayout.model.top > mediumModelLayout.utilities.top, "1024px layout did not move model controls below clear/find");
-  check(Math.abs(mediumModelLayout.model.top - mediumModelLayout.template.top) <= 2, "1024px model and template controls were not aligned in one row");
-  check(mediumModelLayout.model.right <= mediumModelLayout.template.left + 1, "1024px model and template controls overlapped");
-  check(mediumModelLayout.modelSelect.right - mediumModelLayout.modelSelect.left <= 241, "1024px model selector was wider than the compact contract");
+  check(mediumModelLayout.family.right > mediumModelLayout.family.left, "1024px v0.7 model-family controls collapsed");
+  check(mediumModelLayout.provider.right > mediumModelLayout.provider.left, "1024px provider selector collapsed");
   check(mediumModelLayout.promptEditor.bottom - mediumModelLayout.promptEditor.top >= 96, "model metadata squeezed the prompt editor below its minimum height");
-  check(mediumModelLayout.scrollWidth <= mediumModelLayout.clientWidth + 1, "1024px model selector introduced horizontal scrolling");
+  check(mediumModelLayout.scrollWidth <= mediumModelLayout.clientWidth + 1, "1024px v0.7 model controls introduced horizontal scrolling");
   await page.setViewportSize({ width: 390, height: 844 });
-  const narrowModelLayout = await page.locator(".prompt-panel").evaluate((panel) => ({ scrollWidth: panel.scrollWidth, clientWidth: panel.clientWidth }));
-  check(narrowModelLayout.scrollWidth <= narrowModelLayout.clientWidth + 1, "390px model selector introduced horizontal scrolling");
+  const narrowModelLayout = await page.locator(".layout-container").evaluate((panel) => ({ scrollWidth: panel.scrollWidth, clientWidth: panel.clientWidth }));
+  check(narrowModelLayout.scrollWidth <= narrowModelLayout.clientWidth + 1, "390px v0.7 model controls introduced horizontal scrolling");
   await page.setViewportSize({ width: 1440, height: 900 });
-  const defaultModelId = multiModelProvider.models.find((model) => model.is_default)?.generation_model_id;
-  if (defaultModelId && await page.locator("#generationModelSelect").inputValue() !== defaultModelId) {
-    const defaultModelSaved = page.waitForResponse((response) => (
-      new URL(response.url()).pathname === "/api/generation-model-preferences" && response.request().method() === "PUT"
-    ));
-    await page.locator("#generationModelSelect").selectOption(defaultModelId);
-    check((await defaultModelSaved).status() === 200, "default model was not restored after model-selector release checks");
-  }
+  await selectCatalogModel(firstBinding.canonical_model_id);
+  await selectCatalogBinding(multiCatalogProvider, firstBinding);
   await page.locator("#clearImagesButton").click();
   await page.locator("#promptEditor").fill("");
   modelSelectorReleaseGateCompleted = true;
@@ -470,12 +477,20 @@ try {
   );
   await pageA.locator('[data-system-settings-tab="language"]').click();
   await pageA.locator("#languageSelect").selectOption("zh-CN");
-  await pageA.locator('[data-theme-option="dark"]').click();
+  const applyWorkspaceThemeAndReopenSettings = async (theme) => {
+    await pageA.locator("#systemSettingsModalClose").click();
+    await pageA.locator("#systemSettingsModal").waitFor({ state: "hidden" });
+    await pageA.locator(`[data-theme-option="${theme}"]`).click();
+    await pageA.locator("#serverAccountButton").click();
+    await pageA.locator("#serverAccountSettingsButton").click();
+    await pageA.locator("#systemSettingsModal").waitFor({ state: "visible" });
+  };
+  await applyWorkspaceThemeAndReopenSettings("dark");
   check(await pageA.locator("html").getAttribute("data-theme") === "dark", "theme preference did not apply immediately");
   checkSettingsVisualTokens(await settingsVisualTokens(pageA), "dark");
-  await pageA.locator('[data-theme-option="light"]').click();
+  await applyWorkspaceThemeAndReopenSettings("light");
   checkSettingsVisualTokens(await settingsVisualTokens(pageA), "light");
-  await pageA.locator('[data-theme-option="dark"]').click();
+  await applyWorkspaceThemeAndReopenSettings("dark");
   await pageA.setViewportSize({ width: 720, height: 900 });
   const narrowLayout = await pageA.evaluate(() => {
     const shell = document.querySelector("#systemSettingsModal").getBoundingClientRect();
@@ -518,7 +533,16 @@ try {
   const personalProviderCard = pageA.locator('[data-api-provider-id]', { hasText: "Browser Fake Provider · 个人" });
   await personalProviderCard.waitFor({ state: "visible" });
   await personalProviderCard.click();
+  await eventually(async () => await personalProviderCard.getAttribute("aria-selected") === "true", "personal provider card did not become active");
+  check(await pageA.locator("#editApiProviderButton").isEnabled(), "personal provider edit action remained disabled");
   await pageA.locator("#editApiProviderButton").click();
+  const providerEditState = await pageA.evaluate(() => ({
+    editingId: window.__codexImageWebUI?.state?.apiProviderEditingId || null,
+    hasDraft: Boolean(window.__codexImageWebUI?.state?.apiProviderDraft),
+    activeId: window.__codexImageWebUI?.state?.apiSettings?.active_provider_id || null,
+  }));
+  check(providerEditState.editingId && providerEditState.hasDraft, `provider edit action did not create a draft: ${JSON.stringify(providerEditState)}`);
+  await pageA.locator("#apiProviderEditor").waitFor({ state: "visible" });
   await pageA.locator("#apiKey").fill("browser-user-a-private-provider-key");
   pageA.once("dialog", async (dialog) => dialog.dismiss());
   await pageA.locator('[data-system-settings-tab="usage"]').click();
@@ -650,12 +674,12 @@ try {
   await pageA.locator("#imageEditorModal").waitFor({ state: "visible" });
   check(await pageA.locator("#imageEditorKonvaMount").count() === 1, "original image editor was not mounted");
   await pageA.locator("#imageEditorCancel").click();
-  await pageA.locator('#quantityGroup [data-val="2"]').click();
+  await pageA.locator('[data-parameter-id="output.count"]').getByRole("button", { name: "2", exact: true }).click();
   await pageA.locator("#promptEditor").fill("browser image edit with two references");
   await runFromWorkspaceUi(pageA, "/api/edit");
   const edited = await waitForTask(pageA, "browser image edit with two references", "completed");
   check(edited.mode === "edit", "image edit was submitted as generation");
-  check(edited.total_count === 2 && edited.output_urls.length === 2, "original quantity control did not produce two results");
+  check(edited.total_count === 2 && edited.output_urls.length === 2, "v0.7 model quantity control did not produce two results");
   await eventually(async () => await pageA.locator(`[data-task-id="${edited.task_id}"]`).count(), "two-output task was not rendered");
   await pageA.locator(`[data-task-id="${edited.task_id}"]`).click();
   await eventually(async () => await pageA.locator("#previewGrid img").count() >= 2, "two generated results were not rendered in the original preview");

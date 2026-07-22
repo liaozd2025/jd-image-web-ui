@@ -31,6 +31,73 @@ def _generation_model(**overrides):
 
 
 class ServerGenerationSnapshotTests(unittest.TestCase):
+    def test_submitted_canonical_parameters_are_revalidated_and_frozen(self) -> None:
+        profile = get_model_capability_profile("nano-banana-2")
+        canonical = {
+            "canvas.aspect_ratio": "8:1",
+            "canvas.resolution": "4K",
+            "output.count": 2,
+            "gemini.safety_settings": {
+                "HARM_CATEGORY_HARASSMENT": "BLOCK_LOW_AND_ABOVE",
+            },
+            "gemini.google_search": False,
+        }
+        request_parameters = {
+            "mode": "generate",
+            "size": "4096x4096",
+            "resolution": "4k",
+            "ratio": "8:1",
+            "n": 2,
+            "output_format": "png",
+            "canonical_parameters": canonical,
+        }
+
+        snapshot = _resolve_generation_snapshot(
+            provider_version_id="provider-1",
+            provider_key="gemini",
+            generation_model=_generation_model(),
+            capability_snapshot=profile,
+            request_parameters=request_parameters,
+            prompt="draw a panorama",
+            reference_image_count=0,
+            reference_file_count=0,
+        )
+
+        self.assertEqual(snapshot["requested_parameters"], canonical)
+        self.assertNotIn("canonical_parameters", snapshot["actual_parameters"])
+
+        with self.assertRaisesRegex(TaskConfigurationError, "Unknown parameter"):
+            _resolve_generation_snapshot(
+                provider_version_id="provider-1",
+                provider_key="gemini",
+                generation_model=_generation_model(),
+                capability_snapshot=profile,
+                request_parameters={
+                    **request_parameters,
+                    "canonical_parameters": {**canonical, "api_key": "must-not-pass"},
+                },
+                prompt="draw a panorama",
+                reference_image_count=0,
+                reference_file_count=0,
+            )
+        with self.assertRaisesRegex(TaskConfigurationError, "Unknown object parameter"):
+            _resolve_generation_snapshot(
+                provider_version_id="provider-1",
+                provider_key="gemini",
+                generation_model=_generation_model(),
+                capability_snapshot=profile,
+                request_parameters={
+                    **request_parameters,
+                    "canonical_parameters": {
+                        **canonical,
+                        "gemini.safety_settings": {"api_key": "must-not-pass"},
+                    },
+                },
+                prompt="draw a panorama",
+                reference_image_count=0,
+                reference_file_count=0,
+            )
+
     def test_canonical_provider_media_type_overrides_requested_extension(self) -> None:
         result = SimpleNamespace(output_format="png")
 
