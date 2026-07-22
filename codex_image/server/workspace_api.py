@@ -1674,7 +1674,7 @@ def _save_department_api_settings(
                 display_name=validated.display_name,
                 base_url=validated.base_url,
                 api_mode=validated.api_mode,
-                models=[model.model_dump() for model in validated.models],
+                models=[model.canonical_payload() for model in validated.models],
                 parameter_constraints=validated.parameter_constraints,
             )
             departments.save_credential(
@@ -1695,7 +1695,7 @@ def _save_department_api_settings(
                 display_name=validated.display_name,
                 base_url=validated.base_url,
                 api_mode=validated.api_mode,
-                models=[model.model_dump() for model in validated.models],
+                models=[model.canonical_payload() for model in validated.models],
                 parameter_constraints=validated.parameter_constraints,
             )
             departments.save_credential(

@@ -268,6 +268,14 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         task_id = submitted.json()["task"]["task_id"]
                         self.assertEqual(submitted.json()["task"]["status"], "queued")
                         self.assertEqual(submitted.json()["task"]["total_count"], 2)
+                        self.assertTrue(submitted.json()["task"]["generation_model_id"])
+                        self.assertEqual(submitted.json()["task"]["model_display_name"], "fake-image-1")
+                        self.assertEqual(submitted.json()["task"]["capability_profile_id"], "generic-basic")
+                        self.assertEqual(submitted.json()["task"]["capability_profile_version"], 1)
+                        self.assertEqual(
+                            submitted.json()["task"]["capability_snapshot"]["profile_id"],
+                            "generic-basic",
+                        )
                         self.assertGreater(submitted.json()["task"]["input_bytes"], 0)
                         self.assertTrue(submitted.json()["task"]["input_sha256"])
                         recent = user.get("/api/tasks/recent?limit=50")

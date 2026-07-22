@@ -102,6 +102,13 @@ class ProviderRepository:
         parameter_constraints: dict[str, object],
     ) -> ProviderVersion:
         provider_version_id = str(uuid4())
+        canonical_models = [
+            {
+                **model,
+                "generation_model_id": str(uuid4()),
+            }
+            for model in models
+        ]
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
                 assert_writes_allowed(cursor)
@@ -140,12 +147,35 @@ class ProviderRepository:
                         display_name,
                         base_url,
                         api_mode,
-                        json.dumps(models, separators=(",", ":")),
+                        json.dumps(canonical_models, separators=(",", ":")),
                         json.dumps(parameter_constraints, separators=(",", ":")),
                         actor_user_id,
                     ),
                 )
                 created_at = cursor.fetchone()["created_at"]
+                cursor.executemany(
+                    """
+                    INSERT INTO generation_models (
+                        generation_model_id, provider_version_id, display_name, model_id,
+                        capability_profile_id, capability_profile_version, is_default,
+                        is_enabled, validation_status
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    [
+                        (
+                            model["generation_model_id"],
+                            provider_version_id,
+                            model["display_name"],
+                            model["model_id"],
+                            model["capability_profile_id"],
+                            model["capability_profile_version"],
+                            model["is_default"],
+                            model["is_enabled"],
+                            model["validation_status"],
+                        )
+                        for model in canonical_models
+                    ],
+                )
                 record_audit_event(
                     cursor,
                     action="provider.version_created",
@@ -164,7 +194,7 @@ class ProviderRepository:
             display_name=display_name,
             base_url=base_url,
             api_mode=api_mode,
-            models=models,
+            models=canonical_models,
             parameter_constraints=parameter_constraints,
             is_active=True,
             created_at=created_at,

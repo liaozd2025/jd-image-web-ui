@@ -19,6 +19,7 @@ from .health import HealthStatus, ReadyComponents
 from .identity import IdentityRepository
 from .migrations import MigrationRunner
 from .maintenance import MaintenanceLockError, is_locked
+from .model_capabilities_api import install_model_capability_routes
 from .provider_secrets import ProviderSecretCipher
 from .providers import ProviderRepository
 from .providers_api import install_provider_routes
@@ -117,6 +118,7 @@ def create_server_app(settings: ServerSettings) -> FastAPI:
 
     install_authentication(app, settings=settings, identity=identity)
     provider_repository = ProviderRepository(connections, provider_cipher)
+    install_model_capability_routes(app)
     install_provider_routes(app, providers=provider_repository)
     install_asset_routes(app, assets=asset_repository)
     install_admin_view_routes(

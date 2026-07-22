@@ -18,6 +18,7 @@ from .department_providers import DepartmentCredentialNotFound, DepartmentProvid
 from .provider_secrets import MasterKeyMismatch, ProviderSecretCipher
 from .shared_assets import SharedAssetRepository
 from .maintenance import assert_writes_allowed
+from .model_capabilities import get_model_capability_profile
 
 
 TaskStatus = Literal["queued", "running", "interrupted", "completed", "failed", "cancelled"]
@@ -37,7 +38,12 @@ class GenerationTask:
     user_id: str
     provider_version_id: str
     provider_scope: Literal["personal", "department"]
+    generation_model_id: str | None
+    model_display_name: str
     model_id: str
+    capability_profile_id: str
+    capability_profile_version: int
+    capability_snapshot: dict[str, object]
     prompt: str
     request_parameters: dict[str, object]
     input_relative_path: str | None
@@ -172,8 +178,20 @@ class GenerationTaskRepository:
                     raise TaskConfigurationError("provider version was not found")
                 if not provider["is_active"]:
                     raise TaskConfigurationError("provider version is inactive")
-                if not _model_is_allowed(provider["models"], model_id):
+                generation_model = _resolve_generation_model(provider["models"], model_id)
+                if generation_model is None or not bool(generation_model.get("is_enabled", True)):
                     raise TaskConfigurationError("model is not allowed for this provider version")
+                profile_id = str(generation_model.get("capability_profile_id") or "generic-basic")
+                try:
+                    capability_snapshot = get_model_capability_profile(profile_id)
+                except KeyError as error:
+                    raise TaskConfigurationError("model capability profile is unavailable") from error
+                profile_version = int(
+                    generation_model.get("capability_profile_version")
+                    or capability_snapshot["version"]
+                )
+                model_display_name = str(generation_model.get("display_name") or model_id)
+                generation_model_id = generation_model.get("generation_model_id")
                 encrypted_api_key = provider["encrypted_api_key"]
                 if not encrypted_api_key:
                     scope_label = "department" if provider_scope == "department" else "personal"
@@ -231,18 +249,29 @@ class GenerationTaskRepository:
                     cursor.execute(
                         """
                         INSERT INTO server_generation_tasks (
-                            task_id, user_id, provider_version_id, model_id, prompt,
+                            task_id, user_id, provider_version_id, generation_model_id,
+                            model_display_name, model_id, capability_profile_id,
+                            capability_profile_version, capability_snapshot, prompt,
                             request_parameters, status, input_relative_path,
                             input_media_type, input_sha256, input_bytes, asset_versions, shared_asset_versions,
                             provider_scope, quota_units, quota_period_start, queue_position
-                        ) VALUES (%s, %s, %s, %s, %s, %s::jsonb, 'queued', %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s)
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s,
+                            %s::jsonb, 'queued', %s, %s, %s, %s, %s::jsonb,
+                            %s::jsonb, %s, %s, %s, %s
+                        )
                         RETURNING *
                         """,
                         (
                             task_id,
                             user_id,
                             provider_version_id,
+                            generation_model_id,
+                            model_display_name,
                             model_id,
+                            profile_id,
+                            profile_version,
+                            json.dumps(capability_snapshot, separators=(",", ":")),
                             prompt,
                             json.dumps(request_parameters, separators=(",", ":")),
                             input_relative_path.as_posix(),
@@ -1505,7 +1534,12 @@ class GenerationTaskRepository:
             user_id=row["user_id"],
             provider_version_id=row["provider_version_id"],
             provider_scope=cast(Literal["personal", "department"], row.get("provider_scope") or "personal"),
+            generation_model_id=row.get("generation_model_id"),
+            model_display_name=str(row.get("model_display_name") or row["model_id"]),
             model_id=row["model_id"],
+            capability_profile_id=str(row.get("capability_profile_id") or "generic-basic"),
+            capability_profile_version=int(row.get("capability_profile_version") or 1),
+            capability_snapshot=dict(row.get("capability_snapshot") or {}),
             prompt=row["prompt"],
             request_parameters=row["request_parameters"],
             input_relative_path=row["input_relative_path"],
@@ -1573,14 +1607,26 @@ def task_output_records(task: GenerationTask) -> list[dict[str, object]]:
 
 
 def _model_is_allowed(models: object, model_id: str) -> bool:
+    model = _resolve_generation_model(models, model_id)
+    return model is not None and bool(model.get("is_enabled", True))
+
+
+def _resolve_generation_model(models: object, model_id: str) -> dict[str, object] | None:
     if not isinstance(models, list):
-        return False
-    return any(
-        isinstance(model, dict)
-        and model.get("model_id") == model_id
-        and "image_generation" in model.get("capabilities", [])
+        return None
+    matches = [
+        model
         for model in models
-    )
+        if isinstance(model, dict)
+        and model.get("model_id") == model_id
+        and (
+            "capability_profile_id" in model
+            or "image_generation" in model.get("capabilities", [])
+        )
+    ]
+    if len(matches) != 1:
+        return None
+    return cast(dict[str, object], matches[0])
 
 
 def _safe_extension(output_format: str) -> str:
