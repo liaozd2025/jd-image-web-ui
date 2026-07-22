@@ -45,7 +45,7 @@
 .prompt-template-row {
   display: grid;
   grid-template-areas: "utilities model template";
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px) var(--prompt-action-column-width);
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px) var(--prompt-action-column-width);
   gap: var(--prompt-action-gap);
   align-items: center;
   min-height: var(--prompt-secondary-action-height);
@@ -57,7 +57,8 @@
   display: grid;
   gap: 4px 8px;
   grid-area: model;
-  grid-template-columns: auto minmax(170px, 260px);
+  grid-template-columns: auto minmax(160px, 220px);
+  justify-content: start;
   min-width: 0;
 }
 
@@ -68,7 +69,11 @@
 }
 
 .generation-model-select {
+  max-width: 240px;
   min-height: 34px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   width: 100%;
 }
 
@@ -115,7 +120,8 @@
   }
 
   .generation-model-field {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(180px, 240px);
+    justify-content: start;
     width: 100%;
   }
 }
@@ -133,6 +139,10 @@
     grid-template-columns: 1fr;
     min-width: 0;
     width: 100%;
+  }
+
+  .generation-model-select {
+    max-width: 100%;
   }
 
   .generation-model-field > label,

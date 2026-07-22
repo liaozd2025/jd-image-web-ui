@@ -80,6 +80,19 @@ class WebUIGenerationModelContractTests(unittest.TestCase):
         self.assertIn("@media (max-width: 760px)", css)
         self.assertRegex(css, r"\.prompt-template-row\s*\{[^}]*grid-template-columns:\s*1fr")
 
+    def test_long_model_names_use_a_compact_selector_without_squeezing_the_editor(self) -> None:
+        source = (ROOT / "codex_image/webui/frontend/src/generation-model.ts").read_text(encoding="utf-8")
+        prompt_css = (ROOT / "codex_image/webui/static/styles/60-prompt.css").read_text(encoding="utf-8")
+        responsive_css = (ROOT / "codex_image/webui/static/styles/80-utilities-responsive.css").read_text(encoding="utf-8")
+        self.assertIn("function compactModelDisplayName", source)
+        self.assertIn("option.title = fullLabel", source)
+        self.assertRegex(prompt_css, r"\.generation-model-select\s*\{[^}]*max-width:\s*240px")
+        self.assertRegex(prompt_css, r"\.generation-model-select\s*\{[^}]*text-overflow:\s*ellipsis")
+        self.assertRegex(
+            responsive_css,
+            r"\.controls-col \.prompt-compose\s*\{[^}]*min-height:\s*96px",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

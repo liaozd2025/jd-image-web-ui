@@ -90,6 +90,14 @@ function profileSummary(profile: any): string {
   return profile?.summary_key ? translate(String(profile.summary_key)) : String(profile?.summary || "");
 }
 
+function compactModelDisplayName(value: unknown, maximumLength = 24): string {
+  const characters = Array.from(String(value || "").trim());
+  if (characters.length <= maximumLength) return characters.join("");
+  const tailLength = 6;
+  const headLength = Math.max(1, maximumLength - tailLength - 1);
+  return `${characters.slice(0, headLength).join("")}…${characters.slice(-tailLength).join("")}`;
+}
+
 export function generationModelConstraintMessage(): string {
   const model = currentGenerationModel();
   if (!model) return translate("generationModel.none");
@@ -277,7 +285,10 @@ export function renderGenerationModelSelector(restorePreference = true): void {
     const option = document.createElement("option");
     option.value = model.generation_model_id;
     const summary = profileSummary(profile);
-    option.textContent = `${model.display_name}${summary ? ` — ${summary}` : ""}${model.is_default ? ` (${translate("generationModel.default")})` : ""}`;
+    const suffix = `${summary ? ` — ${summary}` : ""}${model.is_default ? ` (${translate("generationModel.default")})` : ""}`;
+    const fullLabel = `${model.display_name}${suffix}`;
+    option.textContent = `${compactModelDisplayName(model.display_name)}${suffix}`;
+    option.title = fullLabel;
     els.generationModelSelect.append(option);
   }
   els.generationModelSelect.disabled = models.length <= 1;

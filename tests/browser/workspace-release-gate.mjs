@@ -326,6 +326,8 @@ async function waitForWorkspace(page) {
     return {
       utilities: bounds(".prompt-template-recent-cell"),
       model: bounds("#generationModelField"),
+      modelSelect: bounds("#generationModelSelect"),
+      promptEditor: bounds("#promptEditor"),
       template: bounds(".prompt-template-entry"),
       scrollWidth: panel.scrollWidth,
       clientWidth: panel.clientWidth,
@@ -334,6 +336,8 @@ async function waitForWorkspace(page) {
   check(mediumModelLayout.model.top > mediumModelLayout.utilities.top, "1024px layout did not move model controls below clear/find");
   check(Math.abs(mediumModelLayout.model.top - mediumModelLayout.template.top) <= 2, "1024px model and template controls were not aligned in one row");
   check(mediumModelLayout.model.right <= mediumModelLayout.template.left + 1, "1024px model and template controls overlapped");
+  check(mediumModelLayout.modelSelect.right - mediumModelLayout.modelSelect.left <= 241, "1024px model selector was wider than the compact contract");
+  check(mediumModelLayout.promptEditor.bottom - mediumModelLayout.promptEditor.top >= 96, "model metadata squeezed the prompt editor below its minimum height");
   check(mediumModelLayout.scrollWidth <= mediumModelLayout.clientWidth + 1, "1024px model selector introduced horizontal scrolling");
   await page.setViewportSize({ width: 390, height: 844 });
   const narrowModelLayout = await page.locator(".prompt-panel").evaluate((panel) => ({ scrollWidth: panel.scrollWidth, clientWidth: panel.clientWidth }));
