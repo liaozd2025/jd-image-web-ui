@@ -97,7 +97,12 @@ class ServerMaintenanceTests(unittest.TestCase):
                 original.unlink()
                 lock = acquire_lock(connections, purpose="restore test")
                 try:
-                    restored = restore_backup(connections, backup_root=backup_root, data_root=data_root)
+                    restored = restore_backup(
+                        connections,
+                        backup_root=backup_root,
+                        data_root=data_root,
+                        maintenance_token=lock.token,
+                    )
                 finally:
                     release_lock(connections, lock.token)
                 self.assertEqual(restored["files"], 1)
