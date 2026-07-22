@@ -121,6 +121,8 @@ export function createWebUIElements(): WebUIElements {
   apiKeyRevealButton: document.querySelector("#apiKeyRevealButton"),
   apiMode: document.querySelector("#apiMode"),
   apiImageModel: document.querySelector("#apiImageModel"),
+  apiModelList: document.querySelector("#apiModelList"),
+  addApiModelButton: document.querySelector("#addApiModelButton"),
   apiImagesConcurrency: document.querySelector("#apiImagesConcurrency"),
   newTaskButton: document.querySelector("#newTaskButton"),
   imageInput: document.querySelector("#imageInput"),

@@ -10,6 +10,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from .auth import require_admin
 from .identity import AuthenticatedSession
 from .providers import (
+    GenerationModelInUse,
+    GenerationModelNotFound,
     PersonalCredentialNotFound,
     PersonalProviderCredential,
     ProviderApiMode,
@@ -28,6 +30,7 @@ ConstraintValue = int | float | str | bool
 class ProviderModelPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    generation_model_id: str | None = Field(default=None, min_length=1, max_length=80)
     model_id: str = Field(min_length=1, max_length=160)
     display_name: str | None = Field(default=None, min_length=1, max_length=160)
     capability_profile_id: str | None = Field(default=None, min_length=1, max_length=80)
@@ -98,6 +101,21 @@ class ProviderVersionPayload(BaseModel):
         ):
             raise ValueError("base_url must be an HTTP(S) origin/path without credentials or query")
         return normalized.rstrip("/")
+
+
+class PersonalModelsPayload(BaseModel):
+    models: list[ProviderModelPayload] = Field(min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def validate_models(self) -> "PersonalModelsPayload":
+        if len({model.model_id for model in self.models}) != len(self.models):
+            raise ValueError("model_id must be unique within a personal provider")
+        defaults = [model for model in self.models if model.is_default is True]
+        if len(defaults) != 1:
+            raise ValueError("exactly one default model is required")
+        if not defaults[0].is_enabled:
+            raise ValueError("the default model must be enabled")
+        return self
 
 
 class ProviderStatusPayload(BaseModel):
@@ -210,6 +228,78 @@ def install_provider_routes(app: FastAPI, *, providers: ProviderRepository) -> N
         except PersonalCredentialNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
         return JSONResponse(content={"credential": _credential_payload(credential)})
+
+    @app.get("/api/providers/personal/{provider_version_id}/models", response_model=None)
+    def personal_models(request: Request, provider_version_id: str) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        if session.user.role == "admin":
+            return JSONResponse(status_code=403, content={"detail": "administrators_use_department_models"})
+        credential_ids = {
+            item.provider_version_id
+            for item in providers.list_personal_credentials(session.user.user_id)
+        }
+        if provider_version_id not in credential_ids:
+            return JSONResponse(status_code=404, content={"detail": "personal provider credential was not found"})
+        return JSONResponse(
+            content={
+                "models": providers.list_generation_models(
+                    provider_version_id=provider_version_id,
+                    owner_user_id=session.user.user_id,
+                )
+            }
+        )
+
+    @app.put("/api/providers/personal/{provider_version_id}/models", response_model=None)
+    def replace_personal_models(
+        request: Request,
+        provider_version_id: str,
+        payload: PersonalModelsPayload,
+    ) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        if session.user.role == "admin":
+            return JSONResponse(status_code=403, content={"detail": "administrators_use_department_models"})
+        try:
+            models = providers.replace_personal_models(
+                session.user.user_id,
+                provider_version_id=provider_version_id,
+                models=[
+                    {
+                        **model.canonical_payload(),
+                        "generation_model_id": model.generation_model_id,
+                        "validation_status": "not_required",
+                    }
+                    for model in payload.models
+                ],
+            )
+        except PersonalCredentialNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        except GenerationModelInUse as error:
+            return JSONResponse(status_code=409, content={"detail": str(error)})
+        return JSONResponse(content={"models": models})
+
+    @app.delete(
+        "/api/providers/personal/{provider_version_id}/models/{generation_model_id}",
+        response_model=None,
+    )
+    def delete_personal_model(
+        request: Request,
+        provider_version_id: str,
+        generation_model_id: str,
+    ) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        if session.user.role == "admin":
+            return JSONResponse(status_code=403, content={"detail": "administrators_use_department_models"})
+        try:
+            providers.delete_personal_model(
+                session.user.user_id,
+                provider_version_id=provider_version_id,
+                generation_model_id=generation_model_id,
+            )
+        except GenerationModelNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        except GenerationModelInUse as error:
+            return JSONResponse(status_code=409, content={"detail": str(error)})
+        return JSONResponse(status_code=204, content=None)
 
 
 def _provider_payload(provider: ProviderVersion) -> dict[str, object]:

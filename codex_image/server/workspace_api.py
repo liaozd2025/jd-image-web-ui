@@ -17,6 +17,7 @@ from .assets import AssetNotFound, AssetQuotaExceeded, AssetRepository, AssetVal
 from .department_providers import DepartmentCredentialNotFound, DepartmentProviderRepository
 from .identity import AuthenticatedSession
 from .providers import (
+    GenerationModelInUse,
     PersonalCredentialNotFound,
     ProviderVersion,
     ProviderRepository,
@@ -110,10 +111,10 @@ def install_workspace_routes(
                     continue
                 scope, provider_version_id = _split_provider_id(item.get("id"))
                 api_key = item.get("api_key")
-                if scope != "personal" or not provider_version_id or not isinstance(api_key, str):
+                if scope != "personal" or not provider_version_id:
                     continue
                 try:
-                    if api_key:
+                    if isinstance(api_key, str) and api_key:
                         providers.save_personal_credential(
                             session.user.user_id,
                             provider_version_id=provider_version_id,
@@ -124,8 +125,26 @@ def install_workspace_routes(
                             session.user.user_id,
                             provider_version_id=provider_version_id,
                         )
+                    if isinstance(item.get("models"), list):
+                        validated_models = _workspace_models_payload(item["models"])
+                        providers.replace_personal_models(
+                            session.user.user_id,
+                            provider_version_id=provider_version_id,
+                            models=[
+                                {
+                                    **model.canonical_payload(),
+                                    "generation_model_id": model.generation_model_id,
+                                    "validation_status": "not_required",
+                                }
+                                for model in validated_models
+                            ],
+                        )
                 except PersonalCredentialNotFound:
                     pass
+                except (TypeError, ValueError, ValidationError):
+                    return JSONResponse(status_code=422, content={"detail": "invalid_provider_settings"})
+                except GenerationModelInUse as error:
+                    return JSONResponse(status_code=409, content={"detail": str(error)})
                 except (ProviderVersionNotFound, ProviderVersionInactive) as error:
                     return JSONResponse(status_code=409, content={"detail": str(error)})
         return JSONResponse(content={"settings": _api_settings(session, providers, departments)})
@@ -1632,7 +1651,18 @@ def _available_providers(
             catalog_item = catalog.get(provider_version_id)
             if catalog_item is None or not credential.has_credential or not credential.is_active:
                 continue
-            result.append(_provider_item(catalog_item, scope="personal", credential=credential))
+            personal_models = providers.list_generation_models(
+                provider_version_id=provider_version_id,
+                owner_user_id=session.user.user_id,
+            )
+            result.append(
+                _provider_item(
+                    catalog_item,
+                    scope="personal",
+                    credential=credential,
+                    models=personal_models,
+                )
+            )
     for provider_version_id, credential in department.items():
         catalog_item = catalog.get(provider_version_id)
         if catalog_item is None or not credential.has_credential or not credential.is_active:
@@ -1821,6 +1851,13 @@ def _api_settings(
                     catalog_item,
                     scope="personal",
                     credential=personal.get(catalog_item.provider_version_id),
+                    models=(
+                        providers.list_generation_models(
+                            provider_version_id=catalog_item.provider_version_id,
+                            owner_user_id=session.user.user_id,
+                        )
+                        or list(catalog_item.models or [])
+                    ),
                     read_only=False,
                     catalog_fields_read_only=True,
                 )
@@ -1852,12 +1889,17 @@ def _provider_item(
     *,
     scope: str,
     credential: Any,
+    models: list[dict[str, object]] | None = None,
     read_only: bool | None = None,
     catalog_fields_read_only: bool = True,
     include_scope_label: bool = True,
 ) -> dict[str, Any]:
-    models = list(catalog_item.models or [])
-    first_model = str(models[0].get("model_id")) if models and isinstance(models[0], dict) else ""
+    resolved_models = list(catalog_item.models or []) if models is None else list(models)
+    default_model = next(
+        (model for model in resolved_models if isinstance(model, dict) and model.get("is_default")),
+        resolved_models[0] if resolved_models else None,
+    )
+    first_model = str(default_model.get("model_id")) if isinstance(default_model, dict) else ""
     label = "个人" if scope == "personal" else "部门"
     return {
         "id": f"{scope}-{catalog_item.provider_version_id}",
@@ -1867,7 +1909,7 @@ def _provider_item(
         "name": f"{catalog_item.display_name} · {label}" if include_scope_label else catalog_item.display_name,
         "base_url": catalog_item.base_url,
         "image_model": first_model,
-        "models": models,
+        "models": resolved_models,
         "api_mode": catalog_item.api_mode,
         "images_concurrency": 1,
         "api_key_set": bool(credential and credential.has_credential and credential.is_active),
@@ -1875,6 +1917,37 @@ def _provider_item(
         "read_only": scope == "department" if read_only is None else read_only,
         "catalog_fields_read_only": catalog_fields_read_only,
     }
+
+
+def _workspace_models_payload(models: list[object]) -> list[Any]:
+    sanitized: list[dict[str, object]] = []
+    for item in models:
+        if not isinstance(item, dict):
+            raise ValueError("invalid generation model")
+        sanitized.append(
+            {
+                key: item[key]
+                for key in (
+                    "generation_model_id",
+                    "display_name",
+                    "model_id",
+                    "capability_profile_id",
+                    "is_default",
+                    "is_enabled",
+                )
+                if key in item and item[key] is not None
+            }
+        )
+    payload = ProviderVersionPayload.model_validate(
+        {
+            "provider_key": "personal-models",
+            "display_name": "Personal Models",
+            "base_url": "https://models.invalid/v1",
+            "api_mode": "images",
+            "models": sanitized,
+        }
+    )
+    return payload.models
 
 
 def _split_provider_id(value: object) -> tuple[str, str]:

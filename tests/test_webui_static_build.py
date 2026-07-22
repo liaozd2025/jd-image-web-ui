@@ -130,6 +130,7 @@ class WebUIStaticBuildTests(WebUIStaticTestCase):
                     str(esbuild),
                     "codex_image/webui/frontend/src/main.ts",
                     "--bundle",
+                    "--preserve-symlinks",
                     "--format=iife",
                     "--target=es2020",
                     f"--outfile={generated_app}",

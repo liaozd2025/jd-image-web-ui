@@ -29,6 +29,14 @@ class PersonalCredentialNotFound(RuntimeError):
     pass
 
 
+class GenerationModelNotFound(RuntimeError):
+    pass
+
+
+class GenerationModelInUse(RuntimeError):
+    pass
+
+
 @dataclass(frozen=True)
 class ProviderVersion:
     provider_version_id: str
@@ -313,6 +321,7 @@ class ProviderRepository:
                     ),
                 )
                 updated_at = cursor.fetchone()["updated_at"]
+                self._ensure_personal_models(cursor, user_id, provider_version_id)
                 record_audit_event(
                     cursor,
                     action="provider.personal_credential_saved",
@@ -331,6 +340,193 @@ class ProviderRepository:
             provider_is_active=True,
             updated_at=updated_at,
         )
+
+    def list_generation_models(
+        self,
+        *,
+        provider_version_id: str,
+        owner_user_id: str | None,
+    ) -> list[dict[str, object]]:
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                cursor.execute(
+                    """
+                    SELECT generation_model_id, display_name, model_id,
+                           capability_profile_id, capability_profile_version,
+                           is_default, is_enabled, validation_status,
+                           validation_request_id, validation_error, validated_at,
+                           created_at, updated_at
+                    FROM generation_models
+                    WHERE provider_version_id = %s
+                      AND owner_user_id IS NOT DISTINCT FROM %s
+                    ORDER BY is_default DESC, created_at, generation_model_id
+                    """,
+                    (provider_version_id, owner_user_id),
+                )
+                return [self._generation_model_from_row(row) for row in cursor.fetchall()]
+
+    def replace_personal_models(
+        self,
+        user_id: str,
+        *,
+        provider_version_id: str,
+        models: list[dict[str, object]],
+    ) -> list[dict[str, object]]:
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
+                cursor.execute(
+                    """
+                    SELECT 1
+                    FROM personal_provider_credentials
+                    WHERE user_id = %s AND provider_version_id = %s
+                    FOR UPDATE
+                    """,
+                    (user_id, provider_version_id),
+                )
+                if cursor.fetchone() is None:
+                    raise PersonalCredentialNotFound("personal provider credential was not found")
+                self._ensure_personal_models(cursor, user_id, provider_version_id)
+                cursor.execute(
+                    """
+                    SELECT generation_model_id
+                    FROM generation_models
+                    WHERE provider_version_id = %s AND owner_user_id = %s
+                    FOR UPDATE
+                    """,
+                    (provider_version_id, user_id),
+                )
+                existing_ids = {str(row["generation_model_id"]) for row in cursor.fetchall()}
+                requested_existing_ids = {
+                    str(model.get("generation_model_id"))
+                    for model in models
+                    if str(model.get("generation_model_id") or "") in existing_ids
+                }
+                removed_ids = existing_ids - requested_existing_ids
+                if removed_ids:
+                    cursor.execute(
+                        """
+                        SELECT generation_model_id
+                        FROM server_generation_tasks
+                        WHERE generation_model_id = ANY(%s)
+                        LIMIT 1
+                        """,
+                        (list(removed_ids),),
+                    )
+                    if cursor.fetchone() is not None:
+                        raise GenerationModelInUse(
+                            "a referenced generation model can only be disabled"
+                        )
+                    cursor.execute(
+                        """
+                        DELETE FROM generation_models
+                        WHERE provider_version_id = %s AND owner_user_id = %s
+                          AND generation_model_id = ANY(%s)
+                        """,
+                        (provider_version_id, user_id, list(removed_ids)),
+                    )
+                stored_ids: list[str] = []
+                for model in models:
+                    requested_id = str(model.get("generation_model_id") or "")
+                    generation_model_id = requested_id if requested_id in existing_ids else str(uuid4())
+                    stored_ids.append(generation_model_id)
+                    cursor.execute(
+                        """
+                        INSERT INTO generation_models (
+                            generation_model_id, provider_version_id, owner_user_id,
+                            display_name, model_id, capability_profile_id,
+                            capability_profile_version, is_default, is_enabled,
+                            validation_status
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'not_required')
+                        ON CONFLICT (generation_model_id) DO UPDATE SET
+                            display_name = EXCLUDED.display_name,
+                            model_id = EXCLUDED.model_id,
+                            capability_profile_id = EXCLUDED.capability_profile_id,
+                            capability_profile_version = EXCLUDED.capability_profile_version,
+                            is_default = EXCLUDED.is_default,
+                            is_enabled = EXCLUDED.is_enabled,
+                            validation_status = 'not_required',
+                            validation_request_id = NULL,
+                            validation_error = NULL,
+                            validated_at = NULL,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE generation_models.provider_version_id = EXCLUDED.provider_version_id
+                          AND generation_models.owner_user_id = EXCLUDED.owner_user_id
+                        """,
+                        (
+                            generation_model_id,
+                            provider_version_id,
+                            user_id,
+                            model["display_name"],
+                            model["model_id"],
+                            model["capability_profile_id"],
+                            model["capability_profile_version"],
+                            model["is_default"],
+                            model["is_enabled"],
+                        ),
+                    )
+                record_audit_event(
+                    cursor,
+                    action="provider.personal_models_replaced",
+                    actor_user_id=user_id,
+                    subject_user_id=user_id,
+                    details={
+                        "provider_version_id": provider_version_id,
+                        "generation_model_ids": stored_ids,
+                    },
+                )
+        return self.list_generation_models(
+            provider_version_id=provider_version_id,
+            owner_user_id=user_id,
+        )
+
+    def delete_personal_model(
+        self,
+        user_id: str,
+        *,
+        provider_version_id: str,
+        generation_model_id: str,
+    ) -> None:
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
+                cursor.execute(
+                    """
+                    SELECT is_default
+                    FROM generation_models
+                    WHERE generation_model_id = %s AND provider_version_id = %s
+                      AND owner_user_id = %s
+                    FOR UPDATE
+                    """,
+                    (generation_model_id, provider_version_id, user_id),
+                )
+                model = cursor.fetchone()
+                if model is None:
+                    raise GenerationModelNotFound("generation model was not found")
+                if model["is_default"]:
+                    raise GenerationModelInUse("the default generation model cannot be deleted")
+                cursor.execute(
+                    "SELECT 1 FROM server_generation_tasks WHERE generation_model_id = %s LIMIT 1",
+                    (generation_model_id,),
+                )
+                if cursor.fetchone() is not None:
+                    raise GenerationModelInUse(
+                        "a referenced generation model can only be disabled"
+                    )
+                cursor.execute(
+                    "DELETE FROM generation_models WHERE generation_model_id = %s",
+                    (generation_model_id,),
+                )
+                record_audit_event(
+                    cursor,
+                    action="provider.personal_model_deleted",
+                    actor_user_id=user_id,
+                    subject_user_id=user_id,
+                    details={
+                        "provider_version_id": provider_version_id,
+                        "generation_model_id": generation_model_id,
+                    },
+                )
 
     def delete_personal_credential(
         self,
@@ -404,6 +600,39 @@ class ProviderRepository:
         )
 
     @staticmethod
+    def _ensure_personal_models(cursor: Any, user_id: str, provider_version_id: str) -> None:
+        cursor.execute(
+            """
+            INSERT INTO generation_models (
+                generation_model_id, provider_version_id, owner_user_id,
+                display_name, model_id, capability_profile_id,
+                capability_profile_version, is_default, is_enabled,
+                validation_status
+            )
+            SELECT %s || substr(md5(%s || ':' || generation_model_id), 1, 24),
+                   provider_version_id, %s, display_name, model_id,
+                   capability_profile_id, capability_profile_version,
+                   is_default, is_enabled, 'not_required'
+            FROM generation_models AS department_models
+            WHERE department_models.provider_version_id = %s
+              AND department_models.owner_user_id IS NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM generation_models AS personal_models
+                  WHERE personal_models.provider_version_id = %s
+                    AND personal_models.owner_user_id = %s
+              )
+            """,
+            (
+                "gm-personal-",
+                user_id,
+                user_id,
+                provider_version_id,
+                provider_version_id,
+                user_id,
+            ),
+        )
+
+    @staticmethod
     def _lock_active_provider(cursor: Any, provider_version_id: str) -> dict[str, Any]:
         cursor.execute(
             """
@@ -449,6 +678,23 @@ class ProviderRepository:
             provider_is_active=row["provider_is_active"],
             updated_at=row["updated_at"],
         )
+
+    @staticmethod
+    def _generation_model_from_row(row: dict[str, Any]) -> dict[str, object]:
+        return {
+            "generation_model_id": row["generation_model_id"],
+            "display_name": row["display_name"],
+            "model_id": row["model_id"],
+            "capability_profile_id": row["capability_profile_id"],
+            "capability_profile_version": int(row["capability_profile_version"]),
+            "is_default": bool(row["is_default"]),
+            "is_enabled": bool(row["is_enabled"]),
+            "validation_status": row["validation_status"],
+            "validation_request_id": row.get("validation_request_id"),
+            "validation_error": row.get("validation_error"),
+            "validated_at": row["validated_at"].isoformat() if row.get("validated_at") else None,
+            "updated_at": row["updated_at"].isoformat(),
+        }
 
 
 def _mask_api_key(api_key: str) -> str:

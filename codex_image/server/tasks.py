@@ -178,8 +178,24 @@ class GenerationTaskRepository:
                     raise TaskConfigurationError("provider version was not found")
                 if not provider["is_active"]:
                     raise TaskConfigurationError("provider version is inactive")
-                generation_model = _resolve_generation_model(provider["models"], model_id)
-                if generation_model is None or not bool(generation_model.get("is_enabled", True)):
+                cursor.execute(
+                    """
+                    SELECT generation_model_id, display_name, model_id,
+                           capability_profile_id, capability_profile_version,
+                           is_enabled, validation_status
+                    FROM generation_models
+                    WHERE provider_version_id = %s
+                      AND owner_user_id IS NOT DISTINCT FROM %s
+                      AND model_id = %s
+                    """,
+                    (
+                        provider_version_id,
+                        user_id if provider_scope == "personal" else None,
+                        model_id,
+                    ),
+                )
+                generation_model = cursor.fetchone()
+                if generation_model is None or not bool(generation_model["is_enabled"]):
                     raise TaskConfigurationError("model is not allowed for this provider version")
                 profile_id = str(generation_model.get("capability_profile_id") or "generic-basic")
                 try:

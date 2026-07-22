@@ -29,6 +29,12 @@ const state = bridge.state;
 const els = bridge.els;
 let apiSettingsAutosaveTimerId: number | null = null;
 
+const MODEL_PROFILES = [
+  ["generic-basic", "apiSettings.profileGeneric"],
+  ["seedream-5-lite", "apiSettings.profileSeedreamLite"],
+  ["seedream-5-pro", "apiSettings.profileSeedreamPro"],
+] as const;
+
 function legacyMethod(name: string, ...args: any[]): any {
   const method = getLegacyBridge().methods[name];
   if (typeof method !== "function") {
@@ -45,6 +51,13 @@ function openConfirmPopover(...args: any[]): void { legacyMethod("openConfirmPop
 export function normalizeApiProvider(provider: any = {}, index: any = 0): any {
   const fallbackId = index === 0 ? "default" : `provider-${index + 1}`;
   const id = String(provider.id || fallbackId).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || fallbackId;
+  const fallbackModel = String(provider.image_model || DEFAULT_API_IMAGE_MODEL).trim() || DEFAULT_API_IMAGE_MODEL;
+  const rawModels = Array.isArray(provider.models) && provider.models.length
+    ? provider.models
+    : [{ display_name: fallbackModel, model_id: fallbackModel, capability_profile_id: "generic-basic", is_default: true, is_enabled: true }];
+  const models = rawModels.map((model: any, modelIndex: number) => normalizeApiModel(model, modelIndex));
+  if (!models.some((model: any) => model.is_default)) models[0].is_default = true;
+  const defaultModel = models.find((model: any) => model.is_default) || models[0];
   return {
     id,
     provider_version_id: String(provider.provider_version_id || "").trim(),
@@ -53,15 +66,32 @@ export function normalizeApiProvider(provider: any = {}, index: any = 0): any {
     name: String(provider.name || (id === "default" ? "Default" : `Provider ${index + 1}`)).trim() || id,
     base_url: String(provider.base_url || DEFAULT_API_BASE_URL).trim() || DEFAULT_API_BASE_URL,
     api_key: String(provider.api_key || "").trim(),
-    image_model: String(provider.image_model || DEFAULT_API_IMAGE_MODEL).trim() || DEFAULT_API_IMAGE_MODEL,
+    image_model: defaultModel.model_id,
     api_mode: provider.api_mode === "responses" ? "responses" : DEFAULT_API_MODE,
     images_concurrency: normalizeApiImagesConcurrency(provider.images_concurrency),
     api_key_set: Boolean(provider.api_key_set || provider.api_key),
     api_key_masked: String(provider.api_key_masked || ""),
     api_key_source_provider_id: String(provider.api_key_source_provider_id || "").trim(),
-    models: Array.isArray(provider.models) ? provider.models : [],
+    models,
     read_only: Boolean(provider.read_only),
     catalog_fields_read_only: Boolean(provider.catalog_fields_read_only),
+  };
+}
+
+function normalizeApiModel(model: any = {}, index = 0): any {
+  const modelId = String(model.model_id || "").trim();
+  return {
+    generation_model_id: String(model.generation_model_id || "").trim(),
+    client_id: String(model.client_id || model.generation_model_id || `draft-model-${index + 1}`).trim(),
+    display_name: String(model.display_name || modelId || formatTranslation("apiSettings.modelNumber", { number: String(index + 1) })).trim(),
+    model_id: modelId,
+    capability_profile_id: MODEL_PROFILES.some(([profileId]) => profileId === model.capability_profile_id)
+      ? model.capability_profile_id
+      : "generic-basic",
+    is_default: Boolean(model.is_default),
+    is_enabled: model.is_enabled !== false,
+    validation_status: String(model.validation_status || "not_required"),
+    validation_error: String(model.validation_error || ""),
   };
 }
 
@@ -120,7 +150,7 @@ function providerKeyLabel(provider: any): string {
 function providerMetaLabel(provider: any): string {
   return [
     apiModeLabel(providerMode(provider)),
-    provider?.image_model || DEFAULT_API_IMAGE_MODEL,
+    formatTranslation("apiSettings.modelCount", { count: String(provider?.models?.length || 0) }),
     formatTranslation("apiSettings.concurrencyValue", {
       concurrency: String(normalizeApiImagesConcurrency(provider?.images_concurrency)),
     }),
@@ -226,18 +256,155 @@ function apiProviderEditorActive(): boolean {
 
 function draftProviderFromForm(): any {
   const draft = state.apiProviderDraft || activeApiProvider();
+  const models = readModelDraftRows();
+  const defaultModel = models.find((model: any) => model.is_default) || models[0];
   return normalizeApiProvider({
     ...draft,
     name: els.apiProviderName?.value || draft.name,
     base_url: els.apiBaseUrl?.value || DEFAULT_API_BASE_URL,
     api_key: els.apiKey?.value || "",
     api_mode: els.apiMode?.value || DEFAULT_API_MODE,
-    image_model: els.apiImageModel?.value || DEFAULT_API_IMAGE_MODEL,
+    image_model: defaultModel?.model_id || DEFAULT_API_IMAGE_MODEL,
+    models,
     images_concurrency: normalizeApiImagesConcurrency(els.apiImagesConcurrency?.value),
     api_key_set: Boolean(draft.api_key_set || draft.api_key || draft.api_key_source_provider_id),
     api_key_masked: draft.api_key_masked,
     api_key_source_provider_id: draft.api_key_source_provider_id,
   }, 0);
+}
+
+function readModelDraftRows(): any[] {
+  const modelList = els.apiModelList as HTMLElement | null;
+  if (!modelList) return state.apiProviderDraft?.models || activeApiProvider().models || [];
+  return [...modelList.querySelectorAll<HTMLElement>("[data-api-model-row]")].map((row, index) => normalizeApiModel({
+    generation_model_id: row.dataset.generationModelId || "",
+    client_id: row.dataset.clientId || `draft-model-${index + 1}`,
+    display_name: row.querySelector<HTMLInputElement>("[data-model-display-name]")?.value || "",
+    model_id: row.querySelector<HTMLInputElement>("[data-model-id]")?.value || "",
+    capability_profile_id: row.querySelector<HTMLSelectElement>("[data-model-profile]")?.value || "generic-basic",
+    is_default: Boolean(row.querySelector<HTMLInputElement>("[data-model-default]")?.checked),
+    is_enabled: Boolean(row.querySelector<HTMLInputElement>("[data-model-enabled]")?.checked),
+    validation_status: row.dataset.validationStatus || "not_required",
+    validation_error: row.dataset.validationError || "",
+  }, index));
+}
+
+function syncModelDraftFromRows(): void {
+  if (!state.apiProviderDraft) return;
+  const models = readModelDraftRows();
+  state.apiProviderDraft.models = models;
+  const defaultModel = models.find((model: any) => model.is_default) || models[0];
+  state.apiProviderDraft.image_model = defaultModel?.model_id || DEFAULT_API_IMAGE_MODEL;
+  if (els.apiImageModel) {
+    els.apiImageModel.value = state.apiProviderDraft.image_model;
+    els.apiImageModel.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+}
+
+function renderProviderModelEditor(provider: any): void {
+  if (!els.apiModelList) return;
+  const models = (provider.models || []).map((model: any, index: number) => normalizeApiModel(model, index));
+  const readOnly = Boolean(provider.read_only);
+  const rows = models.map((model: any, index: number) => {
+    const row = document.createElement("div");
+    row.className = "api-model-row";
+    row.dataset.apiModelRow = "true";
+    row.dataset.generationModelId = model.generation_model_id;
+    row.dataset.clientId = model.client_id;
+    row.dataset.validationStatus = model.validation_status;
+    row.dataset.validationError = model.validation_error;
+    row.setAttribute("role", "listitem");
+
+    const displayName = document.createElement("input");
+    displayName.className = "control";
+    displayName.value = model.display_name;
+    displayName.placeholder = translate("apiSettings.modelDisplayName");
+    displayName.setAttribute("aria-label", translate("apiSettings.modelDisplayName"));
+    displayName.dataset.modelDisplayName = "true";
+
+    const modelId = document.createElement("input");
+    modelId.className = "control";
+    modelId.value = model.model_id;
+    modelId.placeholder = "Model ID";
+    modelId.setAttribute("aria-label", "Model ID");
+    modelId.dataset.modelId = "true";
+
+    const profile = document.createElement("select");
+    profile.className = "control";
+    profile.dataset.modelProfile = "true";
+    profile.setAttribute("aria-label", translate("apiSettings.capabilityProfile"));
+    MODEL_PROFILES.forEach(([value, labelKey]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = translate(labelKey);
+      profile.append(option);
+    });
+    profile.value = model.capability_profile_id;
+
+    const defaultLabel = document.createElement("label");
+    defaultLabel.className = "api-model-toggle";
+    const defaultInput = document.createElement("input");
+    defaultInput.type = "radio";
+    defaultInput.name = "api-provider-default-model";
+    defaultInput.checked = model.is_default;
+    defaultInput.dataset.modelDefault = "true";
+    defaultLabel.append(defaultInput, document.createTextNode(translate("apiSettings.defaultModel")));
+
+    const enabledLabel = document.createElement("label");
+    enabledLabel.className = "api-model-toggle";
+    const enabledInput = document.createElement("input");
+    enabledInput.type = "checkbox";
+    enabledInput.checked = model.is_enabled;
+    enabledInput.dataset.modelEnabled = "true";
+    enabledLabel.append(enabledInput, document.createTextNode(translate("apiSettings.enabledModel")));
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "ghost-button danger-button api-model-remove";
+    remove.textContent = translate("action.delete");
+    remove.setAttribute("aria-label", formatTranslation("apiSettings.deleteModelAria", { model: model.display_name || String(index + 1) }));
+    remove.disabled = readOnly || models.length <= 1;
+    remove.addEventListener("click", () => {
+      syncModelDraftFromRows();
+      state.apiProviderDraft.models = state.apiProviderDraft.models.filter((item: any) => item.client_id !== model.client_id);
+      if (!state.apiProviderDraft.models.some((item: any) => item.is_default)) state.apiProviderDraft.models[0].is_default = true;
+      renderProviderModelEditor(state.apiProviderDraft);
+      markSystemSettingsDirty(els.apiProviderEditor);
+    });
+
+    const status = document.createElement("span");
+    status.className = `api-model-validation api-model-validation-${model.validation_status}`;
+    status.textContent = translate(`apiSettings.validation.${model.validation_status}`);
+    status.title = model.validation_error;
+    status.hidden = provider.provider_scope !== "department";
+
+    [displayName, modelId, profile, defaultInput, enabledInput].forEach((control: any) => {
+      control.disabled = readOnly;
+      control.addEventListener("input", syncModelDraftFromRows);
+      control.addEventListener("change", syncModelDraftFromRows);
+    });
+    row.append(displayName, modelId, profile, defaultLabel, enabledLabel, status, remove);
+    return row;
+  });
+  els.apiModelList.replaceChildren(...rows);
+  if (els.addApiModelButton) {
+    els.addApiModelButton.disabled = readOnly || models.length >= 100;
+    els.addApiModelButton.onclick = () => {
+      syncModelDraftFromRows();
+      const nextIndex = state.apiProviderDraft.models.length;
+      state.apiProviderDraft.models.push(normalizeApiModel({
+        client_id: `draft-model-${Date.now()}`,
+        display_name: formatTranslation("apiSettings.modelNumber", { number: String(nextIndex + 1) }),
+        model_id: "",
+        capability_profile_id: "generic-basic",
+        is_default: false,
+        is_enabled: true,
+      }, nextIndex));
+      renderProviderModelEditor(state.apiProviderDraft);
+      (els.apiModelList as HTMLElement | null)?.querySelector<HTMLInputElement>("[data-api-model-row]:last-child [data-model-display-name]")?.focus();
+      markSystemSettingsDirty(els.apiProviderEditor);
+    };
+  }
 }
 
 function writeProviderForm(provider: any): void {
@@ -250,6 +417,7 @@ function writeProviderForm(provider: any): void {
     els.apiMode.dispatchEvent(new Event("change"));
   }
   if (els.apiImageModel) els.apiImageModel.value = provider.image_model || DEFAULT_API_IMAGE_MODEL;
+  renderProviderModelEditor(provider);
   if (els.apiImagesConcurrency) els.apiImagesConcurrency.value = String(normalizeApiImagesConcurrency(provider.images_concurrency));
   if (els.apiKey) {
     els.apiKey.value = provider.api_key || "";
@@ -257,7 +425,7 @@ function writeProviderForm(provider: any): void {
       ? translate("apiSettings.savedKeyPlaceholder")
       : "sk-...";
   }
-  [els.apiProviderName, els.apiBaseUrl, els.apiMode, els.apiImageModel, els.apiImagesConcurrency]
+  [els.apiProviderName, els.apiBaseUrl, els.apiMode, els.apiImagesConcurrency]
     .filter(Boolean)
     .forEach((element: any) => { element.disabled = catalogFieldsReadOnly || providerReadOnly; });
   if (els.apiKey) els.apiKey.disabled = providerReadOnly;
@@ -896,6 +1064,14 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
         name: provider.name,
         base_url: provider.base_url,
         image_model: provider.image_model,
+        models: provider.models.map((model: any) => ({
+          generation_model_id: model.generation_model_id || undefined,
+          display_name: model.display_name,
+          model_id: model.model_id,
+          capability_profile_id: model.capability_profile_id,
+          is_default: model.is_default,
+          is_enabled: model.is_enabled,
+        })),
         api_mode: provider.api_mode,
       };
       item.images_concurrency = provider.images_concurrency;
