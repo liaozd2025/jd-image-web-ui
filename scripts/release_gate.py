@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import sys
 
@@ -11,6 +12,11 @@ ROOT = Path(__file__).resolve().parents[1]
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the server-only release gate")
     parser.add_argument("--static-only", action="store_true")
+    parser.add_argument(
+        "--database-url",
+        default=os.environ.get("JD_IMAGE_DATABASE_URL", ""),
+        help="production PostgreSQL URL used to verify department model readiness",
+    )
     args = parser.parse_args(argv)
     failures: list[str] = []
     for forbidden in (
@@ -53,6 +59,35 @@ def main(argv: list[str] | None = None) -> int:
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     if "Local-first" in pyproject or "WebUI and CLI" in pyproject:
         failures.append("pyproject still describes the removed local product")
+    if args.database_url:
+        try:
+            import psycopg
+
+            with psycopg.connect(args.database_url, connect_timeout=5) as connection:
+                rows = connection.execute(
+                    """
+                    SELECT versions.display_name, models.display_name, models.validation_status
+                    FROM generation_models AS models
+                    JOIN provider_catalog_versions AS versions
+                      ON versions.provider_version_id = models.provider_version_id
+                     AND versions.is_active = TRUE
+                    JOIN department_provider_credentials AS credentials
+                      ON credentials.provider_version_id = versions.provider_version_id
+                     AND credentials.is_active = TRUE
+                     AND credentials.encrypted_api_key IS NOT NULL
+                    WHERE models.owner_user_id IS NULL
+                      AND models.is_default = TRUE
+                      AND models.is_enabled = TRUE
+                      AND models.validation_status <> 'verified'
+                    ORDER BY versions.display_name, models.display_name
+                    """
+                ).fetchall()
+            failures.extend(
+                f"department default model is not verified: {provider_name} / {model_name} ({status})"
+                for provider_name, model_name, status in rows
+            )
+        except Exception as error:
+            failures.append(f"department model readiness check failed: {type(error).__name__}")
     if failures:
         print("\n".join(failures), file=sys.stderr)
         return 1

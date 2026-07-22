@@ -58,6 +58,9 @@ class OpenAIImagesImageClient:
         output_compression: int | None = None,
         partial_images: int | None = None,
         debug_sse_path: str | PathLike[str] | None = None,
+        seed: int | None = None,
+        prompt_optimization_mode: str | None = None,
+        watermark: bool | None = None,
     ) -> ImageResult:
         return self.generate_images(
             prompt=prompt,
@@ -72,6 +75,9 @@ class OpenAIImagesImageClient:
             output_compression=output_compression,
             partial_images=partial_images,
             debug_sse_path=debug_sse_path,
+            seed=seed,
+            prompt_optimization_mode=prompt_optimization_mode,
+            watermark=watermark,
             n=1,
         )[0]
 
@@ -91,6 +97,9 @@ class OpenAIImagesImageClient:
         partial_images: int | None = None,
         debug_sse_path: str | PathLike[str] | None = None,
         n: int = 1,
+        seed: int | None = None,
+        prompt_optimization_mode: str | None = None,
+        watermark: bool | None = None,
     ) -> list[ImageResult]:
         del partial_images, debug_sse_path
         action = "edit" if reference_images else "generate"
@@ -107,6 +116,9 @@ class OpenAIImagesImageClient:
             moderation=moderation,
             output_compression=output_compression,
             n=n,
+            seed=seed,
+            prompt_optimization_mode=prompt_optimization_mode,
+            watermark=watermark,
         )
         return self._request_and_parse_many(payload)
 
@@ -127,6 +139,9 @@ class OpenAIImagesImageClient:
         output_compression: int | None = None,
         partial_images: int | None = None,
         debug_sse_path: str | PathLike[str] | None = None,
+        seed: int | None = None,
+        prompt_optimization_mode: str | None = None,
+        watermark: bool | None = None,
     ) -> ImageResult:
         return self.edit_images(
             prompt=prompt,
@@ -144,6 +159,9 @@ class OpenAIImagesImageClient:
             partial_images=partial_images,
             debug_sse_path=debug_sse_path,
             n=1,
+            seed=seed,
+            prompt_optimization_mode=prompt_optimization_mode,
+            watermark=watermark,
         )[0]
 
     def edit_images(
@@ -164,6 +182,9 @@ class OpenAIImagesImageClient:
         partial_images: int | None = None,
         debug_sse_path: str | PathLike[str] | None = None,
         n: int = 1,
+        seed: int | None = None,
+        prompt_optimization_mode: str | None = None,
+        watermark: bool | None = None,
     ) -> list[ImageResult]:
         del partial_images, debug_sse_path
         if not images:
@@ -184,6 +205,9 @@ class OpenAIImagesImageClient:
             moderation=moderation,
             output_compression=output_compression,
             n=n,
+            seed=seed,
+            prompt_optimization_mode=prompt_optimization_mode,
+            watermark=watermark,
         )
         return self._request_and_parse_many(payload)
 
@@ -204,6 +228,9 @@ class OpenAIImagesImageClient:
         moderation: str | None = None,
         output_compression: int | None = None,
         n: int = 1,
+        seed: int | None = None,
+        prompt_optimization_mode: str | None = None,
+        watermark: bool | None = None,
     ) -> dict[str, Any]:
         del main_model
         image_model = str(model or self.image_model or DEFAULT_IMAGE_MODEL).strip() or DEFAULT_IMAGE_MODEL
@@ -233,6 +260,12 @@ class OpenAIImagesImageClient:
             payload["images"] = [{"image_url": image_url} for image_url in images]
         if mask_image:
             payload["mask"] = {"image_url": mask_image}
+        if seed is not None:
+            payload["seed"] = int(seed)
+        if prompt_optimization_mode and prompt_optimization_mode != "off":
+            payload["optimize_prompt_options"] = {"mode": prompt_optimization_mode}
+        if watermark is not None:
+            payload["watermark"] = bool(watermark)
         return payload
 
     def _request_and_parse(self, payload: dict[str, Any]) -> ImageResult:
@@ -294,6 +327,16 @@ class OpenAIImagesImageClient:
         }
         if payload.get("size"):
             request_payload["size"] = payload["size"]
+        if payload.get("output_format"):
+            request_payload["output_format"] = payload["output_format"]
+        if payload.get("seed") is not None:
+            request_payload["seed"] = payload["seed"]
+        if payload.get("optimize_prompt_options"):
+            request_payload["optimize_prompt_options"] = payload["optimize_prompt_options"]
+        if payload.get("watermark") is not None:
+            request_payload["watermark"] = payload["watermark"]
+        request_payload["sequential_image_generation"] = "disabled"
+        request_payload["stream"] = False
         images = payload.get("images")
         image_values = [
             str(item.get("image_url") or "")

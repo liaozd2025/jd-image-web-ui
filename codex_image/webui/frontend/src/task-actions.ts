@@ -147,7 +147,7 @@ async function deleteTaskById(taskId: any) {
   }
 }
 
-async function retryFailedTask(taskId: any) {
+async function retryFailedTask(taskId: any, confirmCapabilityChange = false) {
   closePromptPopover();
   const task = state.tasks.find((item: any) => String(item.task_id) === String(taskId));
   if (!task || !canRetryFailedTask(task)) {
@@ -159,9 +159,28 @@ async function retryFailedTask(taskId: any) {
     const response = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/retry-failed`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ api_provider_id: currentApiProviderId() }),
+      body: JSON.stringify({
+        api_provider_id: currentApiProviderId(),
+        confirm_capability_change: confirmCapabilityChange,
+      }),
     });
     const data = await response.json().catch(() => ({}));
+    if (
+      response.status === 409
+      && data.detail === "model_capability_changed_confirmation_required"
+      && !confirmCapabilityChange
+    ) {
+      const anchor = document.querySelector<HTMLElement>(`[data-preview-retry-failed-task-id="${CSS.escape(String(taskId))}"]`)
+        || els.previewGrid;
+      openConfirmPopover(anchor, {
+        title: translate("taskActions.capabilityChangedTitle"),
+        message: translate("taskActions.capabilityChangedMessage"),
+        detail: translate("taskActions.capabilityChangedDetail"),
+        confirmText: translate("taskActions.retryWithCurrentCapability"),
+        onConfirm: async () => retryFailedTask(taskId, true),
+      });
+      return;
+    }
     if (!response.ok) throw new TaskActionHttpError(data.detail || translate("taskActions.retryFailedOutputsFailed"), response.status);
     const updatedTask = data.task;
     state.tasks = [updatedTask, ...state.tasks.filter((item: any) => String(item.task_id) !== String(taskId))];

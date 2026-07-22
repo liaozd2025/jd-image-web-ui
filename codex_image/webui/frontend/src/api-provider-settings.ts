@@ -52,12 +52,12 @@ export function normalizeApiProvider(provider: any = {}, index: any = 0): any {
   const fallbackId = index === 0 ? "default" : `provider-${index + 1}`;
   const id = String(provider.id || fallbackId).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || fallbackId;
   const fallbackModel = String(provider.image_model || DEFAULT_API_IMAGE_MODEL).trim() || DEFAULT_API_IMAGE_MODEL;
-  const rawModels = Array.isArray(provider.models) && provider.models.length
+  const rawModels = Array.isArray(provider.models)
     ? provider.models
     : [{ display_name: fallbackModel, model_id: fallbackModel, capability_profile_id: "generic-basic", is_default: true, is_enabled: true }];
   const models = rawModels.map((model: any, modelIndex: number) => normalizeApiModel(model, modelIndex));
-  if (!models.some((model: any) => model.is_default)) models[0].is_default = true;
-  const defaultModel = models.find((model: any) => model.is_default) || models[0];
+  if (models.length && !models.some((model: any) => model.is_default)) models[0].is_default = true;
+  const defaultModel = models.find((model: any) => model.is_default) || models[0] || { model_id: "" };
   return {
     id,
     provider_version_id: String(provider.provider_version_id || "").trim(),
@@ -73,6 +73,8 @@ export function normalizeApiProvider(provider: any = {}, index: any = 0): any {
     api_key_masked: String(provider.api_key_masked || ""),
     api_key_source_provider_id: String(provider.api_key_source_provider_id || "").trim(),
     models,
+    selected_generation_model_id: String(provider.selected_generation_model_id || "").trim(),
+    model_selection_reason: String(provider.model_selection_reason || ""),
     read_only: Boolean(provider.read_only),
     catalog_fields_read_only: Boolean(provider.catalog_fields_read_only),
   };
@@ -88,6 +90,7 @@ function normalizeApiModel(model: any = {}, index = 0): any {
     capability_profile_id: MODEL_PROFILES.some(([profileId]) => profileId === model.capability_profile_id)
       ? model.capability_profile_id
       : "generic-basic",
+    capability_profile_version: Number.parseInt(model.capability_profile_version, 10) || 1,
     is_default: Boolean(model.is_default),
     is_enabled: model.is_enabled !== false,
     validation_status: String(model.validation_status || "not_required"),
@@ -674,6 +677,9 @@ export function normalizeApiSettings(settings: any = {}): any {
     providers,
     allow_new_provider: Boolean(settings.allow_new_provider),
     credential_scope: settings.credential_scope === "department" ? "department" : "personal",
+    model_preferences: settings.model_preferences && typeof settings.model_preferences === "object"
+      ? settings.model_preferences
+      : { selections: [], parameters: [] },
   };
 }
 
@@ -706,11 +712,15 @@ export function persistApiSettings(): void {
 
 export function mergeApiProviderKeys(serverSettings: any): any {
   const localById = new Map<string, any>((state.apiSettings.providers || []).map((provider: any) => [provider.id, provider]));
+  const localActiveProviderId = String(state.apiSettings.active_provider_id || "");
   const normalized = normalizeApiSettings(serverSettings);
   normalized.providers = normalized.providers.map((provider: any) => {
     const local = localById.get(provider.id);
     return local?.api_key ? { ...provider, api_key: local.api_key } : provider;
   });
+  if (normalized.providers.some((provider: any) => provider.id === localActiveProviderId)) {
+    normalized.active_provider_id = localActiveProviderId;
+  }
   return normalized;
 }
 
@@ -754,6 +764,7 @@ export function populateApiSettingsForm(): void {
     });
     els.apiProvider.value = provider.id;
   }
+  document.dispatchEvent(new CustomEvent("generation-model-settings-changed"));
   renderApiProviderList();
   renderApiProviderDetail();
   renderApiProviderEditor();

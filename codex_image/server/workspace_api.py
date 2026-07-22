@@ -17,6 +17,7 @@ from .assets import AssetNotFound, AssetQuotaExceeded, AssetRepository, AssetVal
 from .department_providers import DepartmentCredentialNotFound, DepartmentProviderRepository
 from .identity import AuthenticatedSession
 from .providers import (
+    GenerationModelNotFound,
     GenerationModelInUse,
     PersonalCredentialNotFound,
     ProviderVersion,
@@ -24,6 +25,7 @@ from .providers import (
     ProviderVersionInactive,
     ProviderVersionNotFound,
 )
+from .model_capabilities import get_model_capability_profile
 from .providers_api import ProviderVersionPayload
 from .tasks import (
     GenerationTask,
@@ -148,6 +150,48 @@ def install_workspace_routes(
                 except (ProviderVersionNotFound, ProviderVersionInactive) as error:
                     return JSONResponse(status_code=409, content={"detail": str(error)})
         return JSONResponse(content={"settings": _api_settings(session, providers, departments)})
+
+    @app.get("/api/generation-model-preferences", response_model=None)
+    def generation_model_preferences(request: Request) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        return JSONResponse(content={"preferences": providers.list_model_preferences(session.user.user_id)})
+
+    @app.put("/api/generation-model-preferences", response_model=None)
+    async def save_generation_model_preferences(request: Request) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        payload = await _json_object(request)
+        provider_scope = str(payload.get("provider_scope") or "")
+        provider_version_id = str(payload.get("provider_version_id") or "")
+        generation_model_id = str(payload.get("generation_model_id") or "")
+        if provider_scope not in {"personal", "department"} or not provider_version_id or not generation_model_id:
+            return JSONResponse(status_code=422, content={"detail": "invalid_generation_model_preference"})
+        owner_user_id = session.user.user_id if provider_scope == "personal" else None
+        model = next(
+            (
+                item
+                for item in providers.list_generation_models(
+                    provider_version_id=provider_version_id,
+                    owner_user_id=owner_user_id,
+                )
+                if item.get("generation_model_id") == generation_model_id
+            ),
+            None,
+        )
+        if model is None:
+            return JSONResponse(status_code=404, content={"detail": "generation_model_not_found"})
+        try:
+            profile = get_model_capability_profile(str(model.get("capability_profile_id") or "generic-basic"))
+            parameters = _normalize_model_preference_parameters(payload.get("parameters"), profile)
+            preferences = providers.save_model_preference(
+                session.user.user_id,
+                provider_scope=provider_scope,  # type: ignore[arg-type]
+                provider_version_id=provider_version_id,
+                generation_model_id=generation_model_id,
+                parameters=parameters,
+            )
+        except (GenerationModelNotFound, ValueError) as error:
+            return JSONResponse(status_code=409, content={"detail": str(error)})
+        return JSONResponse(content={"preferences": preferences})
 
     @app.get("/api/settings", response_model=None)
     def workspace_settings(request: Request) -> JSONResponse:
@@ -702,10 +746,15 @@ def install_workspace_routes(
         return JSONResponse(content={"task": _task_payload(task)})
 
     @app.post("/api/tasks/{task_id}/retry-failed", response_model=None, status_code=201)
-    def retry_failed_task(request: Request, task_id: str) -> JSONResponse:
+    async def retry_failed_task(request: Request, task_id: str) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
+        payload = await _json_object(request)
         try:
-            task = tasks.resubmit_task(session.user.user_id, task_id)
+            task = tasks.resubmit_task(
+                session.user.user_id,
+                task_id,
+                confirm_capability_change=payload.get("confirm_capability_change") is True,
+            )
         except TaskNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
         except TaskConfigurationError as error:
@@ -716,9 +765,11 @@ def install_workspace_routes(
     def accept_task_successes(request: Request, task_id: str) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
         try:
-            task = tasks.get_task(session.user.user_id, task_id)
+            task = tasks.accept_partial_successes(session.user.user_id, task_id)
         except TaskNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
+        except TaskConfigurationError as error:
+            return JSONResponse(status_code=409, content={"detail": str(error)})
         return JSONResponse(content={"task": _task_payload(task)})
 
     @app.patch("/api/tasks/{task_id}/outputs/{output_index}/selected", response_model=None)
@@ -917,17 +968,17 @@ def install_workspace_routes(
             task = tasks.get_task(session.user.user_id, task_id)
         except TaskNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
-        if task.status != "completed":
+        if task.status not in {"completed", "partial_failed"}:
             return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
         paths: list[tuple[int, Any, dict[str, object]]] = []
-        output_records = task_output_records(task)
-        output_records = [item for item in output_records if not bool(item.get("deleted"))]
+        output_records = list(enumerate(task_output_records(task), start=1))
+        output_records = [entry for entry in output_records if not bool(entry[1].get("deleted"))]
         if request.query_params.get("selected") == "1":
-            output_records = [item for item in output_records if bool(item.get("selected", True))]
-        for item in output_records:
+            output_records = [entry for entry in output_records if bool(entry[1].get("selected", True))]
+        for output_position, item in output_records:
             output_index = int(item.get("index") or 0)
             try:
-                path = tasks.result_path(task, output_index)
+                path = tasks.result_path(task, output_position)
             except TaskNotFound as error:
                 return JSONResponse(status_code=404, content={"detail": str(error)})
             if not path.is_file():
@@ -999,10 +1050,27 @@ async def _workspace_task_from_form(
     provider = available.get(f"{provider_scope}-{provider_version_id}")
     if provider is None:
         return JSONResponse(status_code=409, content={"detail": "所选供应商不可用，请检查凭据或联系管理员"})
-    model_id = str(form.get("model") or form.get("main_model") or "").strip()
-    allowed_models = {str(item.get("model_id")) for item in provider.get("models", []) if isinstance(item, dict)}
-    if not model_id or model_id not in allowed_models:
+    generation_model_id = str(form.get("generation_model_id") or "").strip()
+    available_models = [item for item in provider.get("models", []) if isinstance(item, dict)]
+    selected_model = next(
+        (
+            item
+            for item in available_models
+            if generation_model_id
+            and str(item.get("generation_model_id") or "") == generation_model_id
+        ),
+        None,
+    )
+    legacy_model_id = str(form.get("model") or form.get("main_model") or "").strip()
+    if selected_model is None and not generation_model_id:
+        matching_legacy_models = [
+            item for item in available_models if str(item.get("model_id") or "") == legacy_model_id
+        ]
+        selected_model = matching_legacy_models[0] if len(matching_legacy_models) == 1 else None
+    if selected_model is None:
         return JSONResponse(status_code=409, content={"detail": "所选模型不可用"})
+    generation_model_id = str(selected_model.get("generation_model_id") or "")
+    model_id = str(selected_model.get("model_id") or "")
     prompt = str(form.get("prompt_for_model") or form.get("prompt") or "").strip()
     if not prompt:
         return JSONResponse(status_code=422, content={"detail": "请输入提示词"})
@@ -1019,6 +1087,9 @@ async def _workspace_task_from_form(
     prompt_fidelity = str(form.get("prompt_fidelity") or "strict").lower()
     if prompt_fidelity not in {"strict", "original", "off"}:
         return JSONResponse(status_code=422, content={"detail": "提示词模式无效"})
+    prompt_optimization_mode = str(form.get("prompt_optimization_mode") or "off").lower()
+    seed_mode = str(form.get("seed_mode") or "random").lower()
+    seed = form.get("seed")
     try:
         output_count = int(str(form.get("n") or "1"))
     except ValueError:
@@ -1167,6 +1238,7 @@ async def _workspace_task_from_form(
             session.user.user_id,
             provider_version_id=provider_version_id,
             model_id=model_id,
+            generation_model_id=generation_model_id,
             prompt=prompt,
             request_parameters={
                 "size": size,
@@ -1183,6 +1255,10 @@ async def _workspace_task_from_form(
                 "orientation": str(form.get("orientation") or ""),
                 "mode": mode,
                 "api_mode": api_mode,
+                "prompt_optimization_mode": prompt_optimization_mode,
+                "seed_mode": seed_mode,
+                "seed": str(seed) if seed not in {None, ""} else None,
+                "capability_profile_version": form.get("capability_profile_version"),
             },
             input_bytes=input_bytes,
             input_media_type=input_media_type,
@@ -1192,10 +1268,34 @@ async def _workspace_task_from_form(
         )
     except TaskConfigurationError as error:
         return JSONResponse(status_code=409, content={"detail": _friendly_task_error(str(error))})
+    try:
+        providers.save_model_preference(
+            session.user.user_id,
+            provider_scope=provider_scope,
+            provider_version_id=provider_version_id,
+            generation_model_id=generation_model_id,
+            parameters={
+                "size": task.request_parameters.get("size"),
+                "resolution": task.request_parameters.get("resolution"),
+                "ratio": task.request_parameters.get("ratio"),
+                "orientation": task.request_parameters.get("orientation"),
+                "output_format": task.request_parameters.get("output_format"),
+                "prompt_optimization_mode": task.request_parameters.get("prompt_optimization_mode"),
+                "seed_mode": task.request_parameters.get("seed_mode"),
+                **(
+                    {"seed": task.request_parameters.get("seed")}
+                    if task.request_parameters.get("seed_mode") == "fixed"
+                    else {}
+                ),
+            },
+        )
+    except GenerationModelNotFound:
+        pass
     return task, {
         "provider_version_id": provider_version_id,
         "provider_scope": provider_scope,
         "model": model_id,
+        "generation_model_id": generation_model_id,
         "prompt": prompt,
         "size": size,
         "quality": quality,
@@ -1206,6 +1306,9 @@ async def _workspace_task_from_form(
         "prompt_fidelity": prompt_fidelity,
         "web_search": web_search,
         "mode": mode,
+        "prompt_optimization_mode": task.request_parameters.get("prompt_optimization_mode"),
+        "seed_mode": task.request_parameters.get("seed_mode"),
+        "seed": task.request_parameters.get("seed"),
     }
 
 
@@ -1215,6 +1318,69 @@ async def _json_object(request: Request) -> dict[str, Any]:
     except ValueError:
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _normalize_model_preference_parameters(
+    value: object,
+    profile: dict[str, Any],
+) -> dict[str, object]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError("invalid generation model parameters")
+    result: dict[str, object] = {}
+    size = str(value.get("size") or "")
+    if size:
+        if size not in [str(item) for item in profile.get("sizes", [])]:
+            match = re.fullmatch(r"(\d+)x(\d+)", size, flags=re.IGNORECASE)
+            constraints = profile.get("size_constraints") if isinstance(profile.get("size_constraints"), dict) else {}
+            if not profile.get("custom_size") or match is None:
+                raise ValueError("output size is not supported by this model")
+            width, height = int(match.group(1)), int(match.group(2))
+            aspect = width / height if height else 0
+            if (
+                width < int(constraints.get("min_dimension") or 1)
+                or height < int(constraints.get("min_dimension") or 1)
+                or width > int(constraints.get("max_dimension") or 32768)
+                or height > int(constraints.get("max_dimension") or 32768)
+                or aspect < float(constraints.get("min_aspect_ratio") or 0)
+                or aspect > float(constraints.get("max_aspect_ratio") or 1_000_000)
+            ):
+                raise ValueError("output size is not supported by this model")
+        result["size"] = size.lower()
+    for key in ("resolution", "ratio", "orientation"):
+        raw = str(value.get(key) or "")[:32]
+        if raw:
+            result[key] = raw
+    output_format = str(value.get("output_format") or "").lower()
+    supported_formats = [str(item) for item in profile.get("output_formats", [])]
+    if output_format:
+        if output_format not in supported_formats:
+            raise ValueError("output format is not supported by this model")
+        result["output_format"] = output_format
+    prompt_mode = str(value.get("prompt_optimization_mode") or "off").lower()
+    supported_prompt_modes = [str(item) for item in profile.get("prompt_optimization_modes", [])]
+    if prompt_mode != "off" and prompt_mode not in supported_prompt_modes:
+        raise ValueError("prompt optimization mode is not supported by this model")
+    result["prompt_optimization_mode"] = prompt_mode
+    seed_mode = str(value.get("seed_mode") or "random").lower()
+    if seed_mode not in {"random", "fixed"}:
+        raise ValueError("seed mode is invalid")
+    seed_profile = profile.get("seed") if isinstance(profile.get("seed"), dict) else {}
+    if seed_mode == "fixed":
+        if not seed_profile.get("supported"):
+            raise ValueError("seed is not supported by this model")
+        try:
+            seed = int(value.get("seed"))
+        except (TypeError, ValueError) as error:
+            raise ValueError("seed must be an integer") from error
+        minimum = int(seed_profile.get("minimum", 0))
+        maximum = int(seed_profile.get("maximum", 2147483647))
+        if seed < minimum or seed > maximum:
+            raise ValueError("seed is outside the supported range")
+        result["seed"] = seed
+    result["seed_mode"] = seed_mode
+    return result
 
 
 def _gallery_items(
@@ -1541,7 +1707,9 @@ def _history_task_summary(task: GenerationTask) -> dict[str, Any]:
     width, height = _size_parts(size)
     ratio = _ratio(width, height)
     orientation = "square" if width and width == height else "landscape" if width > height else "portrait" if height else ""
-    output_count = len([item for item in task_output_records(task) if not bool(item.get("deleted"))]) or max(1, min(4, int(task.request_parameters.get("n") or 1)))
+    generated_count = len([item for item in task_output_records(task) if not bool(item.get("deleted"))])
+    output_count = max(1, min(4, int(task.request_parameters.get("n") or 1)))
+    failed_count = len(task.request_parameters.get("failed_output_indices", [])) if task.status == "partial_failed" else output_count if task.status == "failed" else 0
     return {
         "task_id": task.task_id,
         "created_at": task.created_at,
@@ -1558,8 +1726,8 @@ def _history_task_summary(task: GenerationTask) -> dict[str, Any]:
         "provider": f"{task.provider_scope}-{task.provider_version_id}",
         "archived": bool(task.archived_at),
         "archived_at": task.archived_at,
-        "generated_count": output_count if task.status == "completed" else 0,
-        "failed_count": output_count if task.status == "failed" else 0,
+        "generated_count": generated_count if task.status in {"completed", "partial_failed"} else 0,
+        "failed_count": failed_count,
         "total_count": output_count,
         "thumbnail_url": f"/api/tasks/{task.task_id}/thumbnail" if task.thumbnail_relative_path else "",
         "prompt_preview": task.prompt[:240],
@@ -1944,6 +2112,50 @@ def _api_settings(
                         catalog_fields_read_only=True,
                     )
                 )
+    preferences = providers.list_model_preferences(session.user.user_id)
+    selection_by_provider = {
+        (
+            str(item.get("provider_scope") or ""),
+            str(item.get("provider_version_id") or ""),
+        ): str(item.get("generation_model_id") or "")
+        for item in preferences.get("selections", [])
+        if isinstance(item, dict)
+    }
+    for item in items:
+        models = [model for model in item.get("models", []) if isinstance(model, dict)]
+        available_models = [
+            model
+            for model in models
+            if model.get("is_enabled")
+            and (
+                item.get("provider_scope") != "department"
+                or model.get("validation_status") == "verified"
+            )
+        ]
+        available_ids = {
+            str(model.get("generation_model_id") or "")
+            for model in available_models
+        }
+        saved_id = selection_by_provider.get(
+            (str(item.get("provider_scope") or ""), str(item.get("provider_version_id") or "")),
+            "",
+        )
+        default_model = next(
+            (model for model in available_models if model.get("is_default")),
+            available_models[0] if available_models else None,
+        )
+        if saved_id and saved_id in available_ids:
+            item["selected_generation_model_id"] = saved_id
+            item["model_selection_reason"] = "saved"
+        elif default_model is not None:
+            item["selected_generation_model_id"] = str(default_model.get("generation_model_id") or "")
+            if saved_id:
+                item["model_selection_reason"] = "saved_unavailable_default"
+            else:
+                item["model_selection_reason"] = "default" if default_model.get("is_default") else "first_available"
+        else:
+            item["selected_generation_model_id"] = ""
+            item["model_selection_reason"] = "no_models"
     active = next((item["id"] for item in items if item.get("api_key_set")), items[0]["id"] if items else "")
     return {
         "codex_mode": "images",
@@ -1951,6 +2163,7 @@ def _api_settings(
         "providers": items,
         "allow_new_provider": is_admin,
         "credential_scope": "department" if is_admin else "personal",
+        "model_preferences": preferences,
     }
 
 
@@ -2097,7 +2310,7 @@ def _workspace_task_file(
         )
     except TaskNotFound as error:
         return JSONResponse(status_code=404, content={"detail": str(error)})
-    if task.status != "completed" or not path.is_file():
+    if task.status not in {"completed", "partial_failed"} or not path.is_file():
         return JSONResponse(status_code=409, content={"detail": "task_result_not_ready"})
     headers = {"Cache-Control": "no-store"}
     records = task_output_records(task)

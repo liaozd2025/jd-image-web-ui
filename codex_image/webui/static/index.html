@@ -360,6 +360,7 @@
                 </div>
                 <div class="prompt-run-wrap">
                   <button id="runButton" class="run-button prompt-run-button" type="button" aria-keyshortcuts="Meta+Enter" title="开始生成（Cmd+Enter）" data-i18n="prompt.run" data-i18n-attr="title:prompt.runTitle">开始生成</button>
+                  <span id="generationCallNotice" class="generation-call-notice hidden" aria-live="polite"></span>
                 </div>
               </div>
               <div class="prompt-template-row">
@@ -390,6 +391,12 @@
                     </div>
                   </div>
                   <div id="promptTemplateRecentDock" class="prompt-template-recent-dock hidden" aria-label="最近使用模板" data-i18n-attr="aria-label:prompt.recentTemplates"></div>
+                </div>
+                <div id="generationModelField" class="generation-model-field">
+                  <label for="generationModelSelect" data-i18n="generationModel.label">生图模型</label>
+                  <select id="generationModelSelect" class="control generation-model-select" aria-describedby="generationModelSummary generationModelNotice"></select>
+                  <span id="generationModelSummary" class="generation-model-summary"></span>
+                  <span id="generationModelNotice" class="generation-model-notice" aria-live="polite"></span>
                 </div>
                 <div class="prompt-template-entry">
                   <button id="promptTemplateButton" class="ghost-button text-sm icon-text-button resource-manage-button prompt-template-button" type="button" aria-controls="promptTemplateDrawer" aria-expanded="false" title="管理模板库" data-i18n-attr="title:prompt.manageTemplates">
@@ -724,6 +731,27 @@
                       <input id="compression" class="slider" type="range" min="0" max="100" value="80" />
                     </label>
                   </div>
+                </div>
+
+                <div id="promptOptimizationField" class="field generation-advanced-field hidden">
+                  <label for="promptOptimizationMode" data-i18n="generationModel.promptOptimization">Prompt 优化</label>
+                  <select id="promptOptimizationMode" class="control">
+                    <option value="off" data-i18n="generationModel.promptOptimizationOff">关闭</option>
+                  </select>
+                </div>
+
+                <div id="seedField" class="field generation-advanced-field hidden">
+                  <span data-i18n="generationModel.seed">Seed</span>
+                  <div id="seedModeGroup" class="radio-group">
+                    <button class="radio-btn active" data-val="random" type="button" data-i18n="generationModel.seedRandom">随机</button>
+                    <button class="radio-btn" data-val="fixed" type="button" data-i18n="generationModel.seedFixed">固定</button>
+                  </div>
+                  <select id="seedMode" class="hidden">
+                    <option value="random" selected>random</option>
+                    <option value="fixed">fixed</option>
+                  </select>
+                  <input id="seedValue" class="control seed-value hidden" type="number" inputmode="numeric" min="0" max="2147483647" step="1" aria-label="固定 Seed" data-i18n-attr="aria-label:generationModel.seedFixed" />
+                  <span id="seedHint" class="generation-model-summary" data-i18n="generationModel.seedHint">相同 Seed 可提高结果一致性，但不保证像素级复现</span>
                 </div>
 
                 <div class="field moderation-field">

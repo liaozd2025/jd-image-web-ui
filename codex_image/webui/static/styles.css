@@ -4191,11 +4191,84 @@ svg.button-icon {
 
 .prompt-template-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--prompt-action-column-width);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px) var(--prompt-action-column-width);
   gap: var(--prompt-action-gap);
   align-items: center;
   min-height: var(--prompt-secondary-action-height);
   margin-top: 8px;
+}
+
+.generation-model-field {
+  align-items: center;
+  display: grid;
+  gap: 4px 8px;
+  grid-template-columns: auto minmax(170px, 260px);
+  min-width: 220px;
+}
+
+.generation-model-field > label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.generation-model-select {
+  min-height: 34px;
+  width: 100%;
+}
+
+.generation-model-summary,
+.generation-model-notice,
+.generation-call-notice {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.generation-model-summary,
+.generation-model-notice {
+  grid-column: 1 / -1;
+}
+
+.generation-model-notice:not(:empty) {
+  color: var(--danger);
+}
+
+.generation-call-notice {
+  display: block;
+  margin-top: 5px;
+  text-align: center;
+}
+
+.generation-advanced-field {
+  align-content: start;
+}
+
+.seed-value {
+  margin-top: 8px;
+  max-width: 220px;
+}
+
+@media (max-width: 760px) {
+  .prompt-template-row {
+    grid-template-columns: 1fr;
+  }
+
+  .generation-model-field {
+    grid-template-columns: 1fr;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .generation-model-field > label,
+  .generation-model-summary,
+  .generation-model-notice {
+    grid-column: 1;
+  }
+
+  .prompt-template-entry {
+    justify-content: stretch;
+  }
 }
 
 .prompt-template-entry {

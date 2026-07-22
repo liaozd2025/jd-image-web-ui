@@ -394,6 +394,117 @@ class ProviderRepository:
                 )
                 return [self._generation_model_from_row(row) for row in cursor.fetchall()]
 
+    def list_model_preferences(self, user_id: str) -> dict[str, object]:
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                cursor.execute(
+                    """
+                    SELECT provider_scope, provider_version_id, generation_model_id, updated_at
+                    FROM generation_model_selection_preferences
+                    WHERE user_id = %s
+                    """,
+                    (user_id,),
+                )
+                selections = [
+                    {
+                        "provider_scope": row["provider_scope"],
+                        "provider_version_id": row["provider_version_id"],
+                        "generation_model_id": row["generation_model_id"],
+                        "updated_at": row["updated_at"].isoformat(),
+                    }
+                    for row in cursor.fetchall()
+                ]
+                cursor.execute(
+                    """
+                    SELECT generation_model_id, parameters, updated_at
+                    FROM generation_model_parameter_preferences
+                    WHERE user_id = %s
+                    """,
+                    (user_id,),
+                )
+                parameters = [
+                    {
+                        "generation_model_id": row["generation_model_id"],
+                        "parameters": dict(row["parameters"] or {}),
+                        "updated_at": row["updated_at"].isoformat(),
+                    }
+                    for row in cursor.fetchall()
+                ]
+        return {"selections": selections, "parameters": parameters}
+
+    def save_model_preference(
+        self,
+        user_id: str,
+        *,
+        provider_scope: Literal["personal", "department"],
+        provider_version_id: str,
+        generation_model_id: str,
+        parameters: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        if provider_scope not in {"personal", "department"}:
+            raise GenerationModelNotFound("generation model scope is invalid")
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
+                cursor.execute(
+                    """
+                    SELECT generation_model_id, is_enabled, validation_status
+                    FROM generation_models
+                    WHERE generation_model_id = %s AND provider_version_id = %s
+                      AND owner_user_id IS NOT DISTINCT FROM %s
+                    FOR UPDATE
+                    """,
+                    (
+                        generation_model_id,
+                        provider_version_id,
+                        user_id if provider_scope == "personal" else None,
+                    ),
+                )
+                model = cursor.fetchone()
+                if model is None or not bool(model["is_enabled"]):
+                    raise GenerationModelNotFound("generation model was not found")
+                if provider_scope == "department" and model["validation_status"] != "verified":
+                    raise GenerationModelNotFound("generation model is not verified")
+                cursor.execute(
+                    """
+                    INSERT INTO generation_model_selection_preferences (
+                        user_id, provider_scope, provider_version_id, generation_model_id
+                    ) VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (user_id, provider_scope, provider_version_id) DO UPDATE SET
+                        generation_model_id = EXCLUDED.generation_model_id,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (user_id, provider_scope, provider_version_id, generation_model_id),
+                )
+                if parameters is not None:
+                    cursor.execute(
+                        """
+                        INSERT INTO generation_model_parameter_preferences (
+                            user_id, generation_model_id, parameters
+                        ) VALUES (%s, %s, %s::jsonb)
+                        ON CONFLICT (user_id, generation_model_id) DO UPDATE SET
+                            parameters = EXCLUDED.parameters,
+                            updated_at = CURRENT_TIMESTAMP
+                        """,
+                        (
+                            user_id,
+                            generation_model_id,
+                            json.dumps(parameters, separators=(",", ":")),
+                        ),
+                    )
+                record_audit_event(
+                    cursor,
+                    action="generation_model.preference_saved",
+                    actor_user_id=user_id,
+                    subject_user_id=user_id,
+                    details={
+                        "provider_scope": provider_scope,
+                        "provider_version_id": provider_version_id,
+                        "generation_model_id": generation_model_id,
+                    },
+                )
+        return self.list_model_preferences(user_id)
+
     def replace_personal_models(
         self,
         user_id: str,
@@ -418,18 +529,30 @@ class ProviderRepository:
                 self._ensure_personal_models(cursor, user_id, provider_version_id)
                 cursor.execute(
                     """
-                    SELECT generation_model_id
+                    SELECT generation_model_id, model_id
                     FROM generation_models
                     WHERE provider_version_id = %s AND owner_user_id = %s
                     FOR UPDATE
                     """,
                     (provider_version_id, user_id),
                 )
-                existing_ids = {str(row["generation_model_id"]) for row in cursor.fetchall()}
+                existing_rows = cursor.fetchall()
+                existing_ids = {str(row["generation_model_id"]) for row in existing_rows}
+                existing_ids_by_model_id = {
+                    str(row["model_id"]): str(row["generation_model_id"])
+                    for row in existing_rows
+                }
+
+                def requested_generation_model_id(model: dict[str, object]) -> str:
+                    requested_id = str(model.get("generation_model_id") or "")
+                    if requested_id in existing_ids:
+                        return requested_id
+                    return existing_ids_by_model_id.get(str(model.get("model_id") or ""), "")
+
                 requested_existing_ids = {
-                    str(model.get("generation_model_id"))
+                    requested_generation_model_id(model)
                     for model in models
-                    if str(model.get("generation_model_id") or "") in existing_ids
+                    if requested_generation_model_id(model)
                 }
                 removed_ids = existing_ids - requested_existing_ids
                 if removed_ids:
@@ -456,8 +579,8 @@ class ProviderRepository:
                     )
                 stored_ids: list[str] = []
                 for model in models:
-                    requested_id = str(model.get("generation_model_id") or "")
-                    generation_model_id = requested_id if requested_id in existing_ids else str(uuid4())
+                    requested_id = requested_generation_model_id(model)
+                    generation_model_id = requested_id or str(uuid4())
                     stored_ids.append(generation_model_id)
                     cursor.execute(
                         """

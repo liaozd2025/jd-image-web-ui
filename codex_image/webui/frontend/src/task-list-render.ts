@@ -1041,8 +1041,26 @@ function taskStatusAccessibleLabel(task: any) {
 
 function taskMetaDetailsText(task: any) {
   const size = task.output_size || task.params?.size || "";
+  const modelName = String(task.model_display_name || task.params?.model || task.model_id || "").trim();
+  const modelId = String(task.model_id || task.params?.model || "").trim();
+  const modelLabel = modelName && modelId && modelName !== modelId ? `${modelName} (${modelId})` : modelName || modelId;
+  const profileLabel = task.capability_profile_id === "generic-basic" && !task.capability_snapshot?.profile_id
+    ? translate("generationModel.legacyCompatibility")
+    : task.capability_profile_id
+      ? `${task.capability_profile_id} v${task.capability_profile_version || 1}`
+      : "";
+  const requestParameters = task.request_parameters || task.params || {};
+  const parameterLabel = [
+    requestParameters.output_format,
+    requestParameters.prompt_optimization_mode && requestParameters.prompt_optimization_mode !== "off"
+      ? `Prompt ${requestParameters.prompt_optimization_mode}`
+      : "",
+    requestParameters.seed !== undefined && requestParameters.seed !== null
+      ? `Seed ${requestParameters.seed}`
+      : "",
+  ].filter(Boolean).join(" · ");
   const backend = taskCardProviderLabel(task);
-  return [size, backend].filter(Boolean).join(" · ");
+  return [size, modelLabel, profileLabel, parameterLabel, backend].filter(Boolean).join(" · ");
 }
 
 function taskMetaDetailsWithCompletionText(task: any) {

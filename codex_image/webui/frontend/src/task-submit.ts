@@ -66,6 +66,9 @@ function referenceFileUploads(...args: any[]) { return legacyMethod("referenceFi
 function storedReferenceFileInputs(...args: any[]) { return legacyMethod("storedReferenceFileInputs", ...args); }
 function missingReferenceFileInputs(...args: any[]) { return legacyMethod("missingReferenceFileInputs", ...args); }
 function renderPreview(...args: any[]) { return legacyMethod("renderPreview", ...args); }
+function currentGenerationModelParams(...args: any[]) { return legacyMethod("currentGenerationModelParams", ...args); }
+function generationModelConstraintMessage(...args: any[]) { return legacyMethod("generationModelConstraintMessage", ...args); }
+function renderGenerationModelSelector(...args: any[]) { return legacyMethod("renderGenerationModelSelector", ...args); }
 
 const REFERENCE_FILE_ERROR_KEYS: Record<string, string> = {
   reference_file_empty: "referenceFiles.errorEmpty",
@@ -135,12 +138,22 @@ export function applyTaskOutputParams(task: any): void {
     els.webSearch.dispatchEvent(new Event("input"));
   }
   if (params.model && els.model) els.model.value = params.model;
+  const generationModelId = task.generation_model_id || params.generation_model_id || request.generation_model_id;
+  if (generationModelId && els.generationModelSelect) {
+    els.generationModelSelect.value = generationModelId;
+    renderGenerationModelSelector(false);
+  }
   if (params.size) syncSizeControlsFromSize(params.size);
   if (params.n && els.nInput) {
     els.nInput.value = String(params.n);
   }
   if (params.quality && els.quality) els.quality.value = params.quality;
   if (params.output_format && els.outputFormat) els.outputFormat.value = params.output_format;
+  if (params.prompt_optimization_mode && els.promptOptimizationMode) {
+    els.promptOptimizationMode.value = params.prompt_optimization_mode;
+  }
+  if (params.seed_mode && els.seedMode) els.seedMode.value = params.seed_mode;
+  if (params.seed !== undefined && params.seed !== null && els.seedValue) els.seedValue.value = String(params.seed);
   if (params.moderation && els.moderation) els.moderation.value = params.moderation;
   if (params.output_compression !== null && params.output_compression !== undefined && els.compression) {
     els.compression.value = params.output_compression;
@@ -190,6 +203,7 @@ function buildPreviewRequest() {
     prompt_fidelity: currentPromptFidelity(),
     web_search: Boolean(params.web_search),
     n: params.n,
+    ...currentGenerationModelParams(),
     images: uploads.map((source: any) => source.name),
     gallery_image_ids: galleries.map((source: any) => source.id),
     gallery_image_version_ids: galleries.map((source: any) => source.asset_version_id || ""),
@@ -329,6 +343,11 @@ async function runTask() {
     setStatus(translate("status.emptyPrompt"), "error");
     return;
   }
+  const modelConstraint = generationModelConstraintMessage();
+  if (modelConstraint) {
+    setStatus(modelConstraint, "error");
+    return;
+  }
   if (state.mode === "edit" && !uploads.length && !assets.length && !galleries.length) {
     setStatus(translate("status.editNeedsImage"), "error");
     return;
@@ -345,8 +364,11 @@ async function runTask() {
   form.append("prompt", prompt);
   form.append("prompt_for_model", promptForModel);
   const params = currentTaskParams();
+  const generationModelParams = currentGenerationModelParams();
   form.append("main_model", currentMainModel());
   form.append("model", params.model);
+  form.append("generation_model_id", generationModelParams.generation_model_id);
+  form.append("capability_profile_version", String(generationModelParams.capability_profile_version));
   form.append("size", params.size);
   if (params.resolution) form.append("resolution", params.resolution);
   if (params.ratio) form.append("ratio", params.ratio);
@@ -356,6 +378,9 @@ async function runTask() {
   form.append("moderation", params.moderation);
   form.append("n", String(params.n));
   form.append("prompt_fidelity", currentPromptFidelity());
+  form.append("prompt_optimization_mode", generationModelParams.prompt_optimization_mode);
+  form.append("seed_mode", generationModelParams.seed_mode);
+  if (generationModelParams.seed !== "") form.append("seed", generationModelParams.seed);
   if (params.web_search) form.append("web_search", "true");
   if (currentAuthSource() === "api") {
     form.append("api_provider_id", currentApiProviderId());
@@ -419,7 +444,7 @@ async function runTask() {
   } finally {
     window.clearTimeout(submitTimeoutId);
     stopRunFeedback();
-    els.runButton.disabled = !state.authAvailable;
+    renderGenerationModelSelector(false);
   }
 }
 

@@ -187,17 +187,64 @@ class HeartbeatWorker:
                 "moderation": str(parameters.get("moderation") or "auto"),
                 "output_compression": parameters.get("output_compression"),
             }
-            if claimed.api_mode == "images":
-                results = client.generate_images(**common_parameters, n=output_count)
+            requested_output_indices = parameters.get("output_indices")
+            if isinstance(requested_output_indices, list) and len(requested_output_indices) == output_count:
+                output_indices = [int(item) for item in requested_output_indices]
             else:
-                results = [
-                    client.generate_image(
-                        **common_parameters,
-                        reference_files=reference_files or None,
-                        web_search=bool(parameters.get("web_search")),
+                output_indices = list(range(1, output_count + 1))
+            failures: list[tuple[int, str]] = []
+            if claimed.api_mode == "images":
+                seed_profile = claimed.task.capability_snapshot.get("seed")
+                seed_profile = seed_profile if isinstance(seed_profile, dict) else {}
+                base_seed = parameters.get("seed") if seed_profile.get("supported") else None
+                prompt_optimization_mode = str(parameters.get("prompt_optimization_mode") or "off")
+                is_seedream = claimed.task.capability_profile_id.startswith("seedream-")
+                results = []
+                actual_seeds: list[int | None] = []
+                successful_output_indices: list[int] = []
+                for output_index in output_indices:
+                    actual_seed = (
+                        self._output_seed(int(base_seed), output_index - 1, seed_profile)
+                        if base_seed is not None
+                        else None
                     )
-                    for _ in range(output_count)
-                ]
+                    request_parameters = dict(common_parameters)
+                    if is_seedream:
+                        request_parameters.update(
+                            {
+                                "seed": actual_seed,
+                                "prompt_optimization_mode": prompt_optimization_mode,
+                                "watermark": False,
+                            }
+                        )
+                    try:
+                        results.append(client.generate_images(**request_parameters, n=1)[0])
+                        actual_seeds.append(actual_seed)
+                        successful_output_indices.append(output_index)
+                    except Exception as error:
+                        failures.append((output_index, str(error)))
+            else:
+                results = []
+                successful_output_indices = []
+                for output_index in output_indices:
+                    try:
+                        results.append(
+                            client.generate_image(
+                                **common_parameters,
+                                reference_files=reference_files or None,
+                                web_search=bool(parameters.get("web_search")),
+                            )
+                        )
+                        successful_output_indices.append(output_index)
+                    except Exception as error:
+                        failures.append((output_index, str(error)))
+                actual_seeds = [None] * len(results)
+            if not results:
+                raise RuntimeError(failures[0][1] if failures else "provider returned no image results")
+            safe_failures = [
+                (index, message.replace(claimed.api_key, "<redacted credential>"))
+                for index, message in failures
+            ]
             completed = self.tasks.complete_task_outputs(
                 claimed.task,
                 attempt_id=claimed.attempt_id,
@@ -206,11 +253,25 @@ class HeartbeatWorker:
                         result.image_bytes,
                         str(parameters.get("output_format") or result.output_format or "png"),
                         result.revised_prompt,
+                        {
+                            "index": successful_output_indices[index],
+                            "seed": actual_seeds[index],
+                        },
                     )
-                    for result in results
+                    for index, result in enumerate(results)
                 ],
+                final_status="partial_failed" if failures else "completed",
+                error_message=(
+                    "; ".join(f"result {index}: {message}" for index, message in safe_failures)
+                    if safe_failures
+                    else None
+                ),
+                failed_output_indices=[index for index, _ in failures],
             )
-            self.tasks.settle_quota(completed, consumed=completed.status == "completed")
+            self.tasks.settle_quota(
+                completed,
+                consumed=completed.status in {"completed", "partial_failed"},
+            )
         except Exception as error:
             safe_error = str(error).replace(claimed.api_key, "<redacted credential>")
             try:
@@ -218,6 +279,12 @@ class HeartbeatWorker:
             except Exception:
                 return
             self.tasks.settle_quota(failed, consumed=False)
+
+    @staticmethod
+    def _output_seed(base_seed: int, output_index: int, seed_profile: dict[str, object]) -> int:
+        minimum = int(seed_profile.get("minimum") or 0)
+        maximum = int(seed_profile.get("maximum") or 2147483647)
+        return minimum + ((base_seed - minimum + output_index) % (maximum - minimum + 1))
 
     def _process_one_validation(self) -> bool:
         claimed = self.model_validations.claim_next()

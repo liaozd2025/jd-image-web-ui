@@ -401,7 +401,7 @@ class WebUIStaticPromptTests(WebUIStaticTestCase):
         self.assertRegex(styles, r"\.prompt-heading\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+var\(--prompt-action-column-width\)")
         self.assertRegex(styles, r"\.prompt-heading-main\s*\{[^}]*align-items:\s*flex-end")
         self.assertRegex(styles, r"\.prompt-template-row\s*\{[^}]*display:\s*grid")
-        self.assertRegex(styles, r"\.prompt-template-row\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+var\(--prompt-action-column-width\)")
+        self.assertRegex(styles, r"\.prompt-template-row\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(220px,\s*280px\)\s+var\(--prompt-action-column-width\)")
         self.assertRegex(styles, r"\.prompt-template-row\s*\{[^}]*align-items:\s*center")
         self.assertRegex(styles, r"\.prompt-template-entry\s*\{[^}]*justify-content:\s*flex-end")
         self.assertRegex(styles, r"\.prompt-template-recent-cell\s*\{[^}]*justify-content:\s*space-between")

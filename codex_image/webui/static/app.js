@@ -20,59 +20,59 @@
       "#promptTemplateDrawer.open, #galleryDrawer.open, .modal-overlay:not(.hidden), .prompt-popover:not(.hidden), .confirm-popover:not(.hidden), .compression-popover:not(.hidden), .task-notification-center:not(.hidden)"
     ));
   }
-  function handleRunTaskShortcut(event, els43, methods) {
+  function handleRunTaskShortcut(event, els44, methods) {
     if (!isRunTaskShortcut(event)) return;
-    if (hasOpenShortcutBlockingLayer() || els43.runButton.disabled) return;
+    if (hasOpenShortcutBlockingLayer() || els44.runButton.disabled) return;
     event.preventDefault();
     void call(methods, "runTask");
   }
   var systemSettingsBackdropPointerDown = false;
-  function bindWebUIEvents(state32, els43, methods) {
+  function bindWebUIEvents(state33, els44, methods) {
     call(methods, "bindShellUiEvents");
     call(methods, "bindFormControlEvents");
-    els43.clearPromptButton.addEventListener("click", () => {
+    els44.clearPromptButton.addEventListener("click", () => {
       call(methods, "setPromptText", "");
       call(methods, "syncGalleryInputsFromPrompt");
       call(methods, "updatePromptCount");
       call(methods, "updateRequestPreview");
     });
-    els43.quickGalleryRail?.addEventListener("mouseover", (event) => call(methods, "handleQuickGalleryCategoryEvent", event));
-    els43.quickGalleryRail?.addEventListener("focusin", (event) => call(methods, "handleQuickGalleryCategoryEvent", event));
-    els43.quickGalleryRail?.addEventListener("click", (event) => call(methods, "handleQuickGalleryCategoryEvent", event));
-    els43.quickGalleryList?.addEventListener("scroll", () => call(methods, "scheduleQuickGalleryFocusUpdate"));
-    els43.quickGalleryList?.addEventListener("wheel", (event) => call(methods, "handleQuickGalleryBoundaryWheel", event), { passive: false });
-    els43.addGalleryCategoryButton?.addEventListener("click", () => call(methods, "createGalleryCategory"));
-    els43.addToGalleryClose?.addEventListener("click", () => call(methods, "closeAddToGallery"));
-    els43.addToGalleryModal?.addEventListener("click", (event) => {
-      if (event.target === els43.addToGalleryModal) call(methods, "closeAddToGallery");
+    els44.quickGalleryRail?.addEventListener("mouseover", (event) => call(methods, "handleQuickGalleryCategoryEvent", event));
+    els44.quickGalleryRail?.addEventListener("focusin", (event) => call(methods, "handleQuickGalleryCategoryEvent", event));
+    els44.quickGalleryRail?.addEventListener("click", (event) => call(methods, "handleQuickGalleryCategoryEvent", event));
+    els44.quickGalleryList?.addEventListener("scroll", () => call(methods, "scheduleQuickGalleryFocusUpdate"));
+    els44.quickGalleryList?.addEventListener("wheel", (event) => call(methods, "handleQuickGalleryBoundaryWheel", event), { passive: false });
+    els44.addGalleryCategoryButton?.addEventListener("click", () => call(methods, "createGalleryCategory"));
+    els44.addToGalleryClose?.addEventListener("click", () => call(methods, "closeAddToGallery"));
+    els44.addToGalleryModal?.addEventListener("click", (event) => {
+      if (event.target === els44.addToGalleryModal) call(methods, "closeAddToGallery");
     });
-    els43.galleryScopeInput?.addEventListener("change", () => call(methods, "syncGalleryScopeFields"));
-    els43.saveToGalleryButton?.addEventListener("click", () => call(methods, "saveUploadToGallery"));
-    els43.systemSettingsModalClose?.addEventListener("click", () => call(methods, "closeSystemSettingsModal"));
-    els43.systemSettingsModal?.addEventListener("pointerdown", (event) => {
-      systemSettingsBackdropPointerDown = event.target === els43.systemSettingsModal;
+    els44.galleryScopeInput?.addEventListener("change", () => call(methods, "syncGalleryScopeFields"));
+    els44.saveToGalleryButton?.addEventListener("click", () => call(methods, "saveUploadToGallery"));
+    els44.systemSettingsModalClose?.addEventListener("click", () => call(methods, "closeSystemSettingsModal"));
+    els44.systemSettingsModal?.addEventListener("pointerdown", (event) => {
+      systemSettingsBackdropPointerDown = event.target === els44.systemSettingsModal;
     });
-    els43.systemSettingsModal?.addEventListener("click", (event) => {
-      if (event.target === els43.systemSettingsModal && systemSettingsBackdropPointerDown) {
+    els44.systemSettingsModal?.addEventListener("click", (event) => {
+      if (event.target === els44.systemSettingsModal && systemSettingsBackdropPointerDown) {
         call(methods, "closeSystemSettingsModal");
       }
       systemSettingsBackdropPointerDown = false;
     });
-    els43.saveSettingsButton?.addEventListener("click", () => call(methods, "saveSettings"));
-    els43.authSourceGroup?.addEventListener("click", (event) => call(methods, "handleAuthSourceClick", event));
-    els43.apiSourceSettingsButton?.addEventListener("click", () => call(methods, "openApiSettingsModal"));
-    els43.apiDirectSettingsButton?.addEventListener("click", () => call(methods, "openApiSettingsModal"));
-    els43.codexModeNotes?.forEach?.((note) => {
+    els44.saveSettingsButton?.addEventListener("click", () => call(methods, "saveSettings"));
+    els44.authSourceGroup?.addEventListener("click", (event) => call(methods, "handleAuthSourceClick", event));
+    els44.apiSourceSettingsButton?.addEventListener("click", () => call(methods, "openApiSettingsModal"));
+    els44.apiDirectSettingsButton?.addEventListener("click", () => call(methods, "openApiSettingsModal"));
+    els44.codexModeNotes?.forEach?.((note) => {
       note.addEventListener("click", () => call(methods, "selectCodexMode", note.dataset.codexModeNote));
     });
-    els43.apiProviderQuick?.addEventListener("change", () => {
-      call(methods, "selectApiProvider", els43.apiProviderQuick?.value || call(methods, "currentApiProviderId"));
+    els44.apiProviderQuick?.addEventListener("change", () => {
+      call(methods, "selectApiProvider", els44.apiProviderQuick?.value || call(methods, "currentApiProviderId"));
     });
-    els43.apiProvider?.addEventListener("change", () => {
-      call(methods, "selectApiProvider", els43.apiProvider?.value || call(methods, "currentApiProviderId"));
+    els44.apiProvider?.addEventListener("change", () => {
+      call(methods, "selectApiProvider", els44.apiProvider?.value || call(methods, "currentApiProviderId"));
     });
-    els43.apiProviderSearch?.addEventListener("input", () => call(methods, "renderApiProviderList"));
-    els43.apiProviderList?.addEventListener("click", (event) => {
+    els44.apiProviderSearch?.addEventListener("input", () => call(methods, "renderApiProviderList"));
+    els44.apiProviderList?.addEventListener("click", (event) => {
       const sortButton = event.target?.closest?.("[data-api-provider-sort]");
       if (sortButton) {
         call(methods, "moveApiProvider", sortButton.dataset.apiProviderId, sortButton.dataset.apiProviderSort);
@@ -82,30 +82,30 @@
       if (!button) return;
       call(methods, "selectApiProvider", button.dataset.apiProviderId);
     });
-    els43.editApiProviderButton?.addEventListener("click", () => call(methods, "editApiProvider"));
-    els43.copyApiProviderButton?.addEventListener("click", () => call(methods, "copyApiProvider"));
-    els43.addApiProviderButton?.addEventListener("click", () => call(methods, "addApiProvider"));
-    els43.sortApiProvidersButton?.addEventListener("click", () => call(methods, "toggleApiProviderSortMode"));
-    els43.deleteApiProviderButton?.addEventListener("click", () => call(methods, "confirmDeleteApiProvider", els43.deleteApiProviderButton));
-    els43.cancelApiProviderEditButton?.addEventListener("click", () => call(methods, "cancelApiProviderEdit"));
-    els43.saveApiProviderEditButton?.addEventListener("click", () => call(methods, "saveApiProviderEdit"));
-    els43.apiKeyRevealButton?.addEventListener("pointerdown", (event) => call(methods, "revealApiKeyWhilePressed", event));
-    els43.apiKeyRevealButton?.addEventListener("pointerup", () => call(methods, "hideApiKeyReveal"));
-    els43.apiKeyRevealButton?.addEventListener("pointercancel", () => call(methods, "hideApiKeyReveal"));
-    els43.apiKeyRevealButton?.addEventListener("pointerleave", () => call(methods, "hideApiKeyReveal"));
-    els43.apiKeyRevealButton?.addEventListener("blur", () => call(methods, "hideApiKeyReveal"));
-    els43.apiKeyRevealButton?.addEventListener("keydown", (event) => {
+    els44.editApiProviderButton?.addEventListener("click", () => call(methods, "editApiProvider"));
+    els44.copyApiProviderButton?.addEventListener("click", () => call(methods, "copyApiProvider"));
+    els44.addApiProviderButton?.addEventListener("click", () => call(methods, "addApiProvider"));
+    els44.sortApiProvidersButton?.addEventListener("click", () => call(methods, "toggleApiProviderSortMode"));
+    els44.deleteApiProviderButton?.addEventListener("click", () => call(methods, "confirmDeleteApiProvider", els44.deleteApiProviderButton));
+    els44.cancelApiProviderEditButton?.addEventListener("click", () => call(methods, "cancelApiProviderEdit"));
+    els44.saveApiProviderEditButton?.addEventListener("click", () => call(methods, "saveApiProviderEdit"));
+    els44.apiKeyRevealButton?.addEventListener("pointerdown", (event) => call(methods, "revealApiKeyWhilePressed", event));
+    els44.apiKeyRevealButton?.addEventListener("pointerup", () => call(methods, "hideApiKeyReveal"));
+    els44.apiKeyRevealButton?.addEventListener("pointercancel", () => call(methods, "hideApiKeyReveal"));
+    els44.apiKeyRevealButton?.addEventListener("pointerleave", () => call(methods, "hideApiKeyReveal"));
+    els44.apiKeyRevealButton?.addEventListener("blur", () => call(methods, "hideApiKeyReveal"));
+    els44.apiKeyRevealButton?.addEventListener("keydown", (event) => {
       if (event.key === " " || event.key === "Enter") call(methods, "revealApiKeyWhilePressed", event);
     });
-    els43.apiKeyRevealButton?.addEventListener("keyup", () => call(methods, "hideApiKeyReveal"));
-    els43.apiKey?.addEventListener("input", () => call(methods, "updateApiKeyRevealButton"));
-    els43.apiBaseUrl?.addEventListener("input", () => call(methods, "updateApiRequestEndpointPreview"));
-    els43.apiMode?.addEventListener("change", () => call(methods, "updateApiRequestEndpointPreview"));
-    [els43.codexMode].filter(Boolean).forEach((element2) => {
+    els44.apiKeyRevealButton?.addEventListener("keyup", () => call(methods, "hideApiKeyReveal"));
+    els44.apiKey?.addEventListener("input", () => call(methods, "updateApiKeyRevealButton"));
+    els44.apiBaseUrl?.addEventListener("input", () => call(methods, "updateApiRequestEndpointPreview"));
+    els44.apiMode?.addEventListener("change", () => call(methods, "updateApiRequestEndpointPreview"));
+    [els44.codexMode].filter(Boolean).forEach((element2) => {
       element2?.addEventListener("input", () => {
         call(methods, "readApiSettingsForm");
         call(methods, "persistApiSettings");
-        call(methods, "renderAuthSource", state32.authStatus);
+        call(methods, "renderAuthSource", state33.authStatus);
         call(methods, "updateModeSpecificSettings");
         call(methods, "updateRequestPreview");
         call(methods, "syncCodexModeNotes");
@@ -114,9 +114,9 @@
       element2?.addEventListener("change", () => call(methods, "syncCodexModeNotes"));
     });
     call(methods, "bindOverlayPopoverEvents");
-    els43.runButton.addEventListener("click", () => call(methods, "runTask"));
-    document.addEventListener("keydown", (event) => handleRunTaskShortcut(event, els43, methods));
-    els43.refreshButton.addEventListener("click", () => {
+    els44.runButton.addEventListener("click", () => call(methods, "runTask"));
+    document.addEventListener("keydown", (event) => handleRunTaskShortcut(event, els44, methods));
+    els44.refreshButton.addEventListener("click", () => {
       void handleRefreshButtonClick(methods);
     });
     call(methods, "bindTaskListControlEvents");
@@ -126,8 +126,8 @@
   function call2(methods, name, ...args) {
     return methods[name]?.(...args);
   }
-  function bootWebUI(state32, els43, methods) {
-    bindWebUIEvents(state32, els43, methods);
+  function bootWebUI(state33, els44, methods) {
+    bindWebUIEvents(state33, els44, methods);
     call2(methods, "restoreThemePreference");
     call2(methods, "restoreSidebarWidth");
     call2(methods, "restoreMainModel");
@@ -424,12 +424,26 @@
       apiDirectSettingsNotice: document.querySelector("#apiDirectSettingsNotice"),
       settingsGrid: document.querySelector("#settingsGrid"),
       model: document.querySelector("#model"),
+      generationModelField: document.querySelector("#generationModelField"),
+      generationModelSelect: document.querySelector("#generationModelSelect"),
+      generationModelSummary: document.querySelector("#generationModelSummary"),
+      generationModelNotice: document.querySelector("#generationModelNotice"),
+      generationCallNotice: document.querySelector("#generationCallNotice"),
+      promptOptimizationField: document.querySelector("#promptOptimizationField"),
+      promptOptimizationMode: document.querySelector("#promptOptimizationMode"),
+      seedField: document.querySelector("#seedField"),
+      seedModeGroup: document.querySelector("#seedModeGroup"),
+      seedMode: document.querySelector("#seedMode"),
+      seedValue: document.querySelector("#seedValue"),
+      seedHint: document.querySelector("#seedHint"),
       size: document.querySelector("#size"),
       sizeModeGroup: document.querySelector("#sizeModeGroup"),
       customSizeToggle: document.querySelector("#customSizeToggle"),
       nInput: document.querySelector("#nInput"),
+      quantityGroup: document.querySelector("#quantityGroup"),
       nValue: document.querySelector("#nValue"),
       resolution: document.querySelector("#resolution"),
+      resolutionGroup: document.querySelector("#resolutionGroup"),
       ratio: document.querySelector("#ratio"),
       orientation: document.querySelector("#orientation"),
       pixelPreview: document.querySelector("#pixelPreview"),
@@ -469,9 +483,9 @@
   }
 
   // codex_image/webui/frontend/src/legacy-bridge.ts
-  function installLegacyBridge(bridge39) {
-    window.__codexImageWebUI = bridge39;
-    return bridge39;
+  function installLegacyBridge(bridge40) {
+    window.__codexImageWebUI = bridge40;
+    return bridge40;
   }
   function bindBridgeMethod(name, options = {}) {
     const proxy2 = (...args) => {
@@ -489,11 +503,11 @@
 
   // codex_image/webui/frontend/src/state.ts
   function getLegacyBridge() {
-    const bridge39 = window.__codexImageWebUI;
-    if (!bridge39) {
+    const bridge40 = window.__codexImageWebUI;
+    if (!bridge40) {
       throw new Error("WebUI legacy bridge is not initialized");
     }
-    return bridge39;
+    return bridge40;
   }
   function getState() {
     return getLegacyBridge().state;
@@ -1727,7 +1741,35 @@
     "referenceFiles.historyPathMismatch": "These reference files use different Responses paths",
     "history.referenceFiles": "Reference files",
     "history.downloadReferenceFile": "Download file",
-    "history.readdReferenceFile": "Add again"
+    "history.readdReferenceFile": "Add again",
+    "generationModel.label": "Generation model",
+    "generationModel.none": "No generation model is configured. Add or validate one in System settings.",
+    "generationModel.profileUnavailable": "The model capability profile is unavailable. Refresh and try again.",
+    "generationModel.modeUnsupported": "This model does not support the current task mode. Your inputs were preserved.",
+    "generationModel.tooManyReferences": "This model supports at most {count} reference images. Remove extras before submitting.",
+    "generationModel.sizeUnsupported": "The selected model does not support this output size.",
+    "generationModel.formatUnsupported": "The selected model does not support this output format.",
+    "generationModel.independentCalls": "Will make {count} independent calls",
+    "generationModel.promptOptimization": "Prompt optimization",
+    "generationModel.promptOptimizationOff": "Off",
+    "generationModel.promptOptimizationStandard": "Standard",
+    "generationModel.promptOptimizationFast": "Fast",
+    "generationModel.seed": "Seed",
+    "generationModel.seedRandom": "Random",
+    "generationModel.seedFixed": "Fixed",
+    "generationModel.seedHint": "Using the same seed can improve consistency but does not guarantee pixel-identical output.",
+    "generationModel.seedInvalid": "Enter an integer seed within this model's supported range.",
+    "generationModel.defaultSelected": "The provider default model was selected.",
+    "generationModel.firstAvailableSelected": "The previous model is unavailable; the first available model was selected.",
+    "generationModel.savedUnavailableSelected": "The previous model is unavailable; the provider default was selected.",
+    "generationModel.parametersAdjusted": "Unsupported parameters were adjusted to this model's defaults.",
+    "generationModel.default": "default",
+    "generationModel.preferenceSaveFailed": "Failed to save model preferences",
+    "generationModel.legacyCompatibility": "Generic basic (legacy compatibility)",
+    "taskActions.capabilityChangedTitle": "Model capabilities changed",
+    "taskActions.capabilityChangedMessage": "This task was saved with a different model capability version.",
+    "taskActions.capabilityChangedDetail": "Confirm to revalidate the original parameters against the current profile. Unsupported parameters will not be silently dropped.",
+    "taskActions.retryWithCurrentCapability": "Confirm and retry"
   };
 
   // codex_image/webui/frontend/src/i18n/de.ts
@@ -11733,7 +11775,35 @@
     "referenceFiles.historyPathMismatch": "\u8FD9\u4E9B\u53C2\u8003\u6587\u4EF6\u4F7F\u7528\u4E86\u4E0D\u540C\u7684 Responses \u8DEF\u5F84",
     "history.referenceFiles": "\u53C2\u8003\u6587\u4EF6",
     "history.downloadReferenceFile": "\u4E0B\u8F7D\u6587\u4EF6",
-    "history.readdReferenceFile": "\u91CD\u65B0\u52A0\u5165"
+    "history.readdReferenceFile": "\u91CD\u65B0\u52A0\u5165",
+    "generationModel.label": "\u751F\u56FE\u6A21\u578B",
+    "generationModel.none": "\u672A\u914D\u7F6E\u751F\u56FE\u6A21\u578B\uFF0C\u8BF7\u524D\u5F80\u7CFB\u7EDF\u8BBE\u7F6E\u6DFB\u52A0\u6216\u9A8C\u8BC1\u6A21\u578B",
+    "generationModel.profileUnavailable": "\u6A21\u578B\u80FD\u529B\u6863\u6848\u6682\u4E0D\u53EF\u7528\uFF0C\u8BF7\u5237\u65B0\u540E\u91CD\u8BD5",
+    "generationModel.modeUnsupported": "\u5F53\u524D\u6A21\u578B\u4E0D\u652F\u6301\u8FD9\u4E00\u4EFB\u52A1\u6A21\u5F0F\uFF0C\u5DF2\u4FDD\u7559\u73B0\u6709\u8F93\u5165",
+    "generationModel.tooManyReferences": "\u5F53\u524D\u6A21\u578B\u6700\u591A\u652F\u6301 {count} \u5F20\u53C2\u8003\u56FE\u7247\uFF0C\u8BF7\u79FB\u9664\u591A\u4F59\u56FE\u7247\u540E\u63D0\u4EA4",
+    "generationModel.sizeUnsupported": "\u5F53\u524D\u5C3A\u5BF8\u4E0D\u53D7\u6240\u9009\u6A21\u578B\u652F\u6301",
+    "generationModel.formatUnsupported": "\u5F53\u524D\u8F93\u51FA\u683C\u5F0F\u4E0D\u53D7\u6240\u9009\u6A21\u578B\u652F\u6301",
+    "generationModel.independentCalls": "\u5C06\u53D1\u8D77 {count} \u6B21\u72EC\u7ACB\u8C03\u7528",
+    "generationModel.promptOptimization": "Prompt \u4F18\u5316",
+    "generationModel.promptOptimizationOff": "\u5173\u95ED",
+    "generationModel.promptOptimizationStandard": "\u6807\u51C6\u4F18\u5316",
+    "generationModel.promptOptimizationFast": "\u5FEB\u901F\u4F18\u5316",
+    "generationModel.seed": "Seed",
+    "generationModel.seedRandom": "\u968F\u673A",
+    "generationModel.seedFixed": "\u56FA\u5B9A",
+    "generationModel.seedHint": "\u76F8\u540C Seed \u53EF\u63D0\u9AD8\u7ED3\u679C\u4E00\u81F4\u6027\uFF0C\u4F46\u4E0D\u4FDD\u8BC1\u50CF\u7D20\u7EA7\u590D\u73B0",
+    "generationModel.seedInvalid": "\u8BF7\u8F93\u5165\u5F53\u524D\u6A21\u578B\u652F\u6301\u8303\u56F4\u5185\u7684\u6574\u6570 Seed",
+    "generationModel.defaultSelected": "\u5DF2\u9009\u62E9\u5F53\u524D\u4F9B\u5E94\u5546\u7684\u9ED8\u8BA4\u6A21\u578B",
+    "generationModel.firstAvailableSelected": "\u539F\u6A21\u578B\u4E0D\u53EF\u7528\uFF0C\u5DF2\u9009\u62E9\u7B2C\u4E00\u4E2A\u53EF\u7528\u6A21\u578B",
+    "generationModel.savedUnavailableSelected": "\u4E0A\u6B21\u4F7F\u7528\u7684\u6A21\u578B\u5DF2\u4E0D\u53EF\u7528\uFF0C\u5DF2\u56DE\u5230\u4F9B\u5E94\u5546\u9ED8\u8BA4\u6A21\u578B",
+    "generationModel.parametersAdjusted": "\u90E8\u5206\u53C2\u6570\u4E0D\u53D7\u5F53\u524D\u6A21\u578B\u652F\u6301\uFF0C\u5DF2\u6309\u6A21\u578B\u9ED8\u8BA4\u503C\u8C03\u6574",
+    "generationModel.default": "\u9ED8\u8BA4",
+    "generationModel.preferenceSaveFailed": "\u6A21\u578B\u504F\u597D\u4FDD\u5B58\u5931\u8D25",
+    "generationModel.legacyCompatibility": "\u901A\u7528\u57FA\u7840\uFF08\u5386\u53F2\u517C\u5BB9\uFF09",
+    "taskActions.capabilityChangedTitle": "\u6A21\u578B\u80FD\u529B\u5DF2\u53D8\u5316",
+    "taskActions.capabilityChangedMessage": "\u5386\u53F2\u4EFB\u52A1\u4FDD\u5B58\u7684\u6A21\u578B\u80FD\u529B\u7248\u672C\u4E0E\u5F53\u524D\u914D\u7F6E\u4E0D\u540C\u3002",
+    "taskActions.capabilityChangedDetail": "\u786E\u8BA4\u540E\u5C06\u4F7F\u7528\u5F53\u524D\u80FD\u529B\u91CD\u65B0\u6821\u9A8C\u539F\u4EFB\u52A1\u53C2\u6570\uFF1B\u4E0D\u652F\u6301\u7684\u53C2\u6570\u4E0D\u4F1A\u88AB\u9759\u9ED8\u4E22\u5F03\u3002",
+    "taskActions.retryWithCurrentCapability": "\u786E\u8BA4\u5E76\u91CD\u8BD5"
   };
 
   // codex_image/webui/frontend/src/i18n/zh-hk.ts
@@ -13927,21 +13997,21 @@
   var getPromptText = (...args) => legacyMethod("getPromptText", ...args);
   var syncRunButtonLabel = (...args) => legacyMethod("syncRunButtonLabel", ...args);
   function updateTaskInState(task) {
-    const state32 = getLegacyBridge().state;
+    const state33 = getLegacyBridge().state;
     if (!task?.task_id) return false;
     const taskId = String(task.task_id);
-    const previousIndex = state32.tasks.findIndex((item) => String(item.task_id) === taskId);
+    const previousIndex = state33.tasks.findIndex((item) => String(item.task_id) === taskId);
     if (previousIndex === -1) {
-      state32.tasks.unshift(task);
+      state33.tasks.unshift(task);
       return true;
     }
-    const previousTask = state32.tasks[previousIndex];
+    const previousTask = state33.tasks[previousIndex];
     if (previousTask?.local_pending) {
       revokeTaskUploadPreviewUrls(previousTask);
     }
-    state32.tasks = state32.tasks.map((item, index) => index === previousIndex ? task : item);
-    if (state32.pendingTaskId && String(state32.pendingTaskId) === taskId && !task.local_pending) {
-      state32.pendingTaskId = null;
+    state33.tasks = state33.tasks.map((item, index) => index === previousIndex ? task : item);
+    if (state33.pendingTaskId && String(state33.pendingTaskId) === taskId && !task.local_pending) {
+      state33.pendingTaskId = null;
     }
     return true;
   }
@@ -13960,25 +14030,25 @@
   }
   var uiClockVisibilityBound = false;
   function startUiClock() {
-    const state32 = getLegacyBridge().state;
+    const state33 = getLegacyBridge().state;
     if (!uiClockVisibilityBound) {
       uiClockVisibilityBound = true;
       document.addEventListener("visibilitychange", handleUiClockVisibilityChange);
     }
-    if (state32.uiClockTimerId || document.hidden) return;
-    state32.uiClockTimerId = window.setInterval(updateElapsedDisplays, 100);
+    if (state33.uiClockTimerId || document.hidden) return;
+    state33.uiClockTimerId = window.setInterval(updateElapsedDisplays, 100);
   }
   function handleUiClockVisibilityChange() {
-    const state32 = getLegacyBridge().state;
+    const state33 = getLegacyBridge().state;
     if (document.hidden) {
-      if (state32.uiClockTimerId) {
-        window.clearInterval(state32.uiClockTimerId);
-        state32.uiClockTimerId = null;
+      if (state33.uiClockTimerId) {
+        window.clearInterval(state33.uiClockTimerId);
+        state33.uiClockTimerId = null;
       }
       return;
     }
-    if (!state32.uiClockTimerId) {
-      state32.uiClockTimerId = window.setInterval(updateElapsedDisplays, 100);
+    if (!state33.uiClockTimerId) {
+      state33.uiClockTimerId = window.setInterval(updateElapsedDisplays, 100);
       updateElapsedDisplays();
     }
   }
@@ -13995,8 +14065,8 @@
   function setTextIfChanged(element2, text) {
     if (element2.textContent !== text) element2.textContent = text;
   }
-  function activeElapsedTaskCards(els43, taskId) {
-    const roots = [els43.taskActiveList, els43.taskList].filter((root) => root instanceof HTMLElement);
+  function activeElapsedTaskCards(els44, taskId) {
+    const roots = [els44.taskActiveList, els44.taskList].filter((root) => root instanceof HTMLElement);
     const cards = roots.flatMap(
       (root) => Array.from(root.querySelectorAll(`.task-card[data-task-id="${cssEscape(taskId)}"]`))
     );
@@ -14025,19 +14095,19 @@
     });
   }
   function updateTaskElapsedDisplays() {
-    const { state: state32, els: els43 } = getLegacyBridge();
-    const activeTasks = state32.tasks.filter((task) => taskNeedsElapsedTick(task));
+    const { state: state33, els: els44 } = getLegacyBridge();
+    const activeTasks = state33.tasks.filter((task) => taskNeedsElapsedTick(task));
     if (!activeTasks.length) return;
     activeTasks.forEach((task) => {
       const taskId = String(task.task_id || "");
       if (!taskId) return;
-      activeElapsedTaskCards(els43, taskId).forEach((card) => updateTaskElapsedCard(card, task));
+      activeElapsedTaskCards(els44, taskId).forEach((card) => updateTaskElapsedCard(card, task));
     });
   }
   function updatePreviewElapsedDisplay() {
-    const { els: els43 } = getLegacyBridge();
-    if (!els43.previewGrid) return;
-    els43.previewGrid.querySelectorAll("[data-preview-elapsed]").forEach((element2) => {
+    const { els: els44 } = getLegacyBridge();
+    if (!els44.previewGrid) return;
+    els44.previewGrid.querySelectorAll("[data-preview-elapsed]").forEach((element2) => {
       updateElapsedTimerElement(element2, elapsedMillisecondsSince(element2.dataset.previewStart));
     });
   }
@@ -14073,73 +14143,73 @@
     }
   }
   function updatePromptCount() {
-    const { els: els43 } = getLegacyBridge();
-    if (!els43.charCount) return;
-    els43.charCount.textContent = `${getPromptText().length} / 4000`;
+    const { els: els44 } = getLegacyBridge();
+    if (!els44.charCount) return;
+    els44.charCount.textContent = `${getPromptText().length} / 4000`;
   }
   function addPendingTask(task) {
-    const state32 = getLegacyBridge().state;
-    state32.pendingTaskId = task.task_id;
-    state32.selectedTaskId = task.task_id;
-    state32.tasks = [task, ...state32.tasks.filter((item) => item.task_id !== task.task_id)];
+    const state33 = getLegacyBridge().state;
+    state33.pendingTaskId = task.task_id;
+    state33.selectedTaskId = task.task_id;
+    state33.tasks = [task, ...state33.tasks.filter((item) => item.task_id !== task.task_id)];
     renderTasks();
     renderPreview(task);
   }
   function replacePendingTask(pendingTaskId, completedTask) {
-    const state32 = getLegacyBridge().state;
-    const removedPendingTasks = state32.tasks.filter((task) => task?.local_pending && (task.task_id === completedTask.task_id || task.task_id === pendingTaskId));
-    state32.tasks = [
+    const state33 = getLegacyBridge().state;
+    const removedPendingTasks = state33.tasks.filter((task) => task?.local_pending && (task.task_id === completedTask.task_id || task.task_id === pendingTaskId));
+    state33.tasks = [
       completedTask,
-      ...state32.tasks.filter((task) => task.task_id !== completedTask.task_id && task.task_id !== pendingTaskId)
+      ...state33.tasks.filter((task) => task.task_id !== completedTask.task_id && task.task_id !== pendingTaskId)
     ];
     removedPendingTasks.forEach(revokeTaskUploadPreviewUrls);
-    state32.selectedTaskId = completedTask.task_id;
-    state32.pendingTaskId = null;
+    state33.selectedTaskId = completedTask.task_id;
+    state33.pendingTaskId = null;
     renderTasks();
     renderPreview(completedTask);
   }
   function markPendingTaskFailed(pendingTaskId, message) {
-    const state32 = getLegacyBridge().state;
-    const task = state32.tasks.find((item) => item.task_id === pendingTaskId);
+    const state33 = getLegacyBridge().state;
+    const task = state33.tasks.find((item) => item.task_id === pendingTaskId);
     if (!task) return;
     task.status = "failed";
     task.error = message;
     task.updated_at = (/* @__PURE__ */ new Date()).toISOString();
-    state32.selectedTaskId = pendingTaskId;
-    state32.pendingTaskId = null;
+    state33.selectedTaskId = pendingTaskId;
+    state33.pendingTaskId = null;
     renderTasks();
     renderPreview(task);
   }
   function startRunFeedback(task, actionLabel = null) {
-    const { state: state32, els: els43 } = getLegacyBridge();
+    const { state: state33, els: els44 } = getLegacyBridge();
     stopRunFeedback();
-    state32.runFeedbackAction = actionLabel;
-    state32.runStartedAt = timestampMs(task.started_at || task.created_at) || Date.now();
-    state32.runTimerId = window.setInterval(updateRunFeedback, 100);
-    els43.runButton?.classList.add("running");
+    state33.runFeedbackAction = actionLabel;
+    state33.runStartedAt = timestampMs(task.started_at || task.created_at) || Date.now();
+    state33.runTimerId = window.setInterval(updateRunFeedback, 100);
+    els44.runButton?.classList.add("running");
     updateRunFeedback();
   }
   function updateRunFeedback() {
-    const { state: state32, els: els43 } = getLegacyBridge();
-    if (!state32.runStartedAt) return;
-    const elapsed = formatDurationTenths(elapsedMillisecondsSince(state32.runStartedAt));
-    const action = state32.runFeedbackAction || (state32.mode === "edit" ? translate("runFeedback.editing") : translate("runFeedback.generating"));
-    if (els43.runButton) els43.runButton.textContent = `${action} ${elapsed}`;
+    const { state: state33, els: els44 } = getLegacyBridge();
+    if (!state33.runStartedAt) return;
+    const elapsed = formatDurationTenths(elapsedMillisecondsSince(state33.runStartedAt));
+    const action = state33.runFeedbackAction || (state33.mode === "edit" ? translate("runFeedback.editing") : translate("runFeedback.generating"));
+    if (els44.runButton) els44.runButton.textContent = `${action} ${elapsed}`;
     setStatus(formatTranslation("runFeedback.status", { action, elapsed }), "running");
     updateElapsedDisplays();
-    if (state32.selectedTaskId === state32.pendingTaskId) {
+    if (state33.selectedTaskId === state33.pendingTaskId) {
       renderPreview();
     }
   }
   function stopRunFeedback() {
-    const { state: state32, els: els43 } = getLegacyBridge();
-    if (state32.runTimerId) {
-      window.clearInterval(state32.runTimerId);
+    const { state: state33, els: els44 } = getLegacyBridge();
+    if (state33.runTimerId) {
+      window.clearInterval(state33.runTimerId);
     }
-    state32.runTimerId = null;
-    state32.runStartedAt = null;
-    state32.runFeedbackAction = null;
-    els43.runButton?.classList.remove("running");
+    state33.runTimerId = null;
+    state33.runStartedAt = null;
+    state33.runFeedbackAction = null;
+    els44.runButton?.classList.remove("running");
     syncRunButtonLabel();
   }
 
@@ -14708,7 +14778,7 @@
       showResponsesRequirement();
       return false;
     }
-    const state32 = getState();
+    const state33 = getState();
     let source = null;
     if (input instanceof File) {
       const family = familyForFilename(input.name);
@@ -14716,15 +14786,15 @@
         legacyMethod2("setStatus", translate("referenceFiles.errorUnsupported"), "error");
         return false;
       }
-      if (state32.referenceFiles.some((item) => item.kind === "upload" && item.file === input)) return false;
+      if (state33.referenceFiles.some((item) => item.kind === "upload" && item.file === input)) return false;
       source = uploadSource(input, family);
     } else {
       source = storedSource(input);
       if (!source) return false;
-      if (state32.referenceFiles.some((item) => item.kind === "asset" && item.id === source?.id)) return false;
+      if (state33.referenceFiles.some((item) => item.kind === "asset" && item.id === source?.id)) return false;
     }
     requirementActionVisible = false;
-    state32.referenceFiles.push(source);
+    state33.referenceFiles.push(source);
     renderReferenceFiles();
     legacyMethod2("updateRequestPreview");
     return true;
@@ -14745,15 +14815,15 @@
     legacyMethod2("updateRequestPreview");
   }
   function removeReferenceFile(index) {
-    const state32 = getState();
-    if (!Number.isInteger(index) || index < 0 || index >= state32.referenceFiles.length) return;
-    state32.referenceFiles.splice(index, 1);
+    const state33 = getState();
+    if (!Number.isInteger(index) || index < 0 || index >= state33.referenceFiles.length) return;
+    state33.referenceFiles.splice(index, 1);
     renderReferenceFiles();
     legacyMethod2("updateRequestPreview");
   }
   function renderReferenceFiles() {
-    const els43 = getEls();
-    const container = els43.referenceFileSelection;
+    const els44 = getEls();
+    const container = els44.referenceFileSelection;
     if (!container) return;
     requirementFeedback?.remove();
     requirementFeedback = null;
@@ -14776,7 +14846,7 @@
       action.textContent = (legacyMethod2("currentAuthSource") || "codex") === "api" ? translate("referenceFiles.openApiSettings") : translate("referenceFiles.switchToResponses");
       action.addEventListener("click", activateResponsesRequirementAction);
       feedback.append(message, action);
-      els43.imageUploaderGrid?.append(feedback);
+      els44.imageUploaderGrid?.append(feedback);
       requirementFeedback = feedback;
     }
     sources.forEach((source, index) => {
@@ -14802,7 +14872,7 @@
     });
     legacyMethod2("updateImageStripDensity");
     if (requirementActionVisible) {
-      els43.imageUploaderGrid?.classList.add("has-inputs");
+      els44.imageUploaderGrid?.classList.add("has-inputs");
     }
   }
   function syncReferenceFileAvailability() {
@@ -14819,12 +14889,12 @@
   function initReferenceFileInputsFeature() {
     if (initialized) return;
     initialized = true;
-    const els43 = getEls();
+    const els44 = getEls();
     document.addEventListener("change", (event) => {
       const target = event.target;
       if (target?.matches?.("#codexMode, #apiMode")) syncReferenceFileAvailability();
     });
-    els43.authSourceGroup?.addEventListener("click", () => queueMicrotask(syncReferenceFileAvailability));
+    els44.authSourceGroup?.addEventListener("click", () => queueMicrotask(syncReferenceFileAvailability));
     document.addEventListener(LOCALE_CHANGE_EVENT, renderReferenceFiles);
     syncReferenceFileAvailability();
     Object.assign(getLegacyBridge().methods, {
@@ -14906,12 +14976,12 @@
     });
   }
   function uploadPreviewUrlInUse(previewUrl, options = {}) {
-    const state32 = getState();
+    const state33 = getState();
     if (!previewUrl) return false;
     const ignoredCurrentSources = options.ignoredCurrentSources || /* @__PURE__ */ new Set();
     const ignoredTasks = options.ignoredTasks || /* @__PURE__ */ new Set();
-    if (sourceListUsesPreviewUrl(state32.images, previewUrl, ignoredCurrentSources)) return true;
-    return state32.tasks.some((task) => {
+    if (sourceListUsesPreviewUrl(state33.images, previewUrl, ignoredCurrentSources)) return true;
+    return state33.tasks.some((task) => {
       if (!task || ignoredTasks.has(task)) return false;
       return task.preview_url === previewUrl || sourceListUsesPreviewUrl(task.local_input_files, previewUrl) || sourceListUsesPreviewUrl(task.input_sources, previewUrl);
     });
@@ -14952,12 +15022,12 @@
     return source.name || translate("inputSource.galleryFallback");
   }
   function addGalleryInput(item, options = {}) {
-    const state32 = getState();
+    const state33 = getState();
     if (!item) return;
-    const alreadySelected = state32.images.some((source) => source.kind === "gallery" && source.id === item.id);
+    const alreadySelected = state33.images.some((source) => source.kind === "gallery" && source.id === item.id);
     if (!alreadySelected) {
-      state32.images.push(gallerySource(item));
-      if (state32.mode !== "edit") {
+      state33.images.push(gallerySource(item));
+      if (state33.mode !== "edit") {
         legacyMethod3("setMode", "edit");
       }
       legacyMethod3("renderImageStrip");
@@ -14976,14 +15046,14 @@
     return getState().images.filter((image) => image.kind === "upload");
   }
   function addImageFiles(files, options = {}) {
-    const state32 = getState();
+    const state33 = getState();
     const imageFiles = Array.from(files || []).filter(isImageFile2);
     if (!imageFiles.length) {
       if (options.emptyMessage) setStatus2(options.emptyMessage, "error");
       return false;
     }
-    state32.images.push(...imageFiles.map((file) => uploadSource2(file)));
-    if (state32.images.length > 0 && state32.mode !== "edit") {
+    state33.images.push(...imageFiles.map((file) => uploadSource2(file)));
+    if (state33.images.length > 0 && state33.mode !== "edit") {
       legacyMethod3("setMode", "edit");
     }
     legacyMethod3("renderImageStrip");
@@ -15044,8 +15114,8 @@
     });
   }
   function focusImagePasteTarget() {
-    const els43 = getEls();
-    els43.imageUploadSource?.focus({ preventScroll: true });
+    const els44 = getEls();
+    els44.imageUploadSource?.focus({ preventScroll: true });
   }
   function handleImagePaste(event) {
     const files = imageFilesFromClipboardItems(event.clipboardData?.items);
@@ -15116,13 +15186,13 @@
     return files;
   }
   async function pasteClipboardImages() {
-    const els43 = getEls();
+    const els44 = getEls();
     if (!navigator.clipboard?.read) {
       focusImagePasteTarget();
       setStatus2(clipboardReadFallbackMessage(translate("inputSource.clipboardUnsupported")), "error");
       return;
     }
-    els43.pasteClipboardButton.disabled = true;
+    els44.pasteClipboardButton.disabled = true;
     try {
       const files = await readClipboardImageFiles();
       const added = addImageFiles(files, {
@@ -15135,7 +15205,7 @@
       const reason = ["NotAllowedError", "SecurityError"].includes(String(error?.name || "")) ? translate("inputSource.clipboardDenied") : translate("inputSource.clipboardReadFailed");
       setStatus2(clipboardReadFallbackMessage(reason), "error");
     } finally {
-      els43.pasteClipboardButton.disabled = false;
+      els44.pasteClipboardButton.disabled = false;
     }
   }
   function missingGalleryInputs() {
@@ -15145,45 +15215,45 @@
     return getState().images.filter((image) => image.kind === "asset" && image.missing);
   }
   function addReferenceAssetInput(item) {
-    const state32 = getState();
+    const state33 = getState();
     if (!item?.id) return;
-    const alreadySelected = state32.images.some((source) => source.kind === "asset" && source.id === item.id);
+    const alreadySelected = state33.images.some((source) => source.kind === "asset" && source.id === item.id);
     if (alreadySelected) return;
-    state32.images.push(assetSource(item));
-    if (state32.mode !== "edit") {
+    state33.images.push(assetSource(item));
+    if (state33.mode !== "edit") {
       legacyMethod3("setMode", "edit");
     }
     legacyMethod3("renderImageStrip");
     legacyMethod3("updateRequestPreview");
   }
   function collectReferenceOutput(url, options = {}) {
-    const state32 = getState();
+    const state33 = getState();
     if (!url) return;
-    if (state32.collectedReferences.some((item) => item.url === url)) {
+    if (state33.collectedReferences.some((item) => item.url === url)) {
       setStatus2(translate("referenceCollector.alreadyStaged"), "ok");
       return;
     }
-    state32.collectedReferences.push({
+    state33.collectedReferences.push({
       url,
       name: options.name || "",
       sourceTaskId: options.sourceTaskId || "",
       outputIndex: options.outputIndex || null
     });
     renderReferenceCollector();
-    setStatus2(formatTranslation("referenceCollector.staged", { count: state32.collectedReferences.length }), "ok");
+    setStatus2(formatTranslation("referenceCollector.staged", { count: state33.collectedReferences.length }), "ok");
   }
   function renderReferenceCollector() {
-    const state32 = getState();
-    const els43 = getEls();
-    if (!els43.referenceCollector) return;
-    const items = state32.collectedReferences;
+    const state33 = getState();
+    const els44 = getEls();
+    if (!els44.referenceCollector) return;
+    const items = state33.collectedReferences;
     if (!items.length) {
-      els43.referenceCollector.classList.add("hidden");
-      els43.referenceCollector.innerHTML = "";
+      els44.referenceCollector.classList.add("hidden");
+      els44.referenceCollector.innerHTML = "";
       return;
     }
-    els43.referenceCollector.classList.remove("hidden");
-    els43.referenceCollector.innerHTML = `
+    els44.referenceCollector.classList.remove("hidden");
+    els44.referenceCollector.innerHTML = `
     <div class="reference-collector-header">
       <span>${escapeHtml2(formatTranslation("referenceCollector.title", { count: items.length }))}</span>
       <div class="reference-collector-actions">
@@ -15200,9 +15270,9 @@
       `).join("")}
     </div>
   `;
-    els43.referenceCollector.querySelector("[data-reference-collector-add-all]")?.addEventListener("click", addCollectedReferencesToInput);
-    els43.referenceCollector.querySelector("[data-reference-collector-clear]")?.addEventListener("click", () => clearCollectedReferences());
-    els43.referenceCollector.querySelectorAll("[data-reference-collector-remove]").forEach((button) => {
+    els44.referenceCollector.querySelector("[data-reference-collector-add-all]")?.addEventListener("click", addCollectedReferencesToInput);
+    els44.referenceCollector.querySelector("[data-reference-collector-clear]")?.addEventListener("click", () => clearCollectedReferences());
+    els44.referenceCollector.querySelectorAll("[data-reference-collector-remove]").forEach((button) => {
       button.addEventListener("click", () => removeCollectedReference(button.dataset.referenceCollectorRemove));
     });
   }
@@ -15252,11 +15322,11 @@
     return ensureImageFilenameExtension(item?.name || `collected-reference-${index + 1}`, "image/png");
   }
   async function addCollectedReferencesToInput() {
-    const state32 = getState();
-    const els43 = getEls();
-    const items = state32.collectedReferences.slice();
+    const state33 = getState();
+    const els44 = getEls();
+    const items = state33.collectedReferences.slice();
     if (!items.length) return;
-    const addButton = els43.referenceCollector?.querySelector("[data-reference-collector-add-all]");
+    const addButton = els44.referenceCollector?.querySelector("[data-reference-collector-add-all]");
     if (addButton) addButton.disabled = true;
     try {
       const files = [];
@@ -15338,13 +15408,13 @@
     }
   }
   function bindInputSourceEvents() {
-    const els43 = getEls();
-    els43.pasteClipboardButton?.addEventListener("click", pasteClipboardImages);
+    const els44 = getEls();
+    els44.pasteClipboardButton?.addEventListener("click", pasteClipboardImages);
     document.addEventListener("paste", handleImagePaste);
-    els43.imageUploaderGrid?.addEventListener("dragenter", handleImageDragEnter);
-    els43.imageUploaderGrid?.addEventListener("dragover", handleImageDragOver);
-    els43.imageUploaderGrid?.addEventListener("dragleave", handleImageDragLeave);
-    els43.imageUploaderGrid?.addEventListener("drop", handleImageDrop);
+    els44.imageUploaderGrid?.addEventListener("dragenter", handleImageDragEnter);
+    els44.imageUploaderGrid?.addEventListener("dragover", handleImageDragOver);
+    els44.imageUploaderGrid?.addEventListener("dragleave", handleImageDragLeave);
+    els44.imageUploaderGrid?.addEventListener("drop", handleImageDrop);
   }
   function initInputSourcesFeature() {
     if (inputSourcesFeatureInitialized) return;
@@ -27100,10 +27170,10 @@ js: import "konva/skia-backend";
     return remoteImageSourceFile(source);
   }
   function setImageEditorStatus(message, type = "") {
-    const els43 = getEls();
-    if (!els43.imageEditorStatus) return;
-    els43.imageEditorStatus.textContent = message || "";
-    els43.imageEditorStatus.className = `image-editor-status ${type || ""}`.trim();
+    const els44 = getEls();
+    if (!els44.imageEditorStatus) return;
+    els44.imageEditorStatus.textContent = message || "";
+    els44.imageEditorStatus.className = `image-editor-status ${type || ""}`.trim();
   }
   function nextImageEditorSession() {
     imageEditorState.sessionId += 1;
@@ -27495,8 +27565,8 @@ js: import "konva/skia-backend";
     imageEditorState.previewNode = null;
   }
   function initializeImageEditorKonva(width, height) {
-    const els43 = getEls();
-    const container = els43.imageEditorKonvaMount;
+    const els44 = getEls();
+    const container = els44.imageEditorKonvaMount;
     if (!container) throw new Error(translate("imageEditor.canvasCreateFailed"));
     destroyImageEditorKonva();
     container.innerHTML = "";
@@ -27573,8 +27643,8 @@ js: import "konva/skia-backend";
     pushImageEditorHistory();
   }
   function renderImageEditor() {
-    const els43 = getEls();
-    const visible = els43.imageEditorCanvas;
+    const els44 = getEls();
+    const visible = els44.imageEditorCanvas;
     const stage = imageEditorState.konvaStage;
     const work = imageEditorState.workCanvas;
     if (visible && work) {
@@ -27618,16 +27688,16 @@ js: import "konva/skia-backend";
     restoreImageEditorSnapshot(snapshot);
   }
   function updateImageEditorControls() {
-    const els43 = getEls();
+    const els44 = getEls();
     const canUndo = imageEditorState.historyIndex > 0;
     const canRedo = imageEditorState.historyIndex >= 0 && imageEditorState.historyIndex < imageEditorState.history.length - 1;
     const selectedLayer = selectedImageEditorLayer();
-    if (els43.imageEditorUndo) els43.imageEditorUndo.disabled = !canUndo;
-    if (els43.imageEditorRedo) els43.imageEditorRedo.disabled = !canRedo;
-    if (els43.imageEditorLayerUp) els43.imageEditorLayerUp.disabled = !selectedLayer || imageEditorState.layers.indexOf(selectedLayer) >= imageEditorState.layers.length - 1;
-    if (els43.imageEditorLayerDown) els43.imageEditorLayerDown.disabled = !selectedLayer || imageEditorState.layers.indexOf(selectedLayer) <= 0;
-    if (els43.imageEditorLayerDelete) els43.imageEditorLayerDelete.disabled = !selectedLayer || imageEditorState.layers.length <= 1;
-    if (els43.imageEditorStrokeValue) els43.imageEditorStrokeValue.textContent = `${imageEditorState.strokeWidth}px`;
+    if (els44.imageEditorUndo) els44.imageEditorUndo.disabled = !canUndo;
+    if (els44.imageEditorRedo) els44.imageEditorRedo.disabled = !canRedo;
+    if (els44.imageEditorLayerUp) els44.imageEditorLayerUp.disabled = !selectedLayer || imageEditorState.layers.indexOf(selectedLayer) >= imageEditorState.layers.length - 1;
+    if (els44.imageEditorLayerDown) els44.imageEditorLayerDown.disabled = !selectedLayer || imageEditorState.layers.indexOf(selectedLayer) <= 0;
+    if (els44.imageEditorLayerDelete) els44.imageEditorLayerDelete.disabled = !selectedLayer || imageEditorState.layers.length <= 1;
+    if (els44.imageEditorStrokeValue) els44.imageEditorStrokeValue.textContent = `${imageEditorState.strokeWidth}px`;
     document.querySelectorAll("[data-image-editor-tool]").forEach((button) => {
       button.classList.toggle("active", button.dataset.imageEditorTool === imageEditorState.tool);
     });
@@ -27659,9 +27729,9 @@ js: import "konva/skia-backend";
     transformer.rotateAnchorOffset?.(Math.max(28, Math.round(28 / safeScale)));
   }
   function updateImageEditorDisplayScale() {
-    const els43 = getEls();
-    const wrap = els43.imageEditorCanvasWrap;
-    const mount = els43.imageEditorKonvaMount;
+    const els44 = getEls();
+    const wrap = els44.imageEditorCanvasWrap;
+    const mount = els44.imageEditorKonvaMount;
     const stage = imageEditorState.konvaStage;
     if (!wrap || !mount || !stage) return;
     const width = stage.width();
@@ -27684,16 +27754,16 @@ js: import "konva/skia-backend";
     mount.style.setProperty("--image-editor-stage-scale", String(displayScale));
   }
   function updateImageEditorCropBox() {
-    const els43 = getEls();
-    const box = els43.imageEditorCropBox;
-    const wrap = els43.imageEditorCanvasWrap;
+    const els44 = getEls();
+    const box = els44.imageEditorCropBox;
+    const wrap = els44.imageEditorCanvasWrap;
     const stage = imageEditorState.konvaStage;
     const crop = imageEditorState.crop;
     if (!box || !wrap || !stage || !crop) {
       box?.classList.add("hidden");
       return;
     }
-    const content = els43.imageEditorKonvaMount?.querySelector(".konvajs-content");
+    const content = els44.imageEditorKonvaMount?.querySelector(".konvajs-content");
     const rect = content?.getBoundingClientRect() || wrap.getBoundingClientRect();
     const wrapRect = wrap.getBoundingClientRect();
     const scaleX = rect.width / Math.max(1, stage.width());
@@ -28210,19 +28280,19 @@ ${hint}` : hint;
     legacyMethod4("updatePromptCount");
   }
   async function saveImageEdit() {
-    const state32 = getState();
-    const els43 = getEls();
+    const state33 = getState();
+    const els44 = getEls();
     const sessionId = imageEditorState.sessionId;
     const source = imageEditorState.source;
     const saveCanvas = imageEditorCanvasForSave();
-    if (!source || !isEditableImageSource(source) || !saveCanvas || !state32.images.includes(source)) {
+    if (!source || !isEditableImageSource(source) || !saveCanvas || !state33.images.includes(source)) {
       setImageEditorStatus(translate("imageEditor.saveFailed"), "error");
       return;
     }
-    if (els43.imageEditorSave) els43.imageEditorSave.disabled = true;
+    if (els44.imageEditorSave) els44.imageEditorSave.disabled = true;
     try {
       const blob = await imageEditorExportBlob(saveCanvas);
-      const sourceIndex = state32.images.indexOf(source);
+      const sourceIndex = state33.images.indexOf(source);
       if (sessionId !== imageEditorState.sessionId || imageEditorState.source !== source || sourceIndex < 0) {
         return;
       }
@@ -28239,7 +28309,7 @@ ${hint}` : hint;
         previewUrl: URL.createObjectURL(file),
         edited: true
       };
-      state32.images[sourceIndex] = nextSource;
+      state33.images[sourceIndex] = nextSource;
       legacyMethod4("revokeUploadPreviewUrl", source);
       legacyMethod4("syncPromptGalleryMentionsFromInputs");
       if (imageEditorState.hasInstructionMarks) ensureImageEditorPromptHint();
@@ -28250,7 +28320,7 @@ ${hint}` : hint;
     } catch (error) {
       setImageEditorStatus(error.message || translate("imageEditor.saveFailed"), "error");
     } finally {
-      if (els43.imageEditorSave) els43.imageEditorSave.disabled = false;
+      if (els44.imageEditorSave) els44.imageEditorSave.disabled = false;
     }
   }
   function sourcePreviewUrlForEditor(source) {
@@ -28259,11 +28329,11 @@ ${hint}` : hint;
     return legacyMethod4("sourcePreviewUrl", source) || "";
   }
   function renderImageEditorInsertList() {
-    const state32 = getState();
+    const state33 = getState();
     const list = getEls().imageEditorInsertList;
     if (!list) return;
     list.textContent = "";
-    const sources = state32.images.map((source, index) => ({ source, index })).filter((item) => item.index !== imageEditorState.sourceIndex && isEditableImageSource(item.source));
+    const sources = state33.images.map((source, index) => ({ source, index })).filter((item) => item.index !== imageEditorState.sourceIndex && isEditableImageSource(item.source));
     if (!sources.length) {
       const empty = document.createElement("div");
       empty.className = "image-editor-insert-empty";
@@ -28429,9 +28499,9 @@ ${hint}` : hint;
     renderImageEditor();
   }
   async function openImageEditor(index) {
-    const state32 = getState();
-    const els43 = getEls();
-    const source = state32.images[index];
+    const state33 = getState();
+    const els44 = getEls();
+    const source = state33.images[index];
     if (!source || !isEditableImageSource(source)) {
       legacyMethod4("setStatus", translate("imageEditor.uneditable"), "error");
       return;
@@ -28441,16 +28511,16 @@ ${hint}` : hint;
     imageEditorState.source = source;
     imageEditorState.originalFile = null;
     imageEditorState.tool = "crop";
-    imageEditorState.color = els43.imageEditorColor?.value || "#ff3b30";
-    imageEditorState.strokeWidth = Number(els43.imageEditorStroke?.value || 8);
+    imageEditorState.color = els44.imageEditorColor?.value || "#ff3b30";
+    imageEditorState.strokeWidth = Number(els44.imageEditorStroke?.value || 8);
     imageEditorState.hasInstructionMarks = false;
     imageEditorState.drawing = null;
     imageEditorState.canvasScope = "base";
     setImageEditorStatus("");
-    if (els43.imageEditorSubtitle) {
-      els43.imageEditorSubtitle.textContent = legacyMethod4("sourceName", source) || translate("imageEditor.inputFallback");
+    if (els44.imageEditorSubtitle) {
+      els44.imageEditorSubtitle.textContent = legacyMethod4("sourceName", source) || translate("imageEditor.inputFallback");
     }
-    els43.imageEditorModal?.classList.remove("hidden");
+    els44.imageEditorModal?.classList.remove("hidden");
     try {
       const file = await imageEditorSourceFile(source);
       if (sessionId !== imageEditorState.sessionId || imageEditorState.source !== source) return;
@@ -28467,9 +28537,9 @@ ${hint}` : hint;
     }
   }
   function closeImageEditor() {
-    const els43 = getEls();
+    const els44 = getEls();
     nextImageEditorSession();
-    els43.imageEditorModal?.classList.add("hidden");
+    els44.imageEditorModal?.classList.add("hidden");
     destroyImageEditorKonva();
     imageEditorState.sourceIndex = null;
     imageEditorState.source = null;
@@ -28531,8 +28601,8 @@ ${hint}` : hint;
     }
   }
   function isImageEditorModalOpen() {
-    const els43 = getEls();
-    return Boolean(els43.imageEditorModal && !els43.imageEditorModal.classList.contains("hidden"));
+    const els44 = getEls();
+    return Boolean(els44.imageEditorModal && !els44.imageEditorModal.classList.contains("hidden"));
   }
   function handleImageEditorHistoryShortcut(event) {
     if (!isImageEditorModalOpen()) return false;
@@ -28577,11 +28647,11 @@ ${hint}` : hint;
     });
   }
   function bindImageEditorEvents() {
-    const els43 = getEls();
-    els43.imageEditorClose?.addEventListener("click", closeImageEditor);
-    els43.imageEditorCancel?.addEventListener("click", closeImageEditor);
-    els43.imageEditorModal?.addEventListener("click", (event) => {
-      if (event.target === els43.imageEditorModal) closeImageEditor();
+    const els44 = getEls();
+    els44.imageEditorClose?.addEventListener("click", closeImageEditor);
+    els44.imageEditorCancel?.addEventListener("click", closeImageEditor);
+    els44.imageEditorModal?.addEventListener("click", (event) => {
+      if (event.target === els44.imageEditorModal) closeImageEditor();
     });
     document.querySelectorAll("[data-image-editor-tool]").forEach((button) => {
       button.addEventListener("click", () => setImageEditorTool(button.dataset.imageEditorTool));
@@ -28589,32 +28659,32 @@ ${hint}` : hint;
     document.querySelectorAll("[data-image-editor-color]").forEach((button) => {
       button.addEventListener("click", () => {
         imageEditorState.color = button.dataset.imageEditorColor || imageEditorState.color;
-        if (els43.imageEditorColor) els43.imageEditorColor.value = imageEditorState.color;
+        if (els44.imageEditorColor) els44.imageEditorColor.value = imageEditorState.color;
         updateImageEditorControls();
       });
     });
     document.querySelectorAll("[data-image-editor-canvas-scope]").forEach((button) => {
       button.addEventListener("click", () => setImageEditorCanvasScope(button.dataset.imageEditorCanvasScope));
     });
-    els43.imageEditorColor?.addEventListener("input", () => {
-      imageEditorState.color = els43.imageEditorColor.value || imageEditorState.color;
+    els44.imageEditorColor?.addEventListener("input", () => {
+      imageEditorState.color = els44.imageEditorColor.value || imageEditorState.color;
       updateImageEditorControls();
     });
-    els43.imageEditorStroke?.addEventListener("input", () => {
-      imageEditorState.strokeWidth = Number(els43.imageEditorStroke.value || 8);
+    els44.imageEditorStroke?.addEventListener("input", () => {
+      imageEditorState.strokeWidth = Number(els44.imageEditorStroke.value || 8);
       updateImageEditorControls();
     });
-    els43.imageEditorUndo?.addEventListener("click", undoImageEdit);
-    els43.imageEditorRedo?.addEventListener("click", redoImageEdit);
-    els43.imageEditorReset?.addEventListener("click", resetImageEdit);
-    els43.imageEditorSave?.addEventListener("click", saveImageEdit);
-    els43.imageEditorLayerUp?.addEventListener("click", () => moveImageEditorLayer("up"));
-    els43.imageEditorLayerDown?.addEventListener("click", () => moveImageEditorLayer("down"));
-    els43.imageEditorLayerDelete?.addEventListener("click", deleteSelectedImageEditorLayer);
-    els43.imageEditorCanvas?.addEventListener("pointerdown", handleImageEditorPointerDown);
-    els43.imageEditorCanvas?.addEventListener("pointermove", handleImageEditorPointerMove);
-    els43.imageEditorCanvas?.addEventListener("pointerup", handleImageEditorPointerUp);
-    els43.imageEditorCanvas?.addEventListener("pointercancel", handleImageEditorPointerCancel);
+    els44.imageEditorUndo?.addEventListener("click", undoImageEdit);
+    els44.imageEditorRedo?.addEventListener("click", redoImageEdit);
+    els44.imageEditorReset?.addEventListener("click", resetImageEdit);
+    els44.imageEditorSave?.addEventListener("click", saveImageEdit);
+    els44.imageEditorLayerUp?.addEventListener("click", () => moveImageEditorLayer("up"));
+    els44.imageEditorLayerDown?.addEventListener("click", () => moveImageEditorLayer("down"));
+    els44.imageEditorLayerDelete?.addEventListener("click", deleteSelectedImageEditorLayer);
+    els44.imageEditorCanvas?.addEventListener("pointerdown", handleImageEditorPointerDown);
+    els44.imageEditorCanvas?.addEventListener("pointermove", handleImageEditorPointerMove);
+    els44.imageEditorCanvas?.addEventListener("pointerup", handleImageEditorPointerUp);
+    els44.imageEditorCanvas?.addEventListener("pointercancel", handleImageEditorPointerCancel);
   }
   function initImageEditorFeature() {
     if (imageEditorFeatureInitialized) return;
@@ -28639,9 +28709,9 @@ ${hint}` : hint;
     event.target.value = "";
   }
   function clearImages() {
-    const state32 = getState();
-    legacyMethod5("revokeUploadPreviewUrls", state32.images);
-    state32.images = [];
+    const state33 = getState();
+    legacyMethod5("revokeUploadPreviewUrls", state33.images);
+    state33.images = [];
     legacyMethod5("clearReferenceFiles", { silent: true });
     legacyMethod5("syncPromptGalleryMentionsFromInputs");
     legacyMethod5("setMode", "generate");
@@ -28663,11 +28733,11 @@ ${hint}` : hint;
     return icon;
   }
   function imageStripNeedsCompactGrid() {
-    const state32 = getState();
-    const els43 = getEls();
-    const thumbCount = state32.images.length + state32.referenceFiles.length;
-    if (!els43.imageUploaderGrid || !thumbCount) return false;
-    const availableWidth = Math.max(0, els43.imageUploaderGrid.clientWidth - 24);
+    const state33 = getState();
+    const els44 = getEls();
+    const thumbCount = state33.images.length + state33.referenceFiles.length;
+    if (!els44.imageUploaderGrid || !thumbCount) return false;
+    const availableWidth = Math.max(0, els44.imageUploaderGrid.clientWidth - 24);
     if (!availableWidth) return false;
     const fullSizeThumbsWidth = thumbCount * 116 + Math.max(0, thumbCount - 1) * 10;
     const fullSizeUploadWidth = 118;
@@ -28675,27 +28745,27 @@ ${hint}` : hint;
     return fullSizeThumbsWidth + fullSizeUploadGap + fullSizeUploadWidth > availableWidth;
   }
   function updateImageStripDensity() {
-    const state32 = getState();
-    const els43 = getEls();
-    const hasImages = Boolean(state32.images.length);
-    const hasInputs = Boolean(state32.images.length + state32.referenceFiles.length);
+    const state33 = getState();
+    const els44 = getEls();
+    const hasImages = Boolean(state33.images.length);
+    const hasInputs = Boolean(state33.images.length + state33.referenceFiles.length);
     const compactGrid = imageStripNeedsCompactGrid();
-    els43.imageUploaderGrid?.classList.toggle("has-images", hasImages);
-    els43.imageUploaderGrid?.classList.toggle("has-inputs", hasInputs);
-    els43.imageUploaderGrid?.classList.toggle("compact-grid", compactGrid);
+    els44.imageUploaderGrid?.classList.toggle("has-images", hasImages);
+    els44.imageUploaderGrid?.classList.toggle("has-inputs", hasInputs);
+    els44.imageUploaderGrid?.classList.toggle("compact-grid", compactGrid);
   }
   function wheelDeltaInPixels(event) {
     const dominantDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
     if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) return dominantDelta * 16;
     if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
-      const els43 = getEls();
-      return dominantDelta * Math.max(1, els43.imageStrip?.clientWidth || 1);
+      const els44 = getEls();
+      return dominantDelta * Math.max(1, els44.imageStrip?.clientWidth || 1);
     }
     return dominantDelta;
   }
   function handleImageStripWheel(event) {
-    const els43 = getEls();
-    const scrollTarget = els43.imageThumbList;
+    const els44 = getEls();
+    const scrollTarget = els44.imageThumbList;
     if (!scrollTarget) return;
     const maxScrollLeft = Math.max(0, scrollTarget.scrollWidth - scrollTarget.clientWidth);
     if (!maxScrollLeft) return;
@@ -28707,10 +28777,10 @@ ${hint}` : hint;
     scrollTarget.scrollLeft = nextScrollLeft;
   }
   function renderImageStrip() {
-    const state32 = getState();
-    const els43 = getEls();
-    const hasImages = Boolean(state32.images.length);
-    const thumbItems = els43.imageThumbItems;
+    const state33 = getState();
+    const els44 = getEls();
+    const hasImages = Boolean(state33.images.length);
+    const thumbItems = els44.imageThumbItems;
     updateImageStripDensity();
     if (!thumbItems) return;
     if (!hasImages) {
@@ -28719,7 +28789,7 @@ ${hint}` : hint;
       return;
     }
     thumbItems.innerHTML = "";
-    state32.images.forEach((source, index) => {
+    state33.images.forEach((source, index) => {
       const wrapper = document.createElement("div");
       wrapper.className = `thumb ${source.kind === "gallery" ? "gallery-thumb" : source.kind === "asset" ? "asset-thumb" : "upload-thumb"}${source.missing ? " missing-thumb" : ""}`;
       const image = document.createElement("img");
@@ -28757,11 +28827,11 @@ ${hint}` : hint;
       remove.append(createThumbRemoveIcon());
       remove.addEventListener("click", (event) => {
         event.stopPropagation();
-        const removedSource = state32.images[index];
+        const removedSource = state33.images[index];
         legacyMethod5("revokeUploadPreviewUrl", removedSource, { ignoredCurrentSources: /* @__PURE__ */ new Set([removedSource]) });
-        state32.images.splice(index, 1);
+        state33.images.splice(index, 1);
         legacyMethod5("syncPromptGalleryMentionsFromInputs");
-        if (!state32.images.length) {
+        if (!state33.images.length) {
           legacyMethod5("setMode", "generate");
         }
         renderImageStrip();
@@ -28792,10 +28862,10 @@ ${hint}` : hint;
     legacyMethod5("updateCustomRatioReferenceButtonState");
   }
   function bindImageStripEvents() {
-    const els43 = getEls();
-    els43.imageInput?.addEventListener("change", addImages);
-    els43.clearImagesButton?.addEventListener("click", clearImages);
-    els43.imageStrip?.addEventListener("wheel", handleImageStripWheel, { passive: false });
+    const els44 = getEls();
+    els44.imageInput?.addEventListener("change", addImages);
+    els44.clearImagesButton?.addEventListener("click", clearImages);
+    els44.imageStrip?.addEventListener("wheel", handleImageStripWheel, { passive: false });
     window.addEventListener("resize", updateImageStripDensity);
     document.addEventListener(LOCALE_CHANGE_EVENT, renderImageStrip);
   }
@@ -31904,10 +31974,10 @@ ${hint}` : hint;
     const fallbackId = index === 0 ? "default" : `provider-${index + 1}`;
     const id = String(provider.id || fallbackId).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || fallbackId;
     const fallbackModel = String(provider.image_model || DEFAULT_API_IMAGE_MODEL).trim() || DEFAULT_API_IMAGE_MODEL;
-    const rawModels = Array.isArray(provider.models) && provider.models.length ? provider.models : [{ display_name: fallbackModel, model_id: fallbackModel, capability_profile_id: "generic-basic", is_default: true, is_enabled: true }];
+    const rawModels = Array.isArray(provider.models) ? provider.models : [{ display_name: fallbackModel, model_id: fallbackModel, capability_profile_id: "generic-basic", is_default: true, is_enabled: true }];
     const models = rawModels.map((model, modelIndex) => normalizeApiModel(model, modelIndex));
-    if (!models.some((model) => model.is_default)) models[0].is_default = true;
-    const defaultModel = models.find((model) => model.is_default) || models[0];
+    if (models.length && !models.some((model) => model.is_default)) models[0].is_default = true;
+    const defaultModel = models.find((model) => model.is_default) || models[0] || { model_id: "" };
     return {
       id,
       provider_version_id: String(provider.provider_version_id || "").trim(),
@@ -31923,6 +31993,8 @@ ${hint}` : hint;
       api_key_masked: String(provider.api_key_masked || ""),
       api_key_source_provider_id: String(provider.api_key_source_provider_id || "").trim(),
       models,
+      selected_generation_model_id: String(provider.selected_generation_model_id || "").trim(),
+      model_selection_reason: String(provider.model_selection_reason || ""),
       read_only: Boolean(provider.read_only),
       catalog_fields_read_only: Boolean(provider.catalog_fields_read_only)
     };
@@ -31935,6 +32007,7 @@ ${hint}` : hint;
       display_name: String(model.display_name || modelId || formatTranslation("apiSettings.modelNumber", { number: String(index + 1) })).trim(),
       model_id: modelId,
       capability_profile_id: MODEL_PROFILES.some(([profileId]) => profileId === model.capability_profile_id) ? model.capability_profile_id : "generic-basic",
+      capability_profile_version: Number.parseInt(model.capability_profile_version, 10) || 1,
       is_default: Boolean(model.is_default),
       is_enabled: model.is_enabled !== false,
       validation_status: String(model.validation_status || "not_required"),
@@ -32462,7 +32535,8 @@ ${hint}` : hint;
       active_provider_id: activeProvider.id,
       providers,
       allow_new_provider: Boolean(settings.allow_new_provider),
-      credential_scope: settings.credential_scope === "department" ? "department" : "personal"
+      credential_scope: settings.credential_scope === "department" ? "department" : "personal",
+      model_preferences: settings.model_preferences && typeof settings.model_preferences === "object" ? settings.model_preferences : { selections: [], parameters: [] }
     };
   }
   function activeApiProvider() {
@@ -32490,11 +32564,15 @@ ${hint}` : hint;
   }
   function mergeApiProviderKeys(serverSettings) {
     const localById = new Map((state9.apiSettings.providers || []).map((provider) => [provider.id, provider]));
+    const localActiveProviderId = String(state9.apiSettings.active_provider_id || "");
     const normalized = normalizeApiSettings(serverSettings);
     normalized.providers = normalized.providers.map((provider) => {
       const local = localById.get(provider.id);
       return local?.api_key ? { ...provider, api_key: local.api_key } : provider;
     });
+    if (normalized.providers.some((provider) => provider.id === localActiveProviderId)) {
+      normalized.active_provider_id = localActiveProviderId;
+    }
     return normalized;
   }
   async function refreshApiSettings() {
@@ -32536,6 +32614,7 @@ ${hint}` : hint;
       });
       els10.apiProvider.value = provider.id;
     }
+    document.dispatchEvent(new CustomEvent("generation-model-settings-changed"));
     renderApiProviderList();
     renderApiProviderDetail();
     renderApiProviderEditor();
@@ -32975,9 +33054,9 @@ ${hint}` : hint;
     const apiProviderEditor = document.querySelector("#apiProviderEditor");
     apiProviderEditor?.addEventListener("input", () => markSystemSettingsDirty(apiProviderEditor));
     document.addEventListener(LOCALE_CHANGE_EVENT, () => {
-      const bridge39 = getLegacyBridge();
-      renderAuthSource(bridge39.state.authStatus);
-      if (!bridge39.els.systemSettingsModal?.classList.contains("hidden") && (!bridge39.els.systemSettingsApiPanel?.hidden || !bridge39.els.systemSettingsCodexPanel?.hidden)) {
+      const bridge40 = getLegacyBridge();
+      renderAuthSource(bridge40.state.authStatus);
+      if (!bridge40.els.systemSettingsModal?.classList.contains("hidden") && (!bridge40.els.systemSettingsApiPanel?.hidden || !bridge40.els.systemSettingsCodexPanel?.hidden)) {
         setApiSettingsFeedback("", "");
       }
     });
@@ -33043,9 +33122,330 @@ ${hint}` : hint;
     });
   }
 
-  // codex_image/webui/frontend/src/storage-settings.ts
+  // codex_image/webui/frontend/src/generation-model.ts
   var bridge10 = getLegacyBridge();
+  var state10 = bridge10.state;
   var els11 = bridge10.els;
+  var profiles = /* @__PURE__ */ new Map();
+  var preferenceTimer = null;
+  var generationModelFeatureInitialized = false;
+  function availableModels() {
+    const provider = activeApiProvider();
+    return (Array.isArray(provider?.models) ? provider.models : []).filter((model) => model?.is_enabled !== false && (provider.provider_scope !== "department" || model.validation_status === "verified"));
+  }
+  function currentGenerationModel() {
+    const selectedId = String(els11.generationModelSelect?.value || "");
+    return availableModels().find((model) => model.generation_model_id === selectedId) || null;
+  }
+  function currentGenerationProfile() {
+    const model = currentGenerationModel();
+    return model ? profiles.get(model.capability_profile_id) || null : null;
+  }
+  function modelParameterPreference(modelId) {
+    const entries = state10.apiSettings?.model_preferences?.parameters;
+    return Array.isArray(entries) ? entries.find((item) => item?.generation_model_id === modelId)?.parameters || {} : {};
+  }
+  function currentSize() {
+    return els11.size?.value === "custom" ? `${els11.customWidth?.value || ""}x${els11.customHeight?.value || ""}` : String(els11.size?.value || "");
+  }
+  function currentImageReferenceCount() {
+    return Array.isArray(state10.images) ? state10.images.filter((item) => item?.kind !== "file").length : 0;
+  }
+  function sizeSupported(profile, size) {
+    if (!profile || !size) return false;
+    if ((profile.sizes || []).includes(size)) return true;
+    if (!profile.custom_size) return false;
+    const match = /^(\d+)x(\d+)$/i.exec(size);
+    if (!match) return false;
+    const width = Number(match[1]);
+    const height = Number(match[2]);
+    const constraints = profile.size_constraints || {};
+    const aspect = height ? width / height : 0;
+    return width >= Number(constraints.min_dimension || 1) && height >= Number(constraints.min_dimension || 1) && width <= Number(constraints.max_dimension || Number.MAX_SAFE_INTEGER) && height <= Number(constraints.max_dimension || Number.MAX_SAFE_INTEGER) && aspect >= Number(constraints.min_aspect_ratio || 0) && aspect <= Number(constraints.max_aspect_ratio || Number.MAX_SAFE_INTEGER);
+  }
+  function generationModelConstraintMessage() {
+    const model = currentGenerationModel();
+    if (!model) return translate("generationModel.none");
+    const profile = currentGenerationProfile();
+    if (!profile) return translate("generationModel.profileUnavailable");
+    if (!(profile.task_modes || []).includes(state10.mode || "generate")) {
+      return translate("generationModel.modeUnsupported");
+    }
+    const maximumReferences = Number(profile.max_reference_images || 0);
+    if (currentImageReferenceCount() > maximumReferences) {
+      return translate("generationModel.tooManyReferences").replace("{count}", String(maximumReferences));
+    }
+    if (!sizeSupported(profile, currentSize())) return translate("generationModel.sizeUnsupported");
+    if (!(profile.output_formats || []).includes(String(els11.outputFormat?.value || ""))) {
+      return translate("generationModel.formatUnsupported");
+    }
+    if (els11.seedMode?.value === "fixed") {
+      const seedProfile = profile.seed || {};
+      const seed = Number(els11.seedValue?.value);
+      if (!seedProfile.supported || !Number.isInteger(seed) || seed < Number(seedProfile.minimum ?? 0) || seed > Number(seedProfile.maximum ?? 2147483647)) {
+        return translate("generationModel.seedInvalid");
+      }
+    }
+    return "";
+  }
+  function updateCallNotice() {
+    const count = Math.max(1, Number.parseInt(els11.nInput?.value || "1", 10) || 1);
+    const provider = activeApiProvider();
+    const text = count > 1 ? translate("generationModel.independentCalls").replace("{count}", String(count)) : "";
+    if (els11.generationCallNotice) {
+      els11.generationCallNotice.textContent = text;
+      els11.generationCallNotice.classList.toggle("hidden", !text);
+      els11.generationCallNotice.dataset.providerScope = provider?.provider_scope || "";
+    }
+  }
+  function setRadioValue(select, group, value) {
+    if (!select) return;
+    select.value = value;
+    group?.querySelectorAll("[data-val]").forEach((button) => {
+      const active = button.dataset.val === value;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+  }
+  function applyProfile(profile, model, restorePreference) {
+    let parametersAdjusted = false;
+    const supportedResolutions = new Set((profile?.sizes || []).map((size) => {
+      const dimension = Number.parseInt(size.split("x", 1)[0] || "0", 10);
+      return dimension >= 4096 ? "4k" : dimension >= 2048 ? "2k" : "standard";
+    }));
+    els11.resolutionGroup?.querySelectorAll("[data-val]")?.forEach((button) => {
+      button.classList.toggle("hidden", !supportedResolutions.has(String(button.dataset.val || "")));
+    });
+    const maximumOutputCount = Number(profile?.max_output_count || 1);
+    els11.quantityGroup?.querySelectorAll("[data-val]")?.forEach((button) => {
+      button.classList.toggle("hidden", Number(button.dataset.val || 1) > maximumOutputCount);
+    });
+    const currentOutputCount = Math.max(1, Number.parseInt(els11.nInput?.value || "1", 10) || 1);
+    if (currentOutputCount > maximumOutputCount) {
+      setRadioValue(els11.nInput, els11.quantityGroup, String(maximumOutputCount));
+      parametersAdjusted = true;
+    }
+    const supportedFormats = new Set(profile?.output_formats || []);
+    els11.outputFormatGroup?.querySelectorAll("[data-val]")?.forEach((button) => {
+      button.classList.toggle("hidden", !supportedFormats.has(String(button.dataset.val || "")));
+    });
+    const preference = modelParameterPreference(model.generation_model_id);
+    const preferredSize = String(preference.size || "");
+    const existingSize = currentSize();
+    const defaultSize = String(profile?.default_size || profile?.sizes?.[0] || "1024x1024");
+    const selectedSize = restorePreference ? sizeSupported(profile, preferredSize) ? preferredSize : defaultSize : sizeSupported(profile, existingSize) ? existingSize : defaultSize;
+    const syncSize = getLegacyBridge().methods.syncSizeControlsFromSize;
+    if (typeof syncSize === "function" && selectedSize !== existingSize) {
+      syncSize(selectedSize);
+      parametersAdjusted = true;
+    }
+    const preferredFormat = String(preference.output_format || "");
+    const existingFormat = String(els11.outputFormat?.value || "");
+    const defaultFormat = String(profile?.default_output_format || profile?.output_formats?.[0] || "png");
+    const format = restorePreference ? supportedFormats.has(preferredFormat) ? preferredFormat : defaultFormat : supportedFormats.has(existingFormat) ? existingFormat : defaultFormat;
+    if (format !== existingFormat) parametersAdjusted = true;
+    if (els11.outputFormat) {
+      els11.outputFormat.value = format;
+      els11.outputFormatGroup?.querySelectorAll("[data-val]")?.forEach((button) => {
+        const active = button.dataset.val === format;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", active ? "true" : "false");
+      });
+    }
+    const promptModes = Array.isArray(profile?.prompt_optimization_modes) ? profile.prompt_optimization_modes : [];
+    if (els11.promptOptimizationMode) {
+      const existing = String(els11.promptOptimizationMode.value || "off");
+      els11.promptOptimizationMode.innerHTML = "";
+      [["off", translate("generationModel.promptOptimizationOff")], ...promptModes.map((mode) => [mode, mode === "fast" ? translate("generationModel.promptOptimizationFast") : translate("generationModel.promptOptimizationStandard")])].forEach(([value, label]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        els11.promptOptimizationMode.append(option);
+      });
+      const preferredMode = restorePreference ? String(preference.prompt_optimization_mode || "off") : existing;
+      els11.promptOptimizationMode.value = ["off", ...promptModes].includes(preferredMode) ? preferredMode : "off";
+      if (els11.promptOptimizationMode.value !== existing) parametersAdjusted = true;
+    }
+    els11.promptOptimizationField?.classList.toggle("hidden", !promptModes.length);
+    const seedProfile = profile?.seed || {};
+    const seedSupported = Boolean(seedProfile.supported);
+    els11.seedField?.classList.toggle("hidden", !seedSupported);
+    const existingSeedMode = String(els11.seedMode?.value || "random");
+    if (seedSupported) {
+      const preferredSeedMode = restorePreference ? preference.seed_mode === "fixed" ? "fixed" : "random" : existingSeedMode === "fixed" ? "fixed" : "random";
+      setRadioValue(els11.seedMode, els11.seedModeGroup, preferredSeedMode);
+      if (preferredSeedMode !== existingSeedMode) parametersAdjusted = true;
+      if (els11.seedValue) {
+        els11.seedValue.min = String(seedProfile.minimum ?? 0);
+        els11.seedValue.max = String(seedProfile.maximum ?? 2147483647);
+        els11.seedValue.value = preferredSeedMode === "fixed" && preference.seed !== void 0 ? String(preference.seed) : els11.seedValue.value;
+        els11.seedValue.classList.toggle("hidden", preferredSeedMode !== "fixed");
+      }
+    } else {
+      setRadioValue(els11.seedMode, els11.seedModeGroup, "random");
+      els11.seedValue?.classList.add("hidden");
+      if (existingSeedMode !== "random") parametersAdjusted = true;
+    }
+    return parametersAdjusted ? translate("generationModel.parametersAdjusted") : "";
+  }
+  function selectionReason(provider) {
+    if (provider.model_selection_reason === "saved_unavailable_default") return translate("generationModel.savedUnavailableSelected");
+    if (provider.model_selection_reason === "default") return translate("generationModel.defaultSelected");
+    if (provider.model_selection_reason === "first_available") return translate("generationModel.firstAvailableSelected");
+    return "";
+  }
+  function renderGenerationModelSelector(restorePreference = true) {
+    if (!els11.generationModelSelect) return;
+    const provider = activeApiProvider();
+    const models = availableModels();
+    const previous = String(els11.generationModelSelect.value || "");
+    const requested = models.some((model) => model.generation_model_id === previous) ? previous : String(provider?.selected_generation_model_id || "");
+    const selected = models.find((model) => model.generation_model_id === requested) || models.find((model) => model.is_default) || models[0] || null;
+    els11.generationModelSelect.innerHTML = "";
+    if (!models.length) {
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = translate("generationModel.none");
+      els11.generationModelSelect.append(option);
+    }
+    for (const model of models) {
+      const profile = profiles.get(model.capability_profile_id);
+      const option = document.createElement("option");
+      option.value = model.generation_model_id;
+      option.textContent = `${model.display_name}${profile?.summary ? ` \u2014 ${profile.summary}` : ""}${model.is_default ? ` (${translate("generationModel.default")})` : ""}`;
+      els11.generationModelSelect.append(option);
+    }
+    els11.generationModelSelect.disabled = models.length <= 1;
+    els11.generationModelSelect.value = selected?.generation_model_id || "";
+    let adjustment = "";
+    if (selected) {
+      const profile = profiles.get(selected.capability_profile_id);
+      els11.model.value = selected.model_id;
+      els11.generationModelSummary.textContent = profile?.summary || "";
+      if (profile) adjustment = applyProfile(profile, selected, restorePreference);
+    } else {
+      els11.model.value = "";
+      els11.generationModelSummary.textContent = "";
+    }
+    const reason = selected ? selectionReason(provider) : "";
+    const constraint = generationModelConstraintMessage();
+    els11.generationModelNotice.textContent = constraint || adjustment || reason;
+    if (els11.runButton) els11.runButton.disabled = !state10.authAvailable || Boolean(constraint);
+    updateCallNotice();
+  }
+  function currentPreferenceParameters() {
+    return {
+      size: currentSize(),
+      resolution: String(els11.resolution?.value || ""),
+      ratio: String(els11.ratio?.value || ""),
+      orientation: String(els11.orientation?.value || ""),
+      output_format: String(els11.outputFormat?.value || "png"),
+      prompt_optimization_mode: String(els11.promptOptimizationMode?.value || "off"),
+      seed_mode: String(els11.seedMode?.value || "random"),
+      ...els11.seedMode?.value === "fixed" && els11.seedValue?.value !== "" ? { seed: Number.parseInt(els11.seedValue.value, 10) } : {}
+    };
+  }
+  async function persistPreference() {
+    const provider = activeApiProvider();
+    const model = currentGenerationModel();
+    if (!provider || !model) return;
+    const response = await fetch("/api/generation-model-preferences", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": getCsrfToken() },
+      body: JSON.stringify({
+        provider_scope: provider.provider_scope,
+        provider_version_id: provider.provider_version_id,
+        generation_model_id: model.generation_model_id,
+        parameters: currentPreferenceParameters()
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || translate("generationModel.preferenceSaveFailed"));
+    const storedProvider = state10.apiSettings.providers.find((item) => item.id === provider.id);
+    if (storedProvider) {
+      storedProvider.selected_generation_model_id = model.generation_model_id;
+      storedProvider.model_selection_reason = "saved";
+    }
+    state10.apiSettings.model_preferences = data.preferences || state10.apiSettings.model_preferences;
+  }
+  function queuePreferenceSave() {
+    if (preferenceTimer !== null) window.clearTimeout(preferenceTimer);
+    preferenceTimer = window.setTimeout(() => {
+      preferenceTimer = null;
+      void persistPreference().catch((error) => {
+        els11.generationModelNotice.textContent = error.message;
+      });
+    }, 250);
+  }
+  function handleModelChange() {
+    renderGenerationModelSelector(true);
+    queuePreferenceSave();
+  }
+  function handleParameterChange() {
+    if (els11.seedMode && els11.seedValue) {
+      els11.seedValue.classList.toggle("hidden", els11.seedMode.value !== "fixed");
+    }
+    renderGenerationModelSelector(false);
+    queuePreferenceSave();
+  }
+  async function loadProfiles() {
+    const response = await fetch("/api/model-capability-profiles");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || translate("generationModel.profileUnavailable"));
+    for (const profile of data.profiles || []) profiles.set(profile.profile_id, profile);
+    renderGenerationModelSelector(true);
+  }
+  function currentGenerationModelParams() {
+    const model = currentGenerationModel();
+    const profile = currentGenerationProfile();
+    return {
+      generation_model_id: model?.generation_model_id || "",
+      capability_profile_version: model?.capability_profile_version || profile?.version || 1,
+      prompt_optimization_mode: String(els11.promptOptimizationMode?.value || "off"),
+      seed_mode: String(els11.seedMode?.value || "random"),
+      seed: els11.seedMode?.value === "fixed" ? String(els11.seedValue?.value || "") : ""
+    };
+  }
+  function initGenerationModelFeature() {
+    if (generationModelFeatureInitialized) return;
+    generationModelFeatureInitialized = true;
+    els11.generationModelSelect?.addEventListener("change", handleModelChange);
+    els11.promptOptimizationMode?.addEventListener("change", handleParameterChange);
+    els11.outputFormat?.addEventListener("change", handleParameterChange);
+    els11.nInput?.addEventListener("change", handleParameterChange);
+    els11.resolution?.addEventListener("change", handleParameterChange);
+    els11.ratio?.addEventListener("change", handleParameterChange);
+    els11.customWidth?.addEventListener("change", handleParameterChange);
+    els11.customHeight?.addEventListener("change", handleParameterChange);
+    els11.seedModeGroup?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-val]");
+      if (!button || !els11.seedMode) return;
+      setRadioValue(els11.seedMode, els11.seedModeGroup, String(button.dataset.val || "random"));
+      handleParameterChange();
+    });
+    els11.seedValue?.addEventListener("change", handleParameterChange);
+    document.addEventListener("generation-model-settings-changed", () => renderGenerationModelSelector(true));
+    document.addEventListener("click", (event) => {
+      if (event.target.closest("[data-mode], #generateModeButton, #editModeButton")) {
+        window.setTimeout(() => renderGenerationModelSelector(false), 0);
+      }
+    });
+    Object.assign(getLegacyBridge().methods, {
+      currentGenerationModel,
+      currentGenerationProfile,
+      currentGenerationModelParams,
+      generationModelConstraintMessage,
+      renderGenerationModelSelector
+    });
+    void loadProfiles().catch((error) => {
+      els11.generationModelNotice.textContent = error.message;
+      if (els11.runButton) els11.runButton.disabled = true;
+    });
+  }
+
+  // codex_image/webui/frontend/src/storage-settings.ts
+  var bridge11 = getLegacyBridge();
+  var els12 = bridge11.els;
   var storageSettingsFeatureInitialized = false;
   function legacyMethod15(name, ...args) {
     const method = getLegacyBridge().methods[name];
@@ -33061,65 +33461,65 @@ ${hint}` : hint;
     legacyMethod15("closePromptPopover");
   }
   async function refreshSettings() {
-    if (!els11.settingsInputRoot) return;
+    if (!els12.settingsInputRoot) return;
     try {
       const response = await fetch("/api/settings");
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || translate("settings.loadFailed"));
       populateSettingsForm(data.settings || {});
     } catch (error) {
-      if (els11.settingsStatus) els11.settingsStatus.textContent = error.message || translate("settings.loadFailed");
+      if (els12.settingsStatus) els12.settingsStatus.textContent = error.message || translate("settings.loadFailed");
     }
   }
   function populateSettingsForm(settings) {
-    if (els11.settingsInputRoot) els11.settingsInputRoot.value = settings.input_root || "";
-    if (els11.settingsOutputRoot) els11.settingsOutputRoot.value = settings.output_root || "";
-    if (els11.settingsGalleryRoot) els11.settingsGalleryRoot.value = settings.gallery_root || "";
-    if (els11.settingsSourceDataRoot) els11.settingsSourceDataRoot.value = settings.source_data_root || "";
+    if (els12.settingsInputRoot) els12.settingsInputRoot.value = settings.input_root || "";
+    if (els12.settingsOutputRoot) els12.settingsOutputRoot.value = settings.output_root || "";
+    if (els12.settingsGalleryRoot) els12.settingsGalleryRoot.value = settings.gallery_root || "";
+    if (els12.settingsSourceDataRoot) els12.settingsSourceDataRoot.value = settings.source_data_root || "";
   }
   function openSettingsModal() {
     closePromptPopover3();
     refreshSettings();
-    if (els11.settingsStatus) els11.settingsStatus.textContent = translate("settings.status");
+    if (els12.settingsStatus) els12.settingsStatus.textContent = translate("settings.status");
     openSystemSettingsModal("storage");
   }
   function closeSettingsModal() {
     closeSystemSettingsModal();
   }
   async function saveSettings() {
-    if (!els11.saveSettingsButton) return;
-    els11.saveSettingsButton.disabled = true;
+    if (!els12.saveSettingsButton) return;
+    els12.saveSettingsButton.disabled = true;
     try {
       const response = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          input_root: els11.settingsInputRoot?.value || "",
-          output_root: els11.settingsOutputRoot?.value || "",
-          gallery_root: els11.settingsGalleryRoot?.value || "",
-          source_data_root: els11.settingsSourceDataRoot?.value || ""
+          input_root: els12.settingsInputRoot?.value || "",
+          output_root: els12.settingsOutputRoot?.value || "",
+          gallery_root: els12.settingsGalleryRoot?.value || "",
+          source_data_root: els12.settingsSourceDataRoot?.value || ""
         })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || translate("settings.saveFailed"));
       populateSettingsForm(data.settings || {});
-      if (els11.settingsStatus) {
-        els11.settingsStatus.textContent = data.restart_required ? translate("settings.savedRestart") : translate("settings.saved");
+      if (els12.settingsStatus) {
+        els12.settingsStatus.textContent = data.restart_required ? translate("settings.savedRestart") : translate("settings.saved");
       }
       setStatus9(translate("settings.savedRestartStatus"), "ok");
     } catch (error) {
-      if (els11.settingsStatus) els11.settingsStatus.textContent = error.message || translate("settings.saveFailed");
+      if (els12.settingsStatus) els12.settingsStatus.textContent = error.message || translate("settings.saveFailed");
       setStatus9(error.message || translate("settings.saveFailed"), "error");
     } finally {
-      els11.saveSettingsButton.disabled = false;
+      els12.saveSettingsButton.disabled = false;
     }
   }
   function initStorageSettingsFeature() {
     if (storageSettingsFeatureInitialized) return;
     storageSettingsFeatureInitialized = true;
     document.addEventListener(LOCALE_CHANGE_EVENT, () => {
-      if (!els11.systemSettingsModal?.classList.contains("hidden") && !els11.systemSettingsStoragePanel?.hidden && els11.settingsStatus) {
-        els11.settingsStatus.textContent = translate("settings.status");
+      if (!els12.systemSettingsModal?.classList.contains("hidden") && !els12.systemSettingsStoragePanel?.hidden && els12.settingsStatus) {
+        els12.settingsStatus.textContent = translate("settings.status");
       }
     });
     Object.assign(getLegacyBridge().methods, {
@@ -33146,9 +33546,9 @@ ${hint}` : hint;
   ];
   var COLOR_PALETTE_ENDPOINT = "/api/color-palette";
   var COLOR_PALETTE_IMPORT_ENDPOINT = "/api/color-palette/import";
-  var bridge11 = getLegacyBridge();
-  var state10 = bridge11.state;
-  var els12 = bridge11.els;
+  var bridge12 = getLegacyBridge();
+  var state11 = bridge12.state;
+  var els13 = bridge12.els;
   var colorPaletteInitialized = false;
   function legacyMethod16(name, ...args) {
     const method = getLegacyBridge().methods[name];
@@ -33213,12 +33613,12 @@ ${hint}` : hint;
       const response = await fetch(COLOR_PALETTE_ENDPOINT);
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || translate("colors.loadFailed"));
-      state10.colorPalette = normalizeColorPalette(data.palette);
-      state10.selectedColorCode = state10.colorPalette.recent_colors[0] || favoriteColorsForDisplay()[0]?.hex || DEFAULT_COLOR_CODE;
+      state11.colorPalette = normalizeColorPalette(data.palette);
+      state11.selectedColorCode = state11.colorPalette.recent_colors[0] || favoriteColorsForDisplay()[0]?.hex || DEFAULT_COLOR_CODE;
       updateColorSuggest();
     } catch (error) {
       console.warn(error.message || translate("colors.loadFailed"));
-      state10.colorPalette = defaultColorPalette();
+      state11.colorPalette = defaultColorPalette();
     }
   }
   async function persistColorPalette(payload2) {
@@ -33229,8 +33629,8 @@ ${hint}` : hint;
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || translate("colors.saveFailed"));
-    state10.colorPalette = normalizeColorPalette(data.palette);
-    return state10.colorPalette;
+    state11.colorPalette = normalizeColorPalette(data.palette);
+    return state11.colorPalette;
   }
   async function importColorPalette(file) {
     if (!file) return;
@@ -33242,40 +33642,40 @@ ${hint}` : hint;
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || translate("colors.importFailed"));
-    state10.colorPalette = normalizeColorPalette(data.palette);
-    renderColorSuggest({ query: state10.selectedColorCode.slice(1), range: state10.activeColorRange });
-    els12.colorSuggest?.classList.remove("hidden");
-    els12.promptEditor?.focus({ preventScroll: true });
+    state11.colorPalette = normalizeColorPalette(data.palette);
+    renderColorSuggest({ query: state11.selectedColorCode.slice(1), range: state11.activeColorRange });
+    els13.colorSuggest?.classList.remove("hidden");
+    els13.promptEditor?.focus({ preventScroll: true });
     setStatus10(formatTranslation("colors.importedCount", { count: data.imported || 0 }), "ok");
   }
   function toggleColorPaletteManageMode() {
-    state10.colorPaletteManageMode = !state10.colorPaletteManageMode;
-    renderColorSuggest({ query: state10.selectedColorCode.slice(1), range: state10.activeColorRange });
-    els12.colorSuggest?.classList.remove("hidden");
-    els12.promptEditor?.focus({ preventScroll: true });
+    state11.colorPaletteManageMode = !state11.colorPaletteManageMode;
+    renderColorSuggest({ query: state11.selectedColorCode.slice(1), range: state11.activeColorRange });
+    els13.colorSuggest?.classList.remove("hidden");
+    els13.promptEditor?.focus({ preventScroll: true });
   }
   function favoriteColorsForDisplay() {
-    const favorites = Array.isArray(state10.colorPalette?.favorites) ? state10.colorPalette.favorites : [];
-    return Array.isArray(state10.colorPalette?.favorites) ? favorites : defaultColorPalette().favorites;
+    const favorites = Array.isArray(state11.colorPalette?.favorites) ? state11.colorPalette.favorites : [];
+    return Array.isArray(state11.colorPalette?.favorites) ? favorites : defaultColorPalette().favorites;
   }
   function recentColorsForDisplay() {
     const favoriteHex = new Set(favoriteColorsForDisplay().map((item) => item.hex));
-    return (state10.colorPalette?.recent_colors || []).filter((color) => !favoriteHex.has(color));
+    return (state11.colorPalette?.recent_colors || []).filter((color) => !favoriteHex.has(color));
   }
   function rememberRecentColor(colorCode) {
     const normalized = normalizeHexColor(colorCode);
     if (!normalized) return;
-    const recentLimit = state10.colorPalette?.recent_limit ?? 6;
-    const recentColors = dedupeColors([normalized, ...state10.colorPalette?.recent_colors || []]).slice(0, recentLimit);
-    state10.colorPalette = { ...state10.colorPalette, recent_colors: recentColors };
-    state10.selectedColorCode = normalized;
+    const recentLimit = state11.colorPalette?.recent_limit ?? 6;
+    const recentColors = dedupeColors([normalized, ...state11.colorPalette?.recent_colors || []]).slice(0, recentLimit);
+    state11.colorPalette = { ...state11.colorPalette, recent_colors: recentColors };
+    state11.selectedColorCode = normalized;
     void persistColorPalette({ recent_colors: recentColors }).catch((error) => {
       console.warn(error.message || translate("colors.recentSaveFailed"));
     });
   }
   async function saveFavoriteColor() {
-    const input = els12.colorSuggest?.querySelector("[data-color-hex-input]");
-    const normalized = normalizeHexColor(input?.value || state10.selectedColorCode);
+    const input = els13.colorSuggest?.querySelector("[data-color-hex-input]");
+    const normalized = normalizeHexColor(input?.value || state11.selectedColorCode);
     if (!normalized) return;
     const favorites = favoriteColorsForDisplay().filter((item) => item.hex !== normalized);
     favorites.push({
@@ -33285,9 +33685,9 @@ ${hint}` : hint;
     });
     try {
       await persistColorPalette({ favorites });
-      renderColorSuggest({ query: normalized.slice(1), range: state10.activeColorRange });
-      els12.colorSuggest?.classList.remove("hidden");
-      els12.promptEditor?.focus({ preventScroll: true });
+      renderColorSuggest({ query: normalized.slice(1), range: state11.activeColorRange });
+      els13.colorSuggest?.classList.remove("hidden");
+      els13.promptEditor?.focus({ preventScroll: true });
     } catch (error) {
       console.warn(error.message || translate("colors.favoriteSaveFailed"));
     }
@@ -33298,9 +33698,9 @@ ${hint}` : hint;
     const favorites = favoriteColorsForDisplay().filter((item) => item.hex !== normalized);
     try {
       await persistColorPalette({ favorites });
-      renderColorSuggest({ query: state10.selectedColorCode.slice(1), range: state10.activeColorRange });
-      els12.colorSuggest?.classList.remove("hidden");
-      els12.promptEditor?.focus({ preventScroll: true });
+      renderColorSuggest({ query: state11.selectedColorCode.slice(1), range: state11.activeColorRange });
+      els13.colorSuggest?.classList.remove("hidden");
+      els13.promptEditor?.focus({ preventScroll: true });
     } catch (error) {
       console.warn(error.message || translate("colors.favoriteDeleteFailed"));
     }
@@ -33391,9 +33791,9 @@ ${hint}` : hint;
   // codex_image/webui/frontend/src/prompt-colors.ts
   var DEFAULT_COLOR_CODE2 = "#FFFFFF";
   var COLOR_PALETTE_EXPORT_CSS_ENDPOINT = "/api/color-palette/export.css";
-  var bridge12 = getLegacyBridge();
-  var state11 = bridge12.state;
-  var els13 = bridge12.els;
+  var bridge13 = getLegacyBridge();
+  var state12 = bridge13.state;
+  var els14 = bridge13.els;
   function legacyMethod17(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -33459,7 +33859,7 @@ ${hint}` : hint;
     legacyMethod17("removePromptGalleryChip", chip);
   }
   function updateColorSuggest2() {
-    if (!els13.colorSuggest || !els13.promptEditor) return;
+    if (!els14.colorSuggest || !els14.promptEditor) return;
     const match = activeColorMatch();
     if (!match) {
       hideColorSuggest();
@@ -33467,12 +33867,12 @@ ${hint}` : hint;
     }
     renderColorSuggest2(match);
     positionColorSuggestAtCaret(match);
-    els13.colorSuggest.classList.remove("hidden");
+    els14.colorSuggest.classList.remove("hidden");
   }
   function activeColorMatch() {
     const selection = window.getSelection();
-    if (!selection || !selection.rangeCount || !selection.isCollapsed || !els13.promptEditor) return null;
-    if (!els13.promptEditor.contains(selection.anchorNode)) return null;
+    if (!selection || !selection.rangeCount || !selection.isCollapsed || !els14.promptEditor) return null;
+    if (!els14.promptEditor.contains(selection.anchorNode)) return null;
     const selectionRange = selection.getRangeAt(0);
     let container = selectionRange.startContainer;
     let offset = selectionRange.startOffset;
@@ -33496,23 +33896,23 @@ ${hint}` : hint;
     };
   }
   function renderColorSuggest2(match) {
-    if (!els13.colorSuggest) return;
-    state11.activeColorRange = match.range ? match.range.cloneRange() : null;
+    if (!els14.colorSuggest) return;
+    state12.activeColorRange = match.range ? match.range.cloneRange() : null;
     const queryColor = match.query ? normalizeHexColor2(`#${match.query}`) : "";
     const favoriteColors = favoriteColorsForDisplay2();
     const recentColors = recentColorsForDisplay2();
-    const selected = queryColor || state11.selectedColorCode || recentColors[0] || favoriteColors[0]?.hex || DEFAULT_COLOR_CODE2;
-    state11.selectedColorCode = selected;
-    const editingColor = state11.activeColorChip ? normalizeHexColor2(state11.activeColorChip.dataset.colorCode) || DEFAULT_COLOR_CODE2 : "";
+    const selected = queryColor || state12.selectedColorCode || recentColors[0] || favoriteColors[0]?.hex || DEFAULT_COLOR_CODE2;
+    state12.selectedColorCode = selected;
+    const editingColor = state12.activeColorChip ? normalizeHexColor2(state12.activeColorChip.dataset.colorCode) || DEFAULT_COLOR_CODE2 : "";
     const isEditingDirty = Boolean(editingColor && selected !== editingColor);
     const typedValue = match.query ? `#${match.query.toUpperCase()}` : selected;
-    const actionLabel = state11.activeColorChip ? translate("colors.update") : translate("colors.insert");
-    const swatchRowClass = state11.colorPaletteManageMode ? "color-swatch-row is-managing" : "color-swatch-row";
+    const actionLabel = state12.activeColorChip ? translate("colors.update") : translate("colors.insert");
+    const swatchRowClass = state12.colorPaletteManageMode ? "color-swatch-row is-managing" : "color-swatch-row";
     const swatchButtons = [
-      ...favoriteColors.map((item) => colorSwatchButton(item.hex, item.name, { removable: state11.colorPaletteManageMode })),
+      ...favoriteColors.map((item) => colorSwatchButton(item.hex, item.name, { removable: state12.colorPaletteManageMode })),
       ...recentColors.map((color) => colorSwatchButton(color, translate("colors.recentLabel")))
     ].join("");
-    els13.colorSuggest.innerHTML = `
+    els14.colorSuggest.innerHTML = `
     <div class="color-suggest-main" data-color-original="${escapeHtml9(editingColor)}">
       <div class="color-value-control${isEditingDirty ? " is-dirty" : ""}" data-color-value-control>
         <label class="color-picker-control" title="${escapeHtml9(translate("colors.pick"))}" aria-label="${escapeHtml9(translate("colors.pick"))}">
@@ -33535,7 +33935,7 @@ ${hint}` : hint;
           ${escapeHtml9(translate("colors.importPs"))}
           <input class="color-import-input" type="file" accept=".aco,.css,.html,.htm,.svg,.txt" data-color-palette-import-input>
         </label>
-        <button class="ghost-button text-sm color-manage-button" type="button" aria-pressed="${state11.colorPaletteManageMode ? "true" : "false"}" data-color-palette-manage>${escapeHtml9(state11.colorPaletteManageMode ? translate("colors.done") : translate("colors.manage"))}</button>
+        <button class="ghost-button text-sm color-manage-button" type="button" aria-pressed="${state12.colorPaletteManageMode ? "true" : "false"}" data-color-palette-manage>${escapeHtml9(state12.colorPaletteManageMode ? translate("colors.done") : translate("colors.manage"))}</button>
       </div>
       <div class="color-update-hint${isEditingDirty ? "" : " hidden"}" role="status" aria-live="polite" data-color-update-hint>${escapeHtml9(translate("colors.pendingUpdate"))}</div>
     </div>
@@ -33567,14 +33967,14 @@ ${hint}` : hint;
   `;
   }
   function bindColorSuggestEvents() {
-    if (!els13.colorSuggest) return;
-    const picker = els13.colorSuggest.querySelector("[data-color-picker]");
-    const input = els13.colorSuggest.querySelector("[data-color-hex-input]");
-    const insert = els13.colorSuggest.querySelector("[data-insert-color]");
-    const swatchPreview = els13.colorSuggest.querySelector(".color-picker-swatch");
-    const valueControl = els13.colorSuggest.querySelector("[data-color-value-control]");
-    const hint = els13.colorSuggest.querySelector("[data-color-update-hint]");
-    const originalColor = normalizeHexColor2(els13.colorSuggest.querySelector("[data-color-original]")?.dataset.colorOriginal);
+    if (!els14.colorSuggest) return;
+    const picker = els14.colorSuggest.querySelector("[data-color-picker]");
+    const input = els14.colorSuggest.querySelector("[data-color-hex-input]");
+    const insert = els14.colorSuggest.querySelector("[data-insert-color]");
+    const swatchPreview = els14.colorSuggest.querySelector(".color-picker-swatch");
+    const valueControl = els14.colorSuggest.querySelector("[data-color-value-control]");
+    const hint = els14.colorSuggest.querySelector("[data-color-update-hint]");
+    const originalColor = normalizeHexColor2(els14.colorSuggest.querySelector("[data-color-original]")?.dataset.colorOriginal);
     const keepPromptFocus = (event) => event.preventDefault();
     const updateDraftState = (value) => {
       const normalized = normalizeHexColor2(value);
@@ -33588,18 +33988,18 @@ ${hint}` : hint;
     const syncColor = (value) => {
       const normalized = normalizeHexColor2(value);
       if (!normalized) return;
-      state11.selectedColorCode = normalized;
+      state12.selectedColorCode = normalized;
       if (picker) picker.value = normalized;
       if (input) input.value = normalized;
       updateDraftState(normalized);
     };
-    updateDraftState(input?.value || state11.selectedColorCode);
+    updateDraftState(input?.value || state12.selectedColorCode);
     picker?.addEventListener("input", () => syncColor(picker.value));
     input?.addEventListener("input", () => {
       const normalized = normalizeHexColor2(input.value);
       updateDraftState(input.value);
       if (!normalized) return;
-      state11.selectedColorCode = normalized;
+      state12.selectedColorCode = normalized;
       if (picker) picker.value = normalized;
       if (swatchPreview) swatchPreview.style.setProperty("--active-color", normalized);
     });
@@ -33611,30 +34011,30 @@ ${hint}` : hint;
       if (event.key === "Escape") {
         event.preventDefault();
         hideColorSuggest();
-        els13.promptEditor?.focus();
+        els14.promptEditor?.focus();
       }
     });
     insert?.addEventListener("pointerdown", keepPromptFocus);
     insert?.addEventListener("mousedown", keepPromptFocus);
     insert?.addEventListener("click", () => {
       if (insert.disabled) return;
-      insertColorCode(input?.value || state11.selectedColorCode);
+      insertColorCode(input?.value || state12.selectedColorCode);
     });
-    const saveFavorite = els13.colorSuggest.querySelector("[data-save-favorite-color]");
+    const saveFavorite = els14.colorSuggest.querySelector("[data-save-favorite-color]");
     saveFavorite?.addEventListener("pointerdown", keepPromptFocus);
     saveFavorite?.addEventListener("mousedown", keepPromptFocus);
     saveFavorite?.addEventListener("click", (event) => {
       event.stopPropagation();
       saveFavoriteColor2();
     });
-    const manageFavorite = els13.colorSuggest.querySelector("[data-color-palette-manage]");
+    const manageFavorite = els14.colorSuggest.querySelector("[data-color-palette-manage]");
     manageFavorite?.addEventListener("pointerdown", keepPromptFocus);
     manageFavorite?.addEventListener("mousedown", keepPromptFocus);
     manageFavorite?.addEventListener("click", (event) => {
       event.stopPropagation();
       toggleColorPaletteManageMode2();
     });
-    const importInput = els13.colorSuggest.querySelector("[data-color-palette-import-input]");
+    const importInput = els14.colorSuggest.querySelector("[data-color-palette-import-input]");
     importInput?.addEventListener("change", async () => {
       const file = importInput.files?.[0];
       if (!file) return;
@@ -33647,11 +34047,11 @@ ${hint}` : hint;
         importInput.value = "";
       }
     });
-    els13.colorSuggest.querySelectorAll("[data-color-swatch]").forEach((button) => {
+    els14.colorSuggest.querySelectorAll("[data-color-swatch]").forEach((button) => {
       button.addEventListener("pointerdown", keepPromptFocus);
       button.addEventListener("mousedown", keepPromptFocus);
       button.addEventListener("click", () => {
-        if (state11.activeColorChip) {
+        if (state12.activeColorChip) {
           syncColor(button.dataset.colorSwatch);
           input?.focus({ preventScroll: true });
           return;
@@ -33659,7 +34059,7 @@ ${hint}` : hint;
         insertColorCode(button.dataset.colorSwatch);
       });
     });
-    els13.colorSuggest.querySelectorAll("[data-remove-favorite-color]").forEach((button) => {
+    els14.colorSuggest.querySelectorAll("[data-remove-favorite-color]").forEach((button) => {
       button.addEventListener("pointerdown", keepPromptFocus);
       button.addEventListener("mousedown", keepPromptFocus);
       button.addEventListener("click", (event) => {
@@ -33669,9 +34069,9 @@ ${hint}` : hint;
     });
   }
   function insertColorCode(colorCode) {
-    const normalized = normalizeHexColor2(colorCode) || state11.selectedColorCode || DEFAULT_COLOR_CODE2;
-    if (state11.activeColorChip && els13.promptEditor?.contains(state11.activeColorChip)) {
-      const chip = state11.activeColorChip;
+    const normalized = normalizeHexColor2(colorCode) || state12.selectedColorCode || DEFAULT_COLOR_CODE2;
+    if (state12.activeColorChip && els14.promptEditor?.contains(state12.activeColorChip)) {
+      const chip = state12.activeColorChip;
       updateColorChip(chip, normalized);
       rememberRecentColor2(normalized);
       syncPromptAfterChipMutation();
@@ -33679,8 +34079,8 @@ ${hint}` : hint;
       return;
     }
     let match = activeColorMatch();
-    if (!match?.range && state11.activeColorRange) {
-      match = { query: "", range: state11.activeColorRange };
+    if (!match?.range && state12.activeColorRange) {
+      match = { query: "", range: state12.activeColorRange };
     }
     let trailingSpace = null;
     if (match?.range) {
@@ -33694,9 +34094,9 @@ ${hint}` : hint;
       if (currentText && !/\s$/.test(currentText)) {
         appendPromptText(" ");
       }
-      els13.promptEditor.append(createColorChip(normalized));
+      els14.promptEditor.append(createColorChip(normalized));
       trailingSpace = document.createTextNode(" ");
-      els13.promptEditor.append(trailingSpace);
+      els14.promptEditor.append(trailingSpace);
     }
     rememberRecentColor2(normalized);
     syncPromptFromEditor();
@@ -33706,11 +34106,11 @@ ${hint}` : hint;
     setCaretAfterNode(trailingSpace);
   }
   function positionColorSuggestAtCaret(match) {
-    if (!els13.colorSuggest || !els13.promptEditor || !match?.range) return;
-    const host = els13.promptEditor.closest(".prompt-editor-wrap") || els13.promptEditor;
-    const anchorRect = mentionRangeRect(match.range) || els13.promptEditor.getBoundingClientRect();
+    if (!els14.colorSuggest || !els14.promptEditor || !match?.range) return;
+    const host = els14.promptEditor.closest(".prompt-editor-wrap") || els14.promptEditor;
+    const anchorRect = mentionRangeRect(match.range) || els14.promptEditor.getBoundingClientRect();
     positionPromptPopoverAtAnchor(
-      els13.colorSuggest,
+      els14.colorSuggest,
       host,
       anchorRect,
       {
@@ -33723,21 +34123,21 @@ ${hint}` : hint;
     );
   }
   function openColorChipEditor(chip) {
-    if (!chip || !els13.promptEditor?.contains(chip)) return;
+    if (!chip || !els14.promptEditor?.contains(chip)) return;
     const normalized = normalizeHexColor2(chip.dataset.colorCode) || DEFAULT_COLOR_CODE2;
-    state11.activeColorChip = chip;
-    state11.activeColorRange = null;
-    state11.selectedColorCode = normalized;
+    state12.activeColorChip = chip;
+    state12.activeColorRange = null;
+    state12.selectedColorCode = normalized;
     renderColorSuggest2({ query: normalized.slice(1), range: null });
     positionColorSuggestAtChip(chip);
-    els13.colorSuggest?.classList.remove("hidden");
+    els14.colorSuggest?.classList.remove("hidden");
   }
   function positionColorSuggestAtChip(chip) {
-    if (!els13.colorSuggest || !els13.promptEditor || !chip) return;
-    const host = els13.promptEditor.closest(".prompt-editor-wrap") || els13.promptEditor;
+    if (!els14.colorSuggest || !els14.promptEditor || !chip) return;
+    const host = els14.promptEditor.closest(".prompt-editor-wrap") || els14.promptEditor;
     const chipRect = chip.getBoundingClientRect();
     positionPromptPopoverAtAnchor(
-      els13.colorSuggest,
+      els14.colorSuggest,
       host,
       chipRect,
       {
@@ -33833,16 +34233,16 @@ ${hint}` : hint;
     return (lighter + 0.05) / (darker + 0.05);
   }
   function hideColorSuggest() {
-    if (!els13.colorSuggest) return;
-    els13.colorSuggest.classList.add("hidden");
-    els13.colorSuggest.innerHTML = "";
-    state11.activeColorRange = null;
-    state11.activeColorChip = null;
-    state11.colorPaletteManageMode = false;
-    els13.colorSuggest.style.removeProperty("--color-left");
-    els13.colorSuggest.style.removeProperty("--color-top");
-    els13.colorSuggest.style.removeProperty("--color-width");
-    els13.colorSuggest.style.removeProperty("--prompt-popover-max-height");
+    if (!els14.colorSuggest) return;
+    els14.colorSuggest.classList.add("hidden");
+    els14.colorSuggest.innerHTML = "";
+    state12.activeColorRange = null;
+    state12.activeColorChip = null;
+    state12.colorPaletteManageMode = false;
+    els14.colorSuggest.style.removeProperty("--color-left");
+    els14.colorSuggest.style.removeProperty("--color-top");
+    els14.colorSuggest.style.removeProperty("--color-width");
+    els14.colorSuggest.style.removeProperty("--prompt-popover-max-height");
   }
   function initPromptColorsFeature() {
     Object.assign(getLegacyBridge().methods, {
@@ -33873,9 +34273,9 @@ ${hint}` : hint;
   var PROMPT_SNIPPET_TRIGGER_CHARS = "~\uFF5E\u301C\u223C\u02DC";
   var PROMPT_SNIPPET_BOUNDARY_CHARS = `\uFF0C\u3002,.\uFF1B;\uFF1A:\uFF01\uFF1F!?\u3001\uFF08\uFF09()[]\u3010\u3011"'\u201C\u201D\u2018\u2019`;
   var PROMPT_SNIPPET_TRIGGER_PATTERN = /(^|[\s\n，。,.；;：:！？!?、（）()\[\]【】"'“”‘’])([~～〜∼˜]+)([^\s~～〜∼˜@#，。,.；;：:！？!?、（）()\[\]【】"'“”‘’]*)$/;
-  var bridge13 = getLegacyBridge();
-  var state12 = bridge13.state;
-  var els14 = bridge13.els;
+  var bridge14 = getLegacyBridge();
+  var state13 = bridge14.state;
+  var els15 = bridge14.els;
   var promptSnippetSuggestEl = null;
   var promptSnippetSelectionButtonEl = null;
   var promptSnippetPopoverEl = null;
@@ -33956,11 +34356,11 @@ ${hint}` : hint;
       const response = await fetch(PROMPT_SNIPPETS_ENDPOINT);
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || translate("snippets.loadFailed"));
-      state12.promptSnippets = normalizePromptSnippetList(data.snippets);
+      state13.promptSnippets = normalizePromptSnippetList(data.snippets);
       updatePromptSnippetSuggest();
     } catch (error) {
       console.warn(error.message || translate("snippets.loadFailed"));
-      state12.promptSnippets = [];
+      state13.promptSnippets = [];
     }
   }
   function promptSnippetSuggestElement() {
@@ -33968,7 +34368,7 @@ ${hint}` : hint;
     promptSnippetSuggestEl = document.createElement("div");
     promptSnippetSuggestEl.className = "prompt-snippet-suggest hidden";
     promptSnippetSuggestEl.setAttribute("aria-label", translate("snippets.suggestLabel"));
-    els14.promptEditor?.closest(".prompt-editor-wrap")?.appendChild(promptSnippetSuggestEl);
+    els15.promptEditor?.closest(".prompt-editor-wrap")?.appendChild(promptSnippetSuggestEl);
     return promptSnippetSuggestEl;
   }
   function promptSnippetSelectionButtonElement() {
@@ -33984,7 +34384,7 @@ ${hint}` : hint;
       event.stopPropagation();
       openPromptSnippetSavePopover();
     });
-    els14.promptEditor?.closest(".prompt-editor-wrap")?.appendChild(promptSnippetSelectionButtonEl);
+    els15.promptEditor?.closest(".prompt-editor-wrap")?.appendChild(promptSnippetSelectionButtonEl);
     return promptSnippetSelectionButtonEl;
   }
   function promptSnippetPopoverElement() {
@@ -33993,13 +34393,13 @@ ${hint}` : hint;
     promptSnippetPopoverEl.className = "prompt-snippet-popover hidden";
     promptSnippetPopoverEl.setAttribute("role", "dialog");
     promptSnippetPopoverEl.setAttribute("aria-label", translate("snippets.popoverLabel"));
-    els14.promptEditor?.closest(".prompt-editor-wrap")?.appendChild(promptSnippetPopoverEl);
+    els15.promptEditor?.closest(".prompt-editor-wrap")?.appendChild(promptSnippetPopoverEl);
     return promptSnippetPopoverEl;
   }
   function activePromptSnippetMatch() {
     const selection = window.getSelection();
-    if (!selection || !selection.rangeCount || !selection.isCollapsed || !els14.promptEditor) return null;
-    if (!els14.promptEditor.contains(selection.anchorNode)) return null;
+    if (!selection || !selection.rangeCount || !selection.isCollapsed || !els15.promptEditor) return null;
+    if (!els15.promptEditor.contains(selection.anchorNode)) return null;
     const selectionRange = selection.getRangeAt(0);
     let container = selectionRange.startContainer;
     let offset = selectionRange.startOffset;
@@ -34026,7 +34426,7 @@ ${hint}` : hint;
   }
   function updatePromptSnippetSuggest() {
     const suggest = promptSnippetSuggestElement();
-    if (!suggest || !els14.promptEditor) return;
+    if (!suggest || !els15.promptEditor) return;
     const match = activePromptSnippetMatch();
     if (!match) {
       hidePromptSnippetSuggest();
@@ -34038,7 +34438,7 @@ ${hint}` : hint;
       hidePromptSnippetSuggest();
       return;
     }
-    state12.activePromptSnippetRange = match.range.cloneRange();
+    state13.activePromptSnippetRange = match.range.cloneRange();
     suggest.innerHTML = options.map((option) => {
       if (option.kind === "template") {
         const template = option.value;
@@ -34090,7 +34490,7 @@ ${hint}` : hint;
   }
   function promptTemplatesForQuery(query) {
     const normalized = String(query || "").trim().toLowerCase();
-    return (state12.promptTemplates || []).filter((template) => {
+    return (state13.promptTemplates || []).filter((template) => {
       if (!normalized) return true;
       return [
         template.title,
@@ -34105,8 +34505,8 @@ ${hint}` : hint;
   }
   function promptSnippetsForQuery(query) {
     const normalized = String(query || "").trim().toLowerCase();
-    if (!normalized) return state12.promptSnippets.slice();
-    return state12.promptSnippets.filter((snippet) => snippet.tag.toLowerCase().includes(normalized) || snippet.title.toLowerCase().includes(normalized) || snippet.content.toLowerCase().includes(normalized));
+    if (!normalized) return state13.promptSnippets.slice();
+    return state13.promptSnippets.filter((snippet) => snippet.tag.toLowerCase().includes(normalized) || snippet.title.toLowerCase().includes(normalized) || snippet.content.toLowerCase().includes(normalized));
   }
   function promptSnippetPreview(text) {
     const clean = String(text || "").replace(/\s+/g, " ").trim();
@@ -34114,9 +34514,9 @@ ${hint}` : hint;
   }
   function positionPromptSnippetSuggestAtCaret(match) {
     const suggest = promptSnippetSuggestElement();
-    if (!suggest || !els14.promptEditor || !match?.range) return;
-    const host = els14.promptEditor.closest(".prompt-editor-wrap") || els14.promptEditor;
-    const anchorRect = mentionRangeRect2(match.range) || els14.promptEditor.getBoundingClientRect();
+    if (!suggest || !els15.promptEditor || !match?.range) return;
+    const host = els15.promptEditor.closest(".prompt-editor-wrap") || els15.promptEditor;
+    const anchorRect = mentionRangeRect2(match.range) || els15.promptEditor.getBoundingClientRect();
     positionPromptPopoverAtAnchor(
       suggest,
       host,
@@ -34132,10 +34532,10 @@ ${hint}` : hint;
   }
   function insertPromptSnippet(snippet) {
     const normalized = normalizePromptSnippet(snippet);
-    if (!normalized || !els14.promptEditor) return;
+    if (!normalized || !els15.promptEditor) return;
     let match = activePromptSnippetMatch();
-    if (!match?.range && state12.activePromptSnippetRange) {
-      match = { query: "", range: state12.activePromptSnippetRange };
+    if (!match?.range && state13.activePromptSnippetRange) {
+      match = { query: "", range: state13.activePromptSnippetRange };
     }
     let trailingSpace = null;
     if (match?.range) {
@@ -34147,21 +34547,21 @@ ${hint}` : hint;
     } else {
       const currentText = getPromptText3();
       if (currentText && !/\s$/.test(currentText)) appendPromptText2(" ");
-      els14.promptEditor.append(createPromptSnippetChip(normalized));
+      els15.promptEditor.append(createPromptSnippetChip(normalized));
       trailingSpace = document.createTextNode(" ");
-      els14.promptEditor.append(trailingSpace);
+      els15.promptEditor.append(trailingSpace);
     }
     syncPromptAfterChipMutation2();
     hidePromptSnippetSuggest();
     setCaretAfterNode2(trailingSpace);
   }
   async function insertPromptTemplate(template) {
-    if (!template || !els14.promptEditor) return;
+    if (!template || !els15.promptEditor) return;
     const content = String(template.content || "").trim();
     if (!content) return;
     let match = activePromptSnippetMatch();
-    if (!match?.range && state12.activePromptSnippetRange) {
-      match = { query: "", range: state12.activePromptSnippetRange };
+    if (!match?.range && state13.activePromptSnippetRange) {
+      match = { query: "", range: state13.activePromptSnippetRange };
     }
     let trailingSpace = null;
     if (match?.range) {
@@ -34172,7 +34572,7 @@ ${hint}` : hint;
       const currentText = getPromptText3();
       if (currentText && !/\s$/.test(currentText)) appendPromptText2(" ");
       trailingSpace = document.createTextNode(`${content} `);
-      els14.promptEditor.append(trailingSpace);
+      els15.promptEditor.append(trailingSpace);
     }
     syncPromptAfterChipMutation2();
     hidePromptSnippetSuggest();
@@ -34184,7 +34584,7 @@ ${hint}` : hint;
     }
   }
   function findPromptTemplateById(id) {
-    return (state12.promptTemplates || []).find((template) => template.id === id) || null;
+    return (state13.promptTemplates || []).find((template) => template.id === id) || null;
   }
   function createPromptSnippetChip(snippet) {
     const normalized = normalizePromptSnippet(snippet) || {
@@ -34247,11 +34647,11 @@ ${hint}` : hint;
     return { snippet, end: tagStart + tag.length };
   }
   function findPromptSnippetById(id) {
-    return state12.promptSnippets.find((snippet) => snippet.id === id) || null;
+    return state13.promptSnippets.find((snippet) => snippet.id === id) || null;
   }
   function findPromptSnippetByTag(tag) {
     const key = String(tag || "").replace(/^[~～〜∼˜]+/, "").toLowerCase();
-    return state12.promptSnippets.find((snippet) => snippet.tag.toLowerCase() === key) || null;
+    return state13.promptSnippets.find((snippet) => snippet.tag.toLowerCase() === key) || null;
   }
   function expandPromptSnippets(prompt) {
     const text = String(prompt || "");
@@ -34263,9 +34663,9 @@ ${hint}` : hint;
   }
   function getPromptSelectionForSnippet() {
     const selection = window.getSelection();
-    if (!selection || !selection.rangeCount || selection.isCollapsed || !els14.promptEditor) return null;
+    if (!selection || !selection.rangeCount || selection.isCollapsed || !els15.promptEditor) return null;
     const range = selection.getRangeAt(0);
-    if (!rangeIntersectsNode(range, els14.promptEditor)) return null;
+    if (!rangeIntersectsNode(range, els15.promptEditor)) return null;
     const text = promptTextFromRange(range).replace(/\u00a0/g, " ").trim();
     if (!text || selectionContainsPromptAtomicChip(range)) return null;
     return { range: range.cloneRange(), text };
@@ -34287,8 +34687,8 @@ ${hint}` : hint;
   function showPromptSnippetSelectionButton(selection) {
     const button = promptSnippetSelectionButtonElement();
     if (!button || !selection?.range) return;
-    state12.promptSnippetSelectionRange = selection.range.cloneRange();
-    state12.promptSnippetSelectionText = selection.text;
+    state13.promptSnippetSelectionRange = selection.range.cloneRange();
+    state13.promptSnippetSelectionText = selection.text;
     const editorRect = promptSnippetVisibleEditorRect();
     const rect = promptSnippetSelectionAnchorRect(selection, editorRect);
     if (!rect || !editorRect) return;
@@ -34318,8 +34718,8 @@ ${hint}` : hint;
     return visibleRects.length ? visibleRects[visibleRects.length - 1] : promptSnippetFallbackVisibleAnchorRect(editorRect);
   }
   function promptSnippetVisibleEditorRect() {
-    if (!els14.promptEditor) return null;
-    const rect = els14.promptEditor.getBoundingClientRect();
+    if (!els15.promptEditor) return null;
+    const rect = els15.promptEditor.getBoundingClientRect();
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || rect.right;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || rect.bottom;
     return clipRectToBounds(rect, {
@@ -34363,11 +34763,11 @@ ${hint}` : hint;
     button?.style.removeProperty("--prompt-snippet-save-top");
   }
   function openPromptSnippetSavePopover() {
-    if (!state12.promptSnippetSelectionText || !state12.promptSnippetSelectionRange) return;
+    if (!state13.promptSnippetSelectionText || !state13.promptSnippetSelectionRange) return;
     const snippet = {
-      tag: suggestPromptSnippetTag(state12.promptSnippetSelectionText),
+      tag: suggestPromptSnippetTag(state13.promptSnippetSelectionText),
       title: "",
-      content: state12.promptSnippetSelectionText,
+      content: state13.promptSnippetSelectionText,
       category: DEFAULT_PROMPT_SNIPPET_CATEGORY
     };
     renderPromptSnippetForm("save", snippet);
@@ -34459,7 +34859,7 @@ ${hint}` : hint;
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || translate("snippets.saveFailed"));
-      state12.promptSnippets = normalizePromptSnippetList(data.snippets);
+      state13.promptSnippets = normalizePromptSnippetList(data.snippets);
       const snippet = normalizePromptSnippet(data.snippet);
       if (isEdit && promptSnippetPopoverState.chip) {
         updatePromptSnippetChip(promptSnippetPopoverState.chip, snippet);
@@ -34475,9 +34875,9 @@ ${hint}` : hint;
     }
   }
   function replacePromptSelectionWithSnippet(snippet) {
-    if (!state12.promptSnippetSelectionRange || !els14.promptEditor) return;
-    const range = state12.promptSnippetSelectionRange;
-    if (!els14.promptEditor.contains(range.commonAncestorContainer)) return;
+    if (!state13.promptSnippetSelectionRange || !els15.promptEditor) return;
+    const range = state13.promptSnippetSelectionRange;
+    if (!els15.promptEditor.contains(range.commonAncestorContainer)) return;
     range.deleteContents();
     const chip = createPromptSnippetChip(snippet);
     const trailingSpace = document.createTextNode(" ");
@@ -34513,7 +34913,7 @@ ${hint}` : hint;
   }
   function expandPromptSnippetChip(chip) {
     const snippet = promptSnippetFromChip(chip);
-    if (!snippet || !els14.promptEditor?.contains(chip)) return;
+    if (!snippet || !els15.promptEditor?.contains(chip)) return;
     const text = document.createTextNode(snippet.content);
     chip.replaceWith(text);
     closePromptSnippetPopover();
@@ -34532,14 +34932,14 @@ ${hint}` : hint;
     positionPromptSnippetPopover(buttonRect);
   }
   function positionPromptSnippetPopoverAtChip(chip) {
-    if (!chip || !els14.promptEditor) return;
+    if (!chip || !els15.promptEditor) return;
     const chipRect = chip.getBoundingClientRect();
     positionPromptSnippetPopover(chipRect);
   }
   function positionPromptSnippetPopover(anchorRect) {
     const popover = promptSnippetPopoverElement();
-    if (!popover || !els14.promptEditor) return;
-    const host = els14.promptEditor.closest(".prompt-editor-wrap") || els14.promptEditor;
+    if (!popover || !els15.promptEditor) return;
+    const host = els15.promptEditor.closest(".prompt-editor-wrap") || els15.promptEditor;
     positionPromptPopoverAtAnchor(
       popover,
       host,
@@ -34564,8 +34964,8 @@ ${hint}` : hint;
     promptSnippetPopoverState.mode = null;
     promptSnippetPopoverState.chip = null;
     promptSnippetPopoverState.snippetId = null;
-    state12.promptSnippetSelectionRange = null;
-    state12.promptSnippetSelectionText = "";
+    state13.promptSnippetSelectionRange = null;
+    state13.promptSnippetSelectionText = "";
   }
   function hidePromptSnippetSuggest() {
     const suggest = promptSnippetSuggestElement();
@@ -34576,12 +34976,12 @@ ${hint}` : hint;
     suggest.style.removeProperty("--prompt-snippet-top");
     suggest.style.removeProperty("--prompt-snippet-width");
     suggest.style.removeProperty("--prompt-popover-max-height");
-    state12.activePromptSnippetRange = null;
+    state13.activePromptSnippetRange = null;
   }
   function handlePromptSnippetDocumentClick(target) {
     if (promptSnippetSuggestEl && !promptSnippetSuggestEl.classList.contains("hidden")) {
       const clickedSuggest = promptSnippetSuggestEl.contains(target);
-      const clickedPromptEditor = els14.promptEditor?.contains(target);
+      const clickedPromptEditor = els15.promptEditor?.contains(target);
       if (!clickedSuggest && !clickedPromptEditor) {
         hidePromptSnippetSuggest();
       }
@@ -34665,9 +35065,9 @@ ${hint}` : hint;
     [PROMPT_TEMPLATE_CATEGORY_POSTER]: "templates.categoryPoster",
     [PROMPT_TEMPLATE_CATEGORY_ECOMMERCE]: "templates.categoryEcommerce"
   };
-  var bridge14 = getLegacyBridge();
-  var state13 = bridge14.state;
-  var els15 = bridge14.els;
+  var bridge15 = getLegacyBridge();
+  var state14 = bridge15.state;
+  var els16 = bridge15.els;
   var promptTemplateSearchAcceptManualInput = false;
   var lastPromptTemplateTrigger = null;
   function legacyMethod19(name, ...args) {
@@ -34760,10 +35160,10 @@ ${hint}` : hint;
     return categories;
   }
   function applyPromptTemplateSettingsResponse(data) {
-    state13.promptTemplates = normalizePromptTemplateList(data?.templates);
-    state13.promptTemplateCategories = normalizePromptTemplateCategoryList(data?.categories);
-    if (state13.promptTemplateCategory && !state13.promptTemplateCategories.some((category) => category.id === state13.promptTemplateCategory)) {
-      state13.promptTemplateCategory = "";
+    state14.promptTemplates = normalizePromptTemplateList(data?.templates);
+    state14.promptTemplateCategories = normalizePromptTemplateCategoryList(data?.categories);
+    if (state14.promptTemplateCategory && !state14.promptTemplateCategories.some((category) => category.id === state14.promptTemplateCategory)) {
+      state14.promptTemplateCategory = "";
     }
     renderPromptTemplateRecentDock();
     if (promptTemplateDrawerIsOpen()) {
@@ -34774,7 +35174,7 @@ ${hint}` : hint;
     updatePromptSnippetSuggest2();
   }
   function promptTemplateDrawerIsOpen() {
-    return Boolean(els15.promptTemplateDrawer?.classList.contains("open"));
+    return Boolean(els16.promptTemplateDrawer?.classList.contains("open"));
   }
   async function refreshPromptTemplates() {
     try {
@@ -34784,8 +35184,8 @@ ${hint}` : hint;
       applyPromptTemplateSettingsResponse(data);
     } catch (error) {
       console.warn(error.message || translate("templates.loadFailed"));
-      state13.promptTemplates = [];
-      state13.promptTemplateCategories = normalizePromptTemplateCategoryList([]);
+      state14.promptTemplates = [];
+      state14.promptTemplateCategories = normalizePromptTemplateCategoryList([]);
       updatePromptSnippetSuggest2();
       renderPromptTemplateRecentDock();
       if (promptTemplateDrawerIsOpen()) {
@@ -34795,26 +35195,26 @@ ${hint}` : hint;
     }
   }
   function syncPromptTemplateSearchInput() {
-    const input = els15.promptTemplateSearch;
+    const input = els16.promptTemplateSearch;
     if (!input) {
       updatePromptTemplateSearchClearButton();
       return;
     }
-    const nextValue = String(state13.promptTemplateQuery || "");
+    const nextValue = String(state14.promptTemplateQuery || "");
     if (input.value !== nextValue) input.value = nextValue;
     updatePromptTemplateSearchClearButton();
   }
   function promptTemplateSearchHasValue() {
-    return Boolean(String(state13.promptTemplateQuery || "").trim());
+    return Boolean(String(state14.promptTemplateQuery || "").trim());
   }
   function updatePromptTemplateSearchClearButton() {
-    const button = els15.promptTemplateSearchClearButton;
+    const button = els16.promptTemplateSearchClearButton;
     if (!button) return;
     button.hidden = !promptTemplateSearchHasValue();
   }
   function clearPromptTemplateSearch() {
-    const input = els15.promptTemplateSearch;
-    state13.promptTemplateQuery = "";
+    const input = els16.promptTemplateSearch;
+    state14.promptTemplateQuery = "";
     promptTemplateSearchAcceptManualInput = false;
     setPromptTemplateSearchLocked(false);
     if (input) {
@@ -34825,7 +35225,7 @@ ${hint}` : hint;
     renderPromptTemplateList();
   }
   function setPromptTemplateSearchLocked(locked2) {
-    const input = els15.promptTemplateSearch;
+    const input = els16.promptTemplateSearch;
     if (!input) return;
     input.readOnly = locked2;
     if (locked2) {
@@ -34837,18 +35237,18 @@ ${hint}` : hint;
   function guardPromptTemplateSearchInput(delays = [0, 120, 360, 900]) {
     delays.forEach((delay) => {
       window.setTimeout(() => {
-        if (!els15.promptTemplateDrawer?.classList.contains("open")) return;
+        if (!els16.promptTemplateDrawer?.classList.contains("open")) return;
         syncPromptTemplateSearchInput();
       }, delay);
     });
   }
   function openPromptTemplateDrawer() {
     legacyMethod19("closeGallery", { restoreFocus: false });
-    lastPromptTemplateTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : els15.promptTemplateButton;
-    els15.promptTemplateDrawer?.classList.add("open");
-    els15.promptTemplateDrawer?.setAttribute("aria-hidden", "false");
-    els15.promptTemplateDrawerBackdrop?.classList.remove("hidden");
-    els15.promptTemplateButton?.setAttribute("aria-expanded", "true");
+    lastPromptTemplateTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : els16.promptTemplateButton;
+    els16.promptTemplateDrawer?.classList.add("open");
+    els16.promptTemplateDrawer?.setAttribute("aria-hidden", "false");
+    els16.promptTemplateDrawerBackdrop?.classList.remove("hidden");
+    els16.promptTemplateButton?.setAttribute("aria-expanded", "true");
     promptTemplateSearchAcceptManualInput = false;
     setPromptTemplateSearchLocked(true);
     renderPromptTemplateCategories();
@@ -34857,33 +35257,33 @@ ${hint}` : hint;
     guardPromptTemplateSearchInput();
     window.setTimeout(() => {
       syncPromptTemplateSearchInput();
-      els15.promptTemplateDrawerClose?.focus({ preventScroll: true });
+      els16.promptTemplateDrawerClose?.focus({ preventScroll: true });
     }, 0);
   }
   function closePromptTemplateDrawer(options = {}) {
     const restoreFocus = options?.restoreFocus !== false;
-    els15.promptTemplateDrawer?.classList.remove("open");
-    els15.promptTemplateDrawer?.setAttribute("aria-hidden", "true");
-    els15.promptTemplateDrawerBackdrop?.classList.add("hidden");
-    els15.promptTemplateButton?.setAttribute("aria-expanded", "false");
+    els16.promptTemplateDrawer?.classList.remove("open");
+    els16.promptTemplateDrawer?.setAttribute("aria-hidden", "true");
+    els16.promptTemplateDrawerBackdrop?.classList.add("hidden");
+    els16.promptTemplateButton?.setAttribute("aria-expanded", "false");
     promptTemplateSearchAcceptManualInput = false;
     setPromptTemplateSearchLocked(true);
     hidePromptTemplateDetail();
     hidePromptTemplateForm();
     hidePromptTemplateCategoryPanel();
     if (restoreFocus) {
-      const focusTarget = lastPromptTemplateTrigger || els15.promptTemplateButton;
+      const focusTarget = lastPromptTemplateTrigger || els16.promptTemplateButton;
       focusTarget?.focus?.({ preventScroll: true });
     }
   }
   function renderPromptTemplateCategories() {
-    if (!els15.promptTemplateCategoryList) return;
-    const categories = normalizePromptTemplateCategoryList(state13.promptTemplateCategories);
-    state13.promptTemplateCategories = categories;
-    els15.promptTemplateCategoryList.innerHTML = [
-      `<button class="prompt-template-category ${state13.promptTemplateCategory ? "" : "active"}" data-prompt-template-category="" type="button">${translate("templates.all")}</button>`,
+    if (!els16.promptTemplateCategoryList) return;
+    const categories = normalizePromptTemplateCategoryList(state14.promptTemplateCategories);
+    state14.promptTemplateCategories = categories;
+    els16.promptTemplateCategoryList.innerHTML = [
+      `<button class="prompt-template-category ${state14.promptTemplateCategory ? "" : "active"}" data-prompt-template-category="" type="button">${translate("templates.all")}</button>`,
       ...categories.map((category) => `
-      <button class="prompt-template-category ${state13.promptTemplateCategory === category.id ? "active" : ""}" data-prompt-template-category="${escapeHtml11(category.id)}" type="button">
+      <button class="prompt-template-category ${state14.promptTemplateCategory === category.id ? "active" : ""}" data-prompt-template-category="${escapeHtml11(category.id)}" type="button">
         ${escapeHtml11(promptTemplateCategoryLabel(category.name))}
       </button>
     `)
@@ -34895,9 +35295,9 @@ ${hint}` : hint;
     return key ? translate(key) : name;
   }
   function renderPromptTemplateCategoryPanel() {
-    if (!els15.promptTemplateCategoryPanel) return;
-    const categories = normalizePromptTemplateCategoryList(state13.promptTemplateCategories);
-    els15.promptTemplateCategoryPanel.innerHTML = `
+    if (!els16.promptTemplateCategoryPanel) return;
+    const categories = normalizePromptTemplateCategoryList(state14.promptTemplateCategories);
+    els16.promptTemplateCategoryPanel.innerHTML = `
     <div class="prompt-template-category-create">
       <input class="control" type="text" maxlength="32" placeholder="${escapeHtml11(translate("templates.newCategory"))}" data-prompt-template-category-new>
       <button class="ghost-button text-sm" type="button" data-prompt-template-category-create>${escapeHtml11(translate("action.add"))}</button>
@@ -34914,26 +35314,26 @@ ${hint}` : hint;
   `;
   }
   function togglePromptTemplateCategoryPanel() {
-    if (!els15.promptTemplateCategoryPanel) return;
-    const isHidden = els15.promptTemplateCategoryPanel.classList.contains("hidden");
+    if (!els16.promptTemplateCategoryPanel) return;
+    const isHidden = els16.promptTemplateCategoryPanel.classList.contains("hidden");
     if (isHidden) {
       renderPromptTemplateCategoryPanel();
-      els15.promptTemplateCategoryPanel.classList.remove("hidden");
-      els15.promptTemplateCategoryManageButton?.setAttribute("aria-expanded", "true");
+      els16.promptTemplateCategoryPanel.classList.remove("hidden");
+      els16.promptTemplateCategoryManageButton?.setAttribute("aria-expanded", "true");
     } else {
       hidePromptTemplateCategoryPanel();
     }
   }
   function hidePromptTemplateCategoryPanel() {
-    els15.promptTemplateCategoryPanel?.classList.add("hidden");
-    els15.promptTemplateCategoryManageButton?.setAttribute("aria-expanded", "false");
+    els16.promptTemplateCategoryPanel?.classList.add("hidden");
+    els16.promptTemplateCategoryManageButton?.setAttribute("aria-expanded", "false");
   }
   function promptTemplatesForDisplay() {
-    const query = String(state13.promptTemplateQuery || "").trim().toLowerCase();
-    return (state13.promptTemplates || []).filter((template) => {
-      if (state13.promptTemplateFilter === "favorite" && !template.favorite) return false;
-      if (state13.promptTemplateFilter === "recent" && !template.last_used_at) return false;
-      if (state13.promptTemplateCategory && template.category !== state13.promptTemplateCategory) return false;
+    const query = String(state14.promptTemplateQuery || "").trim().toLowerCase();
+    return (state14.promptTemplates || []).filter((template) => {
+      if (state14.promptTemplateFilter === "favorite" && !template.favorite) return false;
+      if (state14.promptTemplateFilter === "recent" && !template.last_used_at) return false;
+      if (state14.promptTemplateCategory && template.category !== state14.promptTemplateCategory) return false;
       if (!query) return true;
       return [
         template.title,
@@ -34947,17 +35347,17 @@ ${hint}` : hint;
     });
   }
   function renderPromptTemplateList() {
-    if (!els15.promptTemplateList) return;
+    if (!els16.promptTemplateList) return;
     const templates = promptTemplatesForDisplay();
-    if (els15.promptTemplateSummary) {
-      els15.promptTemplateSummary.className = "prompt-template-summary";
-      els15.promptTemplateSummary.textContent = templates.length ? formatTranslation("templates.availableCount", { count: templates.length }) : translate("templates.noMatch");
+    if (els16.promptTemplateSummary) {
+      els16.promptTemplateSummary.className = "prompt-template-summary";
+      els16.promptTemplateSummary.textContent = templates.length ? formatTranslation("templates.availableCount", { count: templates.length }) : translate("templates.noMatch");
     }
     if (!templates.length) {
-      els15.promptTemplateList.innerHTML = `<div class="prompt-template-empty">${translate("templates.empty")}</div>`;
+      els16.promptTemplateList.innerHTML = `<div class="prompt-template-empty">${translate("templates.empty")}</div>`;
       return;
     }
-    els15.promptTemplateList.innerHTML = templates.map((template) => `
+    els16.promptTemplateList.innerHTML = templates.map((template) => `
     <button class="prompt-template-card" type="button" data-prompt-template-id="${escapeHtml11(template.id)}">
       ${template.thumbnail_url ? `<span class="prompt-template-card-thumb"><img src="${escapeHtml11(template.thumbnail_url)}" alt="" loading="lazy" decoding="async"></span>` : ""}
       <span class="prompt-template-card-title">${escapeHtml11(promptTemplateCardTitle(template))}</span>
@@ -34980,26 +35380,26 @@ ${hint}` : hint;
     return title && title !== primaryTitle ? title : "";
   }
   function renderPromptTemplateRecentDock() {
-    if (!els15.promptTemplateRecentDock) return;
-    const recent = (state13.promptTemplates || []).filter((template) => template.last_used_at || template.favorite).slice(0, 4);
+    if (!els16.promptTemplateRecentDock) return;
+    const recent = (state14.promptTemplates || []).filter((template) => template.last_used_at || template.favorite).slice(0, 4);
     if (!recent.length) {
-      els15.promptTemplateRecentDock.classList.add("hidden");
-      els15.promptTemplateRecentDock.innerHTML = "";
+      els16.promptTemplateRecentDock.classList.add("hidden");
+      els16.promptTemplateRecentDock.innerHTML = "";
       return;
     }
-    els15.promptTemplateRecentDock.innerHTML = recent.map((template) => `
+    els16.promptTemplateRecentDock.innerHTML = recent.map((template) => `
     <button class="prompt-template-recent-chip" type="button" data-prompt-template-insert="${escapeHtml11(template.id)}">
       ${escapeHtml11(template.short_title)}
     </button>
   `).join("");
-    els15.promptTemplateRecentDock.classList.remove("hidden");
+    els16.promptTemplateRecentDock.classList.remove("hidden");
   }
   function selectPromptTemplate(templateId) {
     const template = findPromptTemplateById2(templateId);
-    if (!template || !els15.promptTemplateDetail) return;
-    state13.selectedPromptTemplateId = template.id;
+    if (!template || !els16.promptTemplateDetail) return;
+    state14.selectedPromptTemplateId = template.id;
     hidePromptTemplateForm();
-    els15.promptTemplateDetail.innerHTML = `
+    els16.promptTemplateDetail.innerHTML = `
     <div class="prompt-template-detail-header">
       <button class="ghost-button prompt-template-detail-back" type="button" data-prompt-template-back>${translate("templates.back")}</button>
       <button class="ghost-button prompt-template-detail-edit" type="button" data-prompt-template-edit="${escapeHtml11(template.id)}">${translate("templates.edit")}</button>
@@ -35022,8 +35422,8 @@ ${hint}` : hint;
       <button class="ghost-button text-sm prompt-template-detail-replace" type="button" data-prompt-template-replace="${escapeHtml11(template.id)}">${translate("action.replace")}</button>
     </div>
   `;
-    els15.promptTemplateList?.classList.add("hidden");
-    els15.promptTemplateDetail.classList.remove("hidden");
+    els16.promptTemplateList?.classList.add("hidden");
+    els16.promptTemplateDetail.classList.remove("hidden");
   }
   async function applyPromptTemplate(template, mode) {
     if (!template) return;
@@ -35062,7 +35462,7 @@ ${hint}` : hint;
     }
   }
   function renderPromptTemplateForm(template = null) {
-    if (!els15.promptTemplateForm) return;
+    if (!els16.promptTemplateForm) return;
     const value = template || {
       id: "",
       title: "",
@@ -35075,9 +35475,9 @@ ${hint}` : hint;
       favorite: false
     };
     hidePromptTemplateDetail();
-    els15.promptTemplateList?.classList.add("hidden");
+    els16.promptTemplateList?.classList.add("hidden");
     const categories = promptTemplateCategoriesForSelect(value.category);
-    els15.promptTemplateForm.innerHTML = `
+    els16.promptTemplateForm.innerHTML = `
     <form class="prompt-template-form" data-prompt-template-form-id="${escapeHtml11(value.id || "")}">
       <div class="prompt-template-form-header">
         <button class="ghost-button text-sm" type="button" data-prompt-template-back>${escapeHtml11(translate("templates.back"))}</button>
@@ -35125,11 +35525,11 @@ ${hint}` : hint;
       <button class="run-button prompt-template-save" type="submit">${escapeHtml11(translate("action.save"))}</button>
     </form>
   `;
-    els15.promptTemplateForm.classList.remove("hidden");
+    els16.promptTemplateForm.classList.remove("hidden");
     renderPromptTemplateThumbnailPicker(value.thumbnail_url || "");
   }
   function promptTemplateCategoriesForSelect(selectedCategory) {
-    const categories = normalizePromptTemplateCategoryList(state13.promptTemplateCategories);
+    const categories = normalizePromptTemplateCategoryList(state14.promptTemplateCategories);
     const selected = String(selectedCategory || "").trim();
     if (selected && !categories.some((category) => category.id === selected)) {
       categories.push({ id: selected, name: selected, order: categories.length * 10 + 10 });
@@ -35139,7 +35539,7 @@ ${hint}` : hint;
   function historyTemplateThumbnails() {
     const seen = /* @__PURE__ */ new Set();
     const items = [];
-    (state13.tasks || []).forEach((task) => {
+    (state14.tasks || []).forEach((task) => {
       const urls = [];
       if (Array.isArray(task?.outputs)) {
         task.outputs.forEach((output) => {
@@ -35160,7 +35560,7 @@ ${hint}` : hint;
     return items.slice(0, 16);
   }
   function renderPromptTemplateThumbnailPicker(selectedUrl = "") {
-    const form = els15.promptTemplateForm?.querySelector(".prompt-template-form");
+    const form = els16.promptTemplateForm?.querySelector(".prompt-template-form");
     if (!form) return;
     const picker = form.querySelector("[data-prompt-template-thumbnail-picker]");
     const preview = form.querySelector("[data-prompt-template-thumbnail-preview]");
@@ -35185,12 +35585,12 @@ ${hint}` : hint;
     renderPromptTemplateThumbnailPicker(String(url || "").trim());
   }
   function setPromptTemplateSummary(message, type = "") {
-    if (!els15.promptTemplateSummary) return;
-    els15.promptTemplateSummary.textContent = message;
-    els15.promptTemplateSummary.className = ["prompt-template-summary", type].filter(Boolean).join(" ");
+    if (!els16.promptTemplateSummary) return;
+    els16.promptTemplateSummary.textContent = message;
+    els16.promptTemplateSummary.className = ["prompt-template-summary", type].filter(Boolean).join(" ");
   }
   async function savePromptTemplateFromDrawer() {
-    const form = els15.promptTemplateForm?.querySelector(".prompt-template-form");
+    const form = els16.promptTemplateForm?.querySelector(".prompt-template-form");
     if (!form) return;
     const templateId = form.dataset.promptTemplateFormId || "";
     const payload2 = {
@@ -35301,7 +35701,7 @@ ${hint}` : hint;
     }
   }
   async function exportPromptTemplatePack() {
-    const button = els15.promptTemplateExportButton;
+    const button = els16.promptTemplateExportButton;
     if (button) button.disabled = true;
     try {
       const response = await fetch(PROMPT_TEMPLATE_EXPORT_ENDPOINT, {
@@ -35340,51 +35740,51 @@ ${hint}` : hint;
     }
   }
   function hidePromptTemplateDetail() {
-    if (!els15.promptTemplateDetail) return;
-    els15.promptTemplateDetail.classList.add("hidden");
-    els15.promptTemplateDetail.innerHTML = "";
-    els15.promptTemplateList?.classList.remove("hidden");
+    if (!els16.promptTemplateDetail) return;
+    els16.promptTemplateDetail.classList.add("hidden");
+    els16.promptTemplateDetail.innerHTML = "";
+    els16.promptTemplateList?.classList.remove("hidden");
   }
   function hidePromptTemplateForm() {
-    if (!els15.promptTemplateForm) return;
-    els15.promptTemplateForm.classList.add("hidden");
-    els15.promptTemplateForm.innerHTML = "";
-    els15.promptTemplateList?.classList.remove("hidden");
+    if (!els16.promptTemplateForm) return;
+    els16.promptTemplateForm.classList.add("hidden");
+    els16.promptTemplateForm.innerHTML = "";
+    els16.promptTemplateList?.classList.remove("hidden");
   }
   function findPromptTemplateById2(id) {
-    return (state13.promptTemplates || []).find((template) => template.id === id) || null;
+    return (state14.promptTemplates || []).find((template) => template.id === id) || null;
   }
   function promptTemplatePreview(text, length = 80) {
     const clean = String(text || "").replace(/\s+/g, " ").trim();
     return clean.length > length ? `${clean.slice(0, length)}...` : clean;
   }
   function bindPromptTemplateEvents() {
-    els15.promptTemplateButton?.addEventListener("click", openPromptTemplateDrawer);
-    els15.promptTemplateDrawerClose?.addEventListener("click", closePromptTemplateDrawer);
-    els15.promptTemplateDrawerBackdrop?.addEventListener("click", closePromptTemplateDrawer);
-    els15.promptTemplateCreateButton?.addEventListener("click", () => renderPromptTemplateForm());
-    els15.promptTemplateCategoryManageButton?.addEventListener("click", togglePromptTemplateCategoryPanel);
-    els15.promptTemplateImportButton?.addEventListener("click", () => els15.promptTemplateImportInput?.click());
-    els15.promptTemplateExportButton?.addEventListener("click", () => {
+    els16.promptTemplateButton?.addEventListener("click", openPromptTemplateDrawer);
+    els16.promptTemplateDrawerClose?.addEventListener("click", closePromptTemplateDrawer);
+    els16.promptTemplateDrawerBackdrop?.addEventListener("click", closePromptTemplateDrawer);
+    els16.promptTemplateCreateButton?.addEventListener("click", () => renderPromptTemplateForm());
+    els16.promptTemplateCategoryManageButton?.addEventListener("click", togglePromptTemplateCategoryPanel);
+    els16.promptTemplateImportButton?.addEventListener("click", () => els16.promptTemplateImportInput?.click());
+    els16.promptTemplateExportButton?.addEventListener("click", () => {
       void exportPromptTemplatePack();
     });
-    els15.promptTemplateImportInput?.addEventListener("change", () => {
-      const input = els15.promptTemplateImportInput;
+    els16.promptTemplateImportInput?.addEventListener("change", () => {
+      const input = els16.promptTemplateImportInput;
       const file = input?.files?.[0];
       void importPromptTemplatePack(file);
       if (input) input.value = "";
     });
-    els15.promptTemplateSearchClearButton?.addEventListener("click", clearPromptTemplateSearch);
-    els15.promptTemplateSearch?.addEventListener("pointerdown", (event) => {
-      const input = els15.promptTemplateSearch;
+    els16.promptTemplateSearchClearButton?.addEventListener("click", clearPromptTemplateSearch);
+    els16.promptTemplateSearch?.addEventListener("pointerdown", (event) => {
+      const input = els16.promptTemplateSearch;
       if (!input?.readOnly) return;
       event.preventDefault();
       setPromptTemplateSearchLocked(false);
       syncPromptTemplateSearchInput();
       input.focus({ preventScroll: true });
     });
-    els15.promptTemplateSearch?.addEventListener("keydown", (event) => {
-      const input = els15.promptTemplateSearch;
+    els16.promptTemplateSearch?.addEventListener("keydown", (event) => {
+      const input = els16.promptTemplateSearch;
       if (input?.readOnly && !event.metaKey && !event.ctrlKey && !event.altKey) {
         const key = event.key || "";
         const isPrintable = key.length === 1;
@@ -35395,7 +35795,7 @@ ${hint}` : hint;
           promptTemplateSearchAcceptManualInput = true;
           const nextValue = isClearKey ? "" : key;
           input.value = nextValue;
-          state13.promptTemplateQuery = nextValue;
+          state14.promptTemplateQuery = nextValue;
           updatePromptTemplateSearchClearButton();
           renderPromptTemplateList();
         }
@@ -35403,31 +35803,31 @@ ${hint}` : hint;
       }
       promptTemplateSearchAcceptManualInput = true;
     });
-    els15.promptTemplateSearch?.addEventListener("paste", () => {
+    els16.promptTemplateSearch?.addEventListener("paste", () => {
       promptTemplateSearchAcceptManualInput = true;
     });
-    els15.promptTemplateSearch?.addEventListener("drop", () => {
+    els16.promptTemplateSearch?.addEventListener("drop", () => {
       promptTemplateSearchAcceptManualInput = true;
     });
-    els15.promptTemplateSearch?.addEventListener("blur", () => {
+    els16.promptTemplateSearch?.addEventListener("blur", () => {
       promptTemplateSearchAcceptManualInput = false;
       setPromptTemplateSearchLocked(true);
     });
-    els15.promptTemplateSearch?.addEventListener("input", () => {
+    els16.promptTemplateSearch?.addEventListener("input", () => {
       if (!promptTemplateSearchAcceptManualInput) {
         syncPromptTemplateSearchInput();
         guardPromptTemplateSearchInput([120, 360, 900]);
         return;
       }
-      state13.promptTemplateQuery = els15.promptTemplateSearch?.value || "";
+      state14.promptTemplateQuery = els16.promptTemplateSearch?.value || "";
       updatePromptTemplateSearchClearButton();
       renderPromptTemplateList();
     });
-    els15.promptTemplateSearch?.addEventListener("focus", () => {
+    els16.promptTemplateSearch?.addEventListener("focus", () => {
       promptTemplateSearchAcceptManualInput = false;
       guardPromptTemplateSearchInput();
     });
-    els15.promptTemplateDrawer?.addEventListener("click", (event) => {
+    els16.promptTemplateDrawer?.addEventListener("click", (event) => {
       const target = event.target;
       const filter = target?.closest("[data-prompt-template-filter]");
       const category = target?.closest("[data-prompt-template-category]");
@@ -35444,21 +35844,21 @@ ${hint}` : hint;
       const remove = target?.closest("[data-prompt-template-delete]");
       const back = target?.closest("[data-prompt-template-back]");
       if (filter) {
-        state13.promptTemplateFilter = filter.dataset.promptTemplateFilter || "all";
-        els15.promptTemplateDrawer?.querySelectorAll("[data-prompt-template-filter]").forEach((button) => {
+        state14.promptTemplateFilter = filter.dataset.promptTemplateFilter || "all";
+        els16.promptTemplateDrawer?.querySelectorAll("[data-prompt-template-filter]").forEach((button) => {
           button.classList.toggle("active", button === filter);
         });
         renderPromptTemplateList();
         return;
       }
       if (category) {
-        state13.promptTemplateCategory = category.dataset.promptTemplateCategory || "";
+        state14.promptTemplateCategory = category.dataset.promptTemplateCategory || "";
         renderPromptTemplateCategories();
         renderPromptTemplateList();
         return;
       }
       if (categoryCreate) {
-        const input = els15.promptTemplateCategoryPanel?.querySelector("[data-prompt-template-category-new]");
+        const input = els16.promptTemplateCategoryPanel?.querySelector("[data-prompt-template-category-new]");
         void createPromptTemplateCategory(input?.value || "");
         return;
       }
@@ -35502,11 +35902,11 @@ ${hint}` : hint;
         selectPromptTemplate(card.dataset.promptTemplateId);
       }
     });
-    els15.promptTemplateForm?.addEventListener("submit", (event) => {
+    els16.promptTemplateForm?.addEventListener("submit", (event) => {
       event.preventDefault();
       void savePromptTemplateFromDrawer();
     });
-    els15.promptTemplateRecentDock?.addEventListener("click", (event) => {
+    els16.promptTemplateRecentDock?.addEventListener("click", (event) => {
       const button = event.target?.closest("[data-prompt-template-insert]");
       if (!button) return;
       const template = findPromptTemplateById2(button.dataset.promptTemplateInsert);
@@ -35518,8 +35918,8 @@ ${hint}` : hint;
       if (promptTemplateDrawerIsOpen()) {
         renderPromptTemplateCategories();
         renderPromptTemplateList();
-        if (state13.selectedPromptTemplateId && !els15.promptTemplateDetail?.classList.contains("hidden")) {
-          selectPromptTemplate(state13.selectedPromptTemplateId);
+        if (state14.selectedPromptTemplateId && !els16.promptTemplateDetail?.classList.contains("hidden")) {
+          selectPromptTemplate(state14.selectedPromptTemplateId);
         }
       }
     });
@@ -35561,8 +35961,8 @@ ${hint}` : hint;
   }
 
   // codex_image/webui/frontend/src/prompt-serialization.ts
-  var bridge15 = getLegacyBridge();
-  var els16 = bridge15.els;
+  var bridge16 = getLegacyBridge();
+  var els17 = bridge16.els;
   function legacyMethod20(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -35610,8 +36010,8 @@ ${hint}` : hint;
     legacyMethod20("closePromptSnippetPopover");
   }
   function getPromptText5() {
-    if (!els16.promptEditor) return els16.prompt.value;
-    return normalizePromptEditorText(promptTextFromNode(els16.promptEditor).replace(/\u00a0/g, " ")).trim();
+    if (!els17.promptEditor) return els17.prompt.value;
+    return normalizePromptEditorText(promptTextFromNode(els17.promptEditor).replace(/\u00a0/g, " ")).trim();
   }
   function normalizePromptEditorText(value) {
     return String(value || "").replace(/\r\n?/g, "\n");
@@ -35664,11 +36064,11 @@ ${hint}` : hint;
   }
   function promptSelectionText() {
     const selection = window.getSelection();
-    if (!selection || !selection.rangeCount || !els16.promptEditor) return "";
+    if (!selection || !selection.rangeCount || !els17.promptEditor) return "";
     const parts = [];
     for (let index = 0; index < selection.rangeCount; index += 1) {
       const range = selection.getRangeAt(index);
-      if (range.collapsed || !rangeIntersectsNode2(range, els16.promptEditor)) continue;
+      if (range.collapsed || !rangeIntersectsNode2(range, els17.promptEditor)) continue;
       parts.push(promptTextFromRange2(range));
     }
     return parts.join("").replace(/\u00a0/g, " ");
@@ -35686,10 +36086,10 @@ ${hint}` : hint;
     }
   }
   function selectPromptEditorContents() {
-    if (!els16.promptEditor) return;
-    els16.promptEditor.focus();
+    if (!els17.promptEditor) return;
+    els17.promptEditor.focus();
     const range = document.createRange();
-    range.selectNodeContents(els16.promptEditor);
+    range.selectNodeContents(els17.promptEditor);
     const selection = window.getSelection();
     if (!selection) return;
     selection.removeAllRanges();
@@ -35698,12 +36098,12 @@ ${hint}` : hint;
   }
   function setPromptText2(text) {
     const normalized = normalizePromptEditorText(text);
-    if (els16.promptEditor) {
-      els16.promptEditor.innerHTML = "";
+    if (els17.promptEditor) {
+      els17.promptEditor.innerHTML = "";
       const { fragment } = createPromptTextFragment(normalized);
-      els16.promptEditor.append(fragment);
+      els17.promptEditor.append(fragment);
     }
-    els16.prompt.value = normalized;
+    els17.prompt.value = normalized;
     hideMentionSuggest();
     hideColorSuggest2();
     hidePromptSnippetSuggest2();
@@ -35711,21 +36111,21 @@ ${hint}` : hint;
     closePromptSnippetPopover2();
   }
   function setPromptWithGalleryRefs(text, refs) {
-    if (!els16.promptEditor) {
+    if (!els17.promptEditor) {
       setPromptText2(text);
       return;
     }
     const refList = Array.isArray(refs) ? refs : [];
     const sortedRefs = galleryRefsByMentionLength(refList);
     const promptText = normalizePromptEditorText(text);
-    els16.promptEditor.innerHTML = "";
+    els17.promptEditor.innerHTML = "";
     let cursor = 0;
     let plainStart = 0;
     while (cursor < promptText.length) {
       const refMatch = findGalleryRefMentionAt(promptText, cursor, sortedRefs);
       if (refMatch) {
         appendPromptText4(promptText.slice(plainStart, cursor));
-        els16.promptEditor.append(createGalleryChip(refMatch.ref));
+        els17.promptEditor.append(createGalleryChip(refMatch.ref));
         cursor = refMatch.end;
         plainStart = cursor;
         continue;
@@ -35735,7 +36135,7 @@ ${hint}` : hint;
         const match = colorMatch;
         const colorCode = normalizeHexColor3(match[0]);
         appendPromptText4(promptText.slice(plainStart, cursor));
-        els16.promptEditor.append(createColorChip2(colorCode));
+        els17.promptEditor.append(createColorChip2(colorCode));
         cursor += match[0].length;
         plainStart = cursor;
         continue;
@@ -35743,7 +36143,7 @@ ${hint}` : hint;
       const snippetMatch = findPromptSnippetRefAt2(promptText, cursor);
       if (snippetMatch) {
         appendPromptText4(promptText.slice(plainStart, cursor));
-        els16.promptEditor.append(createPromptSnippetChip2(snippetMatch.snippet));
+        els17.promptEditor.append(createPromptSnippetChip2(snippetMatch.snippet));
         cursor = snippetMatch.end;
         plainStart = cursor;
         continue;
@@ -35758,17 +36158,17 @@ ${hint}` : hint;
   }
   function appendPromptText4(text) {
     const { fragment } = createPromptTextFragment(text);
-    els16.promptEditor.append(fragment);
+    els17.promptEditor.append(fragment);
   }
   function clearPromptEditorIfEmpty() {
-    if (!els16.promptEditor) return;
-    const visibleText = promptTextFromNode(els16.promptEditor).replace(/\u00a0/g, " ").trim();
+    if (!els17.promptEditor) return;
+    const visibleText = promptTextFromNode(els17.promptEditor).replace(/\u00a0/g, " ").trim();
     if (!visibleText) {
-      els16.promptEditor.textContent = "";
+      els17.promptEditor.textContent = "";
     }
   }
   function syncPromptFromEditor3() {
-    els16.prompt.value = getPromptText5();
+    els17.prompt.value = getPromptText5();
   }
   function initPromptSerializationFeature() {
     Object.assign(getLegacyBridge().methods, {
@@ -35789,9 +36189,9 @@ ${hint}` : hint;
   }
 
   // codex_image/webui/frontend/src/prompt-gallery-chips.ts
-  var bridge16 = getLegacyBridge();
-  var state14 = bridge16.state;
-  var els17 = bridge16.els;
+  var bridge17 = getLegacyBridge();
+  var state15 = bridge17.state;
+  var els18 = bridge17.els;
   function legacyMethod21(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -35869,26 +36269,26 @@ ${hint}` : hint;
     return null;
   }
   function updateMentionSuggest() {
-    if (!els17.mentionSuggest || !els17.promptEditor) return;
+    if (!els18.mentionSuggest || !els18.promptEditor) return;
     const match = activeMentionMatch();
     if (!match) {
       hideMentionSuggest2();
       return;
     }
     const query = match.query.toLowerCase();
-    const items = state14.galleryItems.filter((item) => item.name.toLowerCase().includes(query)).slice(0, 8);
+    const items = state15.galleryItems.filter((item) => item.name.toLowerCase().includes(query)).slice(0, 8);
     if (!items.length) {
       hideMentionSuggest2();
       return;
     }
-    els17.mentionSuggest.innerHTML = items.map((item) => `
+    els18.mentionSuggest.innerHTML = items.map((item) => `
     <button type="button" class="mention-option" data-mention-id="${escapeHtml12(item.id)}" data-mention-version-id="${escapeHtml12(item.asset_version_id || "")}">
       <img src="${escapeHtml12(item.image_url)}" alt="">
       <span>@${escapeHtml12(item.name)}</span>
       <small>${resourceScopeBadgeHtml(item.scope)} ${escapeHtml12(categoryLabel5(item.category))}</small>
     </button>
   `).join("");
-    els17.mentionSuggest.querySelectorAll("[data-mention-id]").forEach((button) => {
+    els18.mentionSuggest.querySelectorAll("[data-mention-id]").forEach((button) => {
       button.addEventListener("mousedown", (event) => {
         event.preventDefault();
         const item = findGalleryItem5(button.dataset.mentionId);
@@ -35896,12 +36296,12 @@ ${hint}` : hint;
       });
     });
     positionMentionSuggestAtCaret(match);
-    els17.mentionSuggest.classList.remove("hidden");
+    els18.mentionSuggest.classList.remove("hidden");
   }
   function activeMentionMatch() {
     const selection = window.getSelection();
-    if (!selection || !selection.rangeCount || !selection.isCollapsed || !els17.promptEditor) return null;
-    if (!els17.promptEditor.contains(selection.anchorNode)) return null;
+    if (!selection || !selection.rangeCount || !selection.isCollapsed || !els18.promptEditor) return null;
+    if (!els18.promptEditor.contains(selection.anchorNode)) return null;
     const selectionRange = selection.getRangeAt(0);
     let container = selectionRange.startContainer;
     let offset = selectionRange.startOffset;
@@ -35938,9 +36338,9 @@ ${hint}` : hint;
       if (currentText && !/\s$/.test(currentText)) {
         appendPromptText5(" ");
       }
-      els17.promptEditor.append(createGalleryChip2(item));
+      els18.promptEditor.append(createGalleryChip2(item));
       trailingSpace = document.createTextNode(" ");
-      els17.promptEditor.append(trailingSpace);
+      els18.promptEditor.append(trailingSpace);
     }
     addGalleryInput4(item, { syncPrompt: false });
     syncPromptFromEditor4();
@@ -35951,11 +36351,11 @@ ${hint}` : hint;
     setCaretAfterNode3(trailingSpace);
   }
   function positionMentionSuggestAtCaret(match) {
-    if (!els17.mentionSuggest || !els17.promptEditor || !match?.range) return;
-    const host = els17.promptEditor.closest(".prompt-editor-wrap") || els17.promptEditor;
-    const anchorRect = mentionRangeRect3(match.range) || els17.promptEditor.getBoundingClientRect();
+    if (!els18.mentionSuggest || !els18.promptEditor || !match?.range) return;
+    const host = els18.promptEditor.closest(".prompt-editor-wrap") || els18.promptEditor;
+    const anchorRect = mentionRangeRect3(match.range) || els18.promptEditor.getBoundingClientRect();
     positionPromptPopoverAtAnchor(
-      els17.mentionSuggest,
+      els18.mentionSuggest,
       host,
       anchorRect,
       {
@@ -36004,7 +36404,7 @@ ${hint}` : hint;
     return chip;
   }
   function removePromptGalleryChip3(chip) {
-    if (!chip || !els17.promptEditor?.contains(chip)) return;
+    if (!chip || !els18.promptEditor?.contains(chip)) return;
     const nextNode = chip.nextSibling;
     chip.remove();
     if (nextNode?.nodeType === Node.TEXT_NODE && !nextNode.textContent.trim()) {
@@ -36017,16 +36417,16 @@ ${hint}` : hint;
     if (!galleryInputsChanged) updateRequestPreview8();
     hideMentionSuggest2();
     hideColorSuggest3();
-    setCaretToEnd(els17.promptEditor);
+    setCaretToEnd(els18.promptEditor);
   }
   function currentPromptGalleryIds() {
-    if (!els17.promptEditor) return /* @__PURE__ */ new Set();
+    if (!els18.promptEditor) return /* @__PURE__ */ new Set();
     return new Set(
-      Array.from(els17.promptEditor.querySelectorAll(".gallery-chip[data-gallery-id]")).map((chip) => chip.dataset.galleryId).filter(Boolean)
+      Array.from(els18.promptEditor.querySelectorAll(".gallery-chip[data-gallery-id]")).map((chip) => chip.dataset.galleryId).filter(Boolean)
     );
   }
   function ensurePromptGalleryMention(item) {
-    if (!item || !els17.promptEditor || currentPromptGalleryIds().has(item.id)) {
+    if (!item || !els18.promptEditor || currentPromptGalleryIds().has(item.id)) {
       syncPromptFromEditor4();
       return;
     }
@@ -36034,7 +36434,7 @@ ${hint}` : hint;
     if (currentText && !/\s$/.test(currentText)) {
       appendPromptText5(" ");
     }
-    els17.promptEditor.append(createGalleryChip2(item));
+    els18.promptEditor.append(createGalleryChip2(item));
     appendPromptText5(" ");
     syncPromptFromEditor4();
     updatePromptCount4();
@@ -36042,11 +36442,11 @@ ${hint}` : hint;
     hideColorSuggest3();
   }
   function syncGalleryInputsFromPrompt() {
-    const chips = Array.from(els17.promptEditor?.querySelectorAll(".gallery-chip[data-gallery-id]") || []);
+    const chips = Array.from(els18.promptEditor?.querySelectorAll(".gallery-chip[data-gallery-id]") || []);
     const mentionedIds = new Set(chips.map((chip) => chip.dataset.galleryId).filter(Boolean));
-    const beforeKey = imageSourcesKey(state14.images);
-    const uploads = state14.images.filter((source) => source.kind !== "gallery");
-    const existingById = new Map(state14.images.filter((source) => source.kind === "gallery").map((source) => [source.id, source]));
+    const beforeKey = imageSourcesKey(state15.images);
+    const uploads = state15.images.filter((source) => source.kind !== "gallery");
+    const existingById = new Map(state15.images.filter((source) => source.kind === "gallery").map((source) => [source.id, source]));
     const galleries = chips.map((chip) => {
       const itemId = chip.dataset.galleryId;
       const existing = existingById.get(itemId);
@@ -36066,9 +36466,9 @@ ${hint}` : hint;
         missing: true
       });
     }).filter((source) => source.id && mentionedIds.has(source.id));
-    state14.images = [...uploads, ...galleries];
-    if (imageSourcesKey(state14.images) === beforeKey) return false;
-    if (!state14.images.length) {
+    state15.images = [...uploads, ...galleries];
+    if (imageSourcesKey(state15.images) === beforeKey) return false;
+    if (!state15.images.length) {
       setMode3("generate");
     }
     renderImageStrip5();
@@ -36083,10 +36483,10 @@ ${hint}` : hint;
     ]));
   }
   function syncPromptGalleryMentionsFromInputs() {
-    if (!els17.promptEditor) return false;
+    if (!els18.promptEditor) return false;
     const selectedGalleryIds = new Set(galleryInputs2().map((source) => source.id));
     let changed = false;
-    els17.promptEditor.querySelectorAll(".gallery-chip[data-gallery-id]").forEach((chip) => {
+    els18.promptEditor.querySelectorAll(".gallery-chip[data-gallery-id]").forEach((chip) => {
       if (!selectedGalleryIds.has(chip.dataset.galleryId)) {
         chip.remove();
         changed = true;
@@ -36099,13 +36499,13 @@ ${hint}` : hint;
     return true;
   }
   function hideMentionSuggest2() {
-    if (!els17.mentionSuggest) return;
-    els17.mentionSuggest.classList.add("hidden");
-    els17.mentionSuggest.innerHTML = "";
-    els17.mentionSuggest.style.removeProperty("--mention-left");
-    els17.mentionSuggest.style.removeProperty("--mention-top");
-    els17.mentionSuggest.style.removeProperty("--mention-width");
-    els17.mentionSuggest.style.removeProperty("--prompt-popover-max-height");
+    if (!els18.mentionSuggest) return;
+    els18.mentionSuggest.classList.add("hidden");
+    els18.mentionSuggest.innerHTML = "";
+    els18.mentionSuggest.style.removeProperty("--mention-left");
+    els18.mentionSuggest.style.removeProperty("--mention-top");
+    els18.mentionSuggest.style.removeProperty("--mention-width");
+    els18.mentionSuggest.style.removeProperty("--prompt-popover-max-height");
   }
   function setCaretToEnd(element2) {
     legacyMethod21("setCaretToEnd", element2);
@@ -36130,8 +36530,8 @@ ${hint}` : hint;
   }
 
   // codex_image/webui/frontend/src/prompt-editor-paste.ts
-  var bridge17 = getLegacyBridge();
-  var els18 = bridge17.els;
+  var bridge18 = getLegacyBridge();
+  var els19 = bridge18.els;
   function legacyMethod22(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -36198,21 +36598,21 @@ ${hint}` : hint;
     return html ? promptPlainTextFromHtml(html) : "";
   }
   function insertPlainPromptText(text) {
-    if (!els18.promptEditor) return;
+    if (!els19.promptEditor) return;
     const normalized = normalizePromptPasteText(text);
     if (!normalized) return;
-    els18.promptEditor.focus();
+    els19.promptEditor.focus();
     const { fragment, lastNode } = createPromptTextFragment2(normalized);
     if (!lastNode) return;
     const selection = window.getSelection();
     if (!selection || !selection.rangeCount) {
-      els18.promptEditor.append(fragment);
+      els19.promptEditor.append(fragment);
       setCaretAfterNode4(lastNode);
       return;
     }
     const range = selection.getRangeAt(0);
-    if (!rangeIntersectsNode3(range, els18.promptEditor)) {
-      els18.promptEditor.append(fragment);
+    if (!rangeIntersectsNode3(range, els19.promptEditor)) {
+      els19.promptEditor.append(fragment);
       setCaretAfterNode4(lastNode);
       return;
     }
@@ -36221,7 +36621,7 @@ ${hint}` : hint;
     setCaretAfterNode4(lastNode);
   }
   function handlePromptEditorPaste(event) {
-    if (!event.clipboardData || !els18.promptEditor?.contains(event.target)) return;
+    if (!event.clipboardData || !els19.promptEditor?.contains(event.target)) return;
     if (clipboardHasImageFile(event.clipboardData)) return;
     const text = promptPasteTextFromClipboard(event.clipboardData);
     if (!text) return;
@@ -36234,9 +36634,9 @@ ${hint}` : hint;
   }
 
   // codex_image/webui/frontend/src/prompt-editor-events.ts
-  var bridge18 = getLegacyBridge();
-  var state15 = bridge18.state;
-  var els19 = bridge18.els;
+  var bridge19 = getLegacyBridge();
+  var state16 = bridge19.state;
+  var els20 = bridge19.els;
   function legacyMethod23(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -36337,17 +36737,17 @@ ${hint}` : hint;
   }
   function promptEditorFocusInside() {
     const activeElement = document.activeElement;
-    return Boolean(activeElement && els19.promptEditor && els19.promptEditor.contains(activeElement));
+    return Boolean(activeElement && els20.promptEditor && els20.promptEditor.contains(activeElement));
   }
   function updatePromptChipSelectionState2() {
-    const chips = Array.from(els19.promptEditor?.querySelectorAll(".gallery-chip, .color-chip, .prompt-snippet-chip") || []);
+    const chips = Array.from(els20.promptEditor?.querySelectorAll(".gallery-chip, .color-chip, .prompt-snippet-chip") || []);
     if (!chips.length) return;
     const selection = window.getSelection();
     const ranges = [];
-    if (selection && !selection.isCollapsed && selection.rangeCount && els19.promptEditor) {
+    if (selection && !selection.isCollapsed && selection.rangeCount && els20.promptEditor) {
       for (let index = 0; index < selection.rangeCount; index += 1) {
         const range = selection.getRangeAt(index);
-        if (rangeIntersectsNode4(range, els19.promptEditor)) ranges.push(range);
+        if (rangeIntersectsNode4(range, els20.promptEditor)) ranges.push(range);
       }
     }
     chips.forEach((chip) => {
@@ -36356,7 +36756,7 @@ ${hint}` : hint;
     });
   }
   function syncPromptFromEditor5() {
-    els19.prompt.value = getPromptText7();
+    els20.prompt.value = getPromptText7();
   }
   function handlePromptEditorKeydown(event) {
     if (isPromptEditorArrowKey(event.key)) {
@@ -36384,14 +36784,14 @@ ${hint}` : hint;
       closePromptSnippetPopover3();
       return;
     }
-    if (event.key === "Enter" && !els19.colorSuggest.classList.contains("hidden")) {
+    if (event.key === "Enter" && !els20.colorSuggest.classList.contains("hidden")) {
       event.preventDefault();
-      const input = els19.colorSuggest.querySelector("[data-color-hex-input]");
-      insertColorCode2(input?.value || state15.selectedColorCode);
+      const input = els20.colorSuggest.querySelector("[data-color-hex-input]");
+      insertColorCode2(input?.value || state16.selectedColorCode);
       return;
     }
-    if (event.key === "Enter" && !els19.mentionSuggest.classList.contains("hidden")) {
-      const first = els19.mentionSuggest.querySelector("[data-mention-id]");
+    if (event.key === "Enter" && !els20.mentionSuggest.classList.contains("hidden")) {
+      const first = els20.mentionSuggest.querySelector("[data-mention-id]");
       if (first) {
         event.preventDefault();
         const item = findGalleryItem6(first.dataset.mentionId);
@@ -36419,21 +36819,21 @@ ${hint}` : hint;
   }
   function handlePromptEditorClick(event) {
     const removeButton = event.target.closest?.("[data-remove-gallery-chip], [data-remove-color-chip], [data-remove-prompt-snippet-chip]");
-    if (removeButton && els19.promptEditor.contains(removeButton)) {
+    if (removeButton && els20.promptEditor.contains(removeButton)) {
       event.preventDefault();
       event.stopPropagation();
       removePromptGalleryChip4(removeButton.closest(".gallery-chip, .color-chip, .prompt-snippet-chip"));
       return;
     }
     const editColorButton = event.target.closest?.("[data-edit-color-chip]");
-    if (editColorButton && els19.promptEditor.contains(editColorButton)) {
+    if (editColorButton && els20.promptEditor.contains(editColorButton)) {
       event.preventDefault();
       event.stopPropagation();
       openColorChipEditor2(editColorButton.closest(".color-chip"));
       return;
     }
     const snippetChip = event.target.closest?.(".prompt-snippet-chip");
-    if (snippetChip && els19.promptEditor.contains(snippetChip) && !event.target.closest?.("[data-remove-prompt-snippet-chip]")) {
+    if (snippetChip && els20.promptEditor.contains(snippetChip) && !event.target.closest?.("[data-remove-prompt-snippet-chip]")) {
       event.preventDefault();
       event.stopPropagation();
       openPromptSnippetChipPopover2(snippetChip);
@@ -36441,8 +36841,8 @@ ${hint}` : hint;
   }
   function promptChipAtCaretForDeletion(key) {
     const selection = window.getSelection();
-    if (!selection || !selection.rangeCount || !selection.isCollapsed || !els19.promptEditor) return null;
-    if (!els19.promptEditor.contains(selection.anchorNode)) return null;
+    if (!selection || !selection.rangeCount || !selection.isCollapsed || !els20.promptEditor) return null;
+    if (!els20.promptEditor.contains(selection.anchorNode)) return null;
     const range = selection.getRangeAt(0);
     const isBackspace = key === "Backspace";
     const container = range.startContainer;
@@ -36462,10 +36862,10 @@ ${hint}` : hint;
     return null;
   }
   function promptChipFallbackForDeletion(key) {
-    if (!els19.promptEditor) return null;
-    const chips = Array.from(els19.promptEditor.querySelectorAll(".gallery-chip[data-gallery-id], .color-chip[data-color-code], .prompt-snippet-chip[data-prompt-snippet-tag]"));
+    if (!els20.promptEditor) return null;
+    const chips = Array.from(els20.promptEditor.querySelectorAll(".gallery-chip[data-gallery-id], .color-chip[data-color-code], .prompt-snippet-chip[data-prompt-snippet-tag]"));
     if (!chips.length) return null;
-    const textWithoutChips = Array.from(els19.promptEditor.childNodes).reduce((text, child) => {
+    const textWithoutChips = Array.from(els20.promptEditor.childNodes).reduce((text, child) => {
       if (child.nodeType === Node.ELEMENT_NODE && isPromptAtomicChip(child)) {
         return text;
       }
@@ -36479,7 +36879,7 @@ ${hint}` : hint;
   }
   function promptChipFromEvent(event) {
     const chip = event.target.closest?.(".gallery-chip, .color-chip, .prompt-snippet-chip");
-    if (!chip || !els19.promptEditor?.contains(chip)) return null;
+    if (!chip || !els20.promptEditor?.contains(chip)) return null;
     return chip;
   }
   function handlePromptChipDragStart(event) {
@@ -36488,13 +36888,13 @@ ${hint}` : hint;
       event.preventDefault();
       return;
     }
-    state15.draggedPromptChip = chip;
+    state16.draggedPromptChip = chip;
     chip.classList.add("prompt-chip-dragging");
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", promptTextFromNode2(chip));
   }
   function handlePromptChipDragOver(event) {
-    if (!state15.draggedPromptChip) return;
+    if (!state16.draggedPromptChip) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
     clearPromptChipDropClasses();
@@ -36506,20 +36906,20 @@ ${hint}` : hint;
     handlePromptChipDrop(event);
   }
   function handlePromptChipDrop(event) {
-    const chip = state15.draggedPromptChip;
-    if (!chip || !els19.promptEditor?.contains(chip)) return;
+    const chip = state16.draggedPromptChip;
+    if (!chip || !els20.promptEditor?.contains(chip)) return;
     event.preventDefault();
     clearPromptChipDropClasses();
     const targetChip = promptDropTargetChip(event);
     if (targetChip) {
       const insertBefore = promptDropPlacement(event, targetChip) === "before" ? targetChip : targetChip.nextSibling;
-      els19.promptEditor.insertBefore(chip, insertBefore);
+      els20.promptEditor.insertBefore(chip, insertBefore);
     } else {
       const range = promptRangeFromPoint(event.clientX, event.clientY);
-      if (range && els19.promptEditor.contains(range.startContainer)) {
+      if (range && els20.promptEditor.contains(range.startContainer)) {
         range.insertNode(chip);
       } else {
-        els19.promptEditor.append(chip);
+        els20.promptEditor.append(chip);
       }
     }
     const trailingBoundary = normalizePromptChipBoundaries(chip);
@@ -36527,13 +36927,13 @@ ${hint}` : hint;
     setCaretAfterNode5(trailingBoundary || chip);
   }
   function handlePromptChipDragEnd() {
-    state15.draggedPromptChip?.classList.remove("prompt-chip-dragging");
-    state15.draggedPromptChip = null;
+    state16.draggedPromptChip?.classList.remove("prompt-chip-dragging");
+    state16.draggedPromptChip = null;
     clearPromptChipDropClasses();
   }
   function promptDropTargetChip(event) {
     const chip = promptChipFromEvent(event);
-    if (!chip || chip === state15.draggedPromptChip) return null;
+    if (!chip || chip === state16.draggedPromptChip) return null;
     return chip;
   }
   function promptDropPlacement(event, chip) {
@@ -36544,7 +36944,7 @@ ${hint}` : hint;
     return position < size / 2 ? "before" : "after";
   }
   function clearPromptChipDropClasses() {
-    els19.promptEditor?.querySelectorAll(".prompt-chip-drop-before, .prompt-chip-drop-after").forEach((chip) => {
+    els20.promptEditor?.querySelectorAll(".prompt-chip-drop-before, .prompt-chip-drop-after").forEach((chip) => {
       chip.classList.remove("prompt-chip-drop-before", "prompt-chip-drop-after");
     });
   }
@@ -36563,7 +36963,7 @@ ${hint}` : hint;
     return null;
   }
   function normalizePromptChipBoundaries(chip) {
-    if (!chip || !els19.promptEditor?.contains(chip)) return null;
+    if (!chip || !els20.promptEditor?.contains(chip)) return null;
     ensurePromptChipLeadingBoundary(chip);
     return ensurePromptChipTrailingBoundary(chip);
   }
@@ -36573,7 +36973,7 @@ ${hint}` : hint;
     if (previousNode.nodeType === Node.TEXT_NODE && /[\s\u00a0]$/.test(previousNode.textContent || "")) {
       return null;
     }
-    els19.promptEditor.insertBefore(document.createTextNode(" "), chip);
+    els20.promptEditor.insertBefore(document.createTextNode(" "), chip);
     return chip.previousSibling;
   }
   function ensurePromptChipTrailingBoundary(chip) {
@@ -36585,7 +36985,7 @@ ${hint}` : hint;
     if (nextNode.nodeType === Node.TEXT_NODE && /^[\s\u00a0]/.test(nextNode.textContent || "")) {
       return null;
     }
-    els19.promptEditor.insertBefore(document.createTextNode(" "), nextNode);
+    els20.promptEditor.insertBefore(document.createTextNode(" "), nextNode);
     return chip.nextSibling;
   }
   function syncPromptAfterChipMutation4() {
@@ -36605,10 +37005,10 @@ ${hint}` : hint;
     return rects.length ? rects[0] : null;
   }
   function clearPromptEditorIfEmpty3() {
-    if (!els19.promptEditor) return;
-    const visibleText = promptTextFromNode2(els19.promptEditor).replace(/\u00a0/g, " ").trim();
+    if (!els20.promptEditor) return;
+    const visibleText = promptTextFromNode2(els20.promptEditor).replace(/\u00a0/g, " ").trim();
     if (!visibleText) {
-      els19.promptEditor.textContent = "";
+      els20.promptEditor.textContent = "";
     }
   }
   function setCaretToEnd2(element2) {
@@ -36634,10 +37034,10 @@ ${hint}` : hint;
     if (!selection) return;
     selection.removeAllRanges();
     selection.addRange(range);
-    els19.promptEditor?.focus();
+    els20.promptEditor?.focus();
   }
   function bindPromptEditorEvents() {
-    els19.promptEditor?.addEventListener("input", () => {
+    els20.promptEditor?.addEventListener("input", () => {
       syncPromptFromEditor5();
       updatePromptCount5();
       const galleryInputsChanged = syncGalleryInputsFromPrompt2();
@@ -36646,27 +37046,27 @@ ${hint}` : hint;
       updatePromptSnippetSuggest4();
       if (!galleryInputsChanged) updateRequestPreview9();
     });
-    els19.promptEditor?.addEventListener("keyup", (event) => {
+    els20.promptEditor?.addEventListener("keyup", (event) => {
       if (event.key === "Escape") return;
       updateMentionSuggest3();
       updateColorSuggest4();
       updatePromptSnippetSuggest4();
       updatePromptSnippetSelectionButton2();
     });
-    els19.promptEditor?.addEventListener("keydown", handlePromptEditorKeydown);
-    els19.promptEditor?.addEventListener("copy", handlePromptEditorCopy);
-    els19.promptEditor?.addEventListener("paste", handlePromptEditorPaste);
-    els19.promptEditor?.addEventListener("click", handlePromptEditorClick);
-    els19.promptEditor?.addEventListener("dragstart", handlePromptChipDragStart);
-    els19.promptEditor?.addEventListener("dragover", handlePromptChipDragOver);
-    els19.promptEditor?.addEventListener("drop", handlePromptChipDrop);
-    els19.promptEditor?.addEventListener("dragend", handlePromptChipDragEnd);
-    els19.promptEditor?.addEventListener("mouseup", updatePromptSnippetSelectionButton2);
-    els19.promptEditor?.addEventListener("blur", () => {
+    els20.promptEditor?.addEventListener("keydown", handlePromptEditorKeydown);
+    els20.promptEditor?.addEventListener("copy", handlePromptEditorCopy);
+    els20.promptEditor?.addEventListener("paste", handlePromptEditorPaste);
+    els20.promptEditor?.addEventListener("click", handlePromptEditorClick);
+    els20.promptEditor?.addEventListener("dragstart", handlePromptChipDragStart);
+    els20.promptEditor?.addEventListener("dragover", handlePromptChipDragOver);
+    els20.promptEditor?.addEventListener("drop", handlePromptChipDrop);
+    els20.promptEditor?.addEventListener("dragend", handlePromptChipDragEnd);
+    els20.promptEditor?.addEventListener("mouseup", updatePromptSnippetSelectionButton2);
+    els20.promptEditor?.addEventListener("blur", () => {
       window.setTimeout(() => {
         hideMentionSuggest3();
         hidePromptSnippetSuggest3();
-        if (!els19.colorSuggest?.contains(document.activeElement) && !promptEditorFocusInside()) hideColorSuggest4();
+        if (!els20.colorSuggest?.contains(document.activeElement) && !promptEditorFocusInside()) hideColorSuggest4();
       }, 160);
     });
     document.addEventListener("selectionchange", () => {
@@ -36712,8 +37112,8 @@ ${hint}` : hint;
   }
 
   // codex_image/webui/frontend/src/prompt-model.ts
-  var bridge19 = getLegacyBridge();
-  var els20 = bridge19.els;
+  var bridge20 = getLegacyBridge();
+  var els21 = bridge20.els;
   function legacyMethod24(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -36772,7 +37172,7 @@ ${galleryText}`;
     return currentPromptFidelity() === "original" ? expandPromptSnippets2(getPromptText8()) : buildPromptForModel();
   }
   function currentPromptFidelity() {
-    const value = els20.promptFidelity?.value || "strict";
+    const value = els21.promptFidelity?.value || "strict";
     return ["strict", "original", "off"].includes(value) ? value : "strict";
   }
   function initPromptModelFeature() {
@@ -36787,8 +37187,8 @@ ${galleryText}`;
   }
 
   // codex_image/webui/frontend/src/prompt.ts
-  var bridge20 = getLegacyBridge();
-  var els21 = bridge20.els;
+  var bridge21 = getLegacyBridge();
+  var els22 = bridge21.els;
   var promptFeatureInitialized = false;
   function legacyMethod25(name, ...args) {
     const method = getLegacyBridge().methods[name];
@@ -36805,9 +37205,9 @@ ${galleryText}`;
   }
   function handlePromptDocumentClick(event) {
     const target = event.target;
-    if (els21.colorSuggest && !els21.colorSuggest.classList.contains("hidden")) {
-      const clickedColorSuggest = els21.colorSuggest.contains(target);
-      const clickedPromptEditor = els21.promptEditor?.contains(target);
+    if (els22.colorSuggest && !els22.colorSuggest.classList.contains("hidden")) {
+      const clickedColorSuggest = els22.colorSuggest.contains(target);
+      const clickedPromptEditor = els22.promptEditor?.contains(target);
       if (!clickedColorSuggest && !clickedPromptEditor) {
         closePromptColorSuggest();
       }
@@ -36979,8 +37379,8 @@ ${galleryText}`;
   }
 
   // codex_image/webui/frontend/src/prompt-find-replace.ts
-  var bridge21 = getLegacyBridge();
-  var els22 = bridge21.els;
+  var bridge22 = getLegacyBridge();
+  var els23 = bridge22.els;
   var PROMPT_FIND_ELEMENT_NODE = 1;
   var PROMPT_FIND_TEXT_NODE = 3;
   var promptFindInitialized = false;
@@ -36999,16 +37399,16 @@ ${galleryText}`;
     legacyMethod26("updateRequestPreview");
   }
   function promptFindCell() {
-    return els22.promptFindPanel?.closest(".prompt-template-recent-cell") || null;
+    return els23.promptFindPanel?.closest(".prompt-template-recent-cell") || null;
   }
   function promptFindQuery() {
-    return String(els22.promptFindInput?.value || "");
+    return String(els23.promptFindInput?.value || "");
   }
   function promptFindReplacement() {
-    return String(els22.promptReplaceInput?.value || "");
+    return String(els23.promptReplaceInput?.value || "");
   }
   function isPromptFindOpen() {
-    return Boolean(els22.promptFindPanel && !els22.promptFindPanel.classList.contains("hidden"));
+    return Boolean(els23.promptFindPanel && !els23.promptFindPanel.classList.contains("hidden"));
   }
   function isNodeInsidePromptAtomicChip(node) {
     const element2 = node.nodeType === PROMPT_FIND_ELEMENT_NODE ? node : node.parentElement || (node.parentNode?.nodeType === PROMPT_FIND_ELEMENT_NODE ? node.parentNode : null);
@@ -37029,7 +37429,7 @@ ${galleryText}`;
     Array.from(node.childNodes || []).forEach((child) => collectPromptFindMatchesFromNode(child, needle, matches));
   }
   function collectPromptFindMatches(query = promptFindQuery()) {
-    const root = els22.promptEditor;
+    const root = els23.promptEditor;
     const needle = String(query || "");
     if (!root || !needle) return [];
     root.normalize();
@@ -37038,14 +37438,14 @@ ${galleryText}`;
     return matches;
   }
   function promptFindActionButtons() {
-    return Array.from(els22.promptFindPanel?.querySelectorAll("[data-prompt-find-action]") || []);
+    return Array.from(els23.promptFindPanel?.querySelectorAll("[data-prompt-find-action]") || []);
   }
   function setPromptFindStatus(message) {
-    if (els22.promptFindStatus) els22.promptFindStatus.textContent = message;
+    if (els23.promptFindStatus) els23.promptFindStatus.textContent = message;
   }
   function setPromptFindCount(count = promptFindMatches.length) {
-    if (els22.promptFindCount) {
-      els22.promptFindCount.textContent = formatTranslation("prompt.matchCount", { count });
+    if (els23.promptFindCount) {
+      els23.promptFindCount.textContent = formatTranslation("prompt.matchCount", { count });
     }
   }
   function updatePromptFindControls() {
@@ -37090,17 +37490,17 @@ ${galleryText}`;
     updatePromptFindControls();
   }
   function setPromptFindOpen(open) {
-    if (!els22.promptFindPanel) return;
-    els22.promptFindPanel.classList.toggle("hidden", !open);
+    if (!els23.promptFindPanel) return;
+    els23.promptFindPanel.classList.toggle("hidden", !open);
     promptFindCell()?.classList.toggle("find-active", open);
-    els22.promptFindButton?.setAttribute("aria-expanded", open ? "true" : "false");
+    els23.promptFindButton?.setAttribute("aria-expanded", open ? "true" : "false");
     if (open) {
       clearPromptFindResult();
-      els22.promptFindInput?.focus({ preventScroll: true });
+      els23.promptFindInput?.focus({ preventScroll: true });
       return;
     }
     clearPromptFindResult();
-    els22.promptFindButton?.focus({ preventScroll: true });
+    els23.promptFindButton?.focus({ preventScroll: true });
   }
   function handlePromptFindAction(action) {
     if (action === "count") {
@@ -37129,8 +37529,8 @@ ${galleryText}`;
       return;
     }
     const activeElement = document.activeElement;
-    const insidePromptEditor = Boolean(activeElement && els22.promptEditor?.contains(activeElement));
-    const insideFindPanel = Boolean(activeElement && els22.promptFindPanel?.contains(activeElement));
+    const insidePromptEditor = Boolean(activeElement && els23.promptEditor?.contains(activeElement));
+    const insideFindPanel = Boolean(activeElement && els23.promptFindPanel?.contains(activeElement));
     if (!insidePromptEditor && !insideFindPanel) return;
     event.preventDefault();
     setPromptFindOpen(true);
@@ -37138,26 +37538,26 @@ ${galleryText}`;
   function initPromptFindReplaceFeature() {
     if (promptFindInitialized) return;
     promptFindInitialized = true;
-    if (!els22.promptFindButton || !els22.promptFindPanel || !els22.promptFindInput) return;
-    els22.promptFindButton.addEventListener("click", () => setPromptFindOpen(!isPromptFindOpen()));
+    if (!els23.promptFindButton || !els23.promptFindPanel || !els23.promptFindInput) return;
+    els23.promptFindButton.addEventListener("click", () => setPromptFindOpen(!isPromptFindOpen()));
     bindPromptFindActionButtons();
-    els22.promptFindClose?.addEventListener("click", () => setPromptFindOpen(false));
-    els22.promptFindPanel.addEventListener("keydown", handlePromptFindKeydown);
-    els22.promptFindInput.addEventListener("input", () => {
+    els23.promptFindClose?.addEventListener("click", () => setPromptFindOpen(false));
+    els23.promptFindPanel.addEventListener("keydown", handlePromptFindKeydown);
+    els23.promptFindInput.addEventListener("input", () => {
       clearPromptFindResult();
     });
-    els22.promptReplaceInput?.addEventListener("input", () => {
+    els23.promptReplaceInput?.addEventListener("input", () => {
       setPromptFindStatus("");
       updatePromptFindControls();
     });
-    els22.clearPromptButton?.addEventListener("click", () => {
+    els23.clearPromptButton?.addEventListener("click", () => {
       if (isPromptFindOpen()) window.setTimeout(() => clearPromptFindResult(), 0);
     });
     document.addEventListener("keydown", handlePromptFindShortcut);
   }
 
   // codex_image/webui/frontend/src/output-controls.ts
-  var { els: els23 } = getLegacyBridge();
+  var { els: els24 } = getLegacyBridge();
   function legacyMethod27(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -37177,38 +37577,38 @@ ${galleryText}`;
     input.style.setProperty("--range-progress", `${Math.max(0, Math.min(100, progress))}%`);
   }
   function currentQuantity() {
-    const value = Number.parseInt(els23.nInput?.value || "1", 10);
+    const value = Number.parseInt(els24.nInput?.value || "1", 10);
     if (Number.isNaN(value)) return 1;
     return Math.min(4, Math.max(1, value));
   }
   function updateQuantity() {
-    if (!els23.nInput) return;
-    els23.nInput.value = String(currentQuantity());
-    if (els23.nValue) {
-      els23.nValue.textContent = els23.nInput.value;
+    if (!els24.nInput) return;
+    els24.nInput.value = String(currentQuantity());
+    if (els24.nValue) {
+      els24.nValue.textContent = els24.nInput.value;
     }
-    if (els23.nInput.matches?.('input[type="range"]')) {
-      updateRangeProgress(els23.nInput);
+    if (els24.nInput.matches?.('input[type="range"]')) {
+      updateRangeProgress(els24.nInput);
     }
   }
   function updateCompression() {
-    const compressionEnabled = els23.outputFormat.value !== "png";
-    els23.compression.disabled = !compressionEnabled;
+    const compressionEnabled = els24.outputFormat.value !== "png";
+    els24.compression.disabled = !compressionEnabled;
     if (!compressionEnabled) {
       closeCompressionPopover();
     }
-    els23.compressionValue.textContent = `${els23.compression.value}%`;
-    updateRangeProgress(els23.compression);
+    els24.compressionValue.textContent = `${els24.compression.value}%`;
+    updateRangeProgress(els24.compression);
   }
   function openCompressionPopover() {
-    if (!els23.compressionPopover || els23.outputFormat.value === "png") return;
-    els23.compressionPopover.classList.remove("hidden");
-    els23.compressionPopover.setAttribute("aria-hidden", "false");
+    if (!els24.compressionPopover || els24.outputFormat.value === "png") return;
+    els24.compressionPopover.classList.remove("hidden");
+    els24.compressionPopover.setAttribute("aria-hidden", "false");
   }
   function closeCompressionPopover() {
-    if (!els23.compressionPopover) return;
-    els23.compressionPopover.classList.add("hidden");
-    els23.compressionPopover.setAttribute("aria-hidden", "true");
+    if (!els24.compressionPopover) return;
+    els24.compressionPopover.classList.add("hidden");
+    els24.compressionPopover.setAttribute("aria-hidden", "true");
   }
   function handleOutputFormatDoubleClick(event) {
     const button = event.target.closest("[data-val]");
@@ -37221,8 +37621,8 @@ ${galleryText}`;
     });
   }
   function updateRequestPreview10() {
-    if (!els23.requestJson) return;
-    els23.requestJson.textContent = JSON.stringify(buildPreviewRequest(), null, 2);
+    if (!els24.requestJson) return;
+    els24.requestJson.textContent = JSON.stringify(buildPreviewRequest(), null, 2);
   }
 
   // codex_image/webui/frontend/src/main-model-combobox.ts
@@ -37239,9 +37639,9 @@ ${galleryText}`;
   ];
   var RETIRED_MAIN_MODEL_OPTIONS = /* @__PURE__ */ new Set(["gpt-5.3-codex-spark"]);
   var MAIN_MODEL_STORAGE_KEY = "codex-image-main-model";
-  var bridge22 = getLegacyBridge();
-  var state16 = bridge22.state;
-  var els24 = bridge22.els;
+  var bridge23 = getLegacyBridge();
+  var state17 = bridge23.state;
+  var els25 = bridge23.els;
   function legacyMethod28(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -37258,39 +37658,39 @@ ${galleryText}`;
     return MAIN_MODEL_OPTIONS.filter((model) => model.toLowerCase().includes(normalized));
   }
   function openMainModelCombobox({ showAll = false } = {}) {
-    if (!els24.mainModel || !els24.mainModelOptions || !els24.mainModelCombobox) return;
+    if (!els25.mainModel || !els25.mainModelOptions || !els25.mainModelCombobox) return;
     if (showAll) {
-      state16.mainModelShowAllOptions = true;
+      state17.mainModelShowAllOptions = true;
       const selectedIndex = MAIN_MODEL_OPTIONS.indexOf(currentMainModel());
-      state16.mainModelOptionIndex = selectedIndex >= 0 ? selectedIndex : 0;
+      state17.mainModelOptionIndex = selectedIndex >= 0 ? selectedIndex : 0;
     }
-    state16.mainModelComboboxOpen = true;
+    state17.mainModelComboboxOpen = true;
     renderMainModelOptions();
-    els24.mainModelOptions.classList.remove("hidden");
-    els24.mainModelCombobox.setAttribute("aria-expanded", "true");
-    els24.mainModel.setAttribute("aria-expanded", "true");
+    els25.mainModelOptions.classList.remove("hidden");
+    els25.mainModelCombobox.setAttribute("aria-expanded", "true");
+    els25.mainModel.setAttribute("aria-expanded", "true");
   }
   function closeMainModelCombobox() {
-    state16.mainModelComboboxOpen = false;
-    state16.mainModelOptionIndex = 0;
-    state16.mainModelShowAllOptions = false;
-    els24.mainModelOptions?.classList.add("hidden");
-    els24.mainModelCombobox?.setAttribute("aria-expanded", "false");
-    els24.mainModel?.setAttribute("aria-expanded", "false");
-    els24.mainModel?.removeAttribute("aria-activedescendant");
+    state17.mainModelComboboxOpen = false;
+    state17.mainModelOptionIndex = 0;
+    state17.mainModelShowAllOptions = false;
+    els25.mainModelOptions?.classList.add("hidden");
+    els25.mainModelCombobox?.setAttribute("aria-expanded", "false");
+    els25.mainModel?.setAttribute("aria-expanded", "false");
+    els25.mainModel?.removeAttribute("aria-activedescendant");
   }
   function renderMainModelOptions() {
-    if (!els24.mainModel || !els24.mainModelOptions) return;
-    const query = state16.mainModelShowAllOptions ? "" : els24.mainModel.value;
+    if (!els25.mainModel || !els25.mainModelOptions) return;
+    const query = state17.mainModelShowAllOptions ? "" : els25.mainModel.value;
     const options = mainModelOptionsForQuery(query);
-    state16.mainModelOptionIndex = Math.min(Math.max(0, state16.mainModelOptionIndex), Math.max(0, options.length - 1));
+    state17.mainModelOptionIndex = Math.min(Math.max(0, state17.mainModelOptionIndex), Math.max(0, options.length - 1));
     if (!options.length) {
-      els24.mainModelOptions.innerHTML = `<div class="model-combobox-empty" role="option" aria-disabled="true">${escapeHtml13(translate("output.mainModelCustomForInput"))}</div>`;
-      els24.mainModel.removeAttribute("aria-activedescendant");
+      els25.mainModelOptions.innerHTML = `<div class="model-combobox-empty" role="option" aria-disabled="true">${escapeHtml13(translate("output.mainModelCustomForInput"))}</div>`;
+      els25.mainModel.removeAttribute("aria-activedescendant");
       return;
     }
-    els24.mainModelOptions.innerHTML = options.map((model, index) => {
-      const active = index === state16.mainModelOptionIndex;
+    els25.mainModelOptions.innerHTML = options.map((model, index) => {
+      const active = index === state17.mainModelOptionIndex;
       const selected = model === currentMainModel();
       return `
       <button
@@ -37303,55 +37703,55 @@ ${galleryText}`;
       >${escapeHtml13(model)}</button>
     `;
     }).join("");
-    els24.mainModel.setAttribute("aria-activedescendant", `mainModelOption-${state16.mainModelOptionIndex}`);
-    els24.mainModelOptions.querySelectorAll("[data-main-model-option]").forEach((button) => {
+    els25.mainModel.setAttribute("aria-activedescendant", `mainModelOption-${state17.mainModelOptionIndex}`);
+    els25.mainModelOptions.querySelectorAll("[data-main-model-option]").forEach((button) => {
       button.addEventListener("mousedown", (event) => event.preventDefault());
       button.addEventListener("click", () => selectMainModelOption(button.dataset.mainModelOption));
     });
   }
   function selectMainModelOption(model) {
-    if (!els24.mainModel || !model) return;
-    els24.mainModel.value = model;
+    if (!els25.mainModel || !model) return;
+    els25.mainModel.value = model;
     persistMainModel();
     updateRequestPreview10();
     closeMainModelCombobox();
-    els24.mainModel.focus();
+    els25.mainModel.focus();
   }
   function handleMainModelKeydown(event) {
-    if (!els24.mainModelOptions) return;
-    const options = mainModelOptionsForQuery(els24.mainModel?.value || "");
+    if (!els25.mainModelOptions) return;
+    const options = mainModelOptionsForQuery(els25.mainModel?.value || "");
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      if (!state16.mainModelComboboxOpen) {
-        state16.mainModelShowAllOptions = true;
-        state16.mainModelOptionIndex = 0;
+      if (!state17.mainModelComboboxOpen) {
+        state17.mainModelShowAllOptions = true;
+        state17.mainModelOptionIndex = 0;
         openMainModelCombobox();
         return;
       }
-      if (options.length) state16.mainModelOptionIndex = (state16.mainModelOptionIndex + 1) % options.length;
+      if (options.length) state17.mainModelOptionIndex = (state17.mainModelOptionIndex + 1) % options.length;
       renderMainModelOptions();
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      if (!state16.mainModelComboboxOpen) {
-        state16.mainModelShowAllOptions = true;
-        state16.mainModelOptionIndex = Math.max(0, MAIN_MODEL_OPTIONS.length - 1);
+      if (!state17.mainModelComboboxOpen) {
+        state17.mainModelShowAllOptions = true;
+        state17.mainModelOptionIndex = Math.max(0, MAIN_MODEL_OPTIONS.length - 1);
         openMainModelCombobox();
         return;
       }
-      if (options.length) state16.mainModelOptionIndex = (state16.mainModelOptionIndex - 1 + options.length) % options.length;
+      if (options.length) state17.mainModelOptionIndex = (state17.mainModelOptionIndex - 1 + options.length) % options.length;
       renderMainModelOptions();
-    } else if (event.key === "Enter" && state16.mainModelComboboxOpen && options.length) {
+    } else if (event.key === "Enter" && state17.mainModelComboboxOpen && options.length) {
       event.preventDefault();
-      selectMainModelOption(options[state16.mainModelOptionIndex]);
+      selectMainModelOption(options[state17.mainModelOptionIndex]);
     } else if (event.key === "Escape") {
       closeMainModelCombobox();
     }
   }
   function currentMainModel() {
-    return (els24.mainModel?.value || DEFAULT_MAIN_MODEL).trim() || DEFAULT_MAIN_MODEL;
+    return (els25.mainModel?.value || DEFAULT_MAIN_MODEL).trim() || DEFAULT_MAIN_MODEL;
   }
   function restoreMainModel() {
-    if (!els24.mainModel) return;
+    if (!els25.mainModel) return;
     try {
       const saved = localStorage.getItem(MAIN_MODEL_STORAGE_KEY);
       let model = (saved || DEFAULT_MAIN_MODEL).trim() || DEFAULT_MAIN_MODEL;
@@ -37359,14 +37759,14 @@ ${galleryText}`;
         model = DEFAULT_MAIN_MODEL;
         localStorage.setItem(MAIN_MODEL_STORAGE_KEY, model);
       }
-      els24.mainModel.value = model;
+      els25.mainModel.value = model;
     } catch {
-      els24.mainModel.value = DEFAULT_MAIN_MODEL;
+      els25.mainModel.value = DEFAULT_MAIN_MODEL;
     }
     renderMainModelOptions();
   }
   function persistMainModel() {
-    if (!els24.mainModel) return;
+    if (!els25.mainModel) return;
     try {
       localStorage.setItem(MAIN_MODEL_STORAGE_KEY, currentMainModel());
     } catch {
@@ -37452,7 +37852,7 @@ ${galleryText}`;
   var GPT_IMAGE_2_MIN_PIXELS = 655360;
   var GPT_IMAGE_2_MAX_PIXELS = 8294400;
   var GPT_IMAGE_2_MAX_LONG_SHORT_RATIO = 3;
-  var { els: els25 } = getLegacyBridge();
+  var { els: els26 } = getLegacyBridge();
   function legacyMethod29(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -37464,8 +37864,8 @@ ${galleryText}`;
     return legacyMethod29("currentPromptFidelity");
   }
   function currentCustomRatio() {
-    const width = String(els25.customRatioWidth?.value || "").trim();
-    const height = String(els25.customRatioHeight?.value || "").trim();
+    const width = String(els26.customRatioWidth?.value || "").trim();
+    const height = String(els26.customRatioHeight?.value || "").trim();
     if (!/^[1-9]$/.test(width) || !/^[1-9]$/.test(height)) {
       return "";
     }
@@ -37497,7 +37897,7 @@ ${galleryText}`;
   function customDimensionValue(input) {
     return normalizeCustomDimension(input?.value);
   }
-  function customSizeValidationMessage(width = customDimensionValue(els25.customWidth), height = customDimensionValue(els25.customHeight)) {
+  function customSizeValidationMessage(width = customDimensionValue(els26.customWidth), height = customDimensionValue(els26.customHeight)) {
     if (width === null || height === null) return translate("output.customSizeRequired");
     if (width < 16 || width > 3840 || height < 16 || height > 3840) return translate("output.customSizeBounds");
     if (width % 16 !== 0 || height % 16 !== 0) return translate("output.customSizeMultiple");
@@ -37516,12 +37916,15 @@ ${galleryText}`;
     }
     return null;
   }
-  function currentSize() {
-    if (els25.size.value !== "custom") return els25.size.value;
-    return `${els25.customWidth.value}x${els25.customHeight.value}`;
+  function currentSize2() {
+    if (els26.size.value !== "custom") return els26.size.value;
+    return `${els26.customWidth.value}x${els26.customHeight.value}`;
   }
   function currentImageToolModel() {
-    return currentAuthSource2() === "api" ? currentApiImageModel() : els25.model.value;
+    if (currentAuthSource2() === "api") {
+      return currentGenerationModel()?.model_id || currentApiImageModel();
+    }
+    return els26.model.value;
   }
   function webSearchSupportedForCurrentBackend() {
     const authSource = currentAuthSource2();
@@ -37530,19 +37933,19 @@ ${galleryText}`;
     return true;
   }
   function currentWebSearchEnabled() {
-    return Boolean(els25.webSearch?.checked && webSearchSupportedForCurrentBackend());
+    return Boolean(els26.webSearch?.checked && webSearchSupportedForCurrentBackend());
   }
   function currentTaskParams() {
     const params = {
       main_model: currentMainModel(),
       model: currentImageToolModel(),
-      size: currentSize(),
+      size: currentSize2(),
       n: currentQuantity(),
       prompt_fidelity: currentPromptFidelity3(),
-      quality: els25.quality.value,
-      output_format: els25.outputFormat.value,
-      moderation: els25.moderation.value,
-      output_compression: els25.outputFormat.value === "png" ? null : Number(els25.compression.value)
+      quality: els26.quality.value,
+      output_format: els26.outputFormat.value,
+      moderation: els26.moderation.value,
+      output_compression: els26.outputFormat.value === "png" ? null : Number(els26.compression.value)
     };
     if (currentWebSearchEnabled()) {
       params.web_search = true;
@@ -37575,9 +37978,9 @@ ${galleryText}`;
   // codex_image/webui/frontend/src/custom-size-controls.ts
   var CUSTOM_SIZE_TRANSITION_MS = 220;
   var CUSTOM_SIZE_HEIGHT_SNAP_TOLERANCE = 4;
-  var bridge23 = getLegacyBridge();
-  var state17 = bridge23.state;
-  var els26 = bridge23.els;
+  var bridge24 = getLegacyBridge();
+  var state18 = bridge24.state;
+  var els27 = bridge24.els;
   var customSizeTransitionTimers = /* @__PURE__ */ new WeakMap();
   function measuredElementHeight2(element2) {
     if (!element2) return 0;
@@ -37585,19 +37988,19 @@ ${galleryText}`;
   }
   function handleSizeModeEvent(event) {
     const button = event.target.closest?.("[data-custom-size-mode]");
-    if (!button || !els26.sizeModeGroup?.contains(button)) return;
+    if (!button || !els27.sizeModeGroup?.contains(button)) return;
     setCustomSizeMode(button.dataset.customSizeMode === "custom");
   }
   function setCustomSizeMode(isCustom) {
-    if (els26.customSizeToggle) els26.customSizeToggle.checked = Boolean(isCustom);
+    if (els27.customSizeToggle) els27.customSizeToggle.checked = Boolean(isCustom);
     updateSizeFromPreset();
   }
   function swapCustomSizeDimensions(event) {
     event?.preventDefault?.();
-    if (!els26.customWidth || !els26.customHeight) return;
-    const width = els26.customWidth.value;
-    els26.customWidth.value = els26.customHeight.value;
-    els26.customHeight.value = width;
+    if (!els27.customWidth || !els27.customHeight) return;
+    const width = els27.customWidth.value;
+    els27.customWidth.value = els27.customHeight.value;
+    els27.customHeight.value = width;
     if (typeof swapCustomRatioDigits === "function") swapCustomRatioDigits();
     updateCustomSize();
     updatePixelPreview("custom");
@@ -37614,8 +38017,8 @@ ${galleryText}`;
     return digit ? Number(digit) : null;
   }
   function customAspectRatioFromManualInputs() {
-    const widthRatio = customRatioDigitValue(els26.customRatioWidth);
-    const heightRatio = customRatioDigitValue(els26.customRatioHeight);
+    const widthRatio = customRatioDigitValue(els27.customRatioWidth);
+    const heightRatio = customRatioDigitValue(els27.customRatioHeight);
     if (!widthRatio || !heightRatio) return null;
     return widthRatio / heightRatio;
   }
@@ -37625,22 +38028,22 @@ ${galleryText}`;
     return String(boundedValue);
   }
   function updateCustomRatioFieldState() {
-    const locked2 = Boolean(state17.customAspectRatioLocked);
-    els26.customRatioField?.classList.toggle("active", locked2);
+    const locked2 = Boolean(state18.customAspectRatioLocked);
+    els27.customRatioField?.classList.toggle("active", locked2);
   }
   function setCustomAspectRatioFromManualInputs() {
     const ratio = customAspectRatioFromManualInputs();
-    state17.customAspectRatioLocked = Boolean(ratio);
-    state17.customAspectRatioValue = ratio;
-    state17.customAspectRatioSource = "manual";
+    state18.customAspectRatioLocked = Boolean(ratio);
+    state18.customAspectRatioValue = ratio;
+    state18.customAspectRatioSource = "manual";
     updateCustomRatioFieldState();
   }
   function applyCustomAspectRatioFromWidth() {
-    if (!state17.customAspectRatioLocked || !state17.customAspectRatioValue) return;
-    if (!els26.customWidth || !els26.customHeight) return;
-    const width = customDimensionValue(els26.customWidth);
+    if (!state18.customAspectRatioLocked || !state18.customAspectRatioValue) return;
+    if (!els27.customWidth || !els27.customHeight) return;
+    const width = customDimensionValue(els27.customWidth);
     if (!width) return;
-    els26.customHeight.value = normalizeAspectDimension(width / state17.customAspectRatioValue);
+    els27.customHeight.value = normalizeAspectDimension(width / state18.customAspectRatioValue);
   }
   function handleCustomRatioInput(input) {
     sanitizeCustomRatioInput(input);
@@ -37681,13 +38084,13 @@ ${galleryText}`;
     return { width: best.width, height: best.height };
   }
   function firstReferenceImageSource() {
-    return (Array.isArray(state17.images) ? state17.images : []).find((source) => source && !source.missing && Boolean(sourceUrlForAspectRatio(source)));
+    return (Array.isArray(state18.images) ? state18.images : []).find((source) => source && !source.missing && Boolean(sourceUrlForAspectRatio(source)));
   }
   function updateCustomRatioReferenceButtonState() {
-    if (!els26.customRatioFromImageButton) return;
+    if (!els27.customRatioFromImageButton) return;
     const enabled = Boolean(firstReferenceImageSource());
-    els26.customRatioFromImageButton.disabled = !enabled;
-    els26.customRatioFromImageButton.setAttribute("aria-disabled", enabled ? "false" : "true");
+    els27.customRatioFromImageButton.disabled = !enabled;
+    els27.customRatioFromImageButton.setAttribute("aria-disabled", enabled ? "false" : "true");
   }
   function sourceUrlForAspectRatio(source) {
     if (!source || source.missing) return "";
@@ -37711,14 +38114,14 @@ ${galleryText}`;
     });
   }
   function applyCustomAspectRatioDigits(widthRatio, heightRatio) {
-    if (!els26.customRatioWidth || !els26.customRatioHeight) return;
-    els26.customRatioWidth.value = String(widthRatio || "");
-    els26.customRatioHeight.value = String(heightRatio || "");
+    if (!els27.customRatioWidth || !els27.customRatioHeight) return;
+    els27.customRatioWidth.value = String(widthRatio || "");
+    els27.customRatioHeight.value = String(heightRatio || "");
     setCustomAspectRatioFromManualInputs();
     applyCustomAspectRatioFromWidth();
     const numericWidthRatio = Number(widthRatio);
     const numericHeightRatio = Number(heightRatio);
-    if (Number.isFinite(numericWidthRatio) && Number.isFinite(numericHeightRatio) && numericWidthRatio > 0 && numericHeightRatio > 0 && Math.max(numericWidthRatio, numericHeightRatio) / Math.min(numericWidthRatio, numericHeightRatio) <= GPT_IMAGE_2_MAX_LONG_SHORT_RATIO && els26.customWidth && els26.customHeight) {
+    if (Number.isFinite(numericWidthRatio) && Number.isFinite(numericHeightRatio) && numericWidthRatio > 0 && numericHeightRatio > 0 && Math.max(numericWidthRatio, numericHeightRatio) / Math.min(numericWidthRatio, numericHeightRatio) <= GPT_IMAGE_2_MAX_LONG_SHORT_RATIO && els27.customWidth && els27.customHeight) {
       const baseWidth = numericWidthRatio * 16;
       const baseHeight = numericHeightRatio * 16;
       const basePixels = baseWidth * baseHeight;
@@ -37727,11 +38130,11 @@ ${galleryText}`;
       const maxUnitByBounds = Math.floor(Math.min(3840 / baseWidth, 3840 / baseHeight));
       const maxUnit = Math.min(maxUnitByPixels, maxUnitByBounds);
       if (maxUnit >= minUnitByPixels) {
-        const currentWidth = customDimensionValue(els26.customWidth);
+        const currentWidth = customDimensionValue(els27.customWidth);
         const preferredUnit = Math.max(1, Math.round((currentWidth || baseWidth * minUnitByPixels) / baseWidth));
         const unit = Math.min(maxUnit, Math.max(minUnitByPixels, preferredUnit));
-        els26.customWidth.value = String(baseWidth * unit);
-        els26.customHeight.value = String(baseHeight * unit);
+        els27.customWidth.value = String(baseWidth * unit);
+        els27.customHeight.value = String(baseHeight * unit);
       }
     }
     updateCustomSize();
@@ -37753,33 +38156,33 @@ ${galleryText}`;
     });
   }
   function handleCustomDimensionInput(input) {
-    if (!state17.customAspectRatioLocked || !state17.customAspectRatioValue) return;
-    if (!els26.customWidth || !els26.customHeight) return;
+    if (!state18.customAspectRatioLocked || !state18.customAspectRatioValue) return;
+    if (!els27.customWidth || !els27.customHeight) return;
     const value = customDimensionValue(input);
     if (!value) return;
-    if (input === els26.customWidth) {
-      els26.customHeight.value = normalizeAspectDimension(value / state17.customAspectRatioValue);
+    if (input === els27.customWidth) {
+      els27.customHeight.value = normalizeAspectDimension(value / state18.customAspectRatioValue);
       return;
     }
-    if (input === els26.customHeight) {
-      els26.customWidth.value = normalizeAspectDimension(value * state17.customAspectRatioValue);
+    if (input === els27.customHeight) {
+      els27.customWidth.value = normalizeAspectDimension(value * state18.customAspectRatioValue);
     }
   }
   function swapCustomRatioDigits() {
-    if (!els26.customRatioWidth || !els26.customRatioHeight) return;
-    const widthRatio = els26.customRatioWidth.value;
-    els26.customRatioWidth.value = els26.customRatioHeight.value;
-    els26.customRatioHeight.value = widthRatio;
+    if (!els27.customRatioWidth || !els27.customRatioHeight) return;
+    const widthRatio = els27.customRatioWidth.value;
+    els27.customRatioWidth.value = els27.customRatioHeight.value;
+    els27.customRatioHeight.value = widthRatio;
     setCustomAspectRatioFromManualInputs();
   }
   function updateSizeFromPreset(event = null) {
     const changedControl = sizeControlName(event?.target);
     syncRatioAndOrientation(changedControl);
-    if (els26.customSizeToggle?.checked) {
-      if (els26.size?.value !== "custom") {
+    if (els27.customSizeToggle?.checked) {
+      if (els27.size?.value !== "custom") {
         populateCustomSizeFromCurrentPreset();
       }
-      els26.size.value = "custom";
+      els27.size.value = "custom";
       if (typeof setCustomAspectRatioFromManualInputs === "function") setCustomAspectRatioFromManualInputs();
       if (typeof applyCustomAspectRatioFromWidth === "function") applyCustomAspectRatioFromWidth();
       updateCustomSize();
@@ -37787,35 +38190,35 @@ ${galleryText}`;
       updateRequestPreview10();
       return;
     }
-    const size = sizeForPreset(els26.resolution?.value, els26.ratio?.value);
-    els26.size.value = size;
+    const size = sizeForPreset(els27.resolution?.value, els27.ratio?.value);
+    els27.size.value = size;
     updatePixelPreview(size);
     updateCustomSize();
     updateRequestPreview10();
   }
   function populateCustomSizeFromCurrentPreset() {
-    if (!els26.customWidth || !els26.customHeight) return;
-    const [width, height] = sizeForPreset(els26.resolution?.value, els26.ratio?.value).split("x");
+    if (!els27.customWidth || !els27.customHeight) return;
+    const [width, height] = sizeForPreset(els27.resolution?.value, els27.ratio?.value).split("x");
     if (!width || !height) return;
-    els26.customWidth.value = width;
-    els26.customHeight.value = height;
+    els27.customWidth.value = width;
+    els27.customHeight.value = height;
   }
   function sizeControlName(target) {
-    if (target === els26.resolution) return "resolution";
-    if (target === els26.ratio) return "ratio";
-    if (target === els26.orientation) return "orientation";
+    if (target === els27.resolution) return "resolution";
+    if (target === els27.ratio) return "ratio";
+    if (target === els27.orientation) return "orientation";
     return null;
   }
   function syncRatioAndOrientation(changedControl) {
-    if (!els26.resolution || !els26.ratio || !els26.orientation) return;
-    if (!GPT_IMAGE_2_SIZE_PRESETS[els26.resolution.value]) {
-      setSizeControlValue(els26.resolution, DEFAULT_RESOLUTION);
+    if (!els27.resolution || !els27.ratio || !els27.orientation) return;
+    if (!GPT_IMAGE_2_SIZE_PRESETS[els27.resolution.value]) {
+      setSizeControlValue(els27.resolution, DEFAULT_RESOLUTION);
     }
-    if (!RATIO_ORIENTATION[els26.ratio.value]) {
-      setSizeControlValue(els26.ratio, DEFAULT_RATIO);
+    if (!RATIO_ORIENTATION[els27.ratio.value]) {
+      setSizeControlValue(els27.ratio, DEFAULT_RATIO);
     }
-    if (!ORIENTATION_DEFAULT_RATIOS[els26.orientation.value]) {
-      setSizeControlValue(els26.orientation, RATIO_ORIENTATION[els26.ratio.value] || DEFAULT_ORIENTATION);
+    if (!ORIENTATION_DEFAULT_RATIOS[els27.orientation.value]) {
+      setSizeControlValue(els27.orientation, RATIO_ORIENTATION[els27.ratio.value] || DEFAULT_ORIENTATION);
     }
     if (changedControl === "orientation") {
       syncRatioFromOrientation();
@@ -37824,22 +38227,22 @@ ${galleryText}`;
     syncOrientationFromRatio();
   }
   function syncOrientationFromRatio() {
-    const nextOrientation = RATIO_ORIENTATION[els26.ratio.value] || DEFAULT_ORIENTATION;
-    setSizeControlValue(els26.orientation, nextOrientation);
+    const nextOrientation = RATIO_ORIENTATION[els27.ratio.value] || DEFAULT_ORIENTATION;
+    setSizeControlValue(els27.orientation, nextOrientation);
   }
   function syncRatioFromOrientation() {
-    const orientation = els26.orientation.value;
+    const orientation = els27.orientation.value;
     if (orientation === "square") {
-      setSizeControlValue(els26.ratio, DEFAULT_RATIO);
+      setSizeControlValue(els27.ratio, DEFAULT_RATIO);
       return;
     }
-    if (RATIO_ORIENTATION[els26.ratio.value] === orientation) return;
-    const counterpart = RATIO_COUNTERPARTS[els26.ratio.value];
+    if (RATIO_ORIENTATION[els27.ratio.value] === orientation) return;
+    const counterpart = RATIO_COUNTERPARTS[els27.ratio.value];
     if (counterpart && RATIO_ORIENTATION[counterpart] === orientation) {
-      setSizeControlValue(els26.ratio, counterpart);
+      setSizeControlValue(els27.ratio, counterpart);
       return;
     }
-    setSizeControlValue(els26.ratio, ORIENTATION_DEFAULT_RATIOS[orientation] || DEFAULT_RATIO);
+    setSizeControlValue(els27.ratio, ORIENTATION_DEFAULT_RATIOS[orientation] || DEFAULT_RATIO);
   }
   function setSizeControlValue(select, value) {
     if (!select || select.value === value) return false;
@@ -37848,66 +38251,66 @@ ${galleryText}`;
     return true;
   }
   function updatePixelPreview(size) {
-    if (!els26.pixelPreview) return;
+    if (!els27.pixelPreview) return;
     if (size === "auto") {
-      els26.pixelPreview.textContent = formatTranslation("output.pixelPreviewAuto");
+      els27.pixelPreview.textContent = formatTranslation("output.pixelPreviewAuto");
       return;
     }
     if (size === "custom") {
       const message = customSizeValidationMessage();
       if (message) {
-        els26.pixelPreview.textContent = formatTranslation("output.pixelPreviewValue", { value: message });
+        els27.pixelPreview.textContent = formatTranslation("output.pixelPreviewValue", { value: message });
         return;
       }
-      els26.pixelPreview.textContent = formatTranslation("output.pixelPreviewValue", {
-        value: `${customDimensionValue(els26.customWidth)} x ${customDimensionValue(els26.customHeight)} px`
+      els27.pixelPreview.textContent = formatTranslation("output.pixelPreviewValue", {
+        value: `${customDimensionValue(els27.customWidth)} x ${customDimensionValue(els27.customHeight)} px`
       });
       return;
     }
     const [width, height] = String(size).split("x");
-    els26.pixelPreview.textContent = formatTranslation("output.pixelPreviewValue", { value: `${width} x ${height} px` });
+    els27.pixelPreview.textContent = formatTranslation("output.pixelPreviewValue", { value: `${width} x ${height} px` });
   }
-  document.addEventListener(LOCALE_CHANGE_EVENT, () => updatePixelPreview(els26.size?.value || ""));
+  document.addEventListener(LOCALE_CHANGE_EVENT, () => updatePixelPreview(els27.size?.value || ""));
   function syncSizeControlsFromSize(size) {
     if (!size || size === "auto") {
-      if (els26.customSizeToggle) els26.customSizeToggle.checked = false;
-      if (els26.resolution) els26.resolution.value = DEFAULT_RESOLUTION;
-      if (els26.ratio) els26.ratio.value = DEFAULT_RATIO;
-      if (els26.orientation) els26.orientation.value = DEFAULT_ORIENTATION;
+      if (els27.customSizeToggle) els27.customSizeToggle.checked = false;
+      if (els27.resolution) els27.resolution.value = DEFAULT_RESOLUTION;
+      if (els27.ratio) els27.ratio.value = DEFAULT_RATIO;
+      if (els27.orientation) els27.orientation.value = DEFAULT_ORIENTATION;
       updateSizeFromPreset();
-      syncRadioButtons(els26.resolution, els26.ratio, els26.orientation);
+      syncRadioButtons(els27.resolution, els27.ratio, els27.orientation);
       return;
     }
     const presetMatch = findPresetForSize(size);
     if (presetMatch) {
-      if (els26.customSizeToggle) els26.customSizeToggle.checked = false;
-      els26.resolution.value = presetMatch.resolution;
-      els26.ratio.value = presetMatch.ratio;
-      els26.orientation.value = presetMatch.orientation;
+      if (els27.customSizeToggle) els27.customSizeToggle.checked = false;
+      els27.resolution.value = presetMatch.resolution;
+      els27.ratio.value = presetMatch.ratio;
+      els27.orientation.value = presetMatch.orientation;
       updateSizeFromPreset();
-      syncRadioButtons(els26.resolution, els26.ratio, els26.orientation);
+      syncRadioButtons(els27.resolution, els27.ratio, els27.orientation);
       return;
     }
     const [width, height] = String(size).split("x");
     if (width && height) {
-      if (els26.customSizeToggle) els26.customSizeToggle.checked = true;
-      els26.size.value = "custom";
-      els26.customWidth.value = width;
-      els26.customHeight.value = height;
+      if (els27.customSizeToggle) els27.customSizeToggle.checked = true;
+      els27.size.value = "custom";
+      els27.customWidth.value = width;
+      els27.customHeight.value = height;
       updatePixelPreview("custom");
       updateCustomSize();
       updateRequestPreview10();
     }
   }
   function setCustomSizeModeLayout(isCustom) {
-    els26.customSize?.classList.toggle("hidden", !isCustom);
-    els26.customSize?.classList.toggle("custom-size-collapsed", !isCustom);
-    els26.customSize?.setAttribute("aria-hidden", isCustom ? "false" : "true");
-    els26.settingsGrid?.classList.toggle("custom-size-mode", isCustom);
+    els27.customSize?.classList.toggle("hidden", !isCustom);
+    els27.customSize?.classList.toggle("custom-size-collapsed", !isCustom);
+    els27.customSize?.setAttribute("aria-hidden", isCustom ? "false" : "true");
+    els27.settingsGrid?.classList.toggle("custom-size-mode", isCustom);
   }
   function measureCustomSizeModeHeight(isCustom) {
-    const grid = els26.settingsGrid;
-    const customSize = els26.customSize;
+    const grid = els27.settingsGrid;
+    const customSize = els27.customSize;
     if (!grid) return 0;
     const originalHeight = grid.style.height;
     const originalGridTransition = grid.style.transition;
@@ -37937,30 +38340,30 @@ ${galleryText}`;
     return height;
   }
   function transitionCustomSizeMode(isCustom) {
-    const grid = els26.settingsGrid;
-    const customSize = els26.customSize;
+    const grid = els27.settingsGrid;
+    const customSize = els27.customSize;
     if (!grid || !customSize) {
       setCustomSizeModeLayout(isCustom);
-      state17.customSizeMode = isCustom;
+      state18.customSizeMode = isCustom;
       return;
     }
-    if (state17.customSizeMode === null) {
-      state17.customSizeMode = isCustom;
+    if (state18.customSizeMode === null) {
+      state18.customSizeMode = isCustom;
       grid.style.height = "";
       grid.classList.remove("is-size-transitioning");
       setCustomSizeModeLayout(isCustom);
       return;
     }
     const pendingTimerId = customSizeTransitionTimers.get(grid);
-    if (state17.customSizeMode === isCustom && !pendingTimerId) {
+    if (state18.customSizeMode === isCustom && !pendingTimerId) {
       grid.style.height = "";
       grid.classList.remove("is-size-transitioning");
       setCustomSizeModeLayout(isCustom);
       return;
     }
-    state17.customSizeMode = isCustom;
-    state17.customSizeTransitionSeq += 1;
-    const transitionSeq = state17.customSizeTransitionSeq;
+    state18.customSizeMode = isCustom;
+    state18.customSizeTransitionSeq += 1;
+    const transitionSeq = state18.customSizeTransitionSeq;
     if (pendingTimerId) {
       window.clearTimeout(pendingTimerId);
       customSizeTransitionTimers.delete(grid);
@@ -37989,7 +38392,7 @@ ${galleryText}`;
       grid.classList.add("custom-size-mode");
       void grid.offsetHeight;
       window.requestAnimationFrame(() => {
-        if (transitionSeq !== state17.customSizeTransitionSeq) return;
+        if (transitionSeq !== state18.customSizeTransitionSeq) return;
         customSize.classList.remove("custom-size-collapsed");
         grid.style.height = `${targetHeight}px`;
       });
@@ -38000,14 +38403,14 @@ ${galleryText}`;
       grid.classList.add("custom-size-mode");
       void grid.offsetHeight;
       window.requestAnimationFrame(() => {
-        if (transitionSeq !== state17.customSizeTransitionSeq) return;
+        if (transitionSeq !== state18.customSizeTransitionSeq) return;
         customSize.classList.add("custom-size-collapsed");
         grid.classList.remove("custom-size-mode");
         grid.style.height = `${targetHeight}px`;
       });
     }
     const timerId = window.setTimeout(() => {
-      if (transitionSeq !== state17.customSizeTransitionSeq) return;
+      if (transitionSeq !== state18.customSizeTransitionSeq) return;
       setCustomSizeModeLayout(isCustom);
       grid.style.height = "";
       grid.classList.remove("is-size-transitioning");
@@ -38016,33 +38419,33 @@ ${galleryText}`;
     customSizeTransitionTimers.set(grid, timerId);
   }
   function updateCustomSize() {
-    const isCustom = els26.size?.value === "custom";
+    const isCustom = els27.size?.value === "custom";
     transitionCustomSizeMode(isCustom);
-    if (els26.customSizeToggle) els26.customSizeToggle.checked = isCustom;
-    els26.sizeModeGroup?.querySelectorAll("[data-custom-size-mode]").forEach((button) => {
+    if (els27.customSizeToggle) els27.customSizeToggle.checked = isCustom;
+    els27.sizeModeGroup?.querySelectorAll("[data-custom-size-mode]").forEach((button) => {
       const active = button.dataset.customSizeMode === (isCustom ? "custom" : "preset");
       button.classList.toggle("active", active);
       button.setAttribute("aria-pressed", active ? "true" : "false");
     });
     const message = isCustom ? customSizeValidationMessage() : "";
-    els26.customSize?.classList.toggle("has-error", Boolean(message));
-    if (els26.customSizeHint) {
-      els26.customSizeHint.textContent = message || formatTranslation("output.customSizeHint");
+    els27.customSize?.classList.toggle("has-error", Boolean(message));
+    if (els27.customSizeHint) {
+      els27.customSizeHint.textContent = message || formatTranslation("output.customSizeHint");
     }
     updateCustomRatioFieldState();
   }
 
   // codex_image/webui/frontend/src/form-controls.ts
-  var bridge24 = getLegacyBridge();
-  var state18 = bridge24.state;
-  var els27 = bridge24.els;
+  var bridge25 = getLegacyBridge();
+  var state19 = bridge25.state;
+  var els28 = bridge25.els;
   var formControlsInitialized = false;
   var formControlEventsBound = false;
   function syncRunButtonLabel2() {
-    if (!els27.runButton || state18.runTimerId) return;
-    const mode = state18.mode === "edit" ? "edit" : "generate";
-    els27.runButton.textContent = translate(mode === "edit" ? "prompt.runEdit" : "prompt.run");
-    els27.runButton.title = translate(mode === "edit" ? "prompt.runEditTitle" : "prompt.runTitle");
+    if (!els28.runButton || state19.runTimerId) return;
+    const mode = state19.mode === "edit" ? "edit" : "generate";
+    els28.runButton.textContent = translate(mode === "edit" ? "prompt.runEdit" : "prompt.run");
+    els28.runButton.title = translate(mode === "edit" ? "prompt.runEditTitle" : "prompt.runTitle");
   }
   function bindFormControlEvents() {
     if (formControlEventsBound) return;
@@ -38051,55 +38454,55 @@ ${galleryText}`;
       button.addEventListener("click", () => setMode4(button.dataset.mode));
     });
     [
-      els27.mainModel,
-      els27.webSearch,
-      els27.model,
-      els27.size,
-      els27.customWidth,
-      els27.customHeight,
-      els27.quality,
-      els27.outputFormat,
-      els27.moderation,
-      els27.compression,
-      els27.nInput,
-      els27.promptFidelity
+      els28.mainModel,
+      els28.webSearch,
+      els28.model,
+      els28.size,
+      els28.customWidth,
+      els28.customHeight,
+      els28.quality,
+      els28.outputFormat,
+      els28.moderation,
+      els28.compression,
+      els28.nInput,
+      els28.promptFidelity
     ].filter(Boolean).forEach((element2) => element2.addEventListener("input", () => {
       persistMainModel();
       updateQuantity();
       updateCompression();
-      if (element2 === els27.customWidth || element2 === els27.customHeight) handleCustomDimensionInput(element2);
+      if (element2 === els28.customWidth || element2 === els28.customHeight) handleCustomDimensionInput(element2);
       updateCustomSize();
-      if (element2 === els27.customWidth || element2 === els27.customHeight) updatePixelPreview("custom");
+      if (element2 === els28.customWidth || element2 === els28.customHeight) updatePixelPreview("custom");
       updateRequestPreview10();
     }));
-    els27.mainModel?.addEventListener("focus", () => openMainModelCombobox({ showAll: true }));
-    els27.mainModel?.addEventListener("click", () => {
-      if (!state18.mainModelComboboxOpen) openMainModelCombobox({ showAll: true });
+    els28.mainModel?.addEventListener("focus", () => openMainModelCombobox({ showAll: true }));
+    els28.mainModel?.addEventListener("click", () => {
+      if (!state19.mainModelComboboxOpen) openMainModelCombobox({ showAll: true });
     });
-    els27.mainModel?.addEventListener("input", () => {
-      state18.mainModelShowAllOptions = false;
+    els28.mainModel?.addEventListener("input", () => {
+      state19.mainModelShowAllOptions = false;
       openMainModelCombobox();
       renderMainModelOptions();
     });
-    els27.mainModel?.addEventListener("keydown", handleMainModelKeydown);
-    els27.mainModelToggle?.addEventListener("click", (event) => {
+    els28.mainModel?.addEventListener("keydown", handleMainModelKeydown);
+    els28.mainModelToggle?.addEventListener("click", (event) => {
       event.preventDefault();
-      if (state18.mainModelComboboxOpen) {
+      if (state19.mainModelComboboxOpen) {
         closeMainModelCombobox();
       } else {
         openMainModelCombobox({ showAll: true });
-        els27.mainModel?.focus();
+        els28.mainModel?.focus();
       }
     });
     document.addEventListener("click", (event) => {
-      if (!els27.mainModelCombobox || els27.mainModelCombobox.contains(event.target)) return;
+      if (!els28.mainModelCombobox || els28.mainModelCombobox.contains(event.target)) return;
       closeMainModelCombobox();
     });
-    [els27.resolution, els27.ratio, els27.orientation].filter(Boolean).forEach((element2) => {
+    [els28.resolution, els28.ratio, els28.orientation].filter(Boolean).forEach((element2) => {
       element2.addEventListener("input", updateSizeFromPreset);
       element2.addEventListener("change", updateSizeFromPreset);
     });
-    [els27.customRatioWidth, els27.customRatioHeight].filter(Boolean).forEach((element2) => {
+    [els28.customRatioWidth, els28.customRatioHeight].filter(Boolean).forEach((element2) => {
       element2.addEventListener("input", () => {
         handleCustomRatioInput(element2);
         updateCustomSize();
@@ -38107,25 +38510,25 @@ ${galleryText}`;
         updateRequestPreview10();
       });
     });
-    els27.sizeModeGroup?.addEventListener("click", handleSizeModeEvent);
-    els27.swapCustomSizeButton?.addEventListener("click", swapCustomSizeDimensions);
-    els27.customRatioFromImageButton?.addEventListener("click", (event) => {
+    els28.sizeModeGroup?.addEventListener("click", handleSizeModeEvent);
+    els28.swapCustomSizeButton?.addEventListener("click", swapCustomSizeDimensions);
+    els28.customRatioFromImageButton?.addEventListener("click", (event) => {
       void applyFirstReferenceImageAspectRatio(event);
     });
-    if (els27.customSizeToggle) {
-      els27.customSizeToggle.addEventListener("change", updateSizeFromPreset);
+    if (els28.customSizeToggle) {
+      els28.customSizeToggle.addEventListener("change", updateSizeFromPreset);
     }
-    els27.outputFormatGroup?.addEventListener("dblclick", handleOutputFormatDoubleClick);
+    els28.outputFormatGroup?.addEventListener("dblclick", handleOutputFormatDoubleClick);
   }
   function setMode4(mode) {
-    state18.mode = mode;
+    state19.mode = mode;
     document.querySelectorAll("[data-mode]").forEach((button) => {
       button.classList.toggle("active", button.dataset.mode === mode);
     });
-    if (!state18.runTimerId) {
+    if (!state19.runTimerId) {
       syncRunButtonLabel2();
     }
-    syncRadioButtons(els27.quality, els27.outputFormat, els27.moderation);
+    syncRadioButtons(els28.quality, els28.outputFormat, els28.moderation);
     updateRequestPreview10();
   }
   function initFormControlsFeature() {
@@ -38140,7 +38543,7 @@ ${galleryText}`;
       updateCompression,
       openCompressionPopover,
       closeCompressionPopover,
-      currentSize,
+      currentSize: currentSize2,
       currentTaskParams,
       currentMainModel,
       currentQuantity,
@@ -38333,12 +38736,12 @@ ${galleryText}`;
     return card;
   }
   function renderSummary(snapshot, context) {
-    const els43 = getLegacyBridge().els;
-    const root = els43.outputSettingsSummaryContent;
+    const els44 = getLegacyBridge().els;
+    const root = els44.outputSettingsSummaryContent;
     if (!root) return;
     const model = buildOutputSettingsSummaryModel(snapshot, context);
     root.replaceChildren();
-    els43.outputSettingsLockedSummary?.classList.toggle("is-task-context", context.task);
+    els44.outputSettingsLockedSummary?.classList.toggle("is-task-context", context.task);
     const intro = createElement("div", "output-settings-summary-intro");
     if (model.contextLabel) {
       intro.append(createElement("span", "output-settings-summary-context", model.contextLabel));
@@ -38366,7 +38769,7 @@ ${galleryText}`;
     if (intro.childElementCount) main.append(intro);
     main.append(cards, details);
     root.append(main, createElement("p", "output-settings-summary-hint", model.hint));
-    els43.outputSettingsTaskAction?.classList.toggle("hidden", !context.task);
+    els44.outputSettingsTaskAction?.classList.toggle("hidden", !context.task);
   }
   function updateLockButton() {
     const button = getLegacyBridge().els.outputSettingsLockButton;
@@ -38378,13 +38781,13 @@ ${galleryText}`;
     button.title = label;
   }
   function setLockedViewVisible(visible) {
-    const els43 = getLegacyBridge().els;
-    const panel = els43.outputSettingsHeader?.closest(".output-panel");
+    const els44 = getLegacyBridge().els;
+    const panel = els44.outputSettingsHeader?.closest(".output-panel");
     panel?.classList.toggle("is-locked-view", visible);
-    els43.settingsGrid?.toggleAttribute("inert", visible);
-    els43.settingsGrid?.setAttribute("aria-hidden", visible ? "true" : "false");
-    els43.outputSettingsLockedSummary?.classList.toggle("hidden", !visible);
-    els43.outputSettingsLockedSummary?.setAttribute("aria-hidden", visible ? "false" : "true");
+    els44.settingsGrid?.toggleAttribute("inert", visible);
+    els44.settingsGrid?.setAttribute("aria-hidden", visible ? "true" : "false");
+    els44.outputSettingsLockedSummary?.classList.toggle("hidden", !visible);
+    els44.outputSettingsLockedSummary?.setAttribute("aria-hidden", visible ? "false" : "true");
   }
   function persistLockState() {
     try {
@@ -38502,9 +38905,9 @@ ${galleryText}`;
   }
 
   // codex_image/webui/frontend/src/task-list-render.ts
-  var bridge25 = getLegacyBridge();
-  var state19 = bridge25.state;
-  var els28 = bridge25.els;
+  var bridge26 = getLegacyBridge();
+  var state20 = bridge26.state;
+  var els29 = bridge26.els;
   var EXPANDED_TASK_GROUP_INITIAL_CARD_COUNT = 24;
   var EXPANDED_TASK_GROUP_CHUNK_SIZE = 48;
   var EXPANDED_TASK_GROUP_ANIMATION_FALLBACK_MS = 320;
@@ -38586,45 +38989,45 @@ ${galleryText}`;
     const scrollAnchor = options.preserveScroll ? captureTaskListScrollAnchor() : null;
     const query = taskSearchQuery();
     const filters = taskFilterValues();
-    const visibleTasks = state19.tasks.filter((task) => !isTaskArchived(task.task_id));
+    const visibleTasks = state20.tasks.filter((task) => !isTaskArchived(task.task_id));
     const tasks = visibleTasks.filter((task) => {
       return taskMatchesSearch(task, query) && taskMatchesFilters(task, filters);
     });
     const visibleTaskIds = visibleTasks.map((task) => String(task.task_id));
-    state19.batchSelectedTaskIds = state19.batchSelectedTaskIds.filter((taskId) => visibleTaskIds.includes(String(taskId)));
+    state20.batchSelectedTaskIds = state20.batchSelectedTaskIds.filter((taskId) => visibleTaskIds.includes(String(taskId)));
     renderBatchToolbar();
     const activeGroup = activeTaskGroup(tasks, query);
     const groups = taskHistoryGroups(tasks, query);
     const expandedGroup = ensureExpandedTaskGroupKey(groups);
     const layout = taskAnchorLayout(groups, expandedGroup?.key || null, query);
     const nextRenderKey = taskListRenderKey(tasks, query, layout, filters, activeGroup);
-    if (state19.tasksRenderKey === nextRenderKey) {
+    if (state20.tasksRenderKey === nextRenderKey) {
       updateTaskElapsedDisplays2();
       restoreTaskListScrollAnchor(scrollAnchor);
       return;
     }
-    state19.tasksRenderKey = nextRenderKey;
+    state20.tasksRenderKey = nextRenderKey;
     renderTaskHistoryAnchors(layout);
     renderHistoryLibraryGroup(tasks, query);
     const activeHtml = activeGroup ? activeTaskGroupHtml(activeGroup) : "";
     renderActiveTaskGroup(activeHtml);
     if (!tasks.length) {
       expandedTaskGroupRenderToken += 1;
-      els28.taskList.innerHTML = `<div class="task-meta">${escapeHtml14(translate("taskList.empty"))}</div>`;
+      els29.taskList.innerHTML = `<div class="task-meta">${escapeHtml14(translate("taskList.empty"))}</div>`;
       updateDocumentTitle();
       restoreTaskListScrollAnchor(scrollAnchor);
       return;
     }
     if (!layout.expandedGroup) {
       expandedTaskGroupRenderToken += 1;
-      els28.taskList.innerHTML = "";
+      els29.taskList.innerHTML = "";
       updateDocumentTitle();
       restoreTaskListScrollAnchor(scrollAnchor);
       return;
     }
     const group = layout.expandedGroup;
-    const shouldAnimateExpandedGroup = state19.expandedTaskGroupAnimationPending === true;
-    els28.taskList.innerHTML = renderExpandedTaskGroupShellHtml(group, {
+    const shouldAnimateExpandedGroup = state20.expandedTaskGroupAnimationPending === true;
+    els29.taskList.innerHTML = renderExpandedTaskGroupShellHtml(group, {
       startExpanded: !shouldAnimateExpandedGroup
     });
     scheduleExpandedTaskGroupItemsRender(group, layout.expandedKey || group?.key || null);
@@ -38632,7 +39035,7 @@ ${galleryText}`;
     restoreTaskListScrollAnchor(scrollAnchor);
   }
   function taskListScrollContainer() {
-    return els28.sidebarContent || els28.taskHistoryShell || els28.taskList || null;
+    return els29.sidebarContent || els29.taskHistoryShell || els29.taskList || null;
   }
   function captureTaskListScrollAnchor() {
     const scroller = taskListScrollContainer();
@@ -38678,15 +39081,15 @@ ${galleryText}`;
     requestAnimationFrame(restore);
   }
   function renderHistoryLibraryGroup(tasks, query) {
-    if (!els28.taskHistoryLibrarySlot) return;
+    if (!els29.taskHistoryLibrarySlot) return;
     const html = historyLibraryGroup(tasks, query);
-    els28.taskHistoryLibrarySlot.innerHTML = html;
-    els28.taskHistoryLibrarySlot.classList.toggle("hidden", !html);
+    els29.taskHistoryLibrarySlot.innerHTML = html;
+    els29.taskHistoryLibrarySlot.classList.toggle("hidden", !html);
   }
   function renderActiveTaskGroup(activeHtml) {
-    if (!els28.taskActiveList) return;
-    els28.taskActiveList.innerHTML = activeHtml;
-    els28.taskActiveList.classList.toggle("hidden", !activeHtml);
+    if (!els29.taskActiveList) return;
+    els29.taskActiveList.innerHTML = activeHtml;
+    els29.taskActiveList.classList.toggle("hidden", !activeHtml);
   }
   function taskAnchorLayout(groups, expandedKey, query) {
     if (query) {
@@ -38718,10 +39121,10 @@ ${galleryText}`;
   }
   function expandedTaskGroupBodyElements(groupKey) {
     const escapedGroupKey = cssEscape(groupKey);
-    const body = els28.taskList?.querySelector(
+    const body = els29.taskList?.querySelector(
       `.task-group-items-expanded[data-expanded-task-group-items-key="${escapedGroupKey}"]`
     );
-    const headerButton = els28.taskList?.querySelector(
+    const headerButton = els29.taskList?.querySelector(
       `.task-group[data-task-group="${escapedGroupKey}"] .task-group-header-split`
     );
     return { body, headerButton };
@@ -38764,8 +39167,8 @@ ${galleryText}`;
     fallbackTimerId = window.setTimeout(finalize, EXPANDED_TASK_GROUP_ANIMATION_FALLBACK_MS);
   }
   function expandedTaskGroupItemsContainer(groupKey) {
-    if (!els28.taskList) return null;
-    return els28.taskList.querySelector(
+    if (!els29.taskList) return null;
+    return els29.taskList.querySelector(
       `.task-group-items-expanded[data-expanded-task-group-items-key="${cssEscape(groupKey)}"]`
     );
   }
@@ -38774,8 +39177,8 @@ ${galleryText}`;
     const groupKey = String(group?.key || "");
     if (!groupKey) return;
     const normalizedActiveGroupKey = String(activeGroupKey || groupKey);
-    const shouldAnimateExpand = state19.expandedTaskGroupAnimationPending === true;
-    state19.expandedTaskGroupAnimationPending = false;
+    const shouldAnimateExpand = state20.expandedTaskGroupAnimationPending === true;
+    state20.expandedTaskGroupAnimationPending = false;
     const token = ++expandedTaskGroupRenderToken;
     let index = 0;
     const renderChunk = () => {
@@ -38810,14 +39213,14 @@ ${galleryText}`;
     requestAnimationFrame(renderChunk);
   }
   function taskCardRoot() {
-    return els28.taskHistoryShell || els28.sidebarContent || els28.taskList;
+    return els29.taskHistoryShell || els29.sidebarContent || els29.taskList;
   }
   function taskCardElement(taskId) {
     const root = taskCardRoot();
     if (!root || taskId == null) return null;
     return root.querySelector(`.task-card[data-task-id="${cssEscape(taskId)}"]`);
   }
-  function updateTaskSelectionVisuals(taskId = state19.selectedTaskId) {
+  function updateTaskSelectionVisuals(taskId = state20.selectedTaskId) {
     const root = taskCardRoot();
     if (!root) return;
     const selectedId = taskId == null ? "" : String(taskId);
@@ -38839,20 +39242,20 @@ ${galleryText}`;
     updateDocumentTitle();
   }
   function taskSearchQuery() {
-    return els28.taskSearch.value.trim().toLowerCase();
+    return els29.taskSearch.value.trim().toLowerCase();
   }
   function taskFilterValues() {
     return {
-      ratio: els28.taskRatioFilter?.value || "",
-      orientation: els28.taskOrientationFilter?.value || "",
-      promptFidelity: els28.taskPromptFidelityFilter?.value || "",
-      resolution: els28.taskResolutionFilter?.value || ""
+      ratio: els29.taskRatioFilter?.value || "",
+      orientation: els29.taskOrientationFilter?.value || "",
+      promptFidelity: els29.taskPromptFidelityFilter?.value || "",
+      resolution: els29.taskResolutionFilter?.value || ""
     };
   }
   function taskSearchHistoryResultMatches(taskId, query) {
     if (!taskId || !query) return false;
-    if (String(state19.taskSearchHistoryResultQuery || "") !== query) return false;
-    return (state19.taskSearchHistoryResultIds || []).some((id) => String(id) === taskId);
+    if (String(state20.taskSearchHistoryResultQuery || "") !== query) return false;
+    return (state20.taskSearchHistoryResultIds || []).some((id) => String(id) === taskId);
   }
   function taskMatchesSearch(task, query) {
     const normalizedQuery = String(query || "").trim().toLowerCase();
@@ -38871,17 +39274,17 @@ ${galleryText}`;
     return true;
   }
   function filteredVisibleTasks(query = taskSearchQuery(), filters = taskFilterValues()) {
-    return state19.tasks.filter((task) => {
+    return state20.tasks.filter((task) => {
       return !isTaskArchived(task.task_id) && taskMatchesSearch(task, query) && taskMatchesFilters(task, filters);
     });
   }
   function clearTaskListFiltersForActiveGroup() {
     let changed = false;
-    if (els28.taskSearch?.value) {
-      els28.taskSearch.value = "";
+    if (els29.taskSearch?.value) {
+      els29.taskSearch.value = "";
       changed = true;
     }
-    [els28.taskRatioFilter, els28.taskOrientationFilter, els28.taskPromptFidelityFilter, els28.taskResolutionFilter].filter(Boolean).forEach((element2) => {
+    [els29.taskRatioFilter, els29.taskOrientationFilter, els29.taskPromptFidelityFilter, els29.taskResolutionFilter].filter(Boolean).forEach((element2) => {
       if (element2.value) {
         element2.value = "";
         changed = true;
@@ -38893,7 +39296,7 @@ ${galleryText}`;
     return changed;
   }
   function revealActiveTaskGroup() {
-    const activeTasks = state19.tasks.filter((task) => !isTaskArchived(task.task_id) && isAlwaysVisibleTask(task));
+    const activeTasks = state20.tasks.filter((task) => !isTaskArchived(task.task_id) && isAlwaysVisibleTask(task));
     if (!activeTasks.length) return;
     const visibleActiveTasks = filteredVisibleTasks().filter((task) => isAlwaysVisibleTask(task));
     const clearedControls = visibleActiveTasks.length ? false : clearTaskListFiltersForActiveGroup();
@@ -38996,7 +39399,7 @@ ${galleryText}`;
     const groupKey = escapeHtml14(group.key);
     const sections = activeTaskSections(group.tasks || []);
     const dispatchPending = Boolean(legacyMethod31("isQueueDispatchPending"));
-    const collapsed = Boolean(state19.activeTaskGroupCollapsed);
+    const collapsed = Boolean(state20.activeTaskGroupCollapsed);
     const body = [
       activeTaskSectionHtml("running", translate("taskGroup.running"), sections.running),
       activeTaskSectionHtml("waiting", translate("taskGroup.waiting"), sections.waiting),
@@ -39134,7 +39537,7 @@ ${galleryText}`;
       </div>
     `;
     }
-    const waitingCount = (state19.queue.waiting || []).length;
+    const waitingCount = (state20.queue.waiting || []).length;
     const disableMoveUp = waitingIndex <= 0;
     const disableMoveDown = waitingIndex < 0 || waitingIndex >= waitingCount - 1;
     const waitingActionsLabel = escapeHtml14(translate("queue.waitingActions"));
@@ -39186,7 +39589,7 @@ ${galleryText}`;
   }
   function taskCardHtml(task) {
     const image = taskThumbHtml(task);
-    const active = String(task.task_id) === String(state19.selectedTaskId) ? " active" : "";
+    const active = String(task.task_id) === String(state20.selectedTaskId) ? " active" : "";
     const activeCurrent = active ? ' aria-current="true"' : "";
     const unread = taskHasUnreadUpdate(task);
     const unreadClass = unread ? " unread" : "";
@@ -39230,8 +39633,8 @@ ${galleryText}`;
           ${detailRightHtml}
         </div>
     ` : "";
-    const batchSelected = state19.batchSelectedTaskIds.includes(String(task.task_id));
-    const batchClass = state19.batchMode ? " batch-mode" : "";
+    const batchSelected = state20.batchSelectedTaskIds.includes(String(task.task_id));
+    const batchClass = state20.batchMode ? " batch-mode" : "";
     const batchSelectedClass = batchSelected ? " batch-selected" : "";
     const queueIds = queueTaskIdsBySection();
     const queueSection = taskQueueSection(task, queueIds);
@@ -39239,7 +39642,7 @@ ${galleryText}`;
     const queueTaskData = queueSection === "waiting" ? ` data-queue-task-id="${taskId}"` : "";
     const queueActions = taskQueueActionStripHtml(task, queueSection, waitingQueueIndex(task.task_id, queueIds));
     const taskActions = taskCardActionsHtml(taskId, queueSection);
-    const batchSelect = state19.batchMode ? `
+    const batchSelect = state20.batchMode ? `
       <button class="task-select-button" type="button" data-batch-select-task-id="${taskId}" aria-pressed="${batchSelected ? "true" : "false"}" aria-label="${escapeHtml14(translate("taskList.selectSession"))}">
         <span></span>
       </button>
@@ -39268,7 +39671,7 @@ ${galleryText}`;
   }
   function taskHasUnreadUpdate(task) {
     if (!task || task.local_pending) return false;
-    if (String(task.task_id) === String(state19.selectedTaskId)) return false;
+    if (String(task.task_id) === String(state20.selectedTaskId)) return false;
     if (!task.viewed_at) return false;
     if (!taskHasViewableUpdate(task)) return false;
     const viewedAt = timestampMs2(task.viewed_at);
@@ -39338,14 +39741,14 @@ ${galleryText}`;
     return Boolean(task?.local_pending || ["submitting", "queued", "running"].includes(status));
   }
   function queueTaskIdsBySection() {
-    const runningIds = (state19.queue.running || []).map((task) => String(task.task_id || ""));
-    const waitingIds = (state19.queue.waiting || []).map((task) => String(task.task_id || ""));
+    const runningIds = (state20.queue.running || []).map((task) => String(task.task_id || ""));
+    const waitingIds = (state20.queue.waiting || []).map((task) => String(task.task_id || ""));
     const cacheKey = `${runningIds.join("|")}::${waitingIds.join("|")}`;
     if (queueTaskIdsCache && queueTaskIdsCacheKey === cacheKey) return queueTaskIdsCache;
     queueTaskIdsCacheKey = cacheKey;
     queueTaskIdsCache = {
-      running: new Map((state19.queue.running || []).map((task, index) => [String(task.task_id), index])),
-      waiting: new Map((state19.queue.waiting || []).map((task, index) => [String(task.task_id), index]))
+      running: new Map((state20.queue.running || []).map((task, index) => [String(task.task_id), index])),
+      waiting: new Map((state20.queue.waiting || []).map((task, index) => [String(task.task_id), index]))
     };
     return queueTaskIdsCache;
   }
@@ -39381,11 +39784,11 @@ ${galleryText}`;
       filters,
       activeQueue: activeQueueTaskListRenderKey(),
       activeGroup: activeGroup ? [activeGroup.key, activeGroup.label, activeGroup.tasks.length] : null,
-      activeTaskGroupCollapsed: Boolean(state19.activeTaskGroupCollapsed),
-      batchMode: state19.batchMode,
-      batchSelectedTaskIds: state19.batchSelectedTaskIds.map(String).sort(),
-      archivedTaskIds: state19.tasks.filter(taskArchived).map((task) => String(task.task_id)).sort(),
-      expandedTaskGroupKey: state19.expandedTaskGroupKey,
+      activeTaskGroupCollapsed: Boolean(state20.activeTaskGroupCollapsed),
+      batchMode: state20.batchMode,
+      batchSelectedTaskIds: state20.batchSelectedTaskIds.map(String).sort(),
+      archivedTaskIds: state20.tasks.filter(taskArchived).map((task) => String(task.task_id)).sort(),
+      expandedTaskGroupKey: state20.expandedTaskGroupKey,
       queryMode: Boolean(layout.queryMode),
       expandedGroup: layout.expandedGroup ? [layout.expandedGroup.key, layout.expandedGroup.label, layout.expandedGroup.tasks.length] : null,
       anchorGroups: [
@@ -39428,8 +39831,8 @@ ${galleryText}`;
   }
   function activeQueueTaskListRenderKey() {
     return {
-      running: (state19.queue.running || []).map((task) => String(task.task_id || "")),
-      waiting: (state19.queue.waiting || []).map((task) => String(task.task_id || ""))
+      running: (state20.queue.running || []).map((task) => String(task.task_id || "")),
+      waiting: (state20.queue.waiting || []).map((task) => String(task.task_id || ""))
     };
   }
   function taskThumbShowsLoading(task) {
@@ -39478,8 +39881,18 @@ ${galleryText}`;
   }
   function taskMetaDetailsText2(task) {
     const size = task.output_size || task.params?.size || "";
+    const modelName = String(task.model_display_name || task.params?.model || task.model_id || "").trim();
+    const modelId = String(task.model_id || task.params?.model || "").trim();
+    const modelLabel = modelName && modelId && modelName !== modelId ? `${modelName} (${modelId})` : modelName || modelId;
+    const profileLabel = task.capability_profile_id === "generic-basic" && !task.capability_snapshot?.profile_id ? translate("generationModel.legacyCompatibility") : task.capability_profile_id ? `${task.capability_profile_id} v${task.capability_profile_version || 1}` : "";
+    const requestParameters = task.request_parameters || task.params || {};
+    const parameterLabel = [
+      requestParameters.output_format,
+      requestParameters.prompt_optimization_mode && requestParameters.prompt_optimization_mode !== "off" ? `Prompt ${requestParameters.prompt_optimization_mode}` : "",
+      requestParameters.seed !== void 0 && requestParameters.seed !== null ? `Seed ${requestParameters.seed}` : ""
+    ].filter(Boolean).join(" \xB7 ");
     const backend = taskCardProviderLabel(task);
-    return [size, backend].filter(Boolean).join(" \xB7 ");
+    return [size, modelLabel, profileLabel, parameterLabel, backend].filter(Boolean).join(" \xB7 ");
   }
   function taskMetaDetailsWithCompletionText(task) {
     const statusMeta = taskMetaDetailsText2(task);
@@ -39551,7 +39964,7 @@ ${galleryText}`;
   }
   function initTaskListRenderFeature() {
     document.addEventListener(LOCALE_CHANGE_EVENT, () => {
-      state19.tasksRenderKey = null;
+      state20.tasksRenderKey = null;
       renderTasks2();
     });
     Object.assign(getLegacyBridge().methods, {
@@ -39593,9 +40006,9 @@ ${galleryText}`;
   }
 
   // codex_image/webui/frontend/src/task-history-anchors.ts
-  var bridge26 = getLegacyBridge();
-  var state20 = bridge26.state;
-  var els29 = bridge26.els;
+  var bridge27 = getLegacyBridge();
+  var state21 = bridge27.state;
+  var els30 = bridge27.els;
   var taskHistoryAnchorInsetObserver = null;
   var TASK_HISTORY_LAYOUT_EASING = "ease";
   var TASK_HISTORY_LAYOUT_DURATION_MS = 180;
@@ -39625,15 +40038,15 @@ ${galleryText}`;
   function restoreExpandedTaskGroupKey() {
     try {
       const stored = localStorage.getItem(TASK_HISTORY_EXPANDED_GROUP_STORAGE_KEY) || "";
-      state20.expandedTaskGroupKey = stored || null;
+      state21.expandedTaskGroupKey = stored || null;
     } catch {
-      state20.expandedTaskGroupKey = null;
+      state21.expandedTaskGroupKey = null;
     }
   }
   function persistExpandedTaskGroupKey() {
     try {
-      if (state20.expandedTaskGroupKey) {
-        localStorage.setItem(TASK_HISTORY_EXPANDED_GROUP_STORAGE_KEY, state20.expandedTaskGroupKey);
+      if (state21.expandedTaskGroupKey) {
+        localStorage.setItem(TASK_HISTORY_EXPANDED_GROUP_STORAGE_KEY, state21.expandedTaskGroupKey);
       } else {
         localStorage.removeItem(TASK_HISTORY_EXPANDED_GROUP_STORAGE_KEY);
       }
@@ -39641,8 +40054,8 @@ ${galleryText}`;
     }
   }
   function syncTaskHistoryAnchorInset() {
-    const shell2 = element(els29.taskHistoryShell);
-    const sidebarContent = element(els29.sidebarContent);
+    const shell2 = element(els30.taskHistoryShell);
+    const sidebarContent = element(els30.sidebarContent);
     if (!shell2 || !sidebarContent) return;
     const scrollbarInset = Math.max(0, sidebarContent.offsetWidth - sidebarContent.clientWidth);
     shell2.style.setProperty("--task-history-scrollbar-offset", `${scrollbarInset}px`);
@@ -39664,18 +40077,18 @@ ${galleryText}`;
   function ensureExpandedTaskGroupKey2(groups) {
     const visible = groups.filter((group) => Array.isArray(group?.tasks) && group.tasks.length);
     if (!visible.length) {
-      state20.expandedTaskGroupKey = null;
+      state21.expandedTaskGroupKey = null;
       persistExpandedTaskGroupKey();
       return null;
     }
-    if (isAllCollapsedExpandedTaskGroupKey(state20.expandedTaskGroupKey)) {
+    if (isAllCollapsedExpandedTaskGroupKey(state21.expandedTaskGroupKey)) {
       return null;
     }
-    const existing = visible.find((group) => String(group.key) === String(state20.expandedTaskGroupKey));
+    const existing = visible.find((group) => String(group.key) === String(state21.expandedTaskGroupKey));
     if (existing) return existing;
-    const fallbackKey = nearestVisibleGroupKey(visible, state20.expandedTaskGroupKey);
+    const fallbackKey = nearestVisibleGroupKey(visible, state21.expandedTaskGroupKey);
     const fallback = visible.find((group) => String(group.key) === String(fallbackKey)) || visible[0] || null;
-    state20.expandedTaskGroupKey = fallback?.key || null;
+    state21.expandedTaskGroupKey = fallback?.key || null;
     persistExpandedTaskGroupKey();
     return fallback;
   }
@@ -39689,21 +40102,21 @@ ${galleryText}`;
   }
   function setExpandedTaskGroupKey(groupKey, { immediate = false } = {}) {
     const key = normalizedExpandedTaskGroupKey(groupKey);
-    if (state20.expandedTaskGroupKey === key) {
+    if (state21.expandedTaskGroupKey === key) {
       if (immediate) applyImmediateAnchorSelection(isAllCollapsedExpandedTaskGroupKey(key) ? "" : key);
       return false;
     }
-    state20.expandedTaskGroupKey = key;
+    state21.expandedTaskGroupKey = key;
     persistExpandedTaskGroupKey();
     if (!isAllCollapsedExpandedTaskGroupKey(key)) {
-      state20.expandedTaskGroupAnimationPending = true;
+      state21.expandedTaskGroupAnimationPending = true;
     }
     if (immediate) applyImmediateAnchorSelection(isAllCollapsedExpandedTaskGroupKey(key) ? "" : key);
-    state20.tasksRenderKey = null;
+    state21.tasksRenderKey = null;
     return true;
   }
   function scrollExpandedTaskGroupToTop2(behavior = "smooth") {
-    const sidebarContent = element(els29.sidebarContent);
+    const sidebarContent = element(els30.sidebarContent);
     if (!sidebarContent) return;
     sidebarContent.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : behavior });
   }
@@ -39739,8 +40152,8 @@ ${galleryText}`;
   `;
   }
   function renderTaskHistoryAnchors2(layout) {
-    const topAnchors = element(els29.taskHistoryTopAnchors);
-    const bottomAnchors = element(els29.taskHistoryBottomAnchors);
+    const topAnchors = element(els30.taskHistoryTopAnchors);
+    const bottomAnchors = element(els30.taskHistoryBottomAnchors);
     if (!topAnchors || !bottomAnchors) return;
     syncTaskHistoryAnchorInset();
     topAnchors.innerHTML = layout.top.map((group) => anchorRowHtml(group)).join("");
@@ -39750,7 +40163,7 @@ ${galleryText}`;
     applyImmediateAnchorSelection(layout.expandedKey || "");
   }
   function taskHistoryLayoutElements() {
-    const shell2 = element(els29.taskHistoryShell);
+    const shell2 = element(els30.taskHistoryShell);
     if (!shell2) return [];
     return Array.from(
       shell2.querySelectorAll(".task-history-anchor-row, .task-group-header-split")
@@ -39825,9 +40238,9 @@ ${galleryText}`;
     });
   }
   function initTaskHistoryAnchorsFeature() {
-    if (typeof ResizeObserver === "function" && !taskHistoryAnchorInsetObserver && element(els29.sidebarContent)) {
+    if (typeof ResizeObserver === "function" && !taskHistoryAnchorInsetObserver && element(els30.sidebarContent)) {
       taskHistoryAnchorInsetObserver = new ResizeObserver(() => syncTaskHistoryAnchorInset());
-      taskHistoryAnchorInsetObserver.observe(element(els29.sidebarContent));
+      taskHistoryAnchorInsetObserver.observe(element(els30.sidebarContent));
     }
     syncTaskHistoryAnchorInset();
     Object.assign(getLegacyBridge().methods, {
@@ -39842,9 +40255,9 @@ ${galleryText}`;
   }
 
   // codex_image/webui/frontend/src/task-archive-controls.ts
-  var bridge27 = getLegacyBridge();
-  var state21 = bridge27.state;
-  var els30 = bridge27.els;
+  var bridge28 = getLegacyBridge();
+  var state22 = bridge28.state;
+  var els31 = bridge28.els;
   function legacyMethod33(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -39883,9 +40296,9 @@ ${galleryText}`;
   function restoreLegacyArchivedTasks() {
     try {
       const stored = JSON.parse(localStorage.getItem(ARCHIVED_TASKS_STORAGE_KEY) || "[]");
-      state21.legacyArchivedTaskIds = Array.isArray(stored) ? stored.filter(Boolean).map(String) : [];
+      state22.legacyArchivedTaskIds = Array.isArray(stored) ? stored.filter(Boolean).map(String) : [];
     } catch {
-      state21.legacyArchivedTaskIds = [];
+      state22.legacyArchivedTaskIds = [];
     }
   }
   function clearLegacyArchivedTasks() {
@@ -39893,23 +40306,23 @@ ${galleryText}`;
       localStorage.removeItem(ARCHIVED_TASKS_STORAGE_KEY);
     } catch {
     }
-    state21.legacyArchivedTaskIds = [];
+    state22.legacyArchivedTaskIds = [];
   }
   function isTaskArchived2(taskId) {
     const id = String(taskId);
-    const task = state21.tasks.find((item) => String(item.task_id) === id);
-    return taskArchived2(task) || state21.legacyArchivedTaskIds.includes(id);
+    const task = state22.tasks.find((item) => String(item.task_id) === id);
+    return taskArchived2(task) || state22.legacyArchivedTaskIds.includes(id);
   }
   function firstVisibleTaskId() {
-    return state21.tasks.find((task) => !isTaskArchived2(task.task_id))?.task_id || null;
+    return state22.tasks.find((task) => !isTaskArchived2(task.task_id))?.task_id || null;
   }
   function replaceTask(updatedTask) {
     if (!updatedTask?.task_id) return;
-    state21.tasks = state21.tasks.map((task) => String(task.task_id) === String(updatedTask.task_id) ? updatedTask : task);
+    state22.tasks = state22.tasks.map((task) => String(task.task_id) === String(updatedTask.task_id) ? updatedTask : task);
   }
   function cleanupSessionSelections() {
-    const taskIds = new Set(state21.tasks.map((task) => String(task.task_id)));
-    state21.batchSelectedTaskIds = state21.batchSelectedTaskIds.filter((taskId) => {
+    const taskIds = new Set(state22.tasks.map((task) => String(task.task_id)));
+    state22.batchSelectedTaskIds = state22.batchSelectedTaskIds.filter((taskId) => {
       return taskIds.has(String(taskId)) && !isTaskArchived2(taskId);
     });
   }
@@ -39924,8 +40337,8 @@ ${galleryText}`;
     return data.task;
   }
   async function migrateLegacyArchivedTasks() {
-    const ids = state21.legacyArchivedTaskIds.filter((taskId) => {
-      const task = state21.tasks.find((item) => String(item.task_id) === String(taskId));
+    const ids = state22.legacyArchivedTaskIds.filter((taskId) => {
+      const task = state22.tasks.find((item) => String(item.task_id) === String(taskId));
       return task && !taskArchived2(task);
     });
     if (!ids.length) {
@@ -39946,8 +40359,8 @@ ${galleryText}`;
     }
   }
   function renderArchiveButton() {
-    if (!els30.archiveButton) return;
-    els30.archiveButton.textContent = translate("footer.historyLibrary");
+    if (!els31.archiveButton) return;
+    els31.archiveButton.textContent = translate("footer.historyLibrary");
   }
   async function restoreArchivedTask(taskId) {
     try {
@@ -39964,22 +40377,22 @@ ${galleryText}`;
   function openArchiveModal() {
     closePromptPopover4();
     renderArchiveModal();
-    els30.archiveModal?.classList.remove("hidden");
-    els30.archiveModal?.setAttribute("aria-hidden", "false");
+    els31.archiveModal?.classList.remove("hidden");
+    els31.archiveModal?.setAttribute("aria-hidden", "false");
   }
   function closeArchiveModal() {
-    els30.archiveModal?.classList.add("hidden");
-    els30.archiveModal?.setAttribute("aria-hidden", "true");
+    els31.archiveModal?.classList.add("hidden");
+    els31.archiveModal?.setAttribute("aria-hidden", "true");
   }
   function renderArchiveModal() {
-    if (!els30.archiveList || !els30.archiveCount) return;
-    const archivedTasks = state21.tasks.filter((task) => isTaskArchived2(task.task_id));
-    els30.archiveCount.textContent = archivedTasks.length ? formatTranslation("archive.count", { count: archivedTasks.length }) : translate("archive.empty");
+    if (!els31.archiveList || !els31.archiveCount) return;
+    const archivedTasks = state22.tasks.filter((task) => isTaskArchived2(task.task_id));
+    els31.archiveCount.textContent = archivedTasks.length ? formatTranslation("archive.count", { count: archivedTasks.length }) : translate("archive.empty");
     if (!archivedTasks.length) {
-      els30.archiveList.innerHTML = `<div class="archive-empty">${translate("archive.empty")}</div>`;
+      els31.archiveList.innerHTML = `<div class="archive-empty">${translate("archive.empty")}</div>`;
       return;
     }
-    els30.archiveList.innerHTML = archivedTasks.map((task) => {
+    els31.archiveList.innerHTML = archivedTasks.map((task) => {
       const image = taskThumbHtml2(task, "archive-thumb");
       const title = escapeHtml16(task.prompt || task.mode || "Untitled");
       const status = escapeHtml16(formatTaskStatus3(task));
@@ -40001,19 +40414,19 @@ ${galleryText}`;
       </article>
     `;
     }).join("");
-    els30.archiveList.querySelectorAll("[data-archive-select-task-id]").forEach((card) => {
+    els31.archiveList.querySelectorAll("[data-archive-select-task-id]").forEach((card) => {
       card.addEventListener("click", () => {
         legacyMethod33("selectTask", card.dataset.archiveSelectTaskId);
         closeArchiveModal();
       });
     });
-    els30.archiveList.querySelectorAll("[data-restore-archive-task-id]").forEach((button) => {
+    els31.archiveList.querySelectorAll("[data-restore-archive-task-id]").forEach((button) => {
       button.addEventListener("click", (event) => {
         event.stopPropagation();
         restoreArchivedTask(button.dataset.restoreArchiveTaskId);
       });
     });
-    els30.archiveList.querySelectorAll("[data-delete-archive-task-id]").forEach((button) => {
+    els31.archiveList.querySelectorAll("[data-delete-archive-task-id]").forEach((button) => {
       button.addEventListener("click", (event) => {
         event.stopPropagation();
         openTaskDeleteConfirm(button, button.dataset.deleteArchiveTaskId);
@@ -40044,9 +40457,9 @@ ${galleryText}`;
   }
 
   // codex_image/webui/frontend/src/task-batch-controls.ts
-  var bridge28 = getLegacyBridge();
-  var state22 = bridge28.state;
-  var els31 = bridge28.els;
+  var bridge29 = getLegacyBridge();
+  var state23 = bridge29.state;
+  var els32 = bridge29.els;
   function legacyMethod34(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -40092,10 +40505,10 @@ ${galleryText}`;
     return legacyMethod34("deleteTaskById", ...args);
   }
   function toggleBatchMode(force) {
-    state22.batchMode = typeof force === "boolean" ? force : !state22.batchMode;
-    if (!state22.batchMode) {
-      state22.batchSelectedTaskIds = [];
-      state22.batchSelectionAnchorTaskId = null;
+    state23.batchMode = typeof force === "boolean" ? force : !state23.batchMode;
+    if (!state23.batchMode) {
+      state23.batchSelectedTaskIds = [];
+      state23.batchSelectionAnchorTaskId = null;
       finishBatchMarqueeSelection();
     }
     renderTasks4({ preserveScroll: true });
@@ -40104,28 +40517,28 @@ ${galleryText}`;
   function toggleBatchTaskSelection(taskId) {
     const id = String(taskId || "");
     if (!id || isTaskArchived3(id)) return;
-    if (state22.batchSelectedTaskIds.includes(id)) {
+    if (state23.batchSelectedTaskIds.includes(id)) {
       removeBatchSelectedTaskId(id);
     } else {
-      state22.batchSelectedTaskIds.push(id);
+      state23.batchSelectedTaskIds.push(id);
     }
-    state22.batchSelectionAnchorTaskId = id;
+    state23.batchSelectionAnchorTaskId = id;
     syncBatchTaskSelectionVisuals();
   }
   function removeBatchSelectedTaskId(taskId) {
     const id = String(taskId || "");
-    state22.batchSelectedTaskIds = state22.batchSelectedTaskIds.filter((item) => item !== id);
+    state23.batchSelectedTaskIds = state23.batchSelectedTaskIds.filter((item) => item !== id);
   }
   function visibleBatchTaskIds() {
-    const root = els31.taskHistoryShell || els31.sidebarContent || els31.taskList;
+    const root = els32.taskHistoryShell || els32.sidebarContent || els32.taskList;
     if (!root) return [];
     return Array.from(root.querySelectorAll(TASK_CARD_SELECTOR)).map((card) => String(card.dataset.taskId || "")).filter((taskId) => taskId && !isTaskArchived3(taskId));
   }
   function applyBatchTaskSelection(taskIds, anchorTaskId = null) {
-    const wasBatchMode = Boolean(state22.batchMode);
-    state22.batchSelectedTaskIds = Array.from(new Set(taskIds.map(String).filter(Boolean)));
-    if (anchorTaskId) state22.batchSelectionAnchorTaskId = String(anchorTaskId);
-    state22.batchMode = true;
+    const wasBatchMode = Boolean(state23.batchMode);
+    state23.batchSelectedTaskIds = Array.from(new Set(taskIds.map(String).filter(Boolean)));
+    if (anchorTaskId) state23.batchSelectionAnchorTaskId = String(anchorTaskId);
+    state23.batchMode = true;
     if (wasBatchMode) {
       syncBatchTaskSelectionVisuals();
     } else {
@@ -40137,16 +40550,16 @@ ${galleryText}`;
     const id = String(taskId || "");
     if (!id || isTaskArchived3(id)) return;
     const visibleIds = visibleBatchTaskIds();
-    const fallbackAnchor = state22.batchSelectedTaskIds.at(-1) || state22.selectedTaskId || id;
+    const fallbackAnchor = state23.batchSelectedTaskIds.at(-1) || state23.selectedTaskId || id;
     const anchor = String(anchorTaskId || fallbackAnchor || id);
     const anchorIndex = visibleIds.indexOf(anchor);
     const targetIndex = visibleIds.indexOf(id);
     if (anchorIndex < 0 || targetIndex < 0) {
-      applyBatchTaskSelection([...state22.batchSelectedTaskIds, id], id);
+      applyBatchTaskSelection([...state23.batchSelectedTaskIds, id], id);
       return;
     }
     const [start, end] = anchorIndex <= targetIndex ? [anchorIndex, targetIndex] : [targetIndex, anchorIndex];
-    applyBatchTaskSelection([...state22.batchSelectedTaskIds, ...visibleIds.slice(start, end + 1)], anchor);
+    applyBatchTaskSelection([...state23.batchSelectedTaskIds, ...visibleIds.slice(start, end + 1)], anchor);
   }
   function handleBatchTaskShortcutSelection(taskId, event) {
     const id = String(taskId || "");
@@ -40155,17 +40568,17 @@ ${galleryText}`;
     event.preventDefault();
     event.stopPropagation();
     if (event.shiftKey) {
-      selectBatchTaskRange(state22.batchSelectionAnchorTaskId || state22.selectedTaskId || id, id);
+      selectBatchTaskRange(state23.batchSelectionAnchorTaskId || state23.selectedTaskId || id, id);
       return true;
     }
-    const selected = state22.batchSelectedTaskIds.includes(id);
-    const nextIds = selected ? state22.batchSelectedTaskIds.filter((item) => String(item) !== id) : [...state22.batchSelectedTaskIds, id];
+    const selected = state23.batchSelectedTaskIds.includes(id);
+    const nextIds = selected ? state23.batchSelectedTaskIds.filter((item) => String(item) !== id) : [...state23.batchSelectedTaskIds, id];
     applyBatchTaskSelection(nextIds, id);
     return true;
   }
   function syncBatchTaskSelectionVisuals() {
-    const selectedIds = new Set(state22.batchSelectedTaskIds.map(String));
-    const root = els31.taskHistoryShell || els31.sidebarContent || els31.taskList;
+    const selectedIds = new Set(state23.batchSelectedTaskIds.map(String));
+    const root = els32.taskHistoryShell || els32.sidebarContent || els32.taskList;
     root?.querySelectorAll(TASK_CARD_SELECTOR).forEach((card) => {
       const selected = selectedIds.has(String(card.dataset.taskId || ""));
       card.classList.toggle("batch-selected", selected);
@@ -40175,20 +40588,20 @@ ${galleryText}`;
     renderBatchToolbar2();
   }
   function renderBatchToolbar2() {
-    if (!els31.batchToolbar) return;
-    els31.batchToolbar.classList.toggle("hidden", !state22.batchMode);
-    els31.taskList?.classList.toggle("batch-marquee-enabled", state22.batchMode);
-    els31.batchManageButton?.classList.toggle("active", state22.batchMode);
-    const count = state22.batchSelectedTaskIds.length;
-    if (els31.batchSelectedCount) {
-      els31.batchSelectedCount.textContent = formatTranslation("batch.selectedCount", { count });
+    if (!els32.batchToolbar) return;
+    els32.batchToolbar.classList.toggle("hidden", !state23.batchMode);
+    els32.taskList?.classList.toggle("batch-marquee-enabled", state23.batchMode);
+    els32.batchManageButton?.classList.toggle("active", state23.batchMode);
+    const count = state23.batchSelectedTaskIds.length;
+    if (els32.batchSelectedCount) {
+      els32.batchSelectedCount.textContent = formatTranslation("batch.selectedCount", { count });
     }
-    [els31.batchArchiveButton, els31.batchDeleteButton].forEach((button) => {
+    [els32.batchArchiveButton, els32.batchDeleteButton].forEach((button) => {
       if (button) button.disabled = count === 0;
     });
   }
   async function archiveSelectedTasks() {
-    const ids = state22.batchSelectedTaskIds.slice();
+    const ids = state23.batchSelectedTaskIds.slice();
     if (!ids.length) return;
     const updatedTasks = [];
     try {
@@ -40197,12 +40610,12 @@ ${galleryText}`;
         updatedTasks.push(updatedTask);
       }
       updatedTasks.forEach(replaceTask2);
-      if (ids.includes(String(state22.selectedTaskId))) {
-        state22.selectedTaskId = firstVisibleTaskId2();
+      if (ids.includes(String(state23.selectedTaskId))) {
+        state23.selectedTaskId = firstVisibleTaskId2();
       }
-      state22.batchSelectedTaskIds = [];
-      state22.batchSelectionAnchorTaskId = null;
-      state22.batchMode = false;
+      state23.batchSelectedTaskIds = [];
+      state23.batchSelectionAnchorTaskId = null;
+      state23.batchMode = false;
       renderTasks4();
       renderArchiveButton2();
       renderArchiveModal2();
@@ -40218,14 +40631,14 @@ ${galleryText}`;
     }
   }
   function openBatchDeleteConfirm() {
-    const selectedTasks = state22.batchSelectedTaskIds.map((taskId) => state22.tasks.find((task) => String(task.task_id) === String(taskId))).filter(Boolean);
+    const selectedTasks = state23.batchSelectedTaskIds.map((taskId) => state23.tasks.find((task) => String(task.task_id) === String(taskId))).filter(Boolean);
     const deletableTasks = selectedTasks.filter((task) => task.status !== "running" && !task.local_pending);
     const skippedCount = selectedTasks.length - deletableTasks.length;
     if (!deletableTasks.length) {
       setStatus15(formatTranslation("batch.runningCannotDeleteSelected"), "error");
       return;
     }
-    openConfirmPopover5(els31.batchDeleteButton, {
+    openConfirmPopover5(els32.batchDeleteButton, {
       title: formatTranslation("batch.deleteTitle", { count: deletableTasks.length }),
       message: formatTranslation("batch.deleteMessage"),
       detail: skippedCount ? formatTranslation("batch.deleteSkippedDetail", { count: skippedCount }) : "",
@@ -40240,9 +40653,9 @@ ${galleryText}`;
       for (const task of deletableTasks) {
         await deleteTaskById(task.task_id);
       }
-      state22.batchSelectedTaskIds = [];
-      state22.batchSelectionAnchorTaskId = null;
-      state22.batchMode = false;
+      state23.batchSelectedTaskIds = [];
+      state23.batchSelectionAnchorTaskId = null;
+      state23.batchMode = false;
       renderTasks4();
       renderArchiveButton2();
       renderArchiveModal2();
@@ -40258,17 +40671,17 @@ ${galleryText}`;
     }
   }
   function handleTaskListPointerDown(event) {
-    if (!state22.batchMode || !els31.taskList || event.button !== 0) return;
+    if (!state23.batchMode || !els32.taskList || event.button !== 0) return;
     if (event.target.closest("button, input, select, textarea, a")) return;
-    if (!event.target.closest(".task-card[data-task-id]") && event.target !== els31.taskList) return;
-    state22.batchSelectionDrag = {
+    if (!event.target.closest(".task-card[data-task-id]") && event.target !== els32.taskList) return;
+    state23.batchSelectionDrag = {
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
       currentX: event.clientX,
       currentY: event.clientY,
       active: false,
-      originSelectedTaskIds: state22.batchSelectedTaskIds.slice(),
+      originSelectedTaskIds: state23.batchSelectedTaskIds.slice(),
       marquee: null
     };
     window.addEventListener("pointermove", handleTaskListPointerMove);
@@ -40276,7 +40689,7 @@ ${galleryText}`;
     window.addEventListener("pointercancel", handleTaskListPointerUp);
   }
   function handleTaskListPointerMove(event) {
-    const drag = state22.batchSelectionDrag;
+    const drag = state23.batchSelectionDrag;
     if (!drag || event.pointerId !== drag.pointerId) return;
     drag.currentX = event.clientX;
     drag.currentY = event.clientY;
@@ -40284,8 +40697,8 @@ ${galleryText}`;
       const distance = Math.hypot(drag.currentX - drag.startX, drag.currentY - drag.startY);
       if (distance < 6) return;
       drag.active = true;
-      state22.suppressTaskClickAfterDrag = true;
-      els31.taskList?.classList.add("batch-marquee-active");
+      state23.suppressTaskClickAfterDrag = true;
+      els32.taskList?.classList.add("batch-marquee-active");
       drag.marquee = document.createElement("div");
       drag.marquee.className = "batch-selection-marquee";
       document.body.appendChild(drag.marquee);
@@ -40294,7 +40707,7 @@ ${galleryText}`;
     updateBatchMarqueeSelection();
   }
   function handleTaskListPointerUp(event) {
-    const drag = state22.batchSelectionDrag;
+    const drag = state23.batchSelectionDrag;
     if (!drag || event.pointerId !== drag.pointerId) return;
     if (drag.active) {
       event.preventDefault();
@@ -40303,7 +40716,7 @@ ${galleryText}`;
     finishBatchMarqueeSelection();
   }
   function updateBatchMarqueeSelection() {
-    const drag = state22.batchSelectionDrag;
+    const drag = state23.batchSelectionDrag;
     if (!drag?.active) return;
     const selectionRect = normalizeSelectionRect(drag.startX, drag.startY, drag.currentX, drag.currentY);
     if (drag.marquee) {
@@ -40313,7 +40726,7 @@ ${galleryText}`;
       drag.marquee.style.height = `${selectionRect.height}px`;
     }
     const nextSelectedIds = new Set(drag.originSelectedTaskIds.map(String));
-    els31.taskList.querySelectorAll(TASK_CARD_SELECTOR).forEach((card) => {
+    els32.taskList.querySelectorAll(TASK_CARD_SELECTOR).forEach((card) => {
       const cardRect = card.getBoundingClientRect();
       if (rectsIntersect(selectionRect, cardRect)) {
         nextSelectedIds.add(String(card.dataset.taskId));
@@ -40324,12 +40737,12 @@ ${galleryText}`;
   function applyBatchSelectionPreview(taskIds) {
     const nextIds = taskIds.map(String).filter((id) => id && !isTaskArchived3(id));
     const nextSet = new Set(nextIds);
-    const previous = state22.batchSelectedTaskIds.map(String).sort().join("|");
+    const previous = state23.batchSelectedTaskIds.map(String).sort().join("|");
     const next = nextIds.slice().sort().join("|");
     if (previous === next) return;
-    state22.batchSelectedTaskIds = nextIds;
-    state22.batchSelectionAnchorTaskId = nextIds.length ? nextIds[nextIds.length - 1] : state22.batchSelectionAnchorTaskId || null;
-    els31.taskList.querySelectorAll(TASK_CARD_SELECTOR).forEach((card) => {
+    state23.batchSelectedTaskIds = nextIds;
+    state23.batchSelectionAnchorTaskId = nextIds.length ? nextIds[nextIds.length - 1] : state23.batchSelectionAnchorTaskId || null;
+    els32.taskList.querySelectorAll(TASK_CARD_SELECTOR).forEach((card) => {
       const selected = nextSet.has(String(card.dataset.taskId));
       card.classList.toggle("batch-selected", selected);
       const selectButton = card.querySelector("[data-batch-select-task-id]");
@@ -40355,12 +40768,12 @@ ${galleryText}`;
     return selectionRect.left <= cardRect.right && selectionRect.right >= cardRect.left && selectionRect.top <= cardRect.bottom && selectionRect.bottom >= cardRect.top;
   }
   function finishBatchMarqueeSelection() {
-    const drag = state22.batchSelectionDrag;
+    const drag = state23.batchSelectionDrag;
     if (drag?.marquee) {
       drag.marquee.remove();
     }
-    state22.batchSelectionDrag = null;
-    els31.taskList?.classList.remove("batch-marquee-active");
+    state23.batchSelectionDrag = null;
+    els32.taskList?.classList.remove("batch-marquee-active");
     window.removeEventListener("pointermove", handleTaskListPointerMove);
     window.removeEventListener("pointerup", handleTaskListPointerUp);
     window.removeEventListener("pointercancel", handleTaskListPointerUp);
@@ -40391,9 +40804,9 @@ ${galleryText}`;
   }
 
   // codex_image/webui/frontend/src/task-actions.ts
-  var bridge29 = getLegacyBridge();
-  var state23 = bridge29.state;
-  var els32 = bridge29.els;
+  var bridge30 = getLegacyBridge();
+  var state24 = bridge30.state;
+  var els33 = bridge30.els;
   function legacyMethod35(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -40497,7 +40910,7 @@ ${galleryText}`;
       if (!response.ok || !data.task) return false;
       const updatedTask = data.task;
       updateTaskInState2(updatedTask);
-      state23.selectedTaskId = updatedTask.task_id;
+      state24.selectedTaskId = updatedTask.task_id;
       renderTasks5({ preserveScroll: true });
       renderArchiveButton3();
       renderArchiveModal3();
@@ -40510,14 +40923,14 @@ ${galleryText}`;
     }
   }
   async function archiveTask(taskId) {
-    const task = state23.tasks.find((item) => String(item.task_id) === String(taskId));
+    const task = state24.tasks.find((item) => String(item.task_id) === String(taskId));
     if (!task) return;
     try {
       const updatedTask = await setTaskArchiveState3(taskId, true);
       replaceTask3(updatedTask);
       removeBatchSelectedTaskId2(taskId);
-      if (String(state23.selectedTaskId) === String(taskId)) {
-        state23.selectedTaskId = firstVisibleTaskId3();
+      if (String(state24.selectedTaskId) === String(taskId)) {
+        state24.selectedTaskId = firstVisibleTaskId3();
       }
       renderTasks5();
       renderArchiveButton3();
@@ -40549,15 +40962,15 @@ ${galleryText}`;
     if (!response.ok) {
       throw new Error(data.detail || translate("taskActions.deleteFailed"));
     }
-    state23.tasks = state23.tasks.filter((item) => String(item.task_id) !== String(taskId));
+    state24.tasks = state24.tasks.filter((item) => String(item.task_id) !== String(taskId));
     removeBatchSelectedTaskId2(taskId);
-    if (String(state23.selectedTaskId) === String(taskId)) {
-      state23.selectedTaskId = firstVisibleTaskId3();
+    if (String(state24.selectedTaskId) === String(taskId)) {
+      state24.selectedTaskId = firstVisibleTaskId3();
     }
   }
-  async function retryFailedTask(taskId) {
+  async function retryFailedTask(taskId, confirmCapabilityChange = false) {
     closePromptPopover5();
-    const task = state23.tasks.find((item) => String(item.task_id) === String(taskId));
+    const task = state24.tasks.find((item) => String(item.task_id) === String(taskId));
     if (!task || !canRetryFailedTask(task)) {
       if (await refreshTaskAfterActionConflict(taskId)) return;
       setStatus16(translate("taskActions.noRetryableFailedImages"), "error");
@@ -40567,13 +40980,27 @@ ${galleryText}`;
       const response = await fetch(`/api/tasks/${encodeURIComponent(taskId)}/retry-failed`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ api_provider_id: currentApiProviderId2() })
+        body: JSON.stringify({
+          api_provider_id: currentApiProviderId2(),
+          confirm_capability_change: confirmCapabilityChange
+        })
       });
       const data = await response.json().catch(() => ({}));
+      if (response.status === 409 && data.detail === "model_capability_changed_confirmation_required" && !confirmCapabilityChange) {
+        const anchor = document.querySelector(`[data-preview-retry-failed-task-id="${CSS.escape(String(taskId))}"]`) || els33.previewGrid;
+        openConfirmPopover6(anchor, {
+          title: translate("taskActions.capabilityChangedTitle"),
+          message: translate("taskActions.capabilityChangedMessage"),
+          detail: translate("taskActions.capabilityChangedDetail"),
+          confirmText: translate("taskActions.retryWithCurrentCapability"),
+          onConfirm: async () => retryFailedTask(taskId, true)
+        });
+        return;
+      }
       if (!response.ok) throw new TaskActionHttpError(data.detail || translate("taskActions.retryFailedOutputsFailed"), response.status);
       const updatedTask = data.task;
-      state23.tasks = [updatedTask, ...state23.tasks.filter((item) => String(item.task_id) !== String(taskId))];
-      state23.selectedTaskId = updatedTask.task_id;
+      state24.tasks = [updatedTask, ...state24.tasks.filter((item) => String(item.task_id) !== String(taskId))];
+      state24.selectedTaskId = updatedTask.task_id;
       renderTasks5();
       renderPreview3(updatedTask);
       await window.refreshQueue?.();
@@ -40585,7 +41012,7 @@ ${galleryText}`;
   }
   async function acceptTaskSuccesses(taskId) {
     closePromptPopover5();
-    const task = state23.tasks.find((item) => String(item.task_id) === String(taskId));
+    const task = state24.tasks.find((item) => String(item.task_id) === String(taskId));
     if (!task || !canAcceptTaskSuccesses(task)) {
       if (await refreshTaskAfterActionConflict(taskId)) return;
       setStatus16(translate("taskActions.noAcceptableSuccessImages"), "error");
@@ -40600,7 +41027,7 @@ ${galleryText}`;
       if (!response.ok) throw new TaskActionHttpError(data.detail || translate("taskActions.acceptSuccessesFailed"), response.status);
       const updatedTask = data.task;
       updateTaskInState2(updatedTask);
-      state23.selectedTaskId = updatedTask.task_id;
+      state24.selectedTaskId = updatedTask.task_id;
       renderTasks5({ preserveScroll: true });
       renderArchiveButton3();
       renderArchiveModal3();
@@ -40612,11 +41039,11 @@ ${galleryText}`;
     }
   }
   async function markTaskViewed(taskId) {
-    if (!taskId || state23.taskViewedRequestIds.has(String(taskId))) return;
-    const task = state23.tasks.find((item) => String(item.task_id) === String(taskId));
+    if (!taskId || state24.taskViewedRequestIds.has(String(taskId))) return;
+    const task = state24.tasks.find((item) => String(item.task_id) === String(taskId));
     if (!task || task.local_pending) return;
     const beforeStructureKey = taskListStructureKey(task);
-    state23.taskViewedRequestIds.add(String(taskId));
+    state24.taskViewedRequestIds.add(String(taskId));
     const viewedAt = (/* @__PURE__ */ new Date()).toISOString();
     task.viewed_at = viewedAt;
     updateTaskSelectionVisuals2(taskId);
@@ -40643,12 +41070,12 @@ ${galleryText}`;
     } catch (error) {
       console.warn(error);
     } finally {
-      state23.taskViewedRequestIds.delete(String(taskId));
+      state24.taskViewedRequestIds.delete(String(taskId));
     }
   }
   function openTaskDeleteConfirm2(deleteButton, taskId) {
     closePromptPopover5();
-    const task = state23.tasks.find((item) => String(item.task_id) === String(taskId));
+    const task = state24.tasks.find((item) => String(item.task_id) === String(taskId));
     if (!task) return;
     if (task.status === "running" || task.local_pending) {
       setStatus16(translate("taskActions.runningCannotDelete"), "error");
@@ -40678,9 +41105,9 @@ ${galleryText}`;
   }
 
   // codex_image/webui/frontend/src/task-submit.ts
-  var bridge30 = getLegacyBridge();
-  var state24 = bridge30.state;
-  var els33 = bridge30.els;
+  var bridge31 = getLegacyBridge();
+  var state25 = bridge31.state;
+  var els34 = bridge31.els;
   function legacyMethod36(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -40821,6 +41248,15 @@ ${galleryText}`;
   function renderPreview4(...args) {
     return legacyMethod36("renderPreview", ...args);
   }
+  function currentGenerationModelParams2(...args) {
+    return legacyMethod36("currentGenerationModelParams", ...args);
+  }
+  function generationModelConstraintMessage2(...args) {
+    return legacyMethod36("generationModelConstraintMessage", ...args);
+  }
+  function renderGenerationModelSelector2(...args) {
+    return legacyMethod36("renderGenerationModelSelector", ...args);
+  }
   var REFERENCE_FILE_ERROR_KEYS = {
     reference_file_empty: "referenceFiles.errorEmpty",
     reference_file_type_unsupported: "referenceFiles.errorUnsupported",
@@ -40862,35 +41298,45 @@ ${galleryText}`;
     const request = task.request || {};
     const usesResponses = params.api_mode === "responses" || params.codex_mode === "responses" || request.api_mode === "responses" || request.codex_mode === "responses" || request.endpoint === "/responses";
     const mainModel = params.main_model || request.main_model || (usesResponses ? request.model : "");
-    if (mainModel && els33.mainModel) {
-      els33.mainModel.value = mainModel;
+    if (mainModel && els34.mainModel) {
+      els34.mainModel.value = mainModel;
       persistMainModel2();
     }
-    if (els33.promptFidelity) {
+    if (els34.promptFidelity) {
       const fidelity = ["strict", "original", "off"].includes(params.prompt_fidelity) ? params.prompt_fidelity : "strict";
-      els33.promptFidelity.value = fidelity;
-      els33.promptFidelity.dispatchEvent(new Event("change"));
+      els34.promptFidelity.value = fidelity;
+      els34.promptFidelity.dispatchEvent(new Event("change"));
     }
-    if (els33.webSearch) {
-      els33.webSearch.checked = Boolean(params.web_search);
-      els33.webSearch.dispatchEvent(new Event("input"));
+    if (els34.webSearch) {
+      els34.webSearch.checked = Boolean(params.web_search);
+      els34.webSearch.dispatchEvent(new Event("input"));
     }
-    if (params.model && els33.model) els33.model.value = params.model;
+    if (params.model && els34.model) els34.model.value = params.model;
+    const generationModelId = task.generation_model_id || params.generation_model_id || request.generation_model_id;
+    if (generationModelId && els34.generationModelSelect) {
+      els34.generationModelSelect.value = generationModelId;
+      renderGenerationModelSelector2(false);
+    }
     if (params.size) syncSizeControlsFromSize2(params.size);
-    if (params.n && els33.nInput) {
-      els33.nInput.value = String(params.n);
+    if (params.n && els34.nInput) {
+      els34.nInput.value = String(params.n);
     }
-    if (params.quality && els33.quality) els33.quality.value = params.quality;
-    if (params.output_format && els33.outputFormat) els33.outputFormat.value = params.output_format;
-    if (params.moderation && els33.moderation) els33.moderation.value = params.moderation;
-    if (params.output_compression !== null && params.output_compression !== void 0 && els33.compression) {
-      els33.compression.value = params.output_compression;
+    if (params.quality && els34.quality) els34.quality.value = params.quality;
+    if (params.output_format && els34.outputFormat) els34.outputFormat.value = params.output_format;
+    if (params.prompt_optimization_mode && els34.promptOptimizationMode) {
+      els34.promptOptimizationMode.value = params.prompt_optimization_mode;
     }
-    [els33.quality, els33.outputFormat, els33.moderation].forEach((element2) => {
+    if (params.seed_mode && els34.seedMode) els34.seedMode.value = params.seed_mode;
+    if (params.seed !== void 0 && params.seed !== null && els34.seedValue) els34.seedValue.value = String(params.seed);
+    if (params.moderation && els34.moderation) els34.moderation.value = params.moderation;
+    if (params.output_compression !== null && params.output_compression !== void 0 && els34.compression) {
+      els34.compression.value = params.output_compression;
+    }
+    [els34.quality, els34.outputFormat, els34.moderation].forEach((element2) => {
       element2?.dispatchEvent(new Event("change"));
     });
     updateQuantity2();
-    syncRadioButtons2(els33.nInput);
+    syncRadioButtons2(els34.nInput);
     updateCompression2();
     updateCustomSize2();
     updateRequestPreview11();
@@ -40915,7 +41361,7 @@ ${galleryText}`;
     const codexMode = isCodex ? currentCodexMode4() : null;
     const requestedBackend = backendForAuthSource2(authSource, isApi ? currentApiMode4() : null, codexMode);
     const payload2 = {
-      mode: state24.mode,
+      mode: state25.mode,
       auth_source: authSource,
       requested_backend: requestedBackend,
       prompt: getPromptText9(),
@@ -40929,6 +41375,7 @@ ${galleryText}`;
       prompt_fidelity: currentPromptFidelity4(),
       web_search: Boolean(params.web_search),
       n: params.n,
+      ...currentGenerationModelParams2(),
       images: uploads.map((source) => source.name),
       gallery_image_ids: galleries.map((source) => source.id),
       gallery_image_version_ids: galleries.map((source) => source.asset_version_id || ""),
@@ -40938,7 +41385,7 @@ ${galleryText}`;
     };
     if (isApi) {
       const apiMode = currentApiMode4();
-      const action = state24.mode === "edit" || uploads.length || assets.length || galleries.length ? "edit" : "generate";
+      const action = state25.mode === "edit" || uploads.length || assets.length || galleries.length ? "edit" : "generate";
       payload2.api_provider_id = currentApiProviderId3();
       payload2.api_provider_name = currentApiProviderLabel3();
       payload2.webui_api_provider_id = payload2.api_provider_id;
@@ -40969,7 +41416,7 @@ ${galleryText}`;
         payload2.endpoint = action === "edit" ? "/images/edits" : "/images/generations";
       }
     } else if (isCodex) {
-      const action = state24.mode === "edit" || uploads.length || assets.length || galleries.length ? "edit" : "generate";
+      const action = state25.mode === "edit" || uploads.length || assets.length || galleries.length ? "edit" : "generate";
       payload2.codex_mode = codexMode;
       if (codexMode === "responses") {
         payload2.endpoint = "/responses";
@@ -41004,17 +41451,17 @@ ${galleryText}`;
   function createPendingTask() {
     const taskId = `pending-${Date.now()}`;
     const now2 = (/* @__PURE__ */ new Date()).toISOString();
-    const localInputFiles = state24.images.slice();
+    const localInputFiles = state25.images.slice();
     const previewSource = localInputFiles[0];
     const request = buildPreviewRequest2();
-    const localReferenceFiles = state24.referenceFiles.map(referenceFileMetadata);
+    const localReferenceFiles = state25.referenceFiles.map(referenceFileMetadata);
     return {
       task_id: taskId,
       local_pending: true,
       created_at: now2,
       updated_at: now2,
       started_at: now2,
-      mode: state24.mode,
+      mode: state25.mode,
       status: "submitting",
       prompt: getPromptText9(),
       prompt_for_model: currentPromptForModel2(),
@@ -41033,7 +41480,7 @@ ${galleryText}`;
     };
   }
   function addQueuedTask(task) {
-    replacePendingTask2(state24.pendingTaskId || task.task_id, task);
+    replacePendingTask2(state25.pendingTaskId || task.task_id, task);
   }
   async function runTask() {
     syncPromptFromEditor6();
@@ -41061,11 +41508,16 @@ ${galleryText}`;
       setStatus17(translate("status.emptyPrompt"), "error");
       return;
     }
-    if (state24.mode === "edit" && !uploads.length && !assets.length && !galleries.length) {
+    const modelConstraint = generationModelConstraintMessage2();
+    if (modelConstraint) {
+      setStatus17(modelConstraint, "error");
+      return;
+    }
+    if (state25.mode === "edit" && !uploads.length && !assets.length && !galleries.length) {
       setStatus17(translate("status.editNeedsImage"), "error");
       return;
     }
-    const customSizeError = els33.size?.value === "custom" ? customSizeValidationMessage2() : "";
+    const customSizeError = els34.size?.value === "custom" ? customSizeValidationMessage2() : "";
     if (customSizeError) {
       updateCustomSize2();
       updatePixelPreview2("custom");
@@ -41076,8 +41528,11 @@ ${galleryText}`;
     form.append("prompt", prompt);
     form.append("prompt_for_model", promptForModel);
     const params = currentTaskParams2();
+    const generationModelParams = currentGenerationModelParams2();
     form.append("main_model", currentMainModel2());
     form.append("model", params.model);
+    form.append("generation_model_id", generationModelParams.generation_model_id);
+    form.append("capability_profile_version", String(generationModelParams.capability_profile_version));
     form.append("size", params.size);
     if (params.resolution) form.append("resolution", params.resolution);
     if (params.ratio) form.append("ratio", params.ratio);
@@ -41087,6 +41542,9 @@ ${galleryText}`;
     form.append("moderation", params.moderation);
     form.append("n", String(params.n));
     form.append("prompt_fidelity", currentPromptFidelity4());
+    form.append("prompt_optimization_mode", generationModelParams.prompt_optimization_mode);
+    form.append("seed_mode", generationModelParams.seed_mode);
+    if (generationModelParams.seed !== "") form.append("seed", generationModelParams.seed);
     if (params.web_search) form.append("web_search", "true");
     if (currentAuthSource3() === "api") {
       form.append("api_provider_id", currentApiProviderId3());
@@ -41094,7 +41552,7 @@ ${galleryText}`;
     } else if (currentAuthSource3() === "codex") {
       form.append("codex_mode", currentCodexMode4());
     }
-    if (els33.outputFormat.value !== "png") {
+    if (els34.outputFormat.value !== "png") {
       form.append("output_compression", String(params.output_compression));
     }
     galleries.forEach((source) => {
@@ -41104,22 +41562,22 @@ ${galleryText}`;
     assets.forEach((source) => form.append("reference_asset_ids", source.id));
     fileUploads.forEach((source) => form.append("reference_files", source.file));
     storedFiles.forEach((source) => form.append("reference_file_ids", source.id));
-    if (state24.mode === "generate") {
+    if (state25.mode === "generate") {
       uploads.forEach((source) => form.append("reference_images", source.file));
     } else {
       uploads.forEach((source) => form.append("images", source.file));
     }
     const pendingTask = createPendingTask();
     addPendingTask2(pendingTask);
-    if (els33.requestJson) {
-      els33.requestJson.textContent = JSON.stringify(pendingTask.request, null, 2);
+    if (els34.requestJson) {
+      els34.requestJson.textContent = JSON.stringify(pendingTask.request, null, 2);
     }
     startRunFeedback2(pendingTask, translate("taskStatus.submitting"));
-    els33.runButton.disabled = true;
+    els34.runButton.disabled = true;
     const controller = new AbortController();
     const submitTimeoutId = window.setTimeout(() => controller.abort(), SUBMIT_TASK_TIMEOUT_MS);
     try {
-      const response = await fetch(state24.mode === "edit" ? "/api/edit" : "/api/generate", {
+      const response = await fetch(state25.mode === "edit" ? "/api/edit" : "/api/generate", {
         method: "POST",
         body: form,
         signal: controller.signal
@@ -41129,8 +41587,8 @@ ${galleryText}`;
         throw new Error(responseErrorMessage(data.detail));
       }
       addQueuedTask(data.task);
-      if (els33.requestJson) {
-        els33.requestJson.textContent = JSON.stringify(data.request || {}, null, 2);
+      if (els34.requestJson) {
+        els34.requestJson.textContent = JSON.stringify(data.request || {}, null, 2);
       }
       stopRunFeedback2();
       setStatus17(translate("taskSubmit.queued"), "ok");
@@ -41145,7 +41603,7 @@ ${galleryText}`;
     } finally {
       window.clearTimeout(submitTimeoutId);
       stopRunFeedback2();
-      els33.runButton.disabled = !state24.authAvailable;
+      renderGenerationModelSelector2(false);
     }
   }
   function initTaskSubmitFeature() {
@@ -41160,9 +41618,9 @@ ${galleryText}`;
   }
 
   // codex_image/webui/frontend/src/task-list-controls.ts
-  var bridge31 = getLegacyBridge();
-  var state25 = bridge31.state;
-  var els34 = bridge31.els;
+  var bridge32 = getLegacyBridge();
+  var state26 = bridge32.state;
+  var els35 = bridge32.els;
   function legacyMethod37(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -41188,34 +41646,34 @@ ${galleryText}`;
   var taskListControlsInitialized = false;
   var taskListControlEventsBound = false;
   function taskFilterControls() {
-    return [els34.taskRatioFilter, els34.taskOrientationFilter, els34.taskPromptFidelityFilter, els34.taskResolutionFilter].filter(Boolean);
+    return [els35.taskRatioFilter, els35.taskOrientationFilter, els35.taskPromptFidelityFilter, els35.taskResolutionFilter].filter(Boolean);
   }
   function activeTaskFilterCount() {
     return taskFilterControls().filter((element2) => Boolean(element2.value)).length;
   }
   function taskSearchHasValue() {
-    return Boolean(String(els34.taskSearch?.value || "").trim());
+    return Boolean(String(els35.taskSearch?.value || "").trim());
   }
   function updateTaskSearchClearButton() {
-    if (!els34.taskSearchClearButton) return;
-    els34.taskSearchClearButton.hidden = !taskSearchHasValue();
+    if (!els35.taskSearchClearButton) return;
+    els35.taskSearchClearButton.hidden = !taskSearchHasValue();
   }
   function clearTaskSearch() {
-    if (!els34.taskSearch?.value) return;
-    els34.taskSearch.value = "";
+    if (!els35.taskSearch?.value) return;
+    els35.taskSearch.value = "";
     updateTaskSearchClearButton();
     renderTasks6();
     void syncTaskSearchHistoryResults();
-    els34.taskSearch.focus({ preventScroll: true });
+    els35.taskSearch.focus({ preventScroll: true });
   }
   function setTaskFilterPopoverOpen(open) {
-    if (!els34.taskFilterPopover || !els34.taskFilterButton) return;
-    els34.taskFilterPopover.hidden = !open;
-    els34.taskFilterButton.setAttribute("aria-expanded", open ? "true" : "false");
-    els34.taskFilterButton.classList.toggle("is-open", open);
+    if (!els35.taskFilterPopover || !els35.taskFilterButton) return;
+    els35.taskFilterPopover.hidden = !open;
+    els35.taskFilterButton.setAttribute("aria-expanded", open ? "true" : "false");
+    els35.taskFilterButton.classList.toggle("is-open", open);
   }
   function toggleTaskFilterPopover() {
-    setTaskFilterPopoverOpen(Boolean(els34.taskFilterPopover?.hidden));
+    setTaskFilterPopoverOpen(Boolean(els35.taskFilterPopover?.hidden));
   }
   function clearTaskFilters(options = {}) {
     let changed = false;
@@ -41232,36 +41690,36 @@ ${galleryText}`;
   }
   function updateTaskFilterSummary() {
     const activeCount = activeTaskFilterCount();
-    if (els34.taskFilterActiveCount) {
-      els34.taskFilterActiveCount.hidden = activeCount === 0;
-      els34.taskFilterActiveCount.textContent = activeCount ? String(activeCount) : "";
+    if (els35.taskFilterActiveCount) {
+      els35.taskFilterActiveCount.hidden = activeCount === 0;
+      els35.taskFilterActiveCount.textContent = activeCount ? String(activeCount) : "";
     }
-    els34.taskFilterButton?.classList.toggle("has-active-filters", activeCount > 0);
-    if (els34.taskFilterClearButton) {
-      els34.taskFilterClearButton.disabled = activeCount === 0;
+    els35.taskFilterButton?.classList.toggle("has-active-filters", activeCount > 0);
+    if (els35.taskFilterClearButton) {
+      els35.taskFilterClearButton.disabled = activeCount === 0;
     }
   }
   function handleTaskFilterKeydown(event) {
-    if (event.key !== "Escape" || els34.taskFilterPopover?.hidden) return;
+    if (event.key !== "Escape" || els35.taskFilterPopover?.hidden) return;
     event.preventDefault();
     setTaskFilterPopoverOpen(false);
-    els34.taskFilterButton?.focus?.();
+    els35.taskFilterButton?.focus?.();
   }
   function bindTaskListControlEvents() {
     if (taskListControlEventsBound) return;
     taskListControlEventsBound = true;
-    els34.archiveModalClose?.addEventListener("click", closeArchiveModal2);
-    els34.archiveModal?.addEventListener("click", (event) => {
-      if (event.target === els34.archiveModal) closeArchiveModal2();
+    els35.archiveModalClose?.addEventListener("click", closeArchiveModal2);
+    els35.archiveModal?.addEventListener("click", (event) => {
+      if (event.target === els35.archiveModal) closeArchiveModal2();
     });
-    els34.batchManageButton?.addEventListener("click", () => toggleBatchMode2());
-    els34.batchArchiveButton?.addEventListener("click", archiveSelectedTasks2);
-    els34.batchDeleteButton?.addEventListener("click", openBatchDeleteConfirm2);
-    els34.batchCancelButton?.addEventListener("click", () => toggleBatchMode2(false));
-    els34.taskSearch.addEventListener("input", handleTaskSearchInput);
-    els34.taskSearchClearButton?.addEventListener("click", clearTaskSearch);
-    els34.taskFilterButton?.addEventListener("click", toggleTaskFilterPopover);
-    els34.taskFilterClearButton?.addEventListener("click", () => clearTaskFilters());
+    els35.batchManageButton?.addEventListener("click", () => toggleBatchMode2());
+    els35.batchArchiveButton?.addEventListener("click", archiveSelectedTasks2);
+    els35.batchDeleteButton?.addEventListener("click", openBatchDeleteConfirm2);
+    els35.batchCancelButton?.addEventListener("click", () => toggleBatchMode2(false));
+    els35.taskSearch.addEventListener("input", handleTaskSearchInput);
+    els35.taskSearchClearButton?.addEventListener("click", clearTaskSearch);
+    els35.taskFilterButton?.addEventListener("click", toggleTaskFilterPopover);
+    els35.taskFilterClearButton?.addEventListener("click", () => clearTaskFilters());
     document.addEventListener("keydown", handleTaskFilterKeydown);
     taskFilterControls().forEach((element2) => {
       element2.addEventListener("change", () => {
@@ -41279,13 +41737,13 @@ ${galleryText}`;
     void syncTaskSearchHistoryResults();
   }
   function bindTaskListEvents() {
-    const interactiveRoot = els34.taskHistoryShell || els34.sidebarContent || els34.taskList;
+    const interactiveRoot = els35.taskHistoryShell || els35.sidebarContent || els35.taskList;
     interactiveRoot?.addEventListener("click", handleTaskListClick);
     interactiveRoot?.addEventListener("keydown", handleTaskListKeydown);
-    els34.taskList?.addEventListener("pointerdown", handleTaskListPointerDown2);
+    els35.taskList?.addEventListener("pointerdown", handleTaskListPointerDown2);
   }
   function taskHistoryInteractiveRoot() {
-    return els34.taskHistoryShell || els34.sidebarContent || els34.taskList;
+    return els35.taskHistoryShell || els35.sidebarContent || els35.taskList;
   }
   function taskNavigationCards() {
     const root = taskHistoryInteractiveRoot();
@@ -41312,7 +41770,7 @@ ${galleryText}`;
     const nextCard = cards[nextIndex];
     if (!nextCard) return true;
     focusTaskNavigationCard(nextCard);
-    if (!state25.batchMode) {
+    if (!state26.batchMode) {
       void legacyMethod37("selectTask", nextCard.dataset.taskId);
     }
     return true;
@@ -41332,8 +41790,8 @@ ${galleryText}`;
     commitExpandedTaskGroupKey(nextKey);
   }
   function handleTaskListClick(event) {
-    if (state25.suppressTaskClickAfterDrag) {
-      state25.suppressTaskClickAfterDrag = false;
+    if (state26.suppressTaskClickAfterDrag) {
+      state26.suppressTaskClickAfterDrag = false;
       event.preventDefault();
       event.stopPropagation();
       return;
@@ -41353,8 +41811,8 @@ ${galleryText}`;
     if (activeGroupToggle) {
       event.stopPropagation();
       const previousLayout = captureTaskHistoryLayout3();
-      state25.activeTaskGroupCollapsed = !state25.activeTaskGroupCollapsed;
-      state25.tasksRenderKey = null;
+      state26.activeTaskGroupCollapsed = !state26.activeTaskGroupCollapsed;
+      state26.tasksRenderKey = null;
       renderTasks6();
       animateTaskHistoryLayout3(previousLayout);
       return;
@@ -41381,7 +41839,7 @@ ${galleryText}`;
     const root = taskHistoryInteractiveRoot();
     if (!card || !root?.contains(card)) return;
     if (handleBatchTaskShortcutSelection2(card.dataset.taskId, event)) return;
-    if (state25.batchMode) {
+    if (state26.batchMode) {
       toggleBatchTaskSelection2(card.dataset.taskId);
       return;
     }
@@ -41396,7 +41854,7 @@ ${galleryText}`;
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     if (handleBatchTaskShortcutSelection2(card.dataset.taskId, event)) return;
-    if (state25.batchMode) {
+    if (state26.batchMode) {
       toggleBatchTaskSelection2(card.dataset.taskId);
     } else {
       legacyMethod37("selectTask", card.dataset.taskId);
@@ -41439,16 +41897,16 @@ ${galleryText}`;
     window.updateQueueElapsedDisplays = updateQueueElapsedDisplays;
   }
   function bindQueueControls() {
-    const els43 = getEls();
-    els43.queueButton?.addEventListener("click", jumpToActiveTaskGroup);
+    const els44 = getEls();
+    els44.queueButton?.addEventListener("click", jumpToActiveTaskGroup);
   }
   function startRealtimeUpdates({ migrateLegacyArchives = false } = {}) {
-    const state32 = getState();
+    const state33 = getState();
     if (!window.EventSource) return false;
     closeRealtimeUpdates();
-    state32.realtimeSnapshotNeedsArchiveMigration = migrateLegacyArchives;
+    state33.realtimeSnapshotNeedsArchiveMigration = migrateLegacyArchives;
     const source = new EventSource(REALTIME_EVENTS_URL);
-    state32.realtimeSource = source;
+    state33.realtimeSource = source;
     source.onmessage = (event) => {
       handleRealtimeMessage(event).catch((error) => {
         console.error(error);
@@ -41456,10 +41914,10 @@ ${galleryText}`;
       });
     };
     source.onerror = () => {
-      if (state32.realtimeSource !== source) return;
-      const shouldMigrateArchives = state32.realtimeSnapshotNeedsArchiveMigration;
+      if (state33.realtimeSource !== source) return;
+      const shouldMigrateArchives = state33.realtimeSnapshotNeedsArchiveMigration;
       closeRealtimeUpdates();
-      state32.realtimeSnapshotNeedsArchiveMigration = false;
+      state33.realtimeSnapshotNeedsArchiveMigration = false;
       void refreshQueue();
       void getLegacyBridge().methods.refreshTasks({ migrateLegacyArchives: shouldMigrateArchives });
       getLegacyBridge().methods.setStatus(translate("queue.realtimeDisconnected"), "error");
@@ -41467,10 +41925,10 @@ ${galleryText}`;
     return true;
   }
   function closeRealtimeUpdates() {
-    const state32 = getState();
-    if (!state32.realtimeSource) return;
-    state32.realtimeSource.close();
-    state32.realtimeSource = null;
+    const state33 = getState();
+    if (!state33.realtimeSource) return;
+    state33.realtimeSource.close();
+    state33.realtimeSource = null;
   }
   async function handleRealtimeMessage(event) {
     if (!event.data) return;
@@ -41478,15 +41936,15 @@ ${galleryText}`;
     await handleRealtimePayload(payload2);
   }
   async function handleRealtimePayload(payload2) {
-    const bridge39 = getLegacyBridge();
-    const state32 = bridge39.state;
+    const bridge40 = getLegacyBridge();
+    const state33 = bridge40.state;
     if (payload2?.type === "snapshot") {
       applyQueueState(payload2.queue);
-      await bridge39.methods.applyTasksSnapshot(payload2.tasks || [], {
-        migrateLegacyArchives: state32.realtimeSnapshotNeedsArchiveMigration
+      await bridge40.methods.applyTasksSnapshot(payload2.tasks || [], {
+        migrateLegacyArchives: state33.realtimeSnapshotNeedsArchiveMigration
       });
       applyQueueTasks(payload2.queue);
-      state32.realtimeSnapshotNeedsArchiveMigration = false;
+      state33.realtimeSnapshotNeedsArchiveMigration = false;
       return;
     }
     if (payload2?.type === "queue") {
@@ -41500,29 +41958,29 @@ ${galleryText}`;
     }
   }
   async function applyRealtimeTaskPayloads(tasks) {
-    const bridge39 = getLegacyBridge();
-    const state32 = bridge39.state;
+    const bridge40 = getLegacyBridge();
+    const state33 = bridge40.state;
     for (const task of tasks) {
-      const previousTask = state32.tasks.find((item) => String(item.task_id) === String(task?.task_id));
-      bridge39.methods.notifyTaskUpdate?.(previousTask, task);
-      await bridge39.methods.applyTaskUpdate(task);
+      const previousTask = state33.tasks.find((item) => String(item.task_id) === String(task?.task_id));
+      bridge40.methods.notifyTaskUpdate?.(previousTask, task);
+      await bridge40.methods.applyTaskUpdate(task);
     }
   }
   async function refreshQueue() {
-    const bridge39 = getLegacyBridge();
-    const state32 = bridge39.state;
-    const requestSeq = ++state32.queueRequestSeq;
+    const bridge40 = getLegacyBridge();
+    const state33 = bridge40.state;
+    const requestSeq = ++state33.queueRequestSeq;
     try {
       const response = await fetch("/api/queue");
       const data = await response.json();
-      if (requestSeq !== state32.queueRequestSeq) return;
+      if (requestSeq !== state33.queueRequestSeq) return;
       if (!response.ok) {
         throw new Error(data.detail || translate("queue.readFailed"));
       }
-      state32.queue = normalizeQueueState(data);
+      state33.queue = normalizeQueueState(data);
       renderQueue();
     } catch (error) {
-      bridge39.methods.setStatus(errorMessage5(error, translate("queue.readFailed")), "error");
+      bridge40.methods.setStatus(errorMessage5(error, translate("queue.readFailed")), "error");
     }
   }
   function defaultQueueState() {
@@ -41540,17 +41998,17 @@ ${galleryText}`;
     getState().queueRequestSeq += 1;
   }
   function applyQueueState(queue) {
-    const state32 = getState();
+    const state33 = getState();
     invalidateQueueRequests();
-    state32.queue = normalizeQueueState(queue);
+    state33.queue = normalizeQueueState(queue);
     renderQueue();
   }
   function renderQueue() {
-    const bridge39 = getLegacyBridge();
-    const state32 = bridge39.state;
-    const summary = state32.queue.summary || {};
-    const waitingCount = Number(summary.waiting_count ?? state32.queue.waiting.length ?? 0);
-    const runningCount = Number(summary.running_count ?? state32.queue.running.length ?? 0);
+    const bridge40 = getLegacyBridge();
+    const state33 = bridge40.state;
+    const summary = state33.queue.summary || {};
+    const waitingCount = Number(summary.waiting_count ?? state33.queue.waiting.length ?? 0);
+    const runningCount = Number(summary.running_count ?? state33.queue.running.length ?? 0);
     const channelCount = Number(summary.channel_count ?? 0);
     const usableChannelCount = Number(summary.usable_channel_count ?? channelCount);
     const dispatchPending = isQueueDispatchPending();
@@ -41561,23 +42019,23 @@ ${galleryText}`;
       usableChannelCount,
       dispatchPending
     });
-    bridge39.methods.updateDocumentTitle();
+    bridge40.methods.updateDocumentTitle();
     if (dispatchPending) {
       scheduleQueueDispatchSync();
     } else {
       clearQueueDispatchSync();
     }
     const nextRenderKey = queueListRenderKey();
-    if (state32.queueRenderKey === nextRenderKey) {
+    if (state33.queueRenderKey === nextRenderKey) {
       updateQueueElapsedDisplays();
       return;
     }
-    state32.queueRenderKey = nextRenderKey;
+    state33.queueRenderKey = nextRenderKey;
     renderActiveTaskGroupForQueueChange();
   }
   function renderActiveTaskGroupForQueueChange() {
-    const bridge39 = getLegacyBridge();
-    bridge39.methods.renderTasks?.();
+    const bridge40 = getLegacyBridge();
+    bridge40.methods.renderTasks?.();
   }
   function renderQueueStatusChip({
     waitingCount,
@@ -41586,55 +42044,55 @@ ${galleryText}`;
     usableChannelCount,
     dispatchPending
   }) {
-    const els43 = getEls();
+    const els44 = getEls();
     const total = waitingCount + runningCount;
     const channelText = usableChannelCount === channelCount ? formatTranslation("queue.channel", { count: channelCount }) : formatTranslation("queue.availableChannels", { usable: usableChannelCount, total: channelCount });
     const text = dispatchPending ? formatTranslation("queue.dispatching", { waiting: waitingCount }) : total ? formatTranslation("queue.runningWaiting", { running: runningCount, waiting: waitingCount }) : translate("queue.empty");
     const label = total ? formatTranslation("queue.statusLabel", { text, channelText }) : translate("queue.emptyAria");
-    if (els43.queueStatusText) els43.queueStatusText.textContent = text;
-    if (els43.queueButton) {
-      els43.queueButton.setAttribute("aria-label", label);
-      els43.queueButton.title = total ? translate("queue.jumpTitle") : translate("queue.emptyTitle");
-      els43.queueButton.classList.toggle("has-queue", total > 0 || dispatchPending);
+    if (els44.queueStatusText) els44.queueStatusText.textContent = text;
+    if (els44.queueButton) {
+      els44.queueButton.setAttribute("aria-label", label);
+      els44.queueButton.title = total ? translate("queue.jumpTitle") : translate("queue.emptyTitle");
+      els44.queueButton.classList.toggle("has-queue", total > 0 || dispatchPending);
     }
   }
   function jumpToActiveTaskGroup() {
-    const bridge39 = getLegacyBridge();
-    const state32 = bridge39.state;
-    const hasActiveTasks = Boolean((state32.queue.running || []).length || (state32.queue.waiting || []).length);
+    const bridge40 = getLegacyBridge();
+    const state33 = bridge40.state;
+    const hasActiveTasks = Boolean((state33.queue.running || []).length || (state33.queue.waiting || []).length);
     if (!hasActiveTasks) return;
-    bridge39.methods.revealActiveTaskGroup?.();
+    bridge40.methods.revealActiveTaskGroup?.();
   }
   function isQueueDispatchPending() {
-    const state32 = getState();
-    const summary = state32.queue.summary || {};
-    const waitingCount = Number(summary.waiting_count ?? state32.queue.waiting.length ?? 0);
-    const runningCount = Number(summary.running_count ?? state32.queue.running.length ?? 0);
+    const state33 = getState();
+    const summary = state33.queue.summary || {};
+    const waitingCount = Number(summary.waiting_count ?? state33.queue.waiting.length ?? 0);
+    const runningCount = Number(summary.running_count ?? state33.queue.running.length ?? 0);
     const channelCount = Number(summary.channel_count ?? 0);
     const usableChannelCount = Number(summary.usable_channel_count ?? channelCount);
     return waitingCount > 0 && runningCount === 0 && usableChannelCount > 0;
   }
   function scheduleQueueDispatchSync() {
-    const state32 = getState();
-    if (state32.queueDispatchSyncTimerId) return;
-    state32.queueDispatchSyncTimerId = window.setTimeout(() => {
-      state32.queueDispatchSyncTimerId = null;
+    const state33 = getState();
+    if (state33.queueDispatchSyncTimerId) return;
+    state33.queueDispatchSyncTimerId = window.setTimeout(() => {
+      state33.queueDispatchSyncTimerId = null;
       if (isQueueDispatchPending()) {
         void refreshQueue();
       }
     }, QUEUE_DISPATCH_RESYNC_DELAY_MS);
   }
   function clearQueueDispatchSync() {
-    const state32 = getState();
-    if (!state32.queueDispatchSyncTimerId) return;
-    window.clearTimeout(state32.queueDispatchSyncTimerId);
-    state32.queueDispatchSyncTimerId = null;
+    const state33 = getState();
+    if (!state33.queueDispatchSyncTimerId) return;
+    window.clearTimeout(state33.queueDispatchSyncTimerId);
+    state33.queueDispatchSyncTimerId = null;
   }
   function queueListRenderKey() {
-    const state32 = getState();
+    const state33 = getState();
     return JSON.stringify({
-      summary: state32.queue.summary || {},
-      running: (state32.queue.running || []).map((task) => [
+      summary: state33.queue.summary || {},
+      running: (state33.queue.running || []).map((task) => [
         task.task_id,
         task.status,
         task.viewed_at,
@@ -41644,7 +42102,7 @@ ${galleryText}`;
         task.started_at,
         task.attempts
       ]),
-      waiting: (state32.queue.waiting || []).map((task) => [
+      waiting: (state33.queue.waiting || []).map((task) => [
         task.task_id,
         task.status,
         task.prompt,
@@ -41654,11 +42112,11 @@ ${galleryText}`;
     });
   }
   function queueItemTitleText(task, position = null) {
-    const bridge39 = getLegacyBridge();
+    const bridge40 = getLegacyBridge();
     const queueTask = task;
-    const prefix = position ? `#${position}` : bridge39.methods.formatTaskStatus(task) || translate("taskStatus.task");
+    const prefix = position ? `#${position}` : bridge40.methods.formatTaskStatus(task) || translate("taskStatus.task");
     const mode = taskModeLabel(task);
-    const count = formatTranslation("taskCard.count", { count: bridge39.methods.taskTotalCount(task) });
+    const count = formatTranslation("taskCard.count", { count: bridge40.methods.taskTotalCount(task) });
     const size = queueTask.output_size || task.params?.size || "";
     return [prefix, mode, count, size].filter(Boolean).join(" \xB7 ");
   }
@@ -41668,7 +42126,7 @@ ${galleryText}`;
     return "";
   }
   async function promoteQueueTask(taskId) {
-    const bridge39 = getLegacyBridge();
+    const bridge40 = getLegacyBridge();
     if (!taskId) return;
     invalidateQueueRequests();
     try {
@@ -41676,9 +42134,9 @@ ${galleryText}`;
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.detail || translate("queue.promoteFailed"));
       applyQueueState(data);
-      await bridge39.methods.refreshTasks();
+      await bridge40.methods.refreshTasks();
     } catch (error) {
-      bridge39.methods.setStatus(errorMessage5(error, translate("queue.promoteFailed")), "error");
+      bridge40.methods.setStatus(errorMessage5(error, translate("queue.promoteFailed")), "error");
     }
   }
   function moveQueueTask(taskId, direction) {
@@ -41696,11 +42154,11 @@ ${galleryText}`;
     void reorderQueue(nextIds);
   }
   function deleteQueuedTask(button, taskId) {
-    const bridge39 = getLegacyBridge();
+    const bridge40 = getLegacyBridge();
     if (!taskId) return;
-    const task = bridge39.state.queue.waiting.find((item) => item.task_id === taskId);
+    const task = bridge40.state.queue.waiting.find((item) => item.task_id === taskId);
     const title = task ? queueItemTitleText(task, task.queue_position || null) : taskId;
-    bridge39.methods.openConfirmPopover(button, {
+    bridge40.methods.openConfirmPopover(button, {
       title: translate("queue.deleteWaitingTitleConfirm"),
       message: translate("queue.deleteWaitingMessage"),
       detail: title,
@@ -41711,39 +42169,39 @@ ${galleryText}`;
     });
   }
   async function performDeleteQueuedTask(taskId) {
-    const bridge39 = getLegacyBridge();
-    const state32 = bridge39.state;
+    const bridge40 = getLegacyBridge();
+    const state33 = bridge40.state;
     invalidateQueueRequests();
     try {
       const response = await fetch(`/api/queue/${encodeURIComponent(taskId)}`, { method: "DELETE" });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.detail || translate("queue.deleteQueuedFailed"));
-      state32.tasks = state32.tasks.filter((item) => item.task_id !== taskId);
-      if (state32.selectedTaskId === taskId) {
-        state32.selectedTaskId = state32.tasks[0]?.task_id || null;
+      state33.tasks = state33.tasks.filter((item) => item.task_id !== taskId);
+      if (state33.selectedTaskId === taskId) {
+        state33.selectedTaskId = state33.tasks[0]?.task_id || null;
       }
       applyQueueState({
-        ...state32.queue,
-        waiting: state32.queue.waiting.filter((item) => item.task_id !== taskId),
+        ...state33.queue,
+        waiting: state33.queue.waiting.filter((item) => item.task_id !== taskId),
         summary: {
-          ...state32.queue.summary || {},
-          waiting_count: Math.max(0, Number(state32.queue.summary?.waiting_count || 0) - 1)
+          ...state33.queue.summary || {},
+          waiting_count: Math.max(0, Number(state33.queue.summary?.waiting_count || 0) - 1)
         }
       });
       await refreshQueue();
-      await bridge39.methods.refreshTasks();
-      bridge39.methods.renderPreview();
-      bridge39.methods.setStatus(translate("queue.queuedDeleted"), "ok");
+      await bridge40.methods.refreshTasks();
+      bridge40.methods.renderPreview();
+      bridge40.methods.setStatus(translate("queue.queuedDeleted"), "ok");
     } catch (error) {
-      bridge39.methods.setStatus(errorMessage5(error, translate("queue.deleteQueuedFailed")), "error");
+      bridge40.methods.setStatus(errorMessage5(error, translate("queue.deleteQueuedFailed")), "error");
     }
   }
   function cancelRunningTask(button, taskId) {
-    const bridge39 = getLegacyBridge();
+    const bridge40 = getLegacyBridge();
     if (!taskId) return;
-    const task = bridge39.state.queue.running.find((item) => item.task_id === taskId);
+    const task = bridge40.state.queue.running.find((item) => item.task_id === taskId);
     const title = task ? queueItemTitleText(task) : taskId;
-    bridge39.methods.openConfirmPopover(button, {
+    bridge40.methods.openConfirmPopover(button, {
       title: translate("queue.cancelRunningTitleConfirm"),
       message: translate("queue.cancelRunningMessage"),
       detail: title,
@@ -41754,31 +42212,31 @@ ${galleryText}`;
     });
   }
   async function performCancelRunningTask(taskId) {
-    const bridge39 = getLegacyBridge();
-    const state32 = bridge39.state;
+    const bridge40 = getLegacyBridge();
+    const state33 = bridge40.state;
     invalidateQueueRequests();
     try {
       const response = await fetch(`/api/queue/${encodeURIComponent(taskId)}`, { method: "DELETE" });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.detail || translate("queue.cancelRunningFailed"));
       applyQueueState({
-        ...state32.queue,
-        running: state32.queue.running.filter((item) => item.task_id !== taskId),
+        ...state33.queue,
+        running: state33.queue.running.filter((item) => item.task_id !== taskId),
         summary: {
-          ...state32.queue.summary || {},
-          running_count: Math.max(0, Number(state32.queue.summary?.running_count || 0) - 1)
+          ...state33.queue.summary || {},
+          running_count: Math.max(0, Number(state33.queue.summary?.running_count || 0) - 1)
         }
       });
       await refreshQueue();
-      await bridge39.methods.refreshTasks();
-      bridge39.methods.renderPreview();
-      bridge39.methods.setStatus(translate("queue.runningCancelled"), "ok");
+      await bridge40.methods.refreshTasks();
+      bridge40.methods.renderPreview();
+      bridge40.methods.setStatus(translate("queue.runningCancelled"), "ok");
     } catch (error) {
-      bridge39.methods.setStatus(errorMessage5(error, translate("queue.cancelRunningFailed")), "error");
+      bridge40.methods.setStatus(errorMessage5(error, translate("queue.cancelRunningFailed")), "error");
     }
   }
   async function reorderQueue(taskIds) {
-    const bridge39 = getLegacyBridge();
+    const bridge40 = getLegacyBridge();
     invalidateQueueRequests();
     try {
       const response = await fetch(`/api/queue/reorder`, {
@@ -41789,9 +42247,9 @@ ${galleryText}`;
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.detail || translate("queue.reorderFailed"));
       applyQueueState(data);
-      await bridge39.methods.refreshTasks();
+      await bridge40.methods.refreshTasks();
     } catch (error) {
-      bridge39.methods.setStatus(errorMessage5(error, translate("queue.reorderFailed")), "error");
+      bridge40.methods.setStatus(errorMessage5(error, translate("queue.reorderFailed")), "error");
       await refreshQueue();
     }
   }
@@ -41816,7 +42274,7 @@ ${galleryText}`;
     getState().queueDragTaskId = null;
   }
   function applyQueueTasks(queue) {
-    const bridge39 = getLegacyBridge();
+    const bridge40 = getLegacyBridge();
     const tasks = [
       ...Array.isArray(queue?.waiting) ? queue.waiting : [],
       ...Array.isArray(queue?.running) ? queue.running : []
@@ -41825,37 +42283,37 @@ ${galleryText}`;
     const needsTaskReconcile = activeTasksNeedQueueReconcile(queueTaskIds);
     if (!tasks.length) {
       if (needsTaskReconcile) {
-        void bridge39.methods.refreshTasks();
+        void bridge40.methods.refreshTasks();
       }
       return;
     }
     let changed = false;
     tasks.forEach((task) => {
-      const previousTask = bridge39.state.tasks.find((item) => String(item.task_id) === String(task.task_id));
-      bridge39.methods.notifyTaskUpdate?.(previousTask, task);
-      changed = bridge39.methods.updateTaskInState(task) || changed;
-      if (String(task.task_id) === String(bridge39.state.selectedTaskId) && bridge39.methods.taskHasViewableUpdate(task)) {
-        void bridge39.methods.markTaskViewed(task.task_id);
+      const previousTask = bridge40.state.tasks.find((item) => String(item.task_id) === String(task.task_id));
+      bridge40.methods.notifyTaskUpdate?.(previousTask, task);
+      changed = bridge40.methods.updateTaskInState(task) || changed;
+      if (String(task.task_id) === String(bridge40.state.selectedTaskId) && bridge40.methods.taskHasViewableUpdate(task)) {
+        void bridge40.methods.markTaskViewed(task.task_id);
       }
     });
     if (!changed) {
       if (needsTaskReconcile) {
-        void bridge39.methods.refreshTasks();
+        void bridge40.methods.refreshTasks();
       }
       return;
     }
-    bridge39.methods.cleanupSessionSelections();
-    bridge39.methods.renderTasks();
-    bridge39.methods.renderArchiveButton();
-    bridge39.methods.renderArchiveModal();
-    bridge39.methods.renderPreview();
+    bridge40.methods.cleanupSessionSelections();
+    bridge40.methods.renderTasks();
+    bridge40.methods.renderArchiveButton();
+    bridge40.methods.renderArchiveModal();
+    bridge40.methods.renderPreview();
     if (needsTaskReconcile) {
-      void bridge39.methods.refreshTasks();
+      void bridge40.methods.refreshTasks();
     }
   }
   function activeTasksNeedQueueReconcile(queueTaskIds) {
-    const bridge39 = getLegacyBridge();
-    return bridge39.state.tasks.some((task) => {
+    const bridge40 = getLegacyBridge();
+    return bridge40.state.tasks.some((task) => {
       const taskId = String(task?.task_id || "");
       if (!taskId || queueTaskIds.has(taskId) || task?.local_pending) return false;
       const status = String(task?.status || "");
@@ -41873,9 +42331,9 @@ ${galleryText}`;
   }
 
   // codex_image/webui/frontend/src/task-list-queue-controls.ts
-  var bridge32 = getLegacyBridge();
-  var state26 = bridge32.state;
-  var els35 = bridge32.els;
+  var bridge33 = getLegacyBridge();
+  var state27 = bridge33.state;
+  var els36 = bridge33.els;
   var taskListQueueControlsInitialized = false;
   var taskListQueueControlsBound = false;
   var queueDragOriginalOrder = [];
@@ -41894,7 +42352,7 @@ ${galleryText}`;
     event.stopPropagation();
   }
   function taskListQueueControlRoots() {
-    return [els35.taskActiveList, els35.taskList].filter((root) => root instanceof HTMLElement);
+    return [els36.taskActiveList, els36.taskList].filter((root) => root instanceof HTMLElement);
   }
   function bindTaskListQueueControls() {
     if (taskListQueueControlsBound) return;
@@ -41997,7 +42455,7 @@ ${galleryText}`;
     return element2;
   }
   function moveWaitingQueueDragPlaceholder(targetCard, placement) {
-    const draggedId = String(state26.queueDragTaskId || "");
+    const draggedId = String(state27.queueDragTaskId || "");
     if (!draggedId) return;
     const parent = targetCard.parentElement;
     if (!parent) return;
@@ -42041,12 +42499,12 @@ ${galleryText}`;
     queueDragOverPlacement = "after";
   }
   function handleTaskListQueueDragOver(event) {
-    if (!state26.queueDragTaskId || !waitingDropTarget(event)) return;
+    if (!state27.queueDragTaskId || !waitingDropTarget(event)) return;
     handleQueueDragOver(event);
     const targetCard = eventTargetElement2(event)?.closest("[data-queue-task-id]");
     if (!(targetCard instanceof HTMLElement)) return;
     const targetId = String(targetCard.dataset.queueTaskId || "");
-    if (!targetId || targetId === String(state26.queueDragTaskId)) return;
+    if (!targetId || targetId === String(state27.queueDragTaskId)) return;
     const rect = targetCard.getBoundingClientRect();
     const placement = event.clientY < rect.top + rect.height / 2 ? "before" : "after";
     if (queueDragOverTargetId === targetId && queueDragOverPlacement === placement) return;
@@ -42055,17 +42513,17 @@ ${galleryText}`;
     moveWaitingQueueDragPlaceholder(targetCard, placement);
   }
   function handleTaskListQueueDrop(event) {
-    if (!state26.queueDragTaskId || !waitingDropTarget(event)) return;
+    if (!state27.queueDragTaskId || !waitingDropTarget(event)) return;
     event.preventDefault();
     event.stopPropagation();
-    const draggedId = String(state26.queueDragTaskId);
+    const draggedId = String(state27.queueDragTaskId);
     const reorderedIds = waitingQueueDomOrder();
     queueDragCommitted = true;
     if (!reorderedIds.includes(draggedId) || sameQueueOrder(queueDragOriginalOrder, reorderedIds)) return;
     void reorderQueue(reorderedIds);
   }
   function handleTaskListQueueDragEnd(event) {
-    if (!state26.queueDragTaskId) return;
+    if (!state27.queueDragTaskId) return;
     const originalOrder = queueDragOriginalOrder.slice();
     const committed = queueDragCommitted;
     handleQueueDragEnd(event);
@@ -42094,9 +42552,9 @@ ${galleryText}`;
   }
 
   // codex_image/webui/frontend/src/task-context-menu.ts
-  var bridge33 = getLegacyBridge();
-  var state27 = bridge33.state;
-  var els36 = bridge33.els;
+  var bridge34 = getLegacyBridge();
+  var state28 = bridge34.state;
+  var els37 = bridge34.els;
   var taskContextMenuInitialized = false;
   var taskContextMenuEventsBound = false;
   var taskContextMenuEl = null;
@@ -42129,21 +42587,21 @@ ${galleryText}`;
   function bindTaskContextMenuEvents() {
     if (taskContextMenuEventsBound) return;
     taskContextMenuEventsBound = true;
-    els36.taskList.addEventListener("contextmenu", handleTaskListContextMenu);
-    els36.taskList.addEventListener("keydown", handleTaskListContextMenuKeydown);
+    els37.taskList.addEventListener("contextmenu", handleTaskListContextMenu);
+    els37.taskList.addEventListener("keydown", handleTaskListContextMenuKeydown);
     document.addEventListener("click", handleTaskContextDocumentClick, true);
     document.addEventListener("keydown", handleTaskContextDocumentKeydown);
     document.addEventListener("scroll", closeTaskContextMenu, true);
     window.addEventListener("resize", closeTaskContextMenu);
     if ("MutationObserver" in window) {
       taskListMutationObserver = new MutationObserver(closeTaskContextMenu);
-      taskListMutationObserver.observe(els36.taskList, { childList: true });
+      taskListMutationObserver.observe(els37.taskList, { childList: true });
     }
   }
   function handleTaskListContextMenu(event) {
     const target = eventTargetElement3(event);
     const card = target?.closest(".task-card[data-task-id]");
-    if (!card || !els36.taskList.contains(card)) return;
+    if (!card || !els37.taskList.contains(card)) return;
     event.preventDefault();
     event.stopPropagation();
     openTaskContextMenu(card, event.clientX, event.clientY);
@@ -42152,7 +42610,7 @@ ${galleryText}`;
     if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return;
     const target = eventTargetElement3(event);
     const card = target?.closest(".task-card[data-task-id]");
-    if (!card || !els36.taskList.contains(card)) return;
+    if (!card || !els37.taskList.contains(card)) return;
     event.preventDefault();
     const rect = card.getBoundingClientRect();
     openTaskContextMenu(card, rect.left + 18, rect.top + 18);
@@ -42297,7 +42755,7 @@ ${galleryText}`;
     input.remove();
   }
   function taskById(taskId) {
-    return state27.tasks.find((item) => String(item.task_id) === String(taskId));
+    return state28.tasks.find((item) => String(item.task_id) === String(taskId));
   }
   function taskCanCopyPrompt(task) {
     return Boolean(task?.summary_only || taskPromptText(task));
@@ -42315,11 +42773,11 @@ ${galleryText}`;
   }
   function replaceTaskInState(taskId, task) {
     if (!task?.task_id) return task;
-    const index = state27.tasks.findIndex((item) => String(item.task_id) === String(taskId));
+    const index = state28.tasks.findIndex((item) => String(item.task_id) === String(taskId));
     if (index >= 0) {
-      state27.tasks.splice(index, 1, task);
+      state28.tasks.splice(index, 1, task);
     } else {
-      state27.tasks.unshift(task);
+      state28.tasks.unshift(task);
     }
     return task;
   }
@@ -42401,18 +42859,18 @@ ${galleryText}`;
     return !getLegacyBridge().state.taskNotificationSeenKeys.has(taskNotificationSeenKey(nextTask, status));
   }
   function openTaskNotificationCenter() {
-    const state32 = getLegacyBridge().state;
-    state32.taskNotificationCenterOpen = true;
-    state32.taskNotifications = state32.taskNotifications.map((notification) => ({
+    const state33 = getLegacyBridge().state;
+    state33.taskNotificationCenterOpen = true;
+    state33.taskNotifications = state33.taskNotifications.map((notification) => ({
       ...notification,
       unread: false
     }));
     renderTaskNotifications();
   }
   function closeTaskNotificationCenter() {
-    const state32 = getLegacyBridge().state;
-    if (!state32.taskNotificationCenterOpen) return;
-    state32.taskNotificationCenterOpen = false;
+    const state33 = getLegacyBridge().state;
+    if (!state33.taskNotificationCenterOpen) return;
+    state33.taskNotificationCenterOpen = false;
     renderTaskNotifications();
   }
   function toggleTaskNotificationCenter() {
@@ -42423,37 +42881,37 @@ ${galleryText}`;
     openTaskNotificationCenter();
   }
   function renderTaskNotifications() {
-    const bridge39 = getLegacyBridge();
-    const state32 = bridge39.state;
-    const els43 = bridge39.els;
-    const unreadCount = state32.taskNotifications.filter((notification) => notification.unread).length;
-    state32.taskNotificationUnreadCount = unreadCount;
+    const bridge40 = getLegacyBridge();
+    const state33 = bridge40.state;
+    const els44 = bridge40.els;
+    const unreadCount = state33.taskNotifications.filter((notification) => notification.unread).length;
+    state33.taskNotificationUnreadCount = unreadCount;
     const unreadLabel = unreadCount > 0 ? formatTranslation("notifications.unread", { count: unreadCount }) : translate("notifications.title");
-    if (els43.taskNotificationBadge) {
-      els43.taskNotificationBadge.textContent = "";
-      els43.taskNotificationBadge.setAttribute("aria-hidden", "true");
-      els43.taskNotificationBadge.classList.toggle("hidden", unreadCount === 0);
+    if (els44.taskNotificationBadge) {
+      els44.taskNotificationBadge.textContent = "";
+      els44.taskNotificationBadge.setAttribute("aria-hidden", "true");
+      els44.taskNotificationBadge.classList.toggle("hidden", unreadCount === 0);
     }
-    if (els43.taskNotificationButton) {
-      els43.taskNotificationButton.classList.toggle("has-unread", unreadCount > 0);
-      els43.taskNotificationButton.setAttribute("aria-label", unreadLabel);
-      els43.taskNotificationButton.title = unreadLabel;
-      els43.taskNotificationButton.setAttribute("aria-expanded", state32.taskNotificationCenterOpen ? "true" : "false");
+    if (els44.taskNotificationButton) {
+      els44.taskNotificationButton.classList.toggle("has-unread", unreadCount > 0);
+      els44.taskNotificationButton.setAttribute("aria-label", unreadLabel);
+      els44.taskNotificationButton.title = unreadLabel;
+      els44.taskNotificationButton.setAttribute("aria-expanded", state33.taskNotificationCenterOpen ? "true" : "false");
     }
-    if (els43.taskNotificationUnreadSummary) {
-      els43.taskNotificationUnreadSummary.textContent = formatTranslation("notifications.unreadSummary", { count: unreadCount });
-      els43.taskNotificationUnreadSummary.classList.toggle("hidden", unreadCount === 0);
+    if (els44.taskNotificationUnreadSummary) {
+      els44.taskNotificationUnreadSummary.textContent = formatTranslation("notifications.unreadSummary", { count: unreadCount });
+      els44.taskNotificationUnreadSummary.classList.toggle("hidden", unreadCount === 0);
     }
-    if (els43.taskNotificationCenter) {
-      els43.taskNotificationCenter.classList.toggle("hidden", !state32.taskNotificationCenterOpen);
-      els43.taskNotificationCenter.setAttribute("aria-hidden", state32.taskNotificationCenterOpen ? "false" : "true");
+    if (els44.taskNotificationCenter) {
+      els44.taskNotificationCenter.classList.toggle("hidden", !state33.taskNotificationCenterOpen);
+      els44.taskNotificationCenter.setAttribute("aria-hidden", state33.taskNotificationCenterOpen ? "false" : "true");
     }
-    if (!els43.taskNotificationList) return;
-    if (!state32.taskNotifications.length) {
-      els43.taskNotificationList.innerHTML = `<div class="task-notification-empty">${translate("notifications.empty")}</div>`;
+    if (!els44.taskNotificationList) return;
+    if (!state33.taskNotifications.length) {
+      els44.taskNotificationList.innerHTML = `<div class="task-notification-empty">${translate("notifications.empty")}</div>`;
       return;
     }
-    els43.taskNotificationList.innerHTML = state32.taskNotifications.map((notification) => taskNotificationItemHtml(notification)).join("");
+    els44.taskNotificationList.innerHTML = state33.taskNotifications.map((notification) => taskNotificationItemHtml(notification)).join("");
   }
   async function requestSystemNotificationPermission() {
     if (typeof Notification === "undefined") {
@@ -42474,23 +42932,23 @@ ${galleryText}`;
     return true;
   }
   function bindTaskNotificationEvents() {
-    const els43 = getLegacyBridge().els;
-    els43.taskNotificationButton?.addEventListener("click", (event) => {
+    const els44 = getLegacyBridge().els;
+    els44.taskNotificationButton?.addEventListener("click", (event) => {
       event.stopPropagation();
       toggleTaskNotificationCenter();
     });
-    els43.taskNotificationClearButton?.addEventListener("click", (event) => {
+    els44.taskNotificationClearButton?.addEventListener("click", (event) => {
       event.stopPropagation();
       clearTaskNotifications();
     });
-    els43.taskNotificationList?.addEventListener("click", (event) => {
+    els44.taskNotificationList?.addEventListener("click", (event) => {
       const item = eventTargetElement4(event)?.closest("[data-task-notification-id]");
       if (!(item instanceof HTMLElement)) return;
       const notification = notificationById(item.dataset.taskNotificationId);
       if (notification) void openNotificationTask(notification);
     });
-    els43.taskNotificationInApp?.addEventListener("change", handleTaskNotificationInAppChange);
-    els43.taskNotificationSystem?.addEventListener("change", (event) => {
+    els44.taskNotificationInApp?.addEventListener("change", handleTaskNotificationInAppChange);
+    els44.taskNotificationSystem?.addEventListener("change", (event) => {
       void handleTaskNotificationSystemChange(event);
     });
     document.addEventListener("click", handleTaskNotificationDocumentClick);
@@ -42499,9 +42957,9 @@ ${galleryText}`;
   function handleTaskNotificationInAppChange(event) {
     const input = event.currentTarget;
     if (!(input instanceof HTMLInputElement)) return;
-    const state32 = getLegacyBridge().state;
-    state32.taskNotificationSettings = {
-      ...state32.taskNotificationSettings,
+    const state33 = getLegacyBridge().state;
+    state33.taskNotificationSettings = {
+      ...state33.taskNotificationSettings,
       inApp: input.checked
     };
     persistTaskNotificationSettings();
@@ -42509,40 +42967,40 @@ ${galleryText}`;
   async function handleTaskNotificationSystemChange(event) {
     const input = event.currentTarget;
     if (!(input instanceof HTMLInputElement)) return;
-    const state32 = getLegacyBridge().state;
+    const state33 = getLegacyBridge().state;
     if (!input.checked) {
-      state32.taskNotificationSettings = { ...state32.taskNotificationSettings, system: false };
+      state33.taskNotificationSettings = { ...state33.taskNotificationSettings, system: false };
       persistTaskNotificationSettings();
       return;
     }
     const granted = await requestSystemNotificationPermission();
-    state32.taskNotificationSettings = { ...state32.taskNotificationSettings, system: granted };
+    state33.taskNotificationSettings = { ...state33.taskNotificationSettings, system: granted };
     input.checked = granted;
     persistTaskNotificationSettings();
   }
   function handleTaskNotificationDocumentClick(event) {
     const target = event.target;
-    const els43 = getLegacyBridge().els;
+    const els44 = getLegacyBridge().els;
     if (!(target instanceof Node)) return;
-    if (els43.taskNotificationCenter?.contains(target) || els43.taskNotificationButton?.contains(target)) return;
+    if (els44.taskNotificationCenter?.contains(target) || els44.taskNotificationButton?.contains(target)) return;
     closeTaskNotificationCenter();
   }
   function handleTaskNotificationKeydown(event) {
     if (event.key === "Escape") closeTaskNotificationCenter();
   }
   function addTaskNotification(notification) {
-    const state32 = getLegacyBridge().state;
-    state32.taskNotifications = [notification, ...state32.taskNotifications].slice(0, MAX_TASK_NOTIFICATIONS);
+    const state33 = getLegacyBridge().state;
+    state33.taskNotifications = [notification, ...state33.taskNotifications].slice(0, MAX_TASK_NOTIFICATIONS);
     renderTaskNotifications();
   }
   function clearTaskNotifications() {
-    const state32 = getLegacyBridge().state;
-    state32.taskNotifications = [];
+    const state33 = getLegacyBridge().state;
+    state33.taskNotifications = [];
     renderTaskNotifications();
   }
   function showTaskNotificationToast(notification) {
-    const bridge39 = getLegacyBridge();
-    const region = bridge39.els.taskNotificationToastRegion;
+    const bridge40 = getLegacyBridge();
+    const region = bridge40.els.taskNotificationToastRegion;
     if (!region) return;
     const toast = document.createElement("button");
     toast.type = "button";
@@ -42556,9 +43014,9 @@ ${galleryText}`;
     region.prepend(toast);
     const timerId = window.setTimeout(() => {
       toast.remove();
-      bridge39.state.taskNotificationToastTimerIds = bridge39.state.taskNotificationToastTimerIds.filter((id) => id !== timerId);
+      bridge40.state.taskNotificationToastTimerIds = bridge40.state.taskNotificationToastTimerIds.filter((id) => id !== timerId);
     }, TASK_NOTIFICATION_TOAST_MS);
-    bridge39.state.taskNotificationToastTimerIds.push(timerId);
+    bridge40.state.taskNotificationToastTimerIds.push(timerId);
   }
   function sendSystemTaskNotification(notification) {
     const settings = getLegacyBridge().state.taskNotificationSettings;
@@ -42573,8 +43031,8 @@ ${galleryText}`;
     };
   }
   async function openNotificationTask(notification) {
-    const bridge39 = getLegacyBridge();
-    const task = bridge39.state.tasks.find((item) => String(item.task_id) === String(notification.task_id));
+    const bridge40 = getLegacyBridge();
+    const task = bridge40.state.tasks.find((item) => String(item.task_id) === String(notification.task_id));
     markTaskNotificationRead(notification.id);
     closeTaskNotificationCenter();
     if (!task) {
@@ -42583,7 +43041,7 @@ ${galleryText}`;
     }
     window.focus();
     try {
-      const selectTask3 = bridge39.methods.selectTask;
+      const selectTask3 = bridge40.methods.selectTask;
       if (typeof selectTask3 !== "function") throw new Error("selectTask is unavailable");
       await selectTask3(task.task_id);
     } catch {
@@ -42591,8 +43049,8 @@ ${galleryText}`;
     }
   }
   function markTaskNotificationRead(notificationId) {
-    const state32 = getLegacyBridge().state;
-    state32.taskNotifications = state32.taskNotifications.map((notification) => notification.id === notificationId ? { ...notification, unread: false } : notification);
+    const state33 = getLegacyBridge().state;
+    state33.taskNotifications = state33.taskNotifications.map((notification) => notification.id === notificationId ? { ...notification, unread: false } : notification);
     renderTaskNotifications();
   }
   function notificationById(notificationId) {
@@ -42651,8 +43109,8 @@ ${galleryText}`;
     return notification.message;
   }
   function firstTaskThumbnailUrl(task) {
-    const bridge39 = getLegacyBridge();
-    const urls = bridge39.methods.taskThumbnailUrls?.(task);
+    const bridge40 = getLegacyBridge();
+    const urls = bridge40.methods.taskThumbnailUrls?.(task);
     if (Array.isArray(urls) && urls[0]) return String(urls[0]);
     if (Array.isArray(task.thumbnail_urls) && task.thumbnail_urls[0]) return String(task.thumbnail_urls[0]);
     const output = Array.isArray(task.outputs) ? task.outputs.find((record) => record?.status === "completed") : null;
@@ -42701,26 +43159,26 @@ ${galleryText}`;
     return `${task.task_id}:${status}:${revision}`;
   }
   function rememberTaskNotification(task, status) {
-    const state32 = getLegacyBridge().state;
-    state32.taskNotificationSeenKeys.add(taskNotificationSeenKey(task, status));
-    while (state32.taskNotificationSeenKeys.size > MAX_SEEN_TASK_NOTIFICATION_KEYS) {
-      const firstKey = state32.taskNotificationSeenKeys.values().next().value;
+    const state33 = getLegacyBridge().state;
+    state33.taskNotificationSeenKeys.add(taskNotificationSeenKey(task, status));
+    while (state33.taskNotificationSeenKeys.size > MAX_SEEN_TASK_NOTIFICATION_KEYS) {
+      const firstKey = state33.taskNotificationSeenKeys.values().next().value;
       if (typeof firstKey !== "string") break;
-      state32.taskNotificationSeenKeys.delete(firstKey);
+      state33.taskNotificationSeenKeys.delete(firstKey);
     }
     persistTaskNotificationSeenKeys();
   }
   function restoreTaskNotificationSettings() {
-    const state32 = getLegacyBridge().state;
-    state32.taskNotificationSettings = defaultTaskNotificationSettings();
+    const state33 = getLegacyBridge().state;
+    state33.taskNotificationSettings = defaultTaskNotificationSettings();
     try {
       const stored = JSON.parse(localStorage.getItem(TASK_NOTIFICATION_SETTINGS_KEY) || "{}");
-      state32.taskNotificationSettings = {
+      state33.taskNotificationSettings = {
         inApp: stored.inApp !== false,
         system: stored.system === true && typeof Notification !== "undefined" && Notification.permission === "granted"
       };
     } catch {
-      state32.taskNotificationSettings = defaultTaskNotificationSettings();
+      state33.taskNotificationSettings = defaultTaskNotificationSettings();
     }
     persistTaskNotificationSettings();
     syncTaskNotificationSettingsInputs();
@@ -42736,22 +43194,22 @@ ${galleryText}`;
     syncTaskNotificationSettingsInputs();
   }
   function syncTaskNotificationSettingsInputs() {
-    const bridge39 = getLegacyBridge();
-    const settings = bridge39.state.taskNotificationSettings;
-    if (bridge39.els.taskNotificationInApp instanceof HTMLInputElement) {
-      bridge39.els.taskNotificationInApp.checked = settings.inApp;
+    const bridge40 = getLegacyBridge();
+    const settings = bridge40.state.taskNotificationSettings;
+    if (bridge40.els.taskNotificationInApp instanceof HTMLInputElement) {
+      bridge40.els.taskNotificationInApp.checked = settings.inApp;
     }
-    if (bridge39.els.taskNotificationSystem instanceof HTMLInputElement) {
-      bridge39.els.taskNotificationSystem.checked = settings.system;
+    if (bridge40.els.taskNotificationSystem instanceof HTMLInputElement) {
+      bridge40.els.taskNotificationSystem.checked = settings.system;
     }
   }
   function restoreTaskNotificationSeenKeys() {
-    const state32 = getLegacyBridge().state;
+    const state33 = getLegacyBridge().state;
     try {
       const stored = JSON.parse(localStorage.getItem(TASK_NOTIFICATION_SEEN_KEY) || "[]");
-      state32.taskNotificationSeenKeys = new Set(Array.isArray(stored) ? stored.filter((key) => typeof key === "string") : []);
+      state33.taskNotificationSeenKeys = new Set(Array.isArray(stored) ? stored.filter((key) => typeof key === "string") : []);
     } catch {
-      state32.taskNotificationSeenKeys = /* @__PURE__ */ new Set();
+      state33.taskNotificationSeenKeys = /* @__PURE__ */ new Set();
     }
   }
   function persistTaskNotificationSeenKeys() {
@@ -43192,13 +43650,13 @@ ${galleryText}`;
   function compressedTaskImageState(states) {
     if (states.includes("failed")) return "failed";
     if (states.includes("running")) return "running";
-    if (states.length && states.every((state32) => state32 === "completed")) return "completed";
+    if (states.length && states.every((state33) => state33 === "completed")) return "completed";
     if (states.includes("queued")) return "queued";
     return "waiting";
   }
   function taskImageStatusCounts2(states) {
-    return states.reduce((counts, state32) => {
-      counts[state32] = (counts[state32] || 0) + 1;
+    return states.reduce((counts, state33) => {
+      counts[state33] = (counts[state33] || 0) + 1;
       return counts;
     }, { completed: 0, failed: 0, running: 0, queued: 0, waiting: 0 });
   }
@@ -43500,9 +43958,9 @@ ${galleryText}`;
   }
 
   // codex_image/webui/frontend/src/task-preview.ts
-  var bridge34 = getLegacyBridge();
-  var state28 = bridge34.state;
-  var els37 = bridge34.els;
+  var bridge35 = getLegacyBridge();
+  var state29 = bridge35.state;
+  var els38 = bridge35.els;
   var previewGridEventsBound = false;
   var pendingPreviewRenderToken = 0;
   function legacyMethod40(name, ...args) {
@@ -43524,7 +43982,7 @@ ${galleryText}`;
   function closePromptPopover7(...args) {
     return legacyMethod40("closePromptPopover", ...args);
   }
-  function currentSize2(...args) {
+  function currentSize3(...args) {
     return legacyMethod40("currentSize", ...args);
   }
   function syncActiveLightboxUrls2(...args) {
@@ -43595,21 +44053,21 @@ ${galleryText}`;
     const status = String(task?.status || "");
     const taskId = String(task?.task_id || "");
     if (TERMINAL_TASK_STATUSES.has(status)) return status;
-    if (queueContainsTask(state28.queue.running, taskId)) return "running";
-    if (queueContainsTask(state28.queue.waiting, taskId)) return status === "submitting" ? "submitting" : "queued";
+    if (queueContainsTask(state29.queue.running, taskId)) return "running";
+    if (queueContainsTask(state29.queue.waiting, taskId)) return status === "submitting" ? "submitting" : "queued";
     return status;
   }
   function renderPreview5(task = null) {
-    const selectedTask = state28.tasks.find((item) => String(item.task_id) === String(state28.selectedTaskId));
+    const selectedTask = state29.tasks.find((item) => String(item.task_id) === String(state29.selectedTaskId));
     const visibleSelectedTask = selectedTask && !isTaskArchived4(selectedTask.task_id) ? selectedTask : null;
-    const selected = task || visibleSelectedTask || state28.tasks.find((item) => !isTaskArchived4(item.task_id)) || selectedTask || state28.tasks[0];
+    const selected = task || visibleSelectedTask || state29.tasks.find((item) => !isTaskArchived4(item.task_id)) || selectedTask || state29.tasks[0];
     const status = taskPreviewStatus(selected);
     updatePreviewDownloadActions(selected);
     const nextPreviewKey = previewStructureKey(selected);
-    if (state28.previewRenderKey === nextPreviewKey) {
+    if (state29.previewRenderKey === nextPreviewKey) {
       return updatePreviewElapsedDisplay2();
     }
-    state28.previewRenderKey = nextPreviewKey;
+    state29.previewRenderKey = nextPreviewKey;
     if (status === "running") {
       if (taskOutputUrls3(selected).length) {
         renderOutputPreview(selected, { running: true });
@@ -43638,7 +44096,7 @@ ${galleryText}`;
       closePromptPopover7();
       cancelDeferredPreviewRender();
       clearPreviewGridLayout();
-      els37.previewGrid.innerHTML = `
+      els38.previewGrid.innerHTML = `
       <div class="empty-preview error-preview">
         <p>${escapeHtml20(taskFailureMessage2(selected) || translate("preview.taskFailed"))}</p>
         ${retryFailureSummaryButton(selected)}
@@ -43652,7 +44110,7 @@ ${galleryText}`;
       closePromptPopover7();
       cancelDeferredPreviewRender();
       clearPreviewGridLayout();
-      els37.previewGrid.innerHTML = `<div class="empty-preview">${escapeHtml20(translate("preview.empty"))}</div>`;
+      els38.previewGrid.innerHTML = `<div class="empty-preview">${escapeHtml20(translate("preview.empty"))}</div>`;
       return;
     }
     renderOutputPreview(selected);
@@ -43663,7 +44121,7 @@ ${galleryText}`;
     const status = taskPreviewStatus(task);
     const outputUrls = taskOutputUrls3(task).join("|");
     const selectedIndexes = taskSelectedOutputIndexes2(task).join(",");
-    const size = task.params?.size || task.output_size || currentSize2();
+    const size = task.params?.size || task.output_size || currentSize3();
     if (status === "failed" || status === "partial_failed") {
       return ["failed", taskId, status, outputUrls, selectedIndexes, taskFailureMessage2(task), taskRetryStateText4(task), canRetryFailedTask3(task), canAcceptTaskSuccesses3(task)].join("|");
     }
@@ -43751,8 +44209,8 @@ ${galleryText}`;
   }
   function commitOutputPreviewRender(task, { running = false, failure = false, waiting = false, outputUrls, totalCount, itemCount, preservePreviousImages = true, imageAlreadyLoaded = false }) {
     applyPreviewGridLayout(totalCount, itemCount);
-    state28.previewTask = task || null;
-    state28.previewOutputUrls = outputUrls.slice();
+    state29.previewTask = task || null;
+    state29.previewOutputUrls = outputUrls.slice();
     bindPreviewGridEvents();
     reconcilePreviewOutputCards(task, outputUrls, totalCount, { preservePreviousImages, imageAlreadyLoaded });
     reconcilePreviewStatusCard(task, { running, failure, waiting }, outputUrls.length);
@@ -43760,24 +44218,24 @@ ${galleryText}`;
     window.requestAnimationFrame(syncPreviewImageOrientation);
   }
   function reconcilePreviewOutputCards(task, outputUrls, totalCount, { preservePreviousImages = true, imageAlreadyLoaded = false } = {}) {
-    if (!els37.previewGrid) return;
+    if (!els38.previewGrid) return;
     const desiredKeys = new Set(outputUrls.map((url, index) => previewOutputCardKey(task, url, index)));
     removeStalePreviewNodes(desiredKeys);
     outputUrls.forEach((url, index) => {
       const key = previewOutputCardKey(task, url, index);
       const card = ensurePreviewOutputCard(key);
-      if (els37.previewGrid.children[index] !== card) {
-        els37.previewGrid.insertBefore(card, els37.previewGrid.children[index] || null);
+      if (els38.previewGrid.children[index] !== card) {
+        els38.previewGrid.insertBefore(card, els38.previewGrid.children[index] || null);
       }
       updatePreviewOutputCard(card, task, url, index, totalCount, { preservePreviousImage: preservePreviousImages, imageAlreadyLoaded });
     });
   }
   function currentPreviewOutputCardCount() {
-    if (!els37.previewGrid) return 0;
-    return els37.previewGrid.querySelectorAll(".preview-card[data-preview-card-key]").length;
+    if (!els38.previewGrid) return 0;
+    return els38.previewGrid.querySelectorAll(".preview-card[data-preview-card-key]").length;
   }
   function removeStalePreviewNodes(desiredKeys) {
-    [...els37.previewGrid.children].forEach((child) => {
+    [...els38.previewGrid.children].forEach((child) => {
       if (!(child instanceof HTMLElement)) return;
       const key = child.dataset.previewCardKey;
       if (key) {
@@ -43792,7 +44250,7 @@ ${galleryText}`;
     return `slot-${taskOutputIndex2(task, url, index) || index + 1}`;
   }
   function ensurePreviewOutputCard(key) {
-    const existing = [...els37.previewGrid.querySelectorAll(".preview-card[data-preview-card-key]")].find((card2) => {
+    const existing = [...els38.previewGrid.querySelectorAll(".preview-card[data-preview-card-key]")].find((card2) => {
       return card2 instanceof HTMLElement && card2.dataset.previewCardKey === key;
     });
     if (existing instanceof HTMLElement) return existing;
@@ -43955,7 +44413,7 @@ ${galleryText}`;
     });
   }
   function reconcilePreviewStatusCard(task, flags, visibleOutputCount) {
-    const existing = els37.previewGrid.querySelector("[data-preview-status-card]");
+    const existing = els38.previewGrid.querySelector("[data-preview-status-card]");
     const html = flags.running ? runningProgressCard(task, visibleOutputCount) : flags.waiting ? waitingProgressCard(task, visibleOutputCount) : flags.failure ? failureSummaryCard(task, visibleOutputCount) : "";
     if (!html) {
       existing?.remove();
@@ -43969,13 +44427,13 @@ ${galleryText}`;
     if (existing) {
       existing.replaceWith(next);
     } else {
-      els37.previewGrid.append(next);
+      els38.previewGrid.append(next);
     }
   }
   function bindPreviewGridEvents() {
-    if (previewGridEventsBound || !els37.previewGrid) return;
+    if (previewGridEventsBound || !els38.previewGrid) return;
     previewGridEventsBound = true;
-    els37.previewGrid.addEventListener("click", handlePreviewGridClick);
+    els38.previewGrid.addEventListener("click", handlePreviewGridClick);
   }
   function handlePreviewGridClick(event) {
     const target = event.target instanceof Element ? event.target : null;
@@ -43995,7 +44453,7 @@ ${galleryText}`;
     if (selectButton) {
       event.stopPropagation();
       const outputIndex = positiveInt2(selectButton.dataset.previewSelectOutputIndex);
-      const taskId = selectButton.dataset.previewSelectTaskId || state28.previewTask?.task_id || "";
+      const taskId = selectButton.dataset.previewSelectTaskId || state29.previewTask?.task_id || "";
       if (!taskId || outputIndex === null) return;
       const selected = selectButton.getAttribute("aria-pressed") !== "true";
       void updateTaskOutputSelection(taskId, outputIndex, selected);
@@ -44010,7 +44468,7 @@ ${galleryText}`;
     if (collectButton) {
       collectReferenceOutput2(collectButton.dataset.collectInputUrl, {
         name: collectButton.dataset.collectOutputName || "",
-        sourceTaskId: state28.previewTask?.task_id || "",
+        sourceTaskId: state29.previewTask?.task_id || "",
         outputIndex: positiveInt2(collectButton.dataset.collectOutputIndex) || null
       });
       return;
@@ -44019,12 +44477,12 @@ ${galleryText}`;
     if (promptButton) {
       event.stopPropagation();
       const index = Number.parseInt(promptButton.dataset.promptPopoverIndex || "0", 10);
-      openPromptPopover(promptButton, promptPopoverData(state28.previewTask, index));
+      openPromptPopover(promptButton, promptPopoverData(state29.previewTask, index));
       return;
     }
     const image = target.closest("[data-lightbox-url]");
     if (!image) return;
-    const images = [...els37.previewGrid.querySelectorAll("[data-lightbox-url]")];
+    const images = [...els38.previewGrid.querySelectorAll("[data-lightbox-url]")];
     const urls = images.map((item) => item.dataset.lightboxUrl || item.currentSrc || item.src).filter((url) => Boolean(url));
     const currentUrl = image.dataset.lightboxUrl || image.currentSrc || image.src;
     if (!currentUrl) return;
@@ -44036,16 +44494,16 @@ ${galleryText}`;
   function updatePreviewDownloadActions(task) {
     updatePreviewSelectionActions(task);
     const outputUrls = taskOutputUrls3(task);
-    if (!els37.downloadAllButton) return;
+    if (!els38.downloadAllButton) return;
     if (!task?.task_id || outputUrls.length < 2) {
-      els37.downloadAllButton.classList.add("hidden");
-      els37.downloadAllButton.removeAttribute("href");
-      els37.downloadAllButton.removeAttribute("download");
+      els38.downloadAllButton.classList.add("hidden");
+      els38.downloadAllButton.removeAttribute("href");
+      els38.downloadAllButton.removeAttribute("download");
       return;
     }
-    els37.downloadAllButton.href = taskOutputZipUrl(task);
-    els37.downloadAllButton.download = `${task.task_id}-images.zip`;
-    els37.downloadAllButton.classList.remove("hidden");
+    els38.downloadAllButton.href = taskOutputZipUrl(task);
+    els38.downloadAllButton.download = `${task.task_id}-images.zip`;
+    els38.downloadAllButton.classList.remove("hidden");
   }
   function updatePreviewSelectionActions(task) {
     const outputUrls = taskOutputUrls3(task);
@@ -44053,28 +44511,28 @@ ${galleryText}`;
     const selectedCount = selectedUrls.length;
     const totalCount = outputUrls.length;
     const hasSelection = Boolean(task?.task_id && selectedCount > 0 && totalCount > 1);
-    els37.previewSelectionActions?.classList.toggle("hidden", !hasSelection);
-    if (els37.previewSelectionCount) {
-      els37.previewSelectionCount.textContent = selectedCount ? formatTranslation("preview.selectedCount", { selected: selectedCount, total: totalCount }) : translate("preview.selectedZero");
+    els38.previewSelectionActions?.classList.toggle("hidden", !hasSelection);
+    if (els38.previewSelectionCount) {
+      els38.previewSelectionCount.textContent = selectedCount ? formatTranslation("preview.selectedCount", { selected: selectedCount, total: totalCount }) : translate("preview.selectedZero");
     }
-    if (els37.downloadSelectedButton) {
+    if (els38.downloadSelectedButton) {
       if (!hasSelection) {
-        els37.downloadSelectedButton.classList.add("hidden");
-        els37.downloadSelectedButton.removeAttribute("href");
-        els37.downloadSelectedButton.removeAttribute("download");
+        els38.downloadSelectedButton.classList.add("hidden");
+        els38.downloadSelectedButton.removeAttribute("href");
+        els38.downloadSelectedButton.removeAttribute("download");
       } else {
-        els37.downloadSelectedButton.href = taskSelectedOutputDownloadUrl(task);
-        els37.downloadSelectedButton.download = taskSelectedOutputDownloadName(task);
-        els37.downloadSelectedButton.classList.remove("hidden");
+        els38.downloadSelectedButton.href = taskSelectedOutputDownloadUrl(task);
+        els38.downloadSelectedButton.download = taskSelectedOutputDownloadName(task);
+        els38.downloadSelectedButton.classList.remove("hidden");
       }
     }
-    if (els37.deleteUnselectedOutputsButton) {
+    if (els38.deleteUnselectedOutputsButton) {
       const canDeleteUnselected = hasSelection && selectedCount < totalCount;
-      els37.deleteUnselectedOutputsButton.classList.toggle("hidden", !canDeleteUnselected);
+      els38.deleteUnselectedOutputsButton.classList.toggle("hidden", !canDeleteUnselected);
       if (canDeleteUnselected) {
-        els37.deleteUnselectedOutputsButton.dataset.deleteUnselectedTaskId = String(task.task_id || "");
+        els38.deleteUnselectedOutputsButton.dataset.deleteUnselectedTaskId = String(task.task_id || "");
       } else {
-        delete els37.deleteUnselectedOutputsButton.dataset.deleteUnselectedTaskId;
+        delete els38.deleteUnselectedOutputsButton.dataset.deleteUnselectedTaskId;
       }
     }
   }
@@ -44120,8 +44578,8 @@ ${galleryText}`;
     }
   }
   function openDeleteUnselectedOutputsConfirm(button) {
-    const taskId = button.dataset.deleteUnselectedTaskId || state28.previewTask?.task_id || state28.selectedTaskId || "";
-    const task = state28.tasks.find((item) => String(item.task_id) === String(taskId)) || state28.previewTask;
+    const taskId = button.dataset.deleteUnselectedTaskId || state29.previewTask?.task_id || state29.selectedTaskId || "";
+    const task = state29.tasks.find((item) => String(item.task_id) === String(taskId)) || state29.previewTask;
     const selectedCount = taskSelectedOutputUrls(task).length;
     const totalCount = taskOutputUrls3(task).length;
     const deleteCount = Math.max(0, totalCount - selectedCount);
@@ -44150,7 +44608,7 @@ ${galleryText}`;
       if (!response.ok) throw new Error(data.detail || translate("preview.deleteUnselectedFailed"));
       const updatedTask = data.task;
       updateTaskInState3(updatedTask);
-      state28.selectedTaskId = updatedTask.task_id;
+      state29.selectedTaskId = updatedTask.task_id;
       renderTasks7();
       renderPreview5(updatedTask);
       setStatus20(translate("preview.deleteUnselectedDone"), "ok");
@@ -44180,36 +44638,36 @@ ${galleryText}`;
     return String(value || "image").replace(/[^\w.-]+/g, "-") || "image";
   }
   function clearPreviewGridLayout() {
-    if (!els37.previewGrid) return;
-    els37.previewGrid.classList.remove("multi-output");
-    [...els37.previewGrid.classList].forEach((className) => {
+    if (!els38.previewGrid) return;
+    els38.previewGrid.classList.remove("multi-output");
+    [...els38.previewGrid.classList].forEach((className) => {
       if (className.startsWith("preview-count-") || className.startsWith("preview-orientation-")) {
-        els37.previewGrid.classList.remove(className);
+        els38.previewGrid.classList.remove(className);
       }
     });
   }
   function applyPreviewGridLayout(outputCount, itemCount) {
     const previousOrientationClass = currentPreviewOrientationClass();
     clearPreviewGridLayout();
-    if (!els37.previewGrid) return;
-    els37.previewGrid.classList.toggle("multi-output", itemCount > 1);
-    els37.previewGrid.classList.add(`preview-count-${outputCount}`);
-    els37.previewGrid.classList.add(previousOrientationClass || "preview-orientation-unknown");
+    if (!els38.previewGrid) return;
+    els38.previewGrid.classList.toggle("multi-output", itemCount > 1);
+    els38.previewGrid.classList.add(`preview-count-${outputCount}`);
+    els38.previewGrid.classList.add(previousOrientationClass || "preview-orientation-unknown");
   }
   function currentPreviewOrientationClass() {
-    if (!els37.previewGrid) return "";
-    return [...els37.previewGrid.classList].find((className) => className.startsWith("preview-orientation-")) || "";
+    if (!els38.previewGrid) return "";
+    return [...els38.previewGrid.classList].find((className) => className.startsWith("preview-orientation-")) || "";
   }
   function syncPreviewImageOrientation() {
-    if (!els37.previewGrid) return;
-    const images = [...els37.previewGrid.querySelectorAll("[data-lightbox-url]")];
+    if (!els38.previewGrid) return;
+    const images = [...els38.previewGrid.querySelectorAll("[data-lightbox-url]")];
     const loadedImages = images.filter((image) => image.naturalWidth > 0 && image.naturalHeight > 0);
     if (!loadedImages.length) return;
     const portraitCount = loadedImages.filter((image) => image.naturalHeight > image.naturalWidth).length;
     const landscapeCount = loadedImages.filter((image) => image.naturalWidth > image.naturalHeight).length;
     const orientation = portraitCount > landscapeCount ? "portrait" : landscapeCount > portraitCount ? "landscape" : "square";
-    els37.previewGrid.classList.remove("preview-orientation-unknown", "preview-orientation-portrait", "preview-orientation-landscape", "preview-orientation-square");
-    els37.previewGrid.classList.add(`preview-orientation-${orientation}`);
+    els38.previewGrid.classList.remove("preview-orientation-unknown", "preview-orientation-portrait", "preview-orientation-landscape", "preview-orientation-square");
+    els38.previewGrid.classList.add(`preview-orientation-${orientation}`);
   }
   function promptPopoverData(task, index) {
     const originalPrompt = task.prompt || task.prompt_for_model || "";
@@ -44221,7 +44679,7 @@ ${galleryText}`;
     const elapsed = elapsedTimerSpan3("running", taskProgressStartValue4(task));
     const generated = taskGeneratedCount2(task, visibleOutputCount);
     const total = taskTotalCount2(task);
-    const size = escapeHtml20(task.params?.size || currentSize2());
+    const size = escapeHtml20(task.params?.size || currentSize3());
     const retryState = taskRetryStateText4(task);
     const retryStateHtml = retryState ? `<p data-preview-retry-state>${escapeHtml20(retryState)}</p>` : "";
     const failureNotice = runningFailureNotice(task);
@@ -44244,7 +44702,7 @@ ${galleryText}`;
     const elapsed = elapsedTimerSpan3("waiting", elapsedFrom);
     const generated = taskGeneratedCount2(task, visibleOutputCount);
     const total = taskTotalCount2(task);
-    const size = escapeHtml20(task.params?.size || currentSize2());
+    const size = escapeHtml20(task.params?.size || currentSize3());
     const retryReason = task.last_error ? `<p>${escapeHtml20(formatTranslation("preview.lastError", { error: task.last_error }))}</p>` : "";
     const retryState = taskRetryStateText4(task);
     const retryStateHtml = retryState ? `<p data-preview-retry-state>${escapeHtml20(retryState)}</p>` : "";
@@ -44299,12 +44757,12 @@ ${galleryText}`;
   function renderRunningPreview(task) {
     clearPreviewGridLayout();
     const elapsed = elapsedTimerSpan3("running", taskProgressStartValue4(task));
-    const size = escapeHtml20(task.params?.size || currentSize2());
+    const size = escapeHtml20(task.params?.size || currentSize3());
     const modeLabel = task.mode === "edit" ? translate("preview.editMode") : translate("preview.generateMode");
     const retryState = taskRetryStateText4(task);
     const retryStateHtml = retryState ? `<p data-preview-retry-state>${escapeHtml20(retryState)}</p>` : "";
     const failureNotice = runningFailureNotice(task);
-    els37.previewGrid.innerHTML = `
+    els38.previewGrid.innerHTML = `
     <div class="waiting-preview">
       <div class="waiting-spinner" aria-hidden="true"></div>
       <div>
@@ -44323,13 +44781,13 @@ ${galleryText}`;
     const submitting = task.status === "submitting";
     const elapsedFrom = task.started_at || task.queued_at || task.created_at;
     const elapsed = elapsedTimerSpan3("waiting", elapsedFrom);
-    const size = escapeHtml20(task.params?.size || currentSize2());
+    const size = escapeHtml20(task.params?.size || currentSize3());
     const title = submitting ? translate("preview.submittingTitle") : translate("preview.queuedTitle");
     const detail = submitting ? translate("preview.submittingDetail") : translate("preview.queuedDetail");
     const retryReason = !submitting && task.last_error ? `<p>${escapeHtml20(formatTranslation("preview.lastError", { error: task.last_error }))}</p>` : "";
     const retryState = taskRetryStateText4(task);
     const retryStateHtml = retryState ? `<p data-preview-retry-state>${escapeHtml20(retryState)}</p>` : "";
-    els37.previewGrid.innerHTML = `
+    els38.previewGrid.innerHTML = `
     <div class="waiting-preview">
       <div class="waiting-spinner" aria-hidden="true"></div>
       <div>
@@ -44345,12 +44803,12 @@ ${galleryText}`;
   `;
   }
   function initTaskPreviewFeature() {
-    els37.deleteUnselectedOutputsButton?.addEventListener("click", () => {
-      openDeleteUnselectedOutputsConfirm(els37.deleteUnselectedOutputsButton);
+    els38.deleteUnselectedOutputsButton?.addEventListener("click", () => {
+      openDeleteUnselectedOutputsConfirm(els38.deleteUnselectedOutputsButton);
     });
     document.addEventListener(LOCALE_CHANGE_EVENT, () => {
-      state28.previewRenderKey = null;
-      renderPreview5(state28.previewTask);
+      state29.previewRenderKey = null;
+      renderPreview5(state29.previewTask);
     });
     Object.assign(getLegacyBridge().methods, {
       taskRequestPreviewPayload,
@@ -44375,9 +44833,9 @@ ${galleryText}`;
   }
 
   // codex_image/webui/frontend/src/tasks.ts
-  var bridge35 = getLegacyBridge();
-  var state29 = bridge35.state;
-  var els38 = bridge35.els;
+  var bridge36 = getLegacyBridge();
+  var state30 = bridge36.state;
+  var els39 = bridge36.els;
   function legacyMethod41(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -44403,26 +44861,26 @@ ${galleryText}`;
     return String(query || "").trim().toLowerCase();
   }
   async function refreshTasks({ migrateLegacyArchives = false } = {}) {
-    const requestSeq = ++state29.tasksRequestSeq;
+    const requestSeq = ++state30.tasksRequestSeq;
     const response = await fetch("/api/tasks/recent?limit=50");
     const data = await response.json();
-    if (requestSeq !== state29.tasksRequestSeq) return;
+    if (requestSeq !== state30.tasksRequestSeq) return;
     await applyTasksSnapshot(data.tasks || [], { migrateLegacyArchives, requestSeq });
   }
-  async function applyTasksSnapshot(tasks, { migrateLegacyArchives = false, requestSeq = state29.tasksRequestSeq } = {}) {
-    const previousLocalPendingTasks = state29.tasks.filter((task) => task?.local_pending);
-    const pendingTask = state29.pendingTaskId ? state29.tasks.find((task) => task.task_id === state29.pendingTaskId) : null;
-    state29.tasks = Array.isArray(tasks) ? tasks : [];
-    if (pendingTask?.local_pending && !state29.tasks.some((task) => task.task_id === pendingTask.task_id)) {
-      state29.tasks.unshift(pendingTask);
+  async function applyTasksSnapshot(tasks, { migrateLegacyArchives = false, requestSeq = state30.tasksRequestSeq } = {}) {
+    const previousLocalPendingTasks = state30.tasks.filter((task) => task?.local_pending);
+    const pendingTask = state30.pendingTaskId ? state30.tasks.find((task) => task.task_id === state30.pendingTaskId) : null;
+    state30.tasks = Array.isArray(tasks) ? tasks : [];
+    if (pendingTask?.local_pending && !state30.tasks.some((task) => task.task_id === pendingTask.task_id)) {
+      state30.tasks.unshift(pendingTask);
     }
-    const retainedTasks = new Set(state29.tasks);
+    const retainedTasks = new Set(state30.tasks);
     previousLocalPendingTasks.forEach((task) => {
       if (!retainedTasks.has(task)) revokeTaskUploadPreviewUrls3(task);
     });
     if (migrateLegacyArchives) {
       await migrateLegacyArchivedTasks2();
-      if (requestSeq !== state29.tasksRequestSeq) return;
+      if (requestSeq !== state30.tasksRequestSeq) return;
     }
     cleanupSessionSelections2();
     renderTasks8();
@@ -44432,7 +44890,7 @@ ${galleryText}`;
   }
   async function applyTaskUpdate(task) {
     if (!updateTaskInState4(task)) return;
-    if (String(task.task_id) === String(state29.selectedTaskId) && taskHasViewableUpdate2(task)) {
+    if (String(task.task_id) === String(state30.selectedTaskId) && taskHasViewableUpdate2(task)) {
       void markTaskViewed2(task.task_id);
     }
     cleanupSessionSelections2();
@@ -44442,12 +44900,12 @@ ${galleryText}`;
     await renderSelectedTaskPreview();
   }
   function currentTaskSearchQuery() {
-    return String(els38.taskSearch?.value || "").trim();
+    return String(els39.taskSearch?.value || "").trim();
   }
   function activeOrSelectedTask(task) {
     const taskId = String(task?.task_id || "");
     const status = String(task?.status || "");
-    return Boolean(taskId && (String(state29.selectedTaskId || "") === taskId || task?.local_pending || ["submitting", "queued", "running"].includes(status)));
+    return Boolean(taskId && (String(state30.selectedTaskId || "") === taskId || task?.local_pending || ["submitting", "queued", "running"].includes(status)));
   }
   function historyTaskSummaryToSidebarTask(task) {
     const size = String(task.size || "");
@@ -44479,13 +44937,13 @@ ${galleryText}`;
     };
   }
   function mergeTaskSearchHistoryResults(tasks, query) {
-    const previousResultIds = new Set((state29.taskSearchHistoryResultIds || []).map(String));
+    const previousResultIds = new Set((state30.taskSearchHistoryResultIds || []).map(String));
     const nextTasks = tasks.map(historyTaskSummaryToSidebarTask).filter((task) => task.task_id);
     const nextById = new Map(nextTasks.map((task) => [String(task.task_id), task]));
     const nextIds = new Set(nextById.keys());
     const merged = [];
     const seen = /* @__PURE__ */ new Set();
-    state29.tasks.forEach((task) => {
+    state30.tasks.forEach((task) => {
       const taskId = String(task?.task_id || "");
       if (!taskId) return;
       if (previousResultIds.has(taskId) && !nextIds.has(taskId) && !activeOrSelectedTask(task)) {
@@ -44503,21 +44961,21 @@ ${galleryText}`;
       if (seen.has(String(task.task_id))) return;
       merged.push(task);
     });
-    state29.tasks = merged;
-    state29.taskSearchHistoryResultIds = Array.from(nextIds);
-    state29.taskSearchHistoryResultQuery = normalizedTaskSearchResultQuery(query);
-    state29.tasksRenderKey = null;
+    state30.tasks = merged;
+    state30.taskSearchHistoryResultIds = Array.from(nextIds);
+    state30.taskSearchHistoryResultQuery = normalizedTaskSearchResultQuery(query);
+    state30.tasksRenderKey = null;
   }
   function clearTaskSearchHistoryResults() {
-    const previousResultIds = new Set((state29.taskSearchHistoryResultIds || []).map(String));
+    const previousResultIds = new Set((state30.taskSearchHistoryResultIds || []).map(String));
     if (!previousResultIds.size) return;
-    state29.tasks = state29.tasks.filter((task) => {
+    state30.tasks = state30.tasks.filter((task) => {
       const taskId = String(task?.task_id || "");
       return !previousResultIds.has(taskId) || activeOrSelectedTask(task);
     });
-    state29.taskSearchHistoryResultIds = [];
-    state29.taskSearchHistoryResultQuery = "";
-    state29.tasksRenderKey = null;
+    state30.taskSearchHistoryResultIds = [];
+    state30.taskSearchHistoryResultQuery = "";
+    state30.tasksRenderKey = null;
   }
   async function fetchTaskSearchHistoryResults(query, requestSeq) {
     const params = new URLSearchParams();
@@ -44527,14 +44985,14 @@ ${galleryText}`;
     const response = await fetch(`/api/task-history/tasks?${params.toString()}`);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.detail || "Task history search failed");
-    if (requestSeq !== state29.taskSearchHistoryRequestSeq || currentTaskSearchQuery() !== query) return;
+    if (requestSeq !== state30.taskSearchHistoryRequestSeq || currentTaskSearchQuery() !== query) return;
     mergeTaskSearchHistoryResults(Array.isArray(data.tasks) ? data.tasks : [], query);
     renderTasks8({ preserveScroll: true });
   }
   async function syncTaskSearchHistoryResults2() {
     window.clearTimeout(taskSearchHistoryTimerId);
     const query = currentTaskSearchQuery();
-    const requestSeq = ++state29.taskSearchHistoryRequestSeq;
+    const requestSeq = ++state30.taskSearchHistoryRequestSeq;
     if (!query) {
       clearTaskSearchHistoryResults();
       renderTasks8({ preserveScroll: true });
@@ -44542,24 +45000,24 @@ ${galleryText}`;
     }
     taskSearchHistoryTimerId = window.setTimeout(() => {
       void fetchTaskSearchHistoryResults(query, requestSeq).catch((error) => {
-        if (requestSeq !== state29.taskSearchHistoryRequestSeq) return;
+        if (requestSeq !== state30.taskSearchHistoryRequestSeq) return;
         console.warn(error);
       });
     }, TASK_SEARCH_HISTORY_DEBOUNCE_MS);
   }
   async function renderSelectedTaskPreview(requestSeq = null) {
-    const selectedTask = state29.tasks.find((item) => String(item.task_id) === String(state29.selectedTaskId));
+    const selectedTask = state30.tasks.find((item) => String(item.task_id) === String(state30.selectedTaskId));
     if (selectedTask?.summary_only) {
       try {
         const detailedTask = await ensureSelectedTaskDetail(selectedTask.task_id);
-        if (requestSeq !== null && requestSeq !== state29.tasksRequestSeq) return;
+        if (requestSeq !== null && requestSeq !== state30.tasksRequestSeq) return;
         if (detailedTask) {
           renderPreview6(detailedTask);
           return;
         }
       } catch (error) {
         console.warn(error);
-        if (requestSeq !== null && requestSeq !== state29.tasksRequestSeq) return;
+        if (requestSeq !== null && requestSeq !== state30.tasksRequestSeq) return;
       }
     }
     renderPreview6();
@@ -44574,9 +45032,9 @@ ${galleryText}`;
   }
 
   // codex_image/webui/frontend/src/task-selection.ts
-  var bridge36 = getLegacyBridge();
-  var state30 = bridge36.state;
-  var els39 = bridge36.els;
+  var bridge37 = getLegacyBridge();
+  var state31 = bridge37.state;
+  var els40 = bridge37.els;
   var taskSelectionInitialized = false;
   var HISTORY_TASK_REUSE_HANDOFF_KEY = "codex-image-history-task-reuse-handoff";
   var selectedTaskDetailRequestSeq = 0;
@@ -44640,12 +45098,12 @@ ${galleryText}`;
   }
   function selectedTaskInputRestoreCurrent(taskId, restoreSeq) {
     if (restoreSeq == null) return true;
-    return state30.taskInputRestoreSeq === restoreSeq && String(state30.selectedTaskId) === String(taskId);
+    return state31.taskInputRestoreSeq === restoreSeq && String(state31.selectedTaskId) === String(taskId);
   }
   function applySelectedTaskRequestPreview(task) {
     const requestPayload = taskRequestPreviewPayload2(task);
-    if (requestPayload && els39.requestJson) {
-      els39.requestJson.textContent = JSON.stringify(requestPayload, null, 2);
+    if (requestPayload && els40.requestJson) {
+      els40.requestJson.textContent = JSON.stringify(requestPayload, null, 2);
     }
   }
   function applyTaskInputRestoreSources(sources, taskId, restoreSeq) {
@@ -44653,8 +45111,8 @@ ${galleryText}`;
       revokeUploadPreviewUrls2(sources);
       return false;
     }
-    revokeUploadPreviewUrls2(state30.images);
-    state30.images = sources.filter(Boolean);
+    revokeUploadPreviewUrls2(state31.images);
+    state31.images = sources.filter(Boolean);
     renderImageStrip6();
     updateRequestPreview12();
     return true;
@@ -44692,25 +45150,25 @@ ${galleryText}`;
     if (!response.ok) throw new Error(data.detail || translate("notifications.taskMissing"));
     return data.task;
   }
-  async function ensureSelectedTaskDetail2(taskId = state30.selectedTaskId) {
+  async function ensureSelectedTaskDetail2(taskId = state31.selectedTaskId) {
     const normalizedTaskId = String(taskId || "").trim();
     if (!normalizedTaskId) return null;
-    const task = state30.tasks.find((item) => String(item.task_id) === normalizedTaskId);
+    const task = state31.tasks.find((item) => String(item.task_id) === normalizedTaskId);
     if (!task) return null;
     if (!task.summary_only) return task;
     const detailSeq = ++selectedTaskDetailRequestSeq;
     const fullTask = await loadFullTaskDetail(normalizedTaskId);
     if (detailSeq !== selectedTaskDetailRequestSeq) return null;
-    if (String(state30.selectedTaskId) !== normalizedTaskId) return null;
+    if (String(state31.selectedTaskId) !== normalizedTaskId) return null;
     return replaceSelectedTaskDetail(normalizedTaskId, fullTask);
   }
   function replaceSelectedTaskDetail(taskId, task) {
     if (!task?.task_id) return task;
-    const index = state30.tasks.findIndex((item) => String(item.task_id) === String(taskId));
+    const index = state31.tasks.findIndex((item) => String(item.task_id) === String(taskId));
     if (index >= 0) {
-      state30.tasks.splice(index, 1, task);
+      state31.tasks.splice(index, 1, task);
     } else {
-      state30.tasks.unshift(task);
+      state31.tasks.unshift(task);
     }
     return task;
   }
@@ -44719,13 +45177,13 @@ ${galleryText}`;
     const restoreSeq = options.restoreSeq;
     const referenceFiles = Array.isArray(task?.reference_files) ? task.reference_files : [];
     if (!selectedTaskInputRestoreCurrent(taskId, restoreSeq)) return false;
-    state30.referenceFiles = [];
+    state31.referenceFiles = [];
     legacyMethod42("renderReferenceFiles");
     if (!referenceFiles.length) {
       updateRequestPreview12();
       return true;
     }
-    state30.referenceFiles = referenceFiles.map((item) => ({
+    state31.referenceFiles = referenceFiles.map((item) => ({
       kind: "asset",
       id: String(item?.id || item?.reference_file_id || ""),
       filename: String(item?.filename || ""),
@@ -44822,11 +45280,11 @@ ${galleryText}`;
   }
   async function selectTask2(taskId) {
     closePromptPopover8();
-    state30.selectedTaskId = taskId;
-    let task = state30.tasks.find((item) => String(item.task_id) === String(taskId));
+    state31.selectedTaskId = taskId;
+    let task = state31.tasks.find((item) => String(item.task_id) === String(taskId));
     if (!task) return;
     if (task.summary_only) {
-      const detailSeq = ++state30.taskInputRestoreSeq;
+      const detailSeq = ++state31.taskInputRestoreSeq;
       updateTaskSelectionVisuals3(taskId);
       setStatus21(translate("status.loadingHistoryInputs"), "");
       try {
@@ -44839,7 +45297,7 @@ ${galleryText}`;
         return;
       }
     }
-    const restoreSeq = ++state30.taskInputRestoreSeq;
+    const restoreSeq = ++state31.taskInputRestoreSeq;
     void markTaskViewed3(taskId);
     applyTaskToFormWithOutputLock(task);
     await restoreTaskReferenceFiles(task, { taskId, restoreSeq });
@@ -44849,8 +45307,8 @@ ${galleryText}`;
       await restoreTaskInputs(task, { taskId, restoreSeq });
     } catch (error) {
       if (!selectedTaskInputRestoreCurrent(taskId, restoreSeq)) return;
-      revokeUploadPreviewUrls2(state30.images);
-      state30.images = [];
+      revokeUploadPreviewUrls2(state31.images);
+      state31.images = [];
       renderImageStrip6();
       setStatus21(error.message, "error");
       return;
@@ -44873,9 +45331,9 @@ ${galleryText}`;
         task = await loadFullTaskDetail(taskId);
       }
       closePromptPopover8();
-      state30.selectedTaskId = taskId;
+      state31.selectedTaskId = taskId;
       replaceSelectedTaskDetail(taskId, task);
-      const restoreSeq = ++state30.taskInputRestoreSeq;
+      const restoreSeq = ++state31.taskInputRestoreSeq;
       applyTaskToFormWithOutputLock(task);
       await restoreTaskReferenceFiles(task, { taskId, restoreSeq });
       if (!selectedTaskInputRestoreCurrent(taskId, restoreSeq)) return;
@@ -44884,8 +45342,8 @@ ${galleryText}`;
         await restoreTaskInputs(task, { taskId, restoreSeq });
       } catch (error) {
         if (!selectedTaskInputRestoreCurrent(taskId, restoreSeq)) return;
-        revokeUploadPreviewUrls2(state30.images);
-        state30.images = [];
+        revokeUploadPreviewUrls2(state31.images);
+        state31.images = [];
         renderImageStrip6();
         setStatus21(error.message || translate("referenceCollector.addFailed"), "error");
         return;
@@ -44910,8 +45368,8 @@ ${galleryText}`;
   }
 
   // codex_image/webui/frontend/src/overlay-popovers.ts
-  var bridge37 = getLegacyBridge();
-  var els40 = bridge37.els;
+  var bridge38 = getLegacyBridge();
+  var els41 = bridge38.els;
   var overlayPopoversInitialized = false;
   var overlayPopoverEventsBound = false;
   var confirmPopoverEl = null;
@@ -45237,8 +45695,8 @@ ${galleryText}`;
         closeConfirmPopover4();
       }
     }
-    if (!els40.compressionPopover || els40.compressionPopover.classList.contains("hidden")) return;
-    if (els40.compressionPopover.contains(target) || els40.outputFormatField?.contains(target)) return;
+    if (!els41.compressionPopover || els41.compressionPopover.classList.contains("hidden")) return;
+    if (els41.compressionPopover.contains(target) || els41.outputFormatField?.contains(target)) return;
     closeCompressionPopover2();
   }
   function handleDocumentKeydown(event) {
@@ -45303,9 +45761,9 @@ ${galleryText}`;
   var SIDEBAR_MAX_WIDTH = 520;
   var SIDEBAR_DEFAULT_WIDTH = 347;
   var COMPACT_SHELL_MAX_WIDTH = 1180;
-  var bridge38 = getLegacyBridge();
-  var state31 = bridge38.state;
-  var els41 = bridge38.els;
+  var bridge39 = getLegacyBridge();
+  var state32 = bridge39.state;
+  var els42 = bridge39.els;
   var shellUiInitialized = false;
   var shellUiEventsBound = false;
   var sidebarResizeFrameId = null;
@@ -45373,8 +45831,8 @@ ${galleryText}`;
     legacyMethod44("updateRequestPreview");
   }
   function handleShellLocaleChange() {
-    if (!els41.statusText) return;
-    const current = String(els41.statusText.textContent || "").trim();
+    if (!els42.statusText) return;
+    const current = String(els42.statusText.textContent || "").trim();
     const waitingLabels = [translate("status.waiting", "zh-CN"), translate("status.waiting", "en")];
     if (waitingLabels.includes(current)) {
       setStatus22(translate("status.waiting"), "");
@@ -45383,33 +45841,33 @@ ${galleryText}`;
   function bindShellUiEvents() {
     if (shellUiEventsBound) return;
     shellUiEventsBound = true;
-    els41.themeSwitcher?.addEventListener("click", (event) => {
+    els42.themeSwitcher?.addEventListener("click", (event) => {
       const button = event.target.closest("[data-theme-option]");
       if (!button) return;
       applyThemePreference(button.dataset.themeOption || "system");
     });
-    state31.themeSystemQuery = window.matchMedia?.("(prefers-color-scheme: dark)");
-    state31.themeSystemQuery?.addEventListener?.("change", handleThemeSystemChange);
+    state32.themeSystemQuery = window.matchMedia?.("(prefers-color-scheme: dark)");
+    state32.themeSystemQuery?.addEventListener?.("change", handleThemeSystemChange);
     document.addEventListener(LOCALE_CHANGE_EVENT, handleShellLocaleChange);
-    if (els41.copyJsonButton) {
-      els41.copyJsonButton.addEventListener("click", copyJson);
+    if (els42.copyJsonButton) {
+      els42.copyJsonButton.addEventListener("click", copyJson);
     }
-    els41.newTaskButton?.addEventListener("click", resetForm);
-    els41.sidebarResizeHandle?.addEventListener("pointerdown", startSidebarResize);
-    els41.sidebarResizeHandle?.addEventListener("keydown", handleSidebarResizeKeydown);
-    els41.sidebarResizeHandle?.addEventListener("dblclick", resetSidebarWidth);
+    els42.newTaskButton?.addEventListener("click", resetForm);
+    els42.sidebarResizeHandle?.addEventListener("pointerdown", startSidebarResize);
+    els42.sidebarResizeHandle?.addEventListener("keydown", handleSidebarResizeKeydown);
+    els42.sidebarResizeHandle?.addEventListener("dblclick", resetSidebarWidth);
     syncSidebarResizeHandleAria();
   }
   function normalizeThemePreference(value) {
     return THEME_OPTIONS.has(value) ? value : "system";
   }
-  function resolveEffectiveTheme(preference = state31.themePreference) {
+  function resolveEffectiveTheme(preference = state32.themePreference) {
     if (preference === "dark" || preference === "light") return preference;
     return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light";
   }
   function updateThemeSwitcher() {
-    els41.themeSwitcher?.querySelectorAll("[data-theme-option]").forEach((button) => {
-      const active = button.dataset.themeOption === state31.themePreference;
+    els42.themeSwitcher?.querySelectorAll("[data-theme-option]").forEach((button) => {
+      const active = button.dataset.themeOption === state32.themePreference;
       button.classList.toggle("active", active);
       button.setAttribute("aria-pressed", active ? "true" : "false");
     });
@@ -45427,16 +45885,16 @@ ${galleryText}`;
     });
   }
   function applyThemePreference(preference, { persist = true } = {}) {
-    state31.themePreference = normalizeThemePreference(preference);
-    const effectiveTheme = resolveEffectiveTheme(state31.themePreference);
+    state32.themePreference = normalizeThemePreference(preference);
+    const effectiveTheme = resolveEffectiveTheme(state32.themePreference);
     if (document.documentElement.dataset.theme !== effectiveTheme) {
       lockThemeTransitions();
     }
     document.documentElement.dataset.theme = effectiveTheme;
-    document.documentElement.dataset.themePreference = state31.themePreference;
+    document.documentElement.dataset.themePreference = state32.themePreference;
     if (persist) {
       try {
-        localStorage.setItem(THEME_STORAGE_KEY, state31.themePreference);
+        localStorage.setItem(THEME_STORAGE_KEY, state32.themePreference);
       } catch {
       }
     }
@@ -45452,7 +45910,7 @@ ${galleryText}`;
     applyThemePreference(saved, { persist: false });
   }
   function handleThemeSystemChange() {
-    if (state31.themePreference === "system") {
+    if (state32.themePreference === "system") {
       applyThemePreference("system", { persist: false });
     }
   }
@@ -45476,7 +45934,7 @@ ${galleryText}`;
     return Math.min(sidebarMaxWidth(), Math.max(SIDEBAR_MIN_WIDTH, width));
   }
   function sidebarWidthFromCss() {
-    const widthOwner = els41.sidebar || document.documentElement;
+    const widthOwner = els42.sidebar || document.documentElement;
     const inlineWidth = Number.parseInt(widthOwner.style.getPropertyValue("--sidebar-width") || "", 10);
     if (!Number.isNaN(inlineWidth)) return clampSidebarWidth(inlineWidth);
     const tokenWidth = Number.parseInt(getComputedStyle(widthOwner).getPropertyValue("--sidebar-width") || "", 10);
@@ -45486,7 +45944,7 @@ ${galleryText}`;
     return sidebarWidthFromCss() ?? SIDEBAR_DEFAULT_WIDTH;
   }
   function syncSidebarResizeHandleAria(width = null) {
-    const handle = els41.sidebarResizeHandle;
+    const handle = els42.sidebarResizeHandle;
     if (!handle) return;
     const currentWidth = width !== null ? width : currentSidebarWidth();
     handle.setAttribute("aria-valuemin", String(SIDEBAR_MIN_WIDTH));
@@ -45495,7 +45953,7 @@ ${galleryText}`;
   }
   function applySidebarWidth(width, { persist = true } = {}) {
     const nextWidth = clampSidebarWidth(width);
-    (els41.sidebar || document.documentElement).style.setProperty("--sidebar-width", `${nextWidth}px`);
+    (els42.sidebar || document.documentElement).style.setProperty("--sidebar-width", `${nextWidth}px`);
     syncSidebarResizeHandleAria(nextWidth);
     if (persist) {
       try {
@@ -45527,48 +45985,48 @@ ${galleryText}`;
     applySidebarWidth(width, { persist: true });
   }
   function startSidebarResize(event) {
-    if (!els41.sidebar || event.button !== 0) return;
+    if (!els42.sidebar || event.button !== 0) return;
     event.preventDefault();
     const currentWidth = currentSidebarWidth();
-    state31.sidebarResize = {
+    state32.sidebarResize = {
       pointerId: event.pointerId,
       startX: event.clientX,
       startWidth: currentWidth,
       lastWidth: currentWidth
     };
-    els41.sidebar.classList.add("resizing");
-    if (els41.sidebarResizeShield) {
-      els41.sidebarResizeShield.hidden = false;
+    els42.sidebar.classList.add("resizing");
+    if (els42.sidebarResizeShield) {
+      els42.sidebarResizeShield.hidden = false;
     }
-    els41.sidebarResizeHandle?.setPointerCapture?.(event.pointerId);
+    els42.sidebarResizeHandle?.setPointerCapture?.(event.pointerId);
     window.addEventListener("pointermove", updateSidebarResize);
     window.addEventListener("pointerup", finishSidebarResize);
     window.addEventListener("pointercancel", finishSidebarResize);
   }
   function updateSidebarResize(event) {
-    const resize = state31.sidebarResize;
+    const resize = state32.sidebarResize;
     if (!resize || event.pointerId !== resize.pointerId) return;
     event.preventDefault();
     resize.lastWidth = resize.startWidth + event.clientX - resize.startX;
     scheduleSidebarResizeWidth(resize.lastWidth);
   }
   function finishSidebarResize(event) {
-    const resize = state31.sidebarResize;
+    const resize = state32.sidebarResize;
     if (!resize || event.pointerId !== resize.pointerId) return;
     const nextWidth = resize.lastWidth ?? resize.startWidth;
-    state31.sidebarResize = null;
-    els41.sidebar?.classList.remove("resizing");
-    if (els41.sidebarResizeShield) {
-      els41.sidebarResizeShield.hidden = true;
+    state32.sidebarResize = null;
+    els42.sidebar?.classList.remove("resizing");
+    if (els42.sidebarResizeShield) {
+      els42.sidebarResizeShield.hidden = true;
     }
-    els41.sidebarResizeHandle?.releasePointerCapture?.(event.pointerId);
+    els42.sidebarResizeHandle?.releasePointerCapture?.(event.pointerId);
     window.removeEventListener("pointermove", updateSidebarResize);
     window.removeEventListener("pointerup", finishSidebarResize);
     window.removeEventListener("pointercancel", finishSidebarResize);
     flushSidebarResizeWidth(nextWidth);
   }
   function handleSidebarResizeKeydown(event) {
-    if (!els41.sidebar) return;
+    if (!els42.sidebar) return;
     const step = event.shiftKey ? 32 : 16;
     const currentWidth = currentSidebarWidth();
     if (event.key === "ArrowLeft") {
@@ -45586,9 +46044,9 @@ ${galleryText}`;
     }
   }
   function updateDocumentTitle2() {
-    const summary = state31.queue.summary || {};
-    const waitingCount = Number(summary.waiting_count ?? state31.queue.waiting.length ?? 0);
-    const runningCount = Number(summary.running_count ?? state31.queue.running.length ?? 0);
+    const summary = state32.queue.summary || {};
+    const waitingCount = Number(summary.waiting_count ?? state32.queue.waiting.length ?? 0);
+    const runningCount = Number(summary.running_count ?? state32.queue.running.length ?? 0);
     const total = waitingCount + runningCount;
     let status = "";
     if (runningCount > 0) {
@@ -45596,7 +46054,7 @@ ${galleryText}`;
     } else if (waitingCount > 0) {
       status = formatTranslation("document.queuedWaiting", { count: waitingCount });
     } else {
-      const selected = state31.tasks.find((item) => String(item.task_id) === String(state31.selectedTaskId));
+      const selected = state32.tasks.find((item) => String(item.task_id) === String(state32.selectedTaskId));
       status = selected ? formatTaskStatus4(selected) : "";
     }
     const defaultTitle = getLegacyBridge().constants.defaultDocumentTitle;
@@ -45604,9 +46062,9 @@ ${galleryText}`;
     document.title = webAppDocumentTitle(status, fullTitle);
   }
   function setStatus22(message, type) {
-    if (!els41.statusText) return;
-    els41.statusText.textContent = message;
-    els41.statusText.className = `status-text ${type || ""}`;
+    if (!els42.statusText) return;
+    els42.statusText.textContent = message;
+    els42.statusText.className = `status-text ${type || ""}`;
   }
   function resetForm() {
     const outputSettingsLocked = Boolean(legacyMethod44("isOutputSettingsLocked"));
@@ -45615,30 +46073,30 @@ ${galleryText}`;
     closeArchiveModal4();
     closeGallery4();
     closeImageEditor3();
-    state31.selectedTaskId = null;
-    state31.mode = "generate";
-    revokeUploadPreviewUrls3(state31.images);
-    state31.images = [];
+    state32.selectedTaskId = null;
+    state32.mode = "generate";
+    revokeUploadPreviewUrls3(state32.images);
+    state32.images = [];
     legacyMethod44("clearReferenceFiles", { silent: true });
-    state31.batchMode = false;
-    state31.batchSelectedTaskIds = [];
-    state31.batchSelectionAnchorTaskId = null;
+    state32.batchMode = false;
+    state32.batchSelectedTaskIds = [];
+    state32.batchSelectionAnchorTaskId = null;
     finishBatchMarqueeSelection2();
     setPromptText3("");
     if (!outputSettingsLocked) {
-      if (els41.customSizeToggle) els41.customSizeToggle.checked = false;
-      if (els41.nInput) els41.nInput.value = "1";
-      if (els41.resolution) els41.resolution.value = "standard";
-      if (els41.ratio) els41.ratio.value = "1:1";
-      if (els41.orientation) els41.orientation.value = "square";
-      els41.size.value = "1024x1024";
-      els41.quality.value = "auto";
-      els41.outputFormat.value = "png";
-      els41.moderation.value = "auto";
-      els41.compression.value = "80";
-      if (els41.promptFidelity) els41.promptFidelity.value = "strict";
-      if (els41.webSearch) els41.webSearch.checked = false;
-      [els41.nInput, els41.resolution, els41.ratio, els41.orientation, els41.quality, els41.outputFormat, els41.moderation, els41.promptFidelity, els41.webSearch].forEach((sel) => {
+      if (els42.customSizeToggle) els42.customSizeToggle.checked = false;
+      if (els42.nInput) els42.nInput.value = "1";
+      if (els42.resolution) els42.resolution.value = "standard";
+      if (els42.ratio) els42.ratio.value = "1:1";
+      if (els42.orientation) els42.orientation.value = "square";
+      els42.size.value = "1024x1024";
+      els42.quality.value = "auto";
+      els42.outputFormat.value = "png";
+      els42.moderation.value = "auto";
+      els42.compression.value = "80";
+      if (els42.promptFidelity) els42.promptFidelity.value = "strict";
+      if (els42.webSearch) els42.webSearch.checked = false;
+      [els42.nInput, els42.resolution, els42.ratio, els42.orientation, els42.quality, els42.outputFormat, els42.moderation, els42.promptFidelity, els42.webSearch].forEach((sel) => {
         if (sel) sel.dispatchEvent(new Event("change"));
       });
       updateSizeFromPreset2();
@@ -45655,8 +46113,8 @@ ${galleryText}`;
     setStatus22(translate("status.waiting"), "");
   }
   async function copyJson() {
-    if (!els41.requestJson) return;
-    await navigator.clipboard.writeText(els41.requestJson.textContent);
+    if (!els42.requestJson) return;
+    await navigator.clipboard.writeText(els42.requestJson.textContent);
     setStatus22(translate("status.jsonCopied"), "ok");
   }
   function initShellUiFeature() {
@@ -45691,31 +46149,31 @@ ${galleryText}`;
   var appVersionInitialized = false;
   var payload = null;
   var onboardingAutoShown = false;
-  function els42() {
+  function els43() {
     return getLegacyBridge().els;
   }
   function setModalHidden(hidden) {
-    const modal = els42().versionModal;
+    const modal = els43().versionModal;
     if (!modal) return;
     modal.classList.toggle("hidden", hidden);
     modal.setAttribute("aria-hidden", hidden ? "true" : "false");
   }
   function renderAppVersion(statusText) {
-    const versionInfo = els42().versionInfo;
-    const versionLabel = els42().versionLabel;
-    const badge = els42().versionUpdateBadge;
-    const current = els42().versionCurrent;
-    const latest = els42().versionLatest;
-    const source = els42().versionSource;
-    const onboardingNotice = els42().versionOnboardingNotice;
-    const onboardingBody = els42().versionOnboardingBody;
-    const releaseLink = els42().versionReleaseLink;
-    const standardDownloadLink = els42().versionStandardDownloadLink;
-    const updateButton = els42().versionUpdateButton;
-    const continuePortableButton = els42().versionContinuePortableButton;
-    const dismissOnboardingButton = els42().versionDismissOnboardingButton;
-    const modalStatus = els42().versionModalStatus;
-    const panel = els42().versionModal?.querySelector(".version-modal-panel");
+    const versionInfo = els43().versionInfo;
+    const versionLabel = els43().versionLabel;
+    const badge = els43().versionUpdateBadge;
+    const current = els43().versionCurrent;
+    const latest = els43().versionLatest;
+    const source = els43().versionSource;
+    const onboardingNotice = els43().versionOnboardingNotice;
+    const onboardingBody = els43().versionOnboardingBody;
+    const releaseLink = els43().versionReleaseLink;
+    const standardDownloadLink = els43().versionStandardDownloadLink;
+    const updateButton = els43().versionUpdateButton;
+    const continuePortableButton = els43().versionContinuePortableButton;
+    const dismissOnboardingButton = els43().versionDismissOnboardingButton;
+    const modalStatus = els43().versionModalStatus;
+    const panel = els43().versionModal?.querySelector(".version-modal-panel");
     const currentLabel = payload?.current_version_label || "...";
     const latestLabel = payload?.latest_version_label || currentLabel;
     const updateAvailable = Boolean(payload?.update_available);
@@ -45800,7 +46258,7 @@ ${galleryText}`;
     }
   }
   async function openUpdater() {
-    const updateButton = els42().versionUpdateButton;
+    const updateButton = els43().versionUpdateButton;
     if (updateButton) updateButton.disabled = true;
     try {
       const response = await fetch("/api/app-version/open-updater", { method: "POST" });
@@ -45823,24 +46281,24 @@ ${galleryText}`;
     }
   }
   function bindAppVersionEvents() {
-    els42().versionInfo?.addEventListener("click", () => {
+    els43().versionInfo?.addEventListener("click", () => {
       renderAppVersion();
       setModalHidden(false);
     });
-    els42().versionModalClose?.addEventListener("click", () => setModalHidden(true));
-    els42().versionModal?.addEventListener("click", (event) => {
-      if (event.target === els42().versionModal) setModalHidden(true);
+    els43().versionModalClose?.addEventListener("click", () => setModalHidden(true));
+    els43().versionModal?.addEventListener("click", (event) => {
+      if (event.target === els43().versionModal) setModalHidden(true);
     });
-    els42().versionUpdateButton?.addEventListener("click", () => {
+    els43().versionUpdateButton?.addEventListener("click", () => {
       void openUpdater();
     });
-    els42().versionStandardDownloadLink?.addEventListener("click", () => {
+    els43().versionStandardDownloadLink?.addEventListener("click", () => {
       if (payload?.post_update_onboarding) void dismissOnboarding(false);
     });
-    els42().versionContinuePortableButton?.addEventListener("click", () => {
+    els43().versionContinuePortableButton?.addEventListener("click", () => {
       void dismissOnboarding(true);
     });
-    els42().versionDismissOnboardingButton?.addEventListener("click", () => {
+    els43().versionDismissOnboardingButton?.addEventListener("click", () => {
       void dismissOnboarding(true);
     });
     document.addEventListener("keydown", (event) => {
@@ -46182,10 +46640,10 @@ ${galleryText}`;
   function jsonOptions(body) {
     return { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
   }
-  function pageQuery(state32, fields) {
-    const params = new URLSearchParams({ page: String(state32.page), page_size: String(PAGE_SIZE) });
+  function pageQuery(state33, fields) {
+    const params = new URLSearchParams({ page: String(state33.page), page_size: String(PAGE_SIZE) });
     fields.forEach((field) => {
-      const value = String(state32[field] || "").trim();
+      const value = String(state33[field] || "").trim();
       if (value) params.set(field, value);
     });
     return params.toString();
@@ -47010,6 +47468,7 @@ ${fmtBytes(version.byte_size)}`));
   initGalleryItemActionsFeature();
   initGalleryFeature();
   initApiSettingsFeature();
+  initGenerationModelFeature();
   initApiAdvancedSettingsFeature();
   initStorageSettingsFeature();
   initSystemSettingsFeature();

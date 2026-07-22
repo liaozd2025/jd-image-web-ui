@@ -153,6 +153,10 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                         "连续组图 · 最高 4K",
                     )
                     self.assertEqual(
+                        profiles.json()["profiles"][1]["protocol_adapter"],
+                        "volcengine-ark-images",
+                    )
+                    self.assertEqual(
                         profiles.json()["profiles"][2]["summary"],
                         "精准编辑 · 最高 2K",
                     )

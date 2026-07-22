@@ -4,6 +4,7 @@ import { currentApiImageModel, currentApiImagesConcurrency, currentApiMode, curr
 import { currentMainModel } from "./main-model-combobox";
 import { currentQuantity } from "./output-controls";
 import { translate } from "./i18n";
+import { currentGenerationModel } from "./generation-model";
 
 export const DEFAULT_RESOLUTION = "standard";
 export const DEFAULT_RATIO = "1:1";
@@ -174,7 +175,10 @@ export function currentSize(): string {
 }
 
 export function currentImageToolModel(): string {
-  return currentAuthSource() === "api" ? currentApiImageModel() : els.model.value;
+  if (currentAuthSource() === "api") {
+    return currentGenerationModel()?.model_id || currentApiImageModel();
+  }
+  return els.model.value;
 }
 
 export function webSearchSupportedForCurrentBackend(): boolean {

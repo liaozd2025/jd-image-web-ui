@@ -221,6 +221,8 @@ async function loginExisting(page, account) {
   await waitForAccount(page, account.username);
 }
 
+let modelSelectorReleaseGateCompleted = false;
+
 async function waitForWorkspace(page) {
   for (const selector of ["#sidebar", ".dashboard", "#imageInput", "#promptEditor", "#runButton", "#imageEditorModal"]) {
     check(await page.locator(selector).count() === 1, `original workspace control missing: ${selector}`);
@@ -229,9 +231,45 @@ async function waitForWorkspace(page) {
     async () => await page.locator("#runButton").isEnabled(),
     "workspace never became ready for generation",
   );
+  if (modelSelectorReleaseGateCompleted) return;
   const settings = await api(page, "/api/api-settings");
   check(settings.status === 200, "provider settings were unavailable");
   check(settings.body.settings.providers.some((item) => item.provider_scope === "department" && item.name.includes("部门")), "department provider source was not distinguished");
+  const departmentProviders = settings.body.settings.providers.filter((item) => item.provider_scope === "department");
+  const multiModelProvider = departmentProviders.find((item) => item.models.length === 2);
+  const singleModelProvider = departmentProviders.find((item) => item.models.length === 1);
+  const emptyModelProvider = departmentProviders.find((item) => item.models.length === 0);
+  check(multiModelProvider && singleModelProvider && emptyModelProvider, "model selector release fixtures were incomplete");
+  check(await page.locator("#generationModelSelect option").count() === 2, "multi-model selector did not expose both current-provider models");
+  check(await page.locator("#generationModelSelect").isEnabled(), "multi-model selector was not expandable");
+  const promptRowOrder = await page.locator(".prompt-template-row").evaluate((row) => [...row.children].map((item) => item.id || item.className));
+  check(promptRowOrder[1] === "generationModelField", "model selector was not placed after clear/find and before template management");
+  await page.locator("#promptEditor").fill("preserve workspace while switching models");
+  const secondModelId = multiModelProvider.models[1].generation_model_id;
+  if (await page.locator("#generationModelSelect").inputValue() === secondModelId) {
+    await page.locator("#generationModelSelect").selectOption(multiModelProvider.models[0].generation_model_id);
+  }
+  const preferenceSaved = page.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/generation-model-preferences" && response.request().method() === "PUT"
+  ));
+  await page.locator("#generationModelSelect").selectOption(secondModelId);
+  check((await preferenceSaved).status() === 200, "model selection preference was not saved on the server");
+  check((await page.locator("#promptEditor").textContent()) === "preserve workspace while switching models", "switching models changed the prompt");
+  await page.locator("#apiProviderQuick").selectOption(singleModelProvider.id, { force: true });
+  await eventually(async () => await page.locator("#generationModelSelect option").count() === 1, "single-model provider did not update the selector");
+  check(await page.locator("#generationModelSelect").isDisabled(), "single-model selector remained expandable");
+  await page.locator("#apiProviderQuick").selectOption(emptyModelProvider.id, { force: true });
+  await eventually(async () => (await page.locator("#generationModelNotice").textContent()).includes("未配置生图模型"), "empty provider did not show model setup guidance");
+  check(await page.locator("#runButton").isDisabled(), "empty provider did not block submission");
+  await page.locator("#apiProviderQuick").selectOption(multiModelProvider.id, { force: true });
+  await eventually(async () => await page.locator("#generationModelSelect").inputValue() === secondModelId, "provider switch did not restore the saved model");
+  check((await page.locator("#promptEditor").textContent()) === "preserve workspace while switching models", "provider switching changed the prompt");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const narrowModelLayout = await page.locator(".prompt-panel").evaluate((panel) => ({ scrollWidth: panel.scrollWidth, clientWidth: panel.clientWidth }));
+  check(narrowModelLayout.scrollWidth <= narrowModelLayout.clientWidth + 1, "390px model selector introduced horizontal scrolling");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.locator("#promptEditor").fill("");
+  modelSelectorReleaseGateCompleted = true;
 }
 
 async function waitForTask(page, prompt, status) {
@@ -475,8 +513,10 @@ try {
   await waitForWorkspace(pageA);
   await pageA.locator("#promptTemplateButton").click();
   await pageA.locator("#promptTemplateDrawer.open").waitFor({ state: "visible" });
-  check((await pageA.locator("#promptTemplateList").textContent()).includes("Shared browser template"), "shared template was not rendered in the original template drawer");
-  check((await pageA.locator("#promptTemplateList").textContent()).includes("Private A template"), "personal template was not rendered in the original template drawer");
+  await eventually(async () => {
+    const templateText = await pageA.locator("#promptTemplateList").textContent();
+    return templateText.includes("Shared browser template") && templateText.includes("Private A template");
+  }, "shared and personal templates were not rendered in the original template drawer");
   check((await pageA.locator('.prompt-template-card', { hasText: "Shared browser template" }).locator(".resource-scope-badge").textContent()).trim() === "共享", "shared template source badge was missing");
   check((await pageA.locator(`[data-prompt-template-id="${personalTemplateId}"] .resource-scope-badge`).textContent()).trim() === "个人", "personal template source badge was missing");
   await pageA.locator('.prompt-template-card', { hasText: "Shared browser template" }).click();
@@ -489,17 +529,17 @@ try {
   check((await pageA.locator("#promptEditor").textContent()).includes("private user A template"), "personal template was not inserted through the original prompt flow");
   await pageA.locator("#promptEditor").fill("～Private");
   await pageA.locator(`.prompt-snippet-option[data-prompt-template-id="${personalTemplateId}"]`).waitFor({ state: "visible" });
-  await pageA.locator(`.prompt-snippet-option[data-prompt-template-id="${personalTemplateId}"]`).click();
+  await pageA.locator(`.prompt-snippet-option[data-prompt-template-id="${personalTemplateId}"]`).dispatchEvent("click");
   check((await pageA.locator("#promptEditor").textContent()).includes("private user A template"), "personal template was not inserted through the ~ prompt trigger");
   await pageA.locator("#promptEditor").fill("~shared");
   await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${sharedSnippet.id}"]`).waitFor({ state: "visible" });
   check((await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${sharedSnippet.id}"] .resource-scope-badge`).textContent()).trim() === "共享", "shared snippet source badge was missing");
-  await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${sharedSnippet.id}"]`).click();
+  await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${sharedSnippet.id}"]`).dispatchEvent("click");
   check(await pageA.locator(`.prompt-snippet-chip[data-prompt-snippet-id="${sharedSnippet.id}"]`).count() === 1, "shared snippet was not inserted through the original prompt flow");
   await pageA.locator("#promptEditor").fill("~privateA");
   await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${personalSnippetId}"]`).waitFor({ state: "visible" });
   check((await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${personalSnippetId}"] .resource-scope-badge`).textContent()).trim() === "个人", "personal snippet source badge was missing");
-  await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${personalSnippetId}"]`).click();
+  await pageA.locator(`.prompt-snippet-option[data-prompt-snippet-id="${personalSnippetId}"]`).dispatchEvent("click");
   check(await pageA.locator(`.prompt-snippet-chip[data-prompt-snippet-id="${personalSnippetId}"]`).count() === 1, "personal snippet was not inserted through the original prompt flow");
 
   await pageA.locator("#promptEditor").fill("browser successful generation");

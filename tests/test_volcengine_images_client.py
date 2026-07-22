@@ -51,6 +51,9 @@ class VolcengineArkImagesClientTests(unittest.TestCase):
             size="2048x2048",
             quality="high",
             output_format="png",
+            seed=41,
+            prompt_optimization_mode="standard",
+            watermark=False,
             n=2,
         )
 
@@ -65,10 +68,14 @@ class VolcengineArkImagesClientTests(unittest.TestCase):
         self.assertEqual(payload["image"], [reference_image])
         self.assertEqual(payload["size"], "2048x2048")
         self.assertEqual(payload["response_format"], "b64_json")
-        self.assertNotIn("sequential_image_generation", payload)
+        self.assertEqual(payload["sequential_image_generation"], "disabled")
+        self.assertIs(payload["stream"], False)
         self.assertNotIn("sequential_image_generation_options", payload)
         self.assertNotIn("n", payload)
-        self.assertNotIn("output_format", payload)
+        self.assertEqual(payload["output_format"], "png")
+        self.assertEqual(payload["seed"], 41)
+        self.assertEqual(payload["optimize_prompt_options"], {"mode": "standard"})
+        self.assertIs(payload["watermark"], False)
         self.assertNotIn("quality", payload)
 
 

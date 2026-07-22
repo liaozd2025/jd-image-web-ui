@@ -16,6 +16,7 @@ import unittest
 from urllib.request import urlopen
 
 from fastapi.testclient import TestClient
+import psycopg
 
 from tests.server_test_database import TEST_MASTER_KEY, temporary_postgres_database
 from tests.test_server_auth import bootstrap_admin
@@ -106,10 +107,22 @@ class ServerWorkspaceBrowserReleaseGateTests(unittest.TestCase):
                                 "display_name": "Browser Fake Provider",
                                 "base_url": f"http://127.0.0.1:{fake_provider.server_port}/v1",
                                 "api_mode": "images",
-                                "models": [{
-                                    "model_id": "fake-image-1",
-                                    "capabilities": ["image_generation", "image_input"],
-                                }],
+                                "models": [
+                                    {
+                                        "display_name": "Browser Generic",
+                                        "model_id": "fake-image-1",
+                                        "capability_profile_id": "generic-basic",
+                                        "is_default": True,
+                                        "is_enabled": True,
+                                    },
+                                    {
+                                        "display_name": "Browser Seedream Lite",
+                                        "model_id": "doubao-seedream-5-0-lite-browser",
+                                        "capability_profile_id": "seedream-5-lite",
+                                        "is_default": False,
+                                        "is_enabled": True,
+                                    },
+                                ],
                                 "parameter_constraints": {},
                             },
                             headers={"X-CSRF-Token": csrf},
@@ -122,6 +135,52 @@ class ServerWorkspaceBrowserReleaseGateTests(unittest.TestCase):
                             headers={"X-CSRF-Token": csrf},
                         )
                         self.assertEqual(department.status_code, 200, department.text)
+                        for provider_key, display_name in (
+                            ("browser-no-model", "Browser No Model"),
+                            ("browser-single-model", "Browser Single Model"),
+                        ):
+                            extra_provider = admin.post(
+                                "/api/admin/provider-catalog",
+                                json={
+                                    "provider_key": provider_key,
+                                    "display_name": display_name,
+                                    "base_url": f"http://127.0.0.1:{fake_provider.server_port}/v1",
+                                    "api_mode": "images",
+                                    "models": [{
+                                        "display_name": display_name,
+                                        "model_id": f"{provider_key}-image",
+                                        "capability_profile_id": "generic-basic",
+                                        "is_default": True,
+                                        "is_enabled": True,
+                                    }],
+                                },
+                                headers={"X-CSRF-Token": csrf},
+                            )
+                            self.assertEqual(extra_provider.status_code, 201, extra_provider.text)
+                            extra_provider_id = extra_provider.json()["provider"]["provider_version_id"]
+                            extra_credential = admin.put(
+                                f"/api/admin/providers/department/{extra_provider_id}",
+                                json={"api_key": "browser-department-provider-key"},
+                                headers={"X-CSRF-Token": csrf},
+                            )
+                            self.assertEqual(extra_credential.status_code, 200, extra_credential.text)
+                        with psycopg.connect(database_url) as connection:
+                            connection.execute(
+                                """
+                                UPDATE generation_models
+                                SET validation_status = 'verified', validated_at = CURRENT_TIMESTAMP
+                                WHERE owner_user_id IS NULL
+                                """
+                            )
+                            connection.execute(
+                                """
+                                UPDATE generation_models AS models
+                                SET is_enabled = FALSE
+                                FROM provider_catalog_versions AS versions
+                                WHERE versions.provider_version_id = models.provider_version_id
+                                  AND versions.provider_key = 'browser-no-model'
+                                """
+                            )
                         self.assertEqual(
                             admin.patch(
                                 "/api/admin/quotas/department",

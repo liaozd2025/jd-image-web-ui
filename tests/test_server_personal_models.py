@@ -142,6 +142,77 @@ class ServerPersonalGenerationModelTests(unittest.TestCase):
                     )
                     self.assertEqual(bob_cannot_delete.status_code, 404, bob_cannot_delete.text)
 
+                    preference = alice.put(
+                        "/api/generation-model-preferences",
+                        json={
+                            "provider_scope": "personal",
+                            "provider_version_id": provider_id,
+                            "generation_model_id": alice_pro_id,
+                            "parameters": {
+                                "size": "2048x2048",
+                                "resolution": "2k",
+                                "ratio": "1:1",
+                                "orientation": "square",
+                                "output_format": "jpeg",
+                                "prompt_optimization_mode": "fast",
+                                "seed_mode": "fixed",
+                                "seed": 42,
+                            },
+                        },
+                        headers={"X-CSRF-Token": alice_csrf},
+                    )
+                    self.assertEqual(preference.status_code, 200, preference.text)
+                    api_settings = alice.get("/api/api-settings")
+                    self.assertEqual(api_settings.status_code, 200, api_settings.text)
+                    personal_provider = next(
+                        item
+                        for item in api_settings.json()["settings"]["providers"]
+                        if item["id"] == f"personal-{provider_id}"
+                    )
+                    self.assertEqual(personal_provider["selected_generation_model_id"], alice_pro_id)
+                    self.assertEqual(personal_provider["model_selection_reason"], "saved")
+
+                    workspace_task = alice.post(
+                        "/api/generate",
+                        data={
+                            "api_provider_id": f"personal-{provider_id}",
+                            "generation_model_id": alice_pro_id,
+                            "capability_profile_version": "1",
+                            "model": "stale-client-model-id-is-ignored",
+                            "prompt": "stable model selection",
+                            "size": "2048x2048",
+                            "output_format": "jpeg",
+                            "n": "4",
+                            "prompt_optimization_mode": "fast",
+                            "seed_mode": "fixed",
+                            "seed": "42",
+                        },
+                        headers={"X-CSRF-Token": alice_csrf},
+                    )
+                    self.assertEqual(workspace_task.status_code, 201, workspace_task.text)
+                    workspace_payload = workspace_task.json()["task"]
+                    self.assertEqual(workspace_payload["generation_model_id"], alice_pro_id)
+                    self.assertEqual(workspace_payload["model_id"], "alice-arbitrary-pro")
+                    self.assertEqual(workspace_payload["request_parameters"]["seed"], 42)
+                    self.assertEqual(workspace_payload["request_parameters"]["prompt_optimization_mode"], "fast")
+                    self.assertIs(workspace_payload["request_parameters"]["watermark"], False)
+                    self.assertEqual(workspace_payload["quota_units"], 4)
+
+                    unsupported_format = alice.post(
+                        "/api/generate",
+                        data={
+                            "api_provider_id": f"personal-{provider_id}",
+                            "generation_model_id": alice_pro_id,
+                            "prompt": "reject before provider",
+                            "size": "2048x2048",
+                            "output_format": "webp",
+                            "n": "1",
+                        },
+                        headers={"X-CSRF-Token": alice_csrf},
+                    )
+                    self.assertEqual(unsupported_format.status_code, 409, unsupported_format.text)
+                    self.assertIn("output format", unsupported_format.json()["detail"])
+
                     submitted = alice.post(
                         "/api/tasks",
                         json={
@@ -163,6 +234,44 @@ class ServerPersonalGenerationModelTests(unittest.TestCase):
                     )
                     self.assertEqual(referenced_delete.status_code, 409, referenced_delete.text)
                     self.assertIn("can only be disabled", referenced_delete.json()["detail"])
+
+                    disabled_saved_model = alice.put(
+                        f"/api/providers/personal/{provider_id}/models",
+                        json={
+                            "models": [
+                                {
+                                    "display_name": "Alice Lite",
+                                    "model_id": "alice-arbitrary-lite",
+                                    "capability_profile_id": "seedream-5-lite",
+                                    "is_default": True,
+                                    "is_enabled": True,
+                                },
+                                {
+                                    "display_name": "Alice Pro",
+                                    "model_id": "alice-arbitrary-pro",
+                                    "capability_profile_id": "seedream-5-pro",
+                                    "is_default": False,
+                                    "is_enabled": False,
+                                },
+                            ]
+                        },
+                        headers={"X-CSRF-Token": alice_csrf},
+                    )
+                    self.assertEqual(disabled_saved_model.status_code, 200, disabled_saved_model.text)
+                    fallback_settings = alice.get("/api/api-settings")
+                    self.assertEqual(fallback_settings.status_code, 200, fallback_settings.text)
+                    fallback_provider = next(
+                        item
+                        for item in fallback_settings.json()["settings"]["providers"]
+                        if item["id"] == f"personal-{provider_id}"
+                    )
+                    alice_lite_id = next(
+                        model["generation_model_id"]
+                        for model in disabled_saved_model.json()["models"]
+                        if model["model_id"] == "alice-arbitrary-lite"
+                    )
+                    self.assertEqual(fallback_provider["selected_generation_model_id"], alice_lite_id)
+                    self.assertEqual(fallback_provider["model_selection_reason"], "saved_unavailable_default")
 
 
 if __name__ == "__main__":
