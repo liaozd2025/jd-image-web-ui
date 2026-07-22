@@ -162,6 +162,20 @@ function applyProfile(profile: any, model: any, restorePreference: boolean): str
   (els.resolutionGroup?.querySelectorAll("[data-val]") as NodeListOf<HTMLElement> | undefined)?.forEach((button) => {
     button.classList.toggle("hidden", !supportedResolutions.has(String(button.dataset.val || "")));
   });
+  const supportedRatios = new Set<string>(profile?.aspect_ratios || []);
+  if (supportedRatios.size) {
+    (els.ratioGroup?.querySelectorAll("[data-val]") as NodeListOf<HTMLElement> | undefined)?.forEach((button) => {
+      button.classList.toggle("hidden", !supportedRatios.has(String(button.dataset.val || "")));
+    });
+    if (els.ratio && !supportedRatios.has(String(els.ratio.value || ""))) {
+      setRadioValue(els.ratio, els.ratioGroup, String(profile.aspect_ratios[0] || "1:1"));
+      parametersAdjusted = true;
+    }
+  } else {
+    (els.ratioGroup?.querySelectorAll("[data-val]") as NodeListOf<HTMLElement> | undefined)?.forEach((button) => {
+      button.classList.remove("hidden");
+    });
+  }
   const minimumOutputCount = Number(profile?.min_output_count || 1);
   const maximumOutputCount = Number(profile?.max_output_count || minimumOutputCount);
   (els.quantityGroup?.querySelectorAll("[data-val]") as NodeListOf<HTMLElement> | undefined)?.forEach((button) => {

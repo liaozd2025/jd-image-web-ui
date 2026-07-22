@@ -12,6 +12,12 @@ from uuid import uuid4
 
 from psycopg.rows import dict_row
 
+from codex_image.generation.catalog import get_model_manifest
+from codex_image.generation.resolver import BindingResolver
+from codex_image.generation.types import GenerationCommand, GenerationOperation, ImageInput
+from codex_image.providers.contracts import ProviderConnection, ProviderModelBinding
+from codex_image.providers.registry import default_registry
+
 from .audit import record_audit_event
 from .assets import AssetNotFound, AssetQuotaExceeded, AssetRepository, AssetValidationError
 from .database import PostgresConnections
@@ -45,6 +51,7 @@ class GenerationTask:
     capability_profile_id: str
     capability_profile_version: int
     capability_snapshot: dict[str, object]
+    generation_snapshot: dict[str, object]
     prompt: str
     request_parameters: dict[str, object]
     input_relative_path: str | None
@@ -187,6 +194,8 @@ class GenerationTaskRepository:
                         """
                         SELECT generation_model_id, display_name, model_id,
                                capability_profile_id, capability_profile_version,
+                               model_family_id, canonical_model_id, protocol_profile,
+                               parameter_codec, supported_operations, append_aspect_ratio_prompt,
                                is_enabled, validation_status
                         FROM generation_models
                         WHERE provider_version_id = %s
@@ -204,6 +213,8 @@ class GenerationTaskRepository:
                         """
                         SELECT generation_model_id, display_name, model_id,
                                capability_profile_id, capability_profile_version,
+                               model_family_id, canonical_model_id, protocol_profile,
+                               parameter_codec, supported_operations, append_aspect_ratio_prompt,
                                is_enabled, validation_status
                         FROM generation_models
                         WHERE provider_version_id = %s
@@ -256,6 +267,20 @@ class GenerationTaskRepository:
                     reference_image_count=image_reference_count,
                 )
                 request_parameters["api_mode"] = str(provider["api_mode"])
+                generation_snapshot = _resolve_generation_snapshot(
+                    provider_version_id=provider_version_id,
+                    provider_key=str(provider["provider_key"]),
+                    generation_model=generation_model,
+                    capability_snapshot=capability_snapshot,
+                    request_parameters=request_parameters,
+                    prompt=prompt,
+                    reference_image_count=image_reference_count,
+                    reference_file_count=sum(
+                        1
+                        for snapshot in [*asset_snapshots, *shared_asset_snapshots]
+                        if str(snapshot.get("asset_kind") or "") == "file"
+                    ),
+                )
                 encrypted_api_key = provider["encrypted_api_key"]
                 if not encrypted_api_key:
                     scope_label = "department" if provider_scope == "department" else "personal"
@@ -316,12 +341,13 @@ class GenerationTaskRepository:
                         INSERT INTO server_generation_tasks (
                             task_id, user_id, provider_version_id, generation_model_id,
                             model_display_name, model_id, capability_profile_id,
-                            capability_profile_version, capability_snapshot, prompt,
+                            capability_profile_version, capability_snapshot,
+                            generation_snapshot, prompt,
                             request_parameters, status, input_relative_path,
                             input_media_type, input_sha256, input_bytes, asset_versions, shared_asset_versions,
                             provider_scope, quota_units, quota_period_start, queue_position
                         ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s,
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s,
                             %s::jsonb, 'queued', %s, %s, %s, %s, %s::jsonb,
                             %s::jsonb, %s, %s, %s, %s
                         )
@@ -337,6 +363,7 @@ class GenerationTaskRepository:
                             profile_id,
                             profile_version,
                             json.dumps(capability_snapshot, separators=(",", ":")),
+                            json.dumps(generation_snapshot, separators=(",", ":")),
                             prompt,
                             json.dumps(request_parameters, separators=(",", ":")),
                             input_relative_path.as_posix(),
@@ -1707,6 +1734,7 @@ class GenerationTaskRepository:
             capability_profile_id=str(row.get("capability_profile_id") or "generic-basic"),
             capability_profile_version=int(row.get("capability_profile_version") or 1),
             capability_snapshot=dict(row.get("capability_snapshot") or {}),
+            generation_snapshot=dict(row.get("generation_snapshot") or {}),
             prompt=row["prompt"],
             request_parameters=row["request_parameters"],
             input_relative_path=row["input_relative_path"],
@@ -1794,6 +1822,157 @@ def _resolve_generation_model(models: object, model_id: str) -> dict[str, object
     if len(matches) != 1:
         return None
     return cast(dict[str, object], matches[0])
+
+
+def _resolve_generation_snapshot(
+    *,
+    provider_version_id: str,
+    provider_key: str,
+    generation_model: dict[str, Any],
+    capability_snapshot: dict[str, object],
+    request_parameters: dict[str, object],
+    prompt: str,
+    reference_image_count: int,
+    reference_file_count: int,
+) -> dict[str, object]:
+    canonical_model_id = str(generation_model.get("canonical_model_id") or "")
+    operations = frozenset(
+        str(value) for value in generation_model.get("supported_operations") or ()
+    )
+    operation = str(request_parameters.get("mode") or "generate")
+    if operation not in operations:
+        raise TaskConfigurationError("selected provider binding does not support this task mode")
+
+    snapshot: dict[str, object] = {
+        "schema_version": 1,
+        "runtime": "legacy",
+        "model_family_id": str(generation_model.get("model_family_id") or ""),
+        "canonical_model_id": canonical_model_id,
+        "remote_model_id": str(generation_model.get("model_id") or ""),
+        "provider_version_id": provider_version_id,
+        "provider_key": provider_key,
+        "generation_model_id": str(generation_model.get("generation_model_id") or ""),
+        "binding_id": str(generation_model.get("generation_model_id") or ""),
+        "protocol_profile": str(generation_model.get("protocol_profile") or ""),
+        "parameter_codec": str(generation_model.get("parameter_codec") or ""),
+        "supported_operations": sorted(operations),
+        "append_aspect_ratio_prompt": bool(
+            generation_model.get("append_aspect_ratio_prompt", False)
+        ),
+        "capability_profile_id": str(generation_model.get("capability_profile_id") or ""),
+        "capability_profile_version": int(
+            generation_model.get("capability_profile_version") or 1
+        ),
+        "capability_snapshot": capability_snapshot,
+        "actual_parameters": dict(request_parameters),
+    }
+    try:
+        manifest = get_model_manifest(canonical_model_id)
+    except KeyError:
+        return snapshot
+
+    if reference_file_count and not manifest.input_constraints.supports_reference_files:
+        raise TaskConfigurationError("selected model does not support reference files")
+    canonical_parameters = _canonical_generation_parameters(
+        canonical_model_id,
+        request_parameters,
+        capability_snapshot,
+    )
+    binding = ProviderModelBinding(
+        id=str(generation_model["generation_model_id"]),
+        provider_id=provider_version_id,
+        canonical_model_id=canonical_model_id,
+        remote_model_id=str(generation_model["model_id"]),
+        protocol_profile=str(generation_model["protocol_profile"]),
+        parameter_codec=str(generation_model["parameter_codec"]),
+        operations=cast(frozenset[GenerationOperation], operations),
+        is_default=bool(generation_model.get("is_default", False)),
+        append_aspect_ratio_prompt=bool(
+            generation_model.get("append_aspect_ratio_prompt", False)
+        ),
+    )
+    provider = ProviderConnection(
+        id=provider_version_id,
+        name=provider_key,
+        base_url="https://configured-provider.invalid",
+        api_key="<configured>",
+        concurrency=1,
+        bindings=(binding,),
+    )
+    command = GenerationCommand(
+        operation=cast(GenerationOperation, operation),
+        canonical_model_id=canonical_model_id,
+        provider_id=provider_version_id,
+        binding_id=binding.id,
+        prompt=prompt,
+        parameters=canonical_parameters,
+        image_inputs=tuple(
+            ImageInput("data:image/png;base64,AA==") for _ in range(reference_image_count)
+        ),
+        main_model=str(request_parameters.get("main_model") or ""),
+    )
+    registry = default_registry()
+    try:
+        BindingResolver(
+            models={manifest.id: manifest},
+            providers={provider.id: provider},
+            registry=registry,
+        ).resolve(command)
+    except ValueError as error:
+        raise TaskConfigurationError(str(error)) from error
+    snapshot.update(
+        {
+            "runtime": "canonical",
+            "model_manifest_version": manifest.version,
+            "requested_parameters": canonical_parameters,
+        }
+    )
+    return snapshot
+
+
+def _canonical_generation_parameters(
+    canonical_model_id: str,
+    parameters: dict[str, object],
+    profile: dict[str, object],
+) -> dict[str, object]:
+    if canonical_model_id.startswith("nano-banana-"):
+        resolution_value = str(parameters.get("resolution") or "standard").upper()
+        resolution = {"STANDARD": "1K", "2K": "2K", "4K": "4K"}.get(
+            resolution_value,
+            resolution_value,
+        )
+        supported_resolutions = [str(value) for value in profile.get("resolutions", [])]
+        if resolution not in supported_resolutions:
+            resolution = supported_resolutions[0] if supported_resolutions else "1K"
+        ratio = str(parameters.get("ratio") or "1:1")
+        values: dict[str, object] = {
+            "canvas.aspect_ratio": ratio,
+            "canvas.resolution": resolution,
+            "output.count": int(parameters.get("n") or 1),
+            "gemini.safety_settings": {
+                "HARM_CATEGORY_HARASSMENT": "OFF",
+                "HARM_CATEGORY_HATE_SPEECH": "OFF",
+                "HARM_CATEGORY_SEXUALLY_EXPLICIT": "OFF",
+                "HARM_CATEGORY_DANGEROUS_CONTENT": "OFF",
+            },
+        }
+        if profile.get("google_search"):
+            values["gemini.google_search"] = bool(parameters.get("web_search"))
+        return values
+
+    values = {
+        "canvas.size": str(parameters.get("size") or "1024x1024"),
+        "gpt.quality": str(parameters.get("quality") or "auto"),
+        "gpt.background": str(parameters.get("background") or "auto"),
+        "output.format": str(parameters.get("output_format") or "png"),
+        "gpt.moderation": str(parameters.get("moderation") or "auto"),
+        "gpt.web_search": bool(parameters.get("web_search")),
+        "output.count": int(parameters.get("n") or 1),
+    }
+    compression = parameters.get("output_compression")
+    if compression is not None and values["output.format"] in {"jpeg", "webp"}:
+        values["gpt.output_compression"] = int(compression)
+    return values
 
 
 def _validated_task_parameters(

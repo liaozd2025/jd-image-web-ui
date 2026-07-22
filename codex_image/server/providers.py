@@ -12,7 +12,8 @@ from .audit import record_audit_event
 from .database import PostgresConnections
 from .provider_secrets import ProviderSecretCipher
 from .maintenance import assert_writes_allowed
-from .model_capabilities import get_model_capability_profile
+from .model_capabilities import get_model_capability_profile, provider_binding_defaults
+from codex_image.providers.capabilities import protocol_codec_pairs
 
 
 ProviderApiMode = Literal["responses", "images"]
@@ -104,6 +105,8 @@ class ProviderRepository:
                     """
                     SELECT generation_model_id, provider_version_id, display_name,
                            model_id, capability_profile_id, capability_profile_version,
+                           model_family_id, canonical_model_id, protocol_profile,
+                           parameter_codec, supported_operations, append_aspect_ratio_prompt,
                            is_default, is_enabled, validation_status,
                            validation_request_id, validation_error, validated_at,
                            created_at, updated_at
@@ -146,6 +149,7 @@ class ProviderRepository:
         models: list[dict[str, object]],
         parameter_constraints: dict[str, object],
     ) -> ProviderVersion:
+        models = self._normalize_model_bindings(models, api_mode=api_mode)
         self._validate_model_api_modes(models, api_mode=api_mode)
         provider_version_id = str(uuid4())
         canonical_models = [
@@ -203,9 +207,13 @@ class ProviderRepository:
                     """
                     INSERT INTO generation_models (
                         generation_model_id, provider_version_id, display_name, model_id,
-                        capability_profile_id, capability_profile_version, is_default,
-                        is_enabled, validation_status
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        capability_profile_id, capability_profile_version,
+                        model_family_id, canonical_model_id, protocol_profile,
+                        parameter_codec, supported_operations, append_aspect_ratio_prompt,
+                        is_default, is_enabled, validation_status
+                    ) VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s
+                    )
                     """,
                     [
                         (
@@ -215,6 +223,12 @@ class ProviderRepository:
                             model["model_id"],
                             model["capability_profile_id"],
                             model["capability_profile_version"],
+                            model["model_family_id"],
+                            model["canonical_model_id"],
+                            model["protocol_profile"],
+                            model["parameter_codec"],
+                            json.dumps(model["supported_operations"], separators=(",", ":")),
+                            model["append_aspect_ratio_prompt"],
                             model["is_default"],
                             model["is_enabled"],
                             model["validation_status"],
@@ -384,6 +398,8 @@ class ProviderRepository:
                     """
                     SELECT generation_model_id, display_name, model_id,
                            capability_profile_id, capability_profile_version,
+                           model_family_id, canonical_model_id, protocol_profile,
+                           parameter_codec, supported_operations, append_aspect_ratio_prompt,
                            is_default, is_enabled, validation_status,
                            validation_request_id, validation_error, validated_at,
                            created_at, updated_at
@@ -530,6 +546,7 @@ class ProviderRepository:
                 credential = cursor.fetchone()
                 if credential is None:
                     raise PersonalCredentialNotFound("personal provider credential was not found")
+                models = self._normalize_model_bindings(models, api_mode=credential["api_mode"])
                 self._validate_model_api_modes(models, api_mode=credential["api_mode"])
                 self._ensure_personal_models(cursor, user_id, provider_version_id)
                 cursor.execute(
@@ -624,14 +641,24 @@ class ProviderRepository:
                         INSERT INTO generation_models (
                             generation_model_id, provider_version_id, owner_user_id,
                             display_name, model_id, capability_profile_id,
-                            capability_profile_version, is_default, is_enabled,
-                            validation_status
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'not_required')
+                            capability_profile_version, model_family_id, canonical_model_id,
+                            protocol_profile, parameter_codec, supported_operations,
+                            append_aspect_ratio_prompt, is_default, is_enabled, validation_status
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb,
+                            %s, %s, %s, 'not_required'
+                        )
                         ON CONFLICT (generation_model_id) DO UPDATE SET
                             display_name = EXCLUDED.display_name,
                             model_id = EXCLUDED.model_id,
                             capability_profile_id = EXCLUDED.capability_profile_id,
                             capability_profile_version = EXCLUDED.capability_profile_version,
+                            model_family_id = EXCLUDED.model_family_id,
+                            canonical_model_id = EXCLUDED.canonical_model_id,
+                            protocol_profile = EXCLUDED.protocol_profile,
+                            parameter_codec = EXCLUDED.parameter_codec,
+                            supported_operations = EXCLUDED.supported_operations,
+                            append_aspect_ratio_prompt = EXCLUDED.append_aspect_ratio_prompt,
                             is_default = EXCLUDED.is_default,
                             is_enabled = EXCLUDED.is_enabled,
                             validation_status = 'not_required',
@@ -650,6 +677,12 @@ class ProviderRepository:
                             model["model_id"],
                             model["capability_profile_id"],
                             model["capability_profile_version"],
+                            model["model_family_id"],
+                            model["canonical_model_id"],
+                            model["protocol_profile"],
+                            model["parameter_codec"],
+                            json.dumps(model["supported_operations"], separators=(",", ":")),
+                            model["append_aspect_ratio_prompt"],
                             model["is_default"],
                             model["is_enabled"],
                         ),
@@ -682,6 +715,34 @@ class ProviderRepository:
                 raise ValueError(
                     f"capability profile {profile_id} does not support provider API mode {api_mode}"
                 )
+
+    @staticmethod
+    def _normalize_model_bindings(
+        models: list[dict[str, object]],
+        *,
+        api_mode: ProviderApiMode,
+    ) -> list[dict[str, object]]:
+        normalized: list[dict[str, object]] = []
+        valid_pairs = protocol_codec_pairs()
+        for model in models:
+            profile_id = str(model.get("capability_profile_id") or "generic-basic")
+            defaults = provider_binding_defaults(
+                profile_id,
+                model_id=str(model.get("model_id") or ""),
+                api_mode=api_mode,
+            )
+            item = {**defaults, **model}
+            pair = (str(item["protocol_profile"]), str(item["parameter_codec"]))
+            if pair not in valid_pairs:
+                raise ValueError(
+                    "protocol_profile and parameter_codec are not a supported pair"
+                )
+            operations = list(dict.fromkeys(str(value) for value in item["supported_operations"]))
+            if not operations or any(value not in {"generate", "edit"} for value in operations):
+                raise ValueError("supported_operations must contain generate or edit")
+            item["supported_operations"] = operations
+            normalized.append(item)
+        return normalized
 
     def delete_personal_model(
         self,
@@ -809,12 +870,15 @@ class ProviderRepository:
             INSERT INTO generation_models (
                 generation_model_id, provider_version_id, owner_user_id,
                 display_name, model_id, capability_profile_id,
-                capability_profile_version, is_default, is_enabled,
-                validation_status
+                capability_profile_version, model_family_id, canonical_model_id,
+                protocol_profile, parameter_codec, supported_operations,
+                append_aspect_ratio_prompt, is_default, is_enabled, validation_status
             )
             SELECT %s || substr(md5(%s || ':' || generation_model_id), 1, 24),
                    provider_version_id, %s, display_name, model_id,
-                   capability_profile_id, capability_profile_version,
+                   capability_profile_id, capability_profile_version, model_family_id,
+                   canonical_model_id, protocol_profile, parameter_codec,
+                   supported_operations, append_aspect_ratio_prompt,
                    is_default, is_enabled, 'not_required'
             FROM generation_models AS department_models
             WHERE department_models.provider_version_id = %s
@@ -890,6 +954,12 @@ class ProviderRepository:
             "model_id": row["model_id"],
             "capability_profile_id": row["capability_profile_id"],
             "capability_profile_version": int(row["capability_profile_version"]),
+            "model_family_id": row["model_family_id"],
+            "canonical_model_id": row["canonical_model_id"],
+            "protocol_profile": row["protocol_profile"],
+            "parameter_codec": row["parameter_codec"],
+            "supported_operations": list(row["supported_operations"]),
+            "append_aspect_ratio_prompt": bool(row["append_aspect_ratio_prompt"]),
             "is_default": bool(row["is_default"]),
             "is_enabled": bool(row["is_enabled"]),
             "validation_status": row["validation_status"],

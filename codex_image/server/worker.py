@@ -4,10 +4,17 @@ import base64
 from io import BytesIO
 import signal
 import threading
+from typing import cast
 from uuid import uuid4
 
 from codex_image.client import OpenAIImagesImageClient, OpenAIResponsesImageClient
-from codex_image.client_types import ResponsesInputFile
+from codex_image.client_types import ImageResult, ResponsesInputFile
+from codex_image.generation.catalog import get_model_manifest
+from codex_image.generation.resolver import BindingResolver
+from codex_image.generation.service import GenerationService
+from codex_image.generation.types import GenerationCommand, GenerationOperation, ImageInput
+from codex_image.providers.contracts import ProviderConnection, ProviderModelBinding
+from codex_image.providers.registry import default_registry
 
 from .assets import AssetRepository
 from .config import ServerSettings
@@ -132,7 +139,6 @@ class HeartbeatWorker:
             self.tasks.settle_quota(failed, consumed=False)
             return
         try:
-            client = self._provider_client(claimed)
             parameters = claimed.task.request_parameters
             reference_images: list[str] = []
             reference_files: list[ResponsesInputFile] = []
@@ -176,6 +182,11 @@ class HeartbeatWorker:
                 if prompt_asset_bytes > MAX_PROMPT_ASSET_BYTES:
                     raise RuntimeError("task prompt assets exceed the server memory limit")
                 prompt = f"{prompt}\n\n{asset_path.read_text(encoding='utf-8')}"
+            canonical_runtime = (
+                claimed.task.generation_snapshot.get("runtime") == "canonical"
+                and claimed.task.generation_snapshot.get("model_family_id") == "gemini-image"
+            )
+            client = None if canonical_runtime else self._provider_client(claimed)
             output_count = max(1, min(4, int(parameters.get("n") or 1)))
             common_parameters = {
                 "prompt": prompt,
@@ -194,7 +205,38 @@ class HeartbeatWorker:
             else:
                 output_indices = list(range(1, output_count + 1))
             failures: list[tuple[int, str]] = []
-            if claimed.api_mode == "images":
+            if canonical_runtime:
+                results = []
+                while len(results) < len(output_indices):
+                    try:
+                        batch = self._execute_canonical_generation(
+                            claimed,
+                            prompt=prompt,
+                            reference_images=reference_images,
+                            reference_files=reference_files,
+                        )
+                    except Exception as error:
+                        failures = [
+                            (output_index, str(error))
+                            for output_index in output_indices[len(results) :]
+                        ]
+                        break
+                    if not batch:
+                        failures = [
+                            (output_index, "provider returned no images")
+                            for output_index in output_indices[len(results) :]
+                        ]
+                        break
+                    results.extend(batch)
+                successful_output_indices = output_indices[: len(results)]
+                if len(results) < len(output_indices) and not failures:
+                    failures.extend(
+                        (output_index, "provider returned fewer images than requested")
+                        for output_index in output_indices[len(results) :]
+                    )
+                results = results[: len(output_indices)]
+                actual_seeds = [None] * len(results)
+            elif claimed.api_mode == "images":
                 seed_profile = claimed.task.capability_snapshot.get("seed")
                 seed_profile = seed_profile if isinstance(seed_profile, dict) else {}
                 base_seed = parameters.get("seed") if seed_profile.get("supported") else None
@@ -255,7 +297,11 @@ class HeartbeatWorker:
                 outputs=[
                     (
                         result.image_bytes,
-                        str(parameters.get("output_format") or result.output_format or "png"),
+                        _resolved_output_format(
+                            result,
+                            parameters.get("output_format"),
+                            canonical_runtime=canonical_runtime,
+                        ),
                         result.revised_prompt,
                         {
                             "index": successful_output_indices[index],
@@ -283,6 +329,100 @@ class HeartbeatWorker:
             except Exception:
                 return
             self.tasks.settle_quota(failed, consumed=False)
+
+    @staticmethod
+    def _execute_canonical_generation(
+        claimed: ClaimedGenerationTask,
+        *,
+        prompt: str,
+        reference_images: list[str],
+        reference_files: list[ResponsesInputFile],
+    ) -> list[ImageResult]:
+        snapshot = claimed.task.generation_snapshot
+        canonical_model_id = str(snapshot.get("canonical_model_id") or "")
+        provider_version_id = claimed.task.provider_version_id
+        binding = ProviderModelBinding(
+            id=str(snapshot.get("binding_id") or claimed.task.generation_model_id or ""),
+            provider_id=provider_version_id,
+            canonical_model_id=canonical_model_id,
+            remote_model_id=str(snapshot.get("remote_model_id") or claimed.task.model_id),
+            protocol_profile=str(snapshot.get("protocol_profile") or ""),
+            parameter_codec=str(snapshot.get("parameter_codec") or ""),
+            operations=frozenset(
+                str(value) for value in snapshot.get("supported_operations") or ()
+            ),
+            append_aspect_ratio_prompt=bool(
+                snapshot.get("append_aspect_ratio_prompt", False)
+            ),
+        )
+        provider = ProviderConnection(
+            id=provider_version_id,
+            name=str(snapshot.get("provider_key") or provider_version_id),
+            base_url=str(claimed.base_url or ""),
+            api_key=str(claimed.api_key or ""),
+            concurrency=1,
+            bindings=(binding,),
+        )
+        effective_prompt = prompt
+        if binding.append_aspect_ratio_prompt:
+            ratio = str(
+                (snapshot.get("requested_parameters") or {}).get("canvas.aspect_ratio")
+                if isinstance(snapshot.get("requested_parameters"), dict)
+                else ""
+            )
+            if ratio:
+                effective_prompt = f"{prompt}\n\nAspect ratio: {ratio}"
+        command = GenerationCommand(
+            operation=cast(
+                GenerationOperation,
+                claimed.task.request_parameters.get("mode", "generate"),
+            ),
+            canonical_model_id=canonical_model_id,
+            provider_id=provider_version_id,
+            binding_id=binding.id,
+            prompt=effective_prompt,
+            parameters=dict(snapshot.get("requested_parameters") or {}),
+            image_inputs=tuple(ImageInput(value) for value in reference_images),
+            reference_files=tuple(reference_files),
+            main_model=str(claimed.task.request_parameters.get("main_model") or ""),
+        )
+        manifest = get_model_manifest(canonical_model_id)
+        registry = default_registry()
+        resolver = BindingResolver(
+            models={manifest.id: manifest},
+            providers={provider.id: provider},
+            registry=registry,
+        )
+        plan = resolver.resolve(command)
+        result = GenerationService(resolver, registry).execute_plan_once(plan)
+        converted: list[ImageResult] = []
+        for asset in result.assets:
+            metadata = dict(asset.metadata)
+            mime_type = str(asset.mime_type or "image/png").split(";", 1)[0].lower()
+            output_format = mime_type.split("/", 1)[1] if "/" in mime_type else "png"
+            if output_format == "jpg":
+                output_format = "jpeg"
+            size = str(metadata.get("size") or "")
+            if not size and asset.width and asset.height:
+                size = f"{asset.width}x{asset.height}"
+            tool_usage = dict(metadata.get("tool_usage") or {})
+            if result.text_parts:
+                tool_usage["text_parts"] = list(result.text_parts)
+            if result.provider_metadata:
+                tool_usage["provider_metadata"] = dict(result.provider_metadata)
+            converted.append(
+                ImageResult(
+                    image_bytes=asset.image_bytes,
+                    revised_prompt=asset.revised_prompt,
+                    output_format=output_format,
+                    size=size,
+                    background=str(metadata.get("background") or "auto"),
+                    quality=str(metadata.get("quality") or "auto"),
+                    usage=dict(result.usage),
+                    tool_usage=tool_usage,
+                )
+            )
+        return converted
 
     @staticmethod
     def _output_seed(base_seed: int, output_index: int, seed_profile: dict[str, object]) -> int:
@@ -382,6 +522,17 @@ class HeartbeatWorker:
                 image_model=claimed.model_id,
             )
         raise RuntimeError("provider API mode is unsupported")
+
+
+def _resolved_output_format(
+    result: ImageResult,
+    requested_output_format: object,
+    *,
+    canonical_runtime: bool,
+) -> str:
+    if canonical_runtime:
+        return str(result.output_format or requested_output_format or "png")
+    return str(requested_output_format or result.output_format or "png")
 
 
 def main() -> int:

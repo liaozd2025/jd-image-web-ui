@@ -28,6 +28,7 @@ from .model_capabilities import (
 
 
 ModelCapability = Literal["image_generation", "image_input", "text_input"]
+GenerationOperation = Literal["generate", "edit"]
 ConstraintValue = int | float | str | bool
 
 
@@ -38,6 +39,16 @@ class ProviderModelPayload(BaseModel):
     model_id: str = Field(min_length=1, max_length=160)
     display_name: str | None = Field(default=None, min_length=1, max_length=160)
     capability_profile_id: str | None = Field(default=None, min_length=1, max_length=80)
+    model_family_id: str | None = Field(default=None, min_length=1, max_length=80)
+    canonical_model_id: str | None = Field(default=None, min_length=1, max_length=160)
+    protocol_profile: str | None = Field(default=None, min_length=1, max_length=80)
+    parameter_codec: str | None = Field(default=None, min_length=1, max_length=80)
+    supported_operations: list[GenerationOperation] | None = Field(
+        default=None,
+        min_length=1,
+        max_length=2,
+    )
+    append_aspect_ratio_prompt: bool | None = None
     is_default: bool | None = None
     is_enabled: bool = True
     capabilities: list[ModelCapability] | None = Field(default=None, min_length=1, max_length=8)
@@ -49,10 +60,14 @@ class ProviderModelPayload(BaseModel):
             raise ValueError("capability_profile_id is not a built-in profile")
         self.capability_profile_id = profile_id
         self.display_name = (self.display_name or self.model_id).strip()
+        if bool(self.protocol_profile) != bool(self.parameter_codec):
+            raise ValueError("protocol_profile and parameter_codec must be configured together")
+        if self.supported_operations is not None:
+            self.supported_operations = list(dict.fromkeys(self.supported_operations))
         return self
 
     def canonical_payload(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "display_name": self.display_name or self.model_id,
             "model_id": self.model_id,
             "capability_profile_id": self.capability_profile_id or "generic-basic",
@@ -61,6 +76,18 @@ class ProviderModelPayload(BaseModel):
             "is_enabled": self.is_enabled,
             "validation_status": "unverified",
         }
+        for field_name in (
+            "model_family_id",
+            "canonical_model_id",
+            "protocol_profile",
+            "parameter_codec",
+            "supported_operations",
+            "append_aspect_ratio_prompt",
+        ):
+            value = getattr(self, field_name)
+            if value is not None:
+                payload[field_name] = value
+        return payload
 
 
 class ProviderVersionPayload(BaseModel):

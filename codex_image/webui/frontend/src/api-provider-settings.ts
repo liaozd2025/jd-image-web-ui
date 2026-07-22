@@ -31,8 +31,12 @@ let apiSettingsAutosaveTimerId: number | null = null;
 
 const MODEL_PROFILES = [
   ["generic-basic", "apiSettings.profileGeneric"],
+  ["gpt-image-2", "GPT Image 2"],
   ["seedream-5-lite", "apiSettings.profileSeedreamLite"],
   ["seedream-5-pro", "apiSettings.profileSeedreamPro"],
+  ["nano-banana-pro", "Nano Banana Pro"],
+  ["nano-banana-2", "Nano Banana 2"],
+  ["nano-banana-2-lite", "Nano Banana 2 Lite"],
 ] as const;
 
 function legacyMethod(name: string, ...args: any[]): any {
@@ -91,6 +95,14 @@ function normalizeApiModel(model: any = {}, index = 0): any {
       ? model.capability_profile_id
       : "generic-basic",
     capability_profile_version: Number.parseInt(model.capability_profile_version, 10) || 1,
+    model_family_id: String(model.model_family_id || "").trim(),
+    canonical_model_id: String(model.canonical_model_id || "").trim(),
+    protocol_profile: String(model.protocol_profile || "").trim(),
+    parameter_codec: String(model.parameter_codec || "").trim(),
+    supported_operations: Array.isArray(model.supported_operations)
+      ? model.supported_operations.filter((value: unknown) => value === "generate" || value === "edit")
+      : [],
+    append_aspect_ratio_prompt: Boolean(model.append_aspect_ratio_prompt),
     is_default: Boolean(model.is_default),
     is_enabled: model.is_enabled !== false,
     validation_status: String(model.validation_status || "not_required"),
@@ -285,6 +297,12 @@ function readModelDraftRows(): any[] {
     display_name: row.querySelector<HTMLInputElement>("[data-model-display-name]")?.value || "",
     model_id: row.querySelector<HTMLInputElement>("[data-model-id]")?.value || "",
     capability_profile_id: row.querySelector<HTMLSelectElement>("[data-model-profile]")?.value || "generic-basic",
+    model_family_id: row.dataset.modelFamilyId || "",
+    canonical_model_id: row.dataset.canonicalModelId || "",
+    protocol_profile: row.dataset.protocolProfile || "",
+    parameter_codec: row.dataset.parameterCodec || "",
+    supported_operations: (row.dataset.supportedOperations || "").split(",").filter(Boolean),
+    append_aspect_ratio_prompt: row.dataset.appendAspectRatioPrompt === "true",
     is_default: Boolean(row.querySelector<HTMLInputElement>("[data-model-default]")?.checked),
     is_enabled: Boolean(row.querySelector<HTMLInputElement>("[data-model-enabled]")?.checked),
     validation_status: row.dataset.validationStatus || "not_required",
@@ -383,6 +401,12 @@ function renderProviderModelEditor(provider: any): void {
     row.dataset.clientId = model.client_id;
     row.dataset.validationStatus = model.validation_status;
     row.dataset.validationError = model.validation_error;
+    row.dataset.modelFamilyId = model.model_family_id;
+    row.dataset.canonicalModelId = model.canonical_model_id;
+    row.dataset.protocolProfile = model.protocol_profile;
+    row.dataset.parameterCodec = model.parameter_codec;
+    row.dataset.supportedOperations = model.supported_operations.join(",");
+    row.dataset.appendAspectRatioPrompt = model.append_aspect_ratio_prompt ? "true" : "false";
     row.setAttribute("role", "listitem");
 
     const displayName = document.createElement("input");
@@ -406,10 +430,18 @@ function renderProviderModelEditor(provider: any): void {
     MODEL_PROFILES.forEach(([value, labelKey]) => {
       const option = document.createElement("option");
       option.value = value;
-      option.textContent = translate(labelKey);
+      option.textContent = labelKey.startsWith("apiSettings.") ? translate(labelKey) : labelKey;
       profile.append(option);
     });
     profile.value = model.capability_profile_id;
+    profile.addEventListener("change", () => {
+      row.dataset.modelFamilyId = "";
+      row.dataset.canonicalModelId = "";
+      row.dataset.protocolProfile = "";
+      row.dataset.parameterCodec = "";
+      row.dataset.supportedOperations = "";
+      row.dataset.appendAspectRatioPrompt = "false";
+    });
 
     const defaultLabel = document.createElement("label");
     defaultLabel.className = "api-model-toggle";
@@ -1166,6 +1198,14 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
           display_name: model.display_name,
           model_id: model.model_id,
           capability_profile_id: model.capability_profile_id,
+          model_family_id: model.model_family_id || undefined,
+          canonical_model_id: model.canonical_model_id || undefined,
+          protocol_profile: model.protocol_profile || undefined,
+          parameter_codec: model.parameter_codec || undefined,
+          supported_operations: model.supported_operations?.length
+            ? model.supported_operations
+            : undefined,
+          append_aspect_ratio_prompt: model.append_aspect_ratio_prompt || undefined,
           is_default: model.is_default,
           is_enabled: model.is_enabled,
         })),

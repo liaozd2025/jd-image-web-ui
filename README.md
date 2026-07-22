@@ -21,6 +21,7 @@ docker compose -f compose.server.yml exec web \
 
 - 用户只能使用浏览器用户名密码登录，账号由管理员创建。
 - 个人供应商和部门供应商都从管理员维护的目录中选择；API Key 只在服务器端加密保存。
+- 模型目录支持 GPT Image、Gemini 官方 `generateContent` 与兼容协议绑定；提交任务时由服务器按当前用户可见的供应商和模型重新校验参数。
 - 任务、图片、个人资产和共享资产存储在 PostgreSQL 与持久文件卷中，并按用户隔离。
 - 运维 CLI 只负责初始化账号、备份恢复、维护锁、存储核对和到期回收，不执行用户生图，也不提供 OAuth。
 - 共享资产首期无需审核；管理员查看用户内容使用专用只读入口并写入审计记录。
@@ -36,6 +37,10 @@ python -m codex_image.server.ops purge-trash --confirm
 ```
 
 备份和恢复会自动启用维护锁；存储核对默认只报告，物理清理必须显式确认。
+
+## 上游基线
+
+当前服务器版本已合并 `kadevin/ilab-conjure` 的 `v0.7.0`（`1f0fd675`）。合并仅接入适用于服务器产品的模型目录、参数解析和供应商协议能力；桌面启动器、portable 打包、自动更新、本地 SQLite WebUI、Codex OAuth 与用户生图 CLI 不属于本产品交付范围。
 
 ## 本地开发验证
 

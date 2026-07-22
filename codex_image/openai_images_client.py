@@ -4,6 +4,7 @@ import base64
 import json
 import re
 import uuid
+from collections.abc import Mapping, Sequence
 from io import BytesIO
 from os import PathLike
 from typing import Any
@@ -18,10 +19,106 @@ from .client_types import (
     image_model_supports_input_fidelity,
     normalize_openai_base_url,
 )
-from .http import MAX_PROVIDER_RESPONSE_BYTES, Transport, UrllibTransport
+from .http import HTTPResponse, MAX_PROVIDER_RESPONSE_BYTES, Transport, UrllibTransport
 
 
 _DIMENSION_SIZE_RE = re.compile(r"^\s*(\d{1,5})\s*[xX×]\s*(\d{1,5})\s*$")
+
+
+def build_openai_images_headers(api_key: str, *, content_type: str) -> dict[str, str]:
+    return {
+        "Content-Type": content_type,
+        "Accept": "application/json",
+        "Authorization": f"Bearer {api_key}",
+        "User-Agent": OPENAI_COMPATIBLE_USER_AGENT,
+    }
+
+
+def raise_for_openai_images_response(response: HTTPResponse) -> None:
+    if response.status < 200 or response.status >= 300:
+        raise RuntimeError(
+            "OpenAI-compatible images request failed: "
+            f"HTTP {response.status}: {response.body.decode('utf-8', errors='replace')}"
+        )
+
+
+def build_openai_images_payload(
+    *,
+    prompt: str,
+    action: str = "generate",
+    model: str | None = None,
+    default_model: str = DEFAULT_IMAGE_MODEL,
+    input_images: list[str] | None = None,
+    mask_image: str | None = None,
+    size: str | None = None,
+    quality: str | None = None,
+    background: str | None = None,
+    output_format: str = "png",
+    input_fidelity: str | None = None,
+    moderation: str | None = None,
+    output_compression: int | None = None,
+    n: int = 1,
+) -> dict[str, Any]:
+    image_model = str(model or default_model or DEFAULT_IMAGE_MODEL).strip() or DEFAULT_IMAGE_MODEL
+    images = list(input_images or [])
+    count = OpenAIImagesImageClient._normalize_image_count(n)
+    payload: dict[str, Any] = {
+        "endpoint": "/images/edits" if action == "edit" or images else "/images/generations",
+        "model": image_model,
+        "prompt": prompt,
+        "n": count,
+        "output_format": output_format,
+    }
+    for key, value in (("size", size), ("quality", quality), ("background", background)):
+        if value:
+            payload[key] = value
+    if input_fidelity and image_model_supports_input_fidelity(image_model):
+        payload["input_fidelity"] = input_fidelity
+    if moderation:
+        payload["moderation"] = moderation
+    if output_compression is not None:
+        payload["output_compression"] = output_compression
+    if images:
+        payload["images"] = [{"image_url": image_url} for image_url in images]
+    if mask_image:
+        payload["mask"] = {"image_url": mask_image}
+    return payload
+
+
+def build_multipart_body(
+    form_fields: Mapping[str, Any],
+    files: Sequence[tuple[str, str, str, bytes]],
+) -> tuple[bytes, str]:
+    boundary = f"----codex-image-{uuid.uuid4().hex}"
+    chunks: list[bytes] = []
+    for name, value in form_fields.items():
+        if value is None:
+            continue
+        if not isinstance(value, (str, int, float, bool)):
+            raise TypeError(f"Multipart form field {name} must be a scalar")
+        chunks.extend(
+            (
+                f"--{boundary}\r\n".encode("utf-8"),
+                f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"),
+                str(value).encode("utf-8"),
+                b"\r\n",
+            )
+        )
+    for name, filename, mime_type, data in files:
+        chunks.extend(
+            (
+                f"--{boundary}\r\n".encode("utf-8"),
+                (
+                    f'Content-Disposition: form-data; name="{name}"; '
+                    f'filename="{filename}"\r\n'
+                ).encode("utf-8"),
+                f"Content-Type: {mime_type}\r\n\r\n".encode("utf-8"),
+                bytes(data),
+                b"\r\n",
+            )
+        )
+    chunks.append(f"--{boundary}--\r\n".encode("utf-8"))
+    return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
 
 
 class OpenAIImagesImageClient:
@@ -540,11 +637,27 @@ class OpenAIImagesImageClient:
             if not isinstance(item, dict) or not (item.get("b64_json") or item.get("url")):
                 continue
             image_bytes = OpenAIImagesImageClient._image_bytes_from_response_item(item, url_fetcher=url_fetcher)
+            media_type = str(
+                item.get("media_type") or item.get("mime_type") or item.get("mimeType") or ""
+            ).split(";", 1)[0].strip().lower()
+            media_output_format = {
+                "image/jpeg": "jpeg",
+                "image/png": "png",
+                "image/webp": "webp",
+                "image/gif": "gif",
+                "image/avif": "avif",
+            }.get(media_type, "")
             results.append(
                 ImageResult(
                     image_bytes=image_bytes,
                     revised_prompt=str(item.get("revised_prompt", "")),
-                    output_format=str(item.get("output_format") or response.get("output_format") or request_payload.get("output_format") or ""),
+                    output_format=str(
+                        item.get("output_format")
+                        or media_output_format
+                        or response.get("output_format")
+                        or request_payload.get("output_format")
+                        or ""
+                    ),
                     size=OpenAIImagesImageClient._result_size(
                         image_bytes,
                         item.get("size"),
@@ -599,17 +712,14 @@ class OpenAIImagesImageClient:
 
     @staticmethod
     def _image_bytes_from_response_item(item: dict[str, Any], *, url_fetcher: Any | None = None) -> bytes:
-        image_url = str(item.get("url") or "")
-        if item.get("b64_json"):
-            return base64.b64decode(str(item["b64_json"]))
-        if image_url.startswith("data:image/"):
-            _, image_bytes = OpenAIImagesImageClient._decode_data_url(image_url)
-            return image_bytes
-        if image_url.startswith("http://") or image_url.startswith("https://"):
-            if url_fetcher is None:
-                raise RuntimeError("OpenAI-compatible images returned image URL but no downloader is available")
-            return url_fetcher(image_url)
-        raise RuntimeError("OpenAI-compatible images completed without image data")
+        from codex_image.providers.result_assets import AssetLoadError, load_response_asset
+
+        try:
+            return load_response_asset(item, url_loader=url_fetcher).image_bytes
+        except AssetLoadError as exc:
+            raise RuntimeError(
+                "OpenAI-compatible images completed without valid image data"
+            ) from exc
 
     @staticmethod
     def _normalize_image_count(value: int) -> int:

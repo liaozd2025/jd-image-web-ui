@@ -44,6 +44,7 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0027_generation_model_validations",
     "0028_generation_model_preferences",
     "0029_configured_department_models",
+    "0030_upstream_v070_provider_bindings",
 ]
 
 

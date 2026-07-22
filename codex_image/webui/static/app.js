@@ -32360,8 +32360,12 @@ ${hint}` : hint;
   var apiSettingsAutosaveTimerId = null;
   var MODEL_PROFILES = [
     ["generic-basic", "apiSettings.profileGeneric"],
+    ["gpt-image-2", "GPT Image 2"],
     ["seedream-5-lite", "apiSettings.profileSeedreamLite"],
-    ["seedream-5-pro", "apiSettings.profileSeedreamPro"]
+    ["seedream-5-pro", "apiSettings.profileSeedreamPro"],
+    ["nano-banana-pro", "Nano Banana Pro"],
+    ["nano-banana-2", "Nano Banana 2"],
+    ["nano-banana-2-lite", "Nano Banana 2 Lite"]
   ];
   function legacyMethod14(name, ...args) {
     const method = getLegacyBridge().methods[name];
@@ -32420,6 +32424,12 @@ ${hint}` : hint;
       model_id: modelId,
       capability_profile_id: MODEL_PROFILES.some(([profileId]) => profileId === model.capability_profile_id) ? model.capability_profile_id : "generic-basic",
       capability_profile_version: Number.parseInt(model.capability_profile_version, 10) || 1,
+      model_family_id: String(model.model_family_id || "").trim(),
+      canonical_model_id: String(model.canonical_model_id || "").trim(),
+      protocol_profile: String(model.protocol_profile || "").trim(),
+      parameter_codec: String(model.parameter_codec || "").trim(),
+      supported_operations: Array.isArray(model.supported_operations) ? model.supported_operations.filter((value) => value === "generate" || value === "edit") : [],
+      append_aspect_ratio_prompt: Boolean(model.append_aspect_ratio_prompt),
       is_default: Boolean(model.is_default),
       is_enabled: model.is_enabled !== false,
       validation_status: String(model.validation_status || "not_required"),
@@ -32586,6 +32596,12 @@ ${hint}` : hint;
       display_name: row.querySelector("[data-model-display-name]")?.value || "",
       model_id: row.querySelector("[data-model-id]")?.value || "",
       capability_profile_id: row.querySelector("[data-model-profile]")?.value || "generic-basic",
+      model_family_id: row.dataset.modelFamilyId || "",
+      canonical_model_id: row.dataset.canonicalModelId || "",
+      protocol_profile: row.dataset.protocolProfile || "",
+      parameter_codec: row.dataset.parameterCodec || "",
+      supported_operations: (row.dataset.supportedOperations || "").split(",").filter(Boolean),
+      append_aspect_ratio_prompt: row.dataset.appendAspectRatioPrompt === "true",
       is_default: Boolean(row.querySelector("[data-model-default]")?.checked),
       is_enabled: Boolean(row.querySelector("[data-model-enabled]")?.checked),
       validation_status: row.dataset.validationStatus || "not_required",
@@ -32679,6 +32695,12 @@ ${hint}` : hint;
       row.dataset.clientId = model.client_id;
       row.dataset.validationStatus = model.validation_status;
       row.dataset.validationError = model.validation_error;
+      row.dataset.modelFamilyId = model.model_family_id;
+      row.dataset.canonicalModelId = model.canonical_model_id;
+      row.dataset.protocolProfile = model.protocol_profile;
+      row.dataset.parameterCodec = model.parameter_codec;
+      row.dataset.supportedOperations = model.supported_operations.join(",");
+      row.dataset.appendAspectRatioPrompt = model.append_aspect_ratio_prompt ? "true" : "false";
       row.setAttribute("role", "listitem");
       const displayName = document.createElement("input");
       displayName.className = "control";
@@ -32699,10 +32721,18 @@ ${hint}` : hint;
       MODEL_PROFILES.forEach(([value, labelKey]) => {
         const option = document.createElement("option");
         option.value = value;
-        option.textContent = translate(labelKey);
+        option.textContent = labelKey.startsWith("apiSettings.") ? translate(labelKey) : labelKey;
         profile.append(option);
       });
       profile.value = model.capability_profile_id;
+      profile.addEventListener("change", () => {
+        row.dataset.modelFamilyId = "";
+        row.dataset.canonicalModelId = "";
+        row.dataset.protocolProfile = "";
+        row.dataset.parameterCodec = "";
+        row.dataset.supportedOperations = "";
+        row.dataset.appendAspectRatioPrompt = "false";
+      });
       const defaultLabel = document.createElement("label");
       defaultLabel.className = "api-model-toggle";
       const defaultInput = document.createElement("input");
@@ -33383,6 +33413,12 @@ ${hint}` : hint;
             display_name: model.display_name,
             model_id: model.model_id,
             capability_profile_id: model.capability_profile_id,
+            model_family_id: model.model_family_id || void 0,
+            canonical_model_id: model.canonical_model_id || void 0,
+            protocol_profile: model.protocol_profile || void 0,
+            parameter_codec: model.parameter_codec || void 0,
+            supported_operations: model.supported_operations?.length ? model.supported_operations : void 0,
+            append_aspect_ratio_prompt: model.append_aspect_ratio_prompt || void 0,
             is_default: model.is_default,
             is_enabled: model.is_enabled
           })),
@@ -33661,6 +33697,20 @@ ${hint}` : hint;
     els11.resolutionGroup?.querySelectorAll("[data-val]")?.forEach((button) => {
       button.classList.toggle("hidden", !supportedResolutions.has(String(button.dataset.val || "")));
     });
+    const supportedRatios = new Set(profile?.aspect_ratios || []);
+    if (supportedRatios.size) {
+      els11.ratioGroup?.querySelectorAll("[data-val]")?.forEach((button) => {
+        button.classList.toggle("hidden", !supportedRatios.has(String(button.dataset.val || "")));
+      });
+      if (els11.ratio && !supportedRatios.has(String(els11.ratio.value || ""))) {
+        setRadioValue(els11.ratio, els11.ratioGroup, String(profile.aspect_ratios[0] || "1:1"));
+        parametersAdjusted = true;
+      }
+    } else {
+      els11.ratioGroup?.querySelectorAll("[data-val]")?.forEach((button) => {
+        button.classList.remove("hidden");
+      });
+    }
     const minimumOutputCount = Number(profile?.min_output_count || 1);
     const maximumOutputCount = Number(profile?.max_output_count || minimumOutputCount);
     els11.quantityGroup?.querySelectorAll("[data-val]")?.forEach((button) => {

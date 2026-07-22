@@ -145,6 +145,7 @@ class ServerAuthenticationFlowTests(unittest.TestCase):
                         login_page = client.get("/login")
                         login_styles = client.get("/auth-static/login.css")
                         anonymous_api = client.get("/api/auth/me")
+                        anonymous_generation_catalog = client.get("/api/generation-catalog")
                         anonymous_file = client.get("/files/private/example.png")
                         cross_site = client.post(
                             "/api/auth/login",
@@ -249,6 +250,7 @@ class ServerAuthenticationFlowTests(unittest.TestCase):
         self.assertEqual(login_styles.status_code, 200)
         self.assertEqual(login_styles.headers["cache-control"], "no-store")
         self.assertEqual(anonymous_api.status_code, 401)
+        self.assertEqual(anonymous_generation_catalog.status_code, 401)
         self.assertEqual(anonymous_file.status_code, 401)
         self.assertEqual(cross_site.status_code, 403)
         self.assertEqual(bad_login.status_code, 401)

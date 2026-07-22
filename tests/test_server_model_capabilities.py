@@ -87,6 +87,7 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
             ).apply()
             self.assertIn("0025_generation_models", applied)
             self.assertIn("0029_configured_department_models", applied)
+            self.assertIn("0030_upstream_v070_provider_bindings", applied)
             with psycopg.connect(database_url) as connection:
                 models = connection.execute(
                     """
@@ -99,7 +100,7 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                 task = connection.execute(
                     """
                     SELECT generation_model_id, model_display_name, capability_profile_id,
-                           capability_profile_version, capability_snapshot
+                           capability_profile_version, capability_snapshot, generation_snapshot
                     FROM server_generation_tasks
                     WHERE task_id = 'legacy-task'
                     """
@@ -121,6 +122,8 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
             self.assertIsNotNone(task[0])
             self.assertEqual(task[1:4], ("legacy-second", "generic-basic", 1))
             self.assertIsNone(task[4])
+            self.assertEqual(task[5]["remote_model_id"], "legacy-second")
+            self.assertEqual(task[5]["protocol_profile"], "openai_images")
 
     def test_admin_can_publish_structured_models_from_versioned_builtin_profiles(self) -> None:
         from codex_image.server.app import create_server_app
@@ -155,23 +158,35 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                     self.assertEqual(profiles.status_code, 200, profiles.text)
                     self.assertEqual(
                         [item["profile_id"] for item in profiles.json()["profiles"]],
-                        ["generic-basic", "seedream-5-lite", "seedream-5-pro"],
-                    )
-                    self.assertEqual(
-                        profiles.json()["profiles"][1]["summary"],
-                        "连续组图 · 最高 4K",
-                    )
-                    self.assertEqual(
-                        profiles.json()["profiles"][1]["summary_key"],
-                        "generationModel.summarySeedreamLite",
-                    )
-                    self.assertEqual(
-                        profiles.json()["profiles"][1]["protocol_adapter"],
-                        "volcengine-ark-images",
+                        [
+                            "generic-basic",
+                            "gpt-image-2",
+                            "seedream-5-lite",
+                            "seedream-5-pro",
+                            "nano-banana-pro",
+                            "nano-banana-2",
+                            "nano-banana-2-lite",
+                        ],
                     )
                     self.assertEqual(
                         profiles.json()["profiles"][2]["summary"],
+                        "连续组图 · 最高 4K",
+                    )
+                    self.assertEqual(
+                        profiles.json()["profiles"][2]["summary_key"],
+                        "generationModel.summarySeedreamLite",
+                    )
+                    self.assertEqual(
+                        profiles.json()["profiles"][2]["protocol_adapter"],
+                        "volcengine-ark-images",
+                    )
+                    self.assertEqual(
+                        profiles.json()["profiles"][3]["summary"],
                         "精准编辑 · 最高 2K",
+                    )
+                    self.assertEqual(
+                        profiles.json()["profiles"][4]["output_formats"],
+                        ["png"],
                     )
 
                     incompatible_mode = admin.post(
@@ -226,6 +241,17 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                     provider = created.json()["provider"]
                     self.assertEqual(provider["default_generation_model_id"], provider["models"][0]["generation_model_id"])
                     self.assertEqual(provider["models"][0]["capability_profile_version"], 1)
+                    self.assertEqual(provider["models"][0]["model_family_id"], "seedream-image")
+                    self.assertEqual(
+                        provider["models"][0]["canonical_model_id"],
+                        "doubao-seedream-5-0-lite-test",
+                    )
+                    self.assertEqual(provider["models"][0]["protocol_profile"], "openai_images")
+                    self.assertEqual(provider["models"][0]["parameter_codec"], "gpt_openai_images")
+                    self.assertEqual(
+                        provider["models"][0]["supported_operations"],
+                        ["generate", "edit"],
+                    )
                     self.assertEqual(provider["models"][0]["validation_status"], "unverified")
                     self.assertEqual(provider["models"][1]["display_name"], "Seedream 5.0 Pro")
 

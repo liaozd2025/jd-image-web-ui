@@ -410,6 +410,7 @@ def _task_payload(
         "capability_profile_id": task.capability_profile_id,
         "capability_profile_version": task.capability_profile_version,
         "capability_snapshot": task.capability_snapshot,
+        "generation_snapshot": task.generation_snapshot,
         "prompt": task.prompt,
         "request_parameters": task.request_parameters,
         "input_sha256": task.input_sha256,

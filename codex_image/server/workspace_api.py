@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import asdict
 from io import BytesIO
 import json
 import re
@@ -36,6 +37,12 @@ from .tasks import (
 )
 from .tasks_api import MAX_TASK_INPUT_BYTES, _task_payload
 from .shared_assets import SharedAssetForbidden, SharedAssetRepository
+from codex_image.generation.catalog import (
+    MODEL_MANIFEST_VERSION,
+    list_model_families,
+    list_model_manifests,
+)
+from codex_image.providers.registry import default_registry
 
 
 WORKSPACE_UPLOAD_LIMIT = 16
@@ -88,6 +95,14 @@ def install_workspace_routes(
     def api_settings(request: Request) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
         return JSONResponse(content={"settings": _api_settings(session, providers, departments)})
+
+    @app.get("/api/generation-catalog", response_model=None)
+    def generation_catalog(request: Request) -> JSONResponse:
+        session: AuthenticatedSession = request.state.auth_session
+        return JSONResponse(
+            content=_generation_catalog_payload(session, providers, departments),
+            headers={"Cache-Control": "no-store"},
+        )
 
     @app.patch("/api/api-settings", response_model=None)
     async def save_api_settings(request: Request) -> JSONResponse:
@@ -1859,6 +1874,121 @@ def _available_providers(
     return result
 
 
+def _parameter_catalog_payload(parameter: Any) -> dict[str, Any]:
+    payload = asdict(parameter)
+    payload["allowed_values"] = list(parameter.allowed_values)
+    payload["operations"] = sorted(parameter.operations)
+    payload["visible_when"] = [asdict(condition) for condition in parameter.visible_when]
+    payload["object_choices"] = [
+        {
+            **asdict(row),
+            "allowed_values": list(row.allowed_values),
+            "label_keys": list(row.label_keys),
+        }
+        for row in parameter.object_choices
+    ]
+    payload["object_presets"] = [
+        {
+            "id": preset.id,
+            "label_key": preset.label_key,
+            "value": dict(preset.value),
+            "matches_empty": preset.matches_empty,
+        }
+        for preset in parameter.object_presets
+    ]
+    return payload
+
+
+def _generation_catalog_payload(
+    session: AuthenticatedSession,
+    providers: ProviderRepository,
+    departments: DepartmentProviderRepository,
+) -> dict[str, object]:
+    available = _available_providers(session, providers, departments)
+    registry = default_registry()
+    catalog_providers: list[dict[str, object]] = []
+    canonical_ids: set[str] = set()
+    default_provider_by_model: dict[str, str] = {}
+    known_manifest_ids = {model.id for model in list_model_manifests()}
+    for provider in available:
+        provider_id = str(provider["id"])
+        bindings: list[dict[str, object]] = []
+        for model in provider.get("models", []):
+            if not isinstance(model, dict) or not model.get("is_enabled"):
+                continue
+            canonical_model_id = str(model.get("canonical_model_id") or "")
+            protocol_profile = str(model.get("protocol_profile") or "")
+            parameter_codec = str(model.get("parameter_codec") or "")
+            runtime_available = canonical_model_id in known_manifest_ids
+            try:
+                registry.protocol(protocol_profile)
+                registry.codec(parameter_codec)
+            except ValueError:
+                runtime_available = False
+            if not runtime_available:
+                continue
+            canonical_ids.add(canonical_model_id)
+            if model.get("is_default"):
+                default_provider_by_model.setdefault(canonical_model_id, provider_id)
+            bindings.append(
+                {
+                    "id": str(model.get("generation_model_id") or ""),
+                    "generation_model_id": str(model.get("generation_model_id") or ""),
+                    "canonical_model_id": canonical_model_id,
+                    "remote_model_id": str(model.get("model_id") or ""),
+                    "model_family_id": str(model.get("model_family_id") or ""),
+                    "protocol_profile": protocol_profile,
+                    "parameter_codec": parameter_codec,
+                    "operations": list(model.get("supported_operations") or []),
+                    "append_aspect_ratio_prompt": bool(
+                        model.get("append_aspect_ratio_prompt", False)
+                    ),
+                    "display_name": str(model.get("display_name") or model.get("model_id") or ""),
+                    "available": True,
+                }
+            )
+        if not bindings:
+            continue
+        catalog_providers.append(
+            {
+                "id": str(provider["id"]),
+                "name": str(provider["name"]),
+                "provider_scope": str(provider["provider_scope"]),
+                "provider_version_id": str(provider["provider_version_id"]),
+                "available": True,
+                "bindings": bindings,
+            }
+        )
+    manifests = [
+        {
+            "id": model.id,
+            "family_id": model.family_id,
+            "display_name": model.display_name,
+            "official_model_id": model.official_model_id,
+            "version": model.version,
+            "operations": sorted(model.operations),
+            "parameters": [
+                _parameter_catalog_payload(parameter) for parameter in model.parameters
+            ],
+            "input_constraints": asdict(model.input_constraints),
+            "expand_advanced_parameters": model.expand_advanced_parameters,
+        }
+        for model in list_model_manifests()
+        if model.id in canonical_ids
+    ]
+    family_ids = {model["family_id"] for model in manifests}
+    return {
+        "schema_version": 1,
+        "manifest_version": MODEL_MANIFEST_VERSION,
+        "families": [
+            asdict(family) for family in list_model_families() if family.id in family_ids
+        ],
+        "models": manifests,
+        "providers": catalog_providers,
+        "default_provider_by_model": default_provider_by_model,
+    }
+
+
 def _save_department_api_settings(
     session: AuthenticatedSession,
     payload: dict[str, Any],
@@ -1973,6 +2103,12 @@ def _workspace_provider_payload(
                         "display_name",
                         "model_id",
                         "capability_profile_id",
+                        "model_family_id",
+                        "canonical_model_id",
+                        "protocol_profile",
+                        "parameter_codec",
+                        "supported_operations",
+                        "append_aspect_ratio_prompt",
                         "is_default",
                         "is_enabled",
                     )
@@ -2026,6 +2162,12 @@ def _workspace_provider_changed(existing: ProviderVersion, desired: ProviderVers
             "display_name": str(model.get("display_name") or model.get("model_id") or ""),
             "model_id": str(model.get("model_id") or ""),
             "capability_profile_id": str(model.get("capability_profile_id") or "generic-basic"),
+            "model_family_id": str(model.get("model_family_id") or ""),
+            "canonical_model_id": str(model.get("canonical_model_id") or ""),
+            "protocol_profile": str(model.get("protocol_profile") or ""),
+            "parameter_codec": str(model.get("parameter_codec") or ""),
+            "supported_operations": list(model.get("supported_operations") or []),
+            "append_aspect_ratio_prompt": bool(model.get("append_aspect_ratio_prompt", False)),
             "is_default": bool(model.get("is_default")),
             "is_enabled": bool(model.get("is_enabled", True)),
         }
@@ -2037,6 +2179,12 @@ def _workspace_provider_changed(existing: ProviderVersion, desired: ProviderVers
             "display_name": model.display_name or model.model_id,
             "model_id": model.model_id,
             "capability_profile_id": model.capability_profile_id or "generic-basic",
+            "model_family_id": model.model_family_id or "",
+            "canonical_model_id": model.canonical_model_id or "",
+            "protocol_profile": model.protocol_profile or "",
+            "parameter_codec": model.parameter_codec or "",
+            "supported_operations": list(model.supported_operations or []),
+            "append_aspect_ratio_prompt": bool(model.append_aspect_ratio_prompt),
             "is_default": bool(model.is_default),
             "is_enabled": model.is_enabled,
         }
@@ -2211,6 +2359,12 @@ def _workspace_models_payload(models: list[object]) -> list[Any]:
                     "display_name",
                     "model_id",
                     "capability_profile_id",
+                    "model_family_id",
+                    "canonical_model_id",
+                    "protocol_profile",
+                    "parameter_codec",
+                    "supported_operations",
+                    "append_aspect_ratio_prompt",
                     "is_default",
                     "is_enabled",
                 )
