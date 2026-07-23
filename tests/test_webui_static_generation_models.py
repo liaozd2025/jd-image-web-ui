@@ -21,8 +21,10 @@ class WebUIGenerationModelContractTests(unittest.TestCase):
         output = html[html.index('id="settingsGrid"'):html.index('id="modelParameterGrid"') + 64]
 
         self.assertLess(sidebar.index('class="brand-name"'), sidebar.index('id="modelFamilyOptions"'))
-        self.assertLess(prompt.index('id="promptFindButton"'), prompt.index('id="promptTemplateButton"'))
-        self.assertNotIn('id="generationModelField"', prompt)
+        self.assertLess(prompt.index('id="promptFindButton"'), prompt.index('id="generationModelField"'))
+        self.assertLess(prompt.index('id="generationModelField"'), prompt.index('id="promptTemplateButton"'))
+        self.assertIn('id="generationModelSelect"', prompt)
+        self.assertIn('aria-describedby="generationModelSummary generationModelNotice"', prompt)
         self.assertLess(output.index('id="concreteModelSelect"'), output.index('id="modelParameterGrid"'))
 
     def test_submission_uses_stable_model_identity_and_explicit_advanced_parameters(self) -> None:

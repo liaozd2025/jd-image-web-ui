@@ -13,6 +13,7 @@ import { resolveModeSettingsVisibility } from "../../codex_image/webui/frontend/
 import { serverCompatibleGenerationFields } from "../../codex_image/webui/frontend/src/generation-request";
 import {
   renderModelSelectors,
+  resolveConfiguredModelSelection,
   selectConcreteModel,
   selectModelFamily,
   usesExpandedConcreteModelOptions,
@@ -223,6 +224,15 @@ test("provider settings route all providers to the admin catalog", () => {
   assert.equal(settingsTabForProvider("codex"), "catalog");
   assert.equal(settingsTabForProvider("default"), "catalog");
   assert.equal(settingsTabForProvider(null), "catalog");
+});
+
+test("configured model choice resolves the canonical task model and exact provider binding", () => {
+  assert.deepEqual(resolveConfiguredModelSelection(catalog, "default", "d-a"), {
+    modelId: "model-a",
+    providerSelectionKey: "default::d-a",
+  });
+  assert.equal(resolveConfiguredModelSelection(catalog, "default", "missing"), null);
+  assert.equal(resolveConfiguredModelSelection(catalog, "missing", "d-a"), null);
 });
 
 test("concrete model selection expands only when a family has multiple choices", () => {

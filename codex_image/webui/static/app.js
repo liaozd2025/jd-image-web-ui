@@ -34502,6 +34502,15 @@ ${hint}` : hint;
   function usesExpandedConcreteModelOptions(models) {
     return models.length > 1;
   }
+  function resolveConfiguredModelSelection(catalog, providerId, bindingId) {
+    const provider = catalog.providers.find((item) => item.id === providerId);
+    const binding = provider?.bindings.find((item) => item.id === bindingId);
+    if (!provider || !binding) return null;
+    return {
+      modelId: binding.canonical_model_id,
+      providerSelectionKey: providerBindingSelectionKey(provider.id, binding.id)
+    };
+  }
   function familyOptionButtons() {
     const options = getLegacyBridge().els.modelFamilyOptions;
     return options ? Array.from(options.querySelectorAll("[data-family-id]")) : [];
@@ -36970,10 +36979,13 @@ ${hint}` : hint;
   var profiles = /* @__PURE__ */ new Map();
   var preferenceTimer = null;
   var generationModelFeatureInitialized = false;
-  function availableModels() {
-    const provider = state10.apiSettings?.providers?.find(
+  function selectedApiProvider() {
+    return state10.apiSettings?.providers?.find(
       (item) => item.id === state10.selectedProviderId
     ) || activeApiProvider();
+  }
+  function availableModels() {
+    const provider = selectedApiProvider();
     return (Array.isArray(provider?.models) ? provider.models : []).filter(
       (model) => model?.is_enabled !== false
     );
@@ -37085,7 +37097,7 @@ ${hint}` : hint;
   }
   function updateCallNotice() {
     const count = Math.max(1, Number.parseInt(els11.nInput?.value || "1", 10) || 1);
-    const provider = activeApiProvider();
+    const provider = selectedApiProvider();
     const text = count > 1 ? translate("generationModel.independentCalls").replace("{count}", String(count)) : "";
     if (els11.generationCallNotice) {
       els11.generationCallNotice.textContent = text;
@@ -37217,10 +37229,11 @@ ${hint}` : hint;
       updateGenerationModelReferenceLimits();
       return;
     }
-    const provider = activeApiProvider();
+    const provider = selectedApiProvider();
     const models = availableModels();
     const previous = String(els11.generationModelSelect.value || "");
-    const requested = models.some((model) => model.generation_model_id === previous) ? previous : String(provider?.selected_generation_model_id || "");
+    const catalogBindingId = String(state10.selectedProviderBindingId || "");
+    const requested = state10.generationCatalog ? models.some((model) => model.generation_model_id === catalogBindingId) ? catalogBindingId : String(provider?.selected_generation_model_id || "") : models.some((model) => model.generation_model_id === previous) ? previous : String(provider?.selected_generation_model_id || "");
     const selected = models.find((model) => model.generation_model_id === requested) || models.find((model) => model.is_default) || models[0] || null;
     els11.generationModelSelect.innerHTML = "";
     if (!models.length) {
@@ -37247,7 +37260,7 @@ ${hint}` : hint;
       const profile = profiles.get(selected.capability_profile_id);
       els11.model.value = selected.model_id;
       els11.generationModelSummary.textContent = profileSummary(profile);
-      if (profile) adjustment = applyProfile(profile, selected, restorePreference);
+      if (profile && !state10.generationCatalog) adjustment = applyProfile(profile, selected, restorePreference);
     } else {
       els11.model.value = "";
       els11.generationModelSummary.textContent = "";
@@ -37275,7 +37288,7 @@ ${hint}` : hint;
     };
   }
   async function persistPreference() {
-    const provider = activeApiProvider();
+    const provider = selectedApiProvider();
     const model = currentGenerationModel();
     if (!provider || !model) return;
     const response = await fetch("/api/generation-model-preferences", {
@@ -37307,6 +37320,19 @@ ${hint}` : hint;
     }, 250);
   }
   function handleModelChange() {
+    const catalog = state10.generationCatalog;
+    if (catalog) {
+      const selection = resolveConfiguredModelSelection(
+        catalog,
+        state10.selectedProviderId,
+        String(els11.generationModelSelect?.value || "")
+      );
+      if (selection) {
+        selectConcreteModel(selection.modelId);
+        selectGenerationProvider(selection.providerSelectionKey);
+        return;
+      }
+    }
     renderGenerationModelSelector(true);
     queuePreferenceSave();
   }

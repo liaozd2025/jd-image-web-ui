@@ -2,6 +2,8 @@ import { activeApiProvider } from "./api-provider-settings";
 import { getCsrfToken } from "./server-account";
 import { getLegacyBridge } from "./state";
 import { LOCALE_CHANGE_EVENT, translate } from "./i18n";
+import { resolveConfiguredModelSelection, selectConcreteModel } from "./model-selection";
+import { selectGenerationProvider } from "./provider-selection";
 
 const bridge = getLegacyBridge();
 const state = bridge.state;
@@ -10,10 +12,14 @@ const profiles = new Map<string, any>();
 let preferenceTimer: number | null = null;
 let generationModelFeatureInitialized = false;
 
-function availableModels(): any[] {
-  const provider = state.apiSettings?.providers?.find(
+function selectedApiProvider(): any {
+  return state.apiSettings?.providers?.find(
     (item: any) => item.id === state.selectedProviderId,
   ) || activeApiProvider();
+}
+
+function availableModels(): any[] {
+  const provider = selectedApiProvider();
   return (Array.isArray(provider?.models) ? provider.models : []).filter(
     (model: any) => model?.is_enabled !== false,
   );
@@ -155,7 +161,7 @@ export function generationModelConstraintMessage(): string {
 
 function updateCallNotice(): void {
   const count = Math.max(1, Number.parseInt(els.nInput?.value || "1", 10) || 1);
-  const provider = activeApiProvider();
+  const provider = selectedApiProvider();
   const text = count > 1
     ? translate("generationModel.independentCalls").replace("{count}", String(count))
     : "";
@@ -312,12 +318,21 @@ export function renderGenerationModelSelector(restorePreference = true): void {
     updateGenerationModelReferenceLimits();
     return;
   }
-  const provider = activeApiProvider();
+  const provider = selectedApiProvider();
   const models = availableModels();
   const previous = String(els.generationModelSelect.value || "");
-  const requested = models.some((model: any) => model.generation_model_id === previous)
-    ? previous
-    : String(provider?.selected_generation_model_id || "");
+  const catalogBindingId = String(state.selectedProviderBindingId || "");
+  const requested = state.generationCatalog
+    ? (
+        models.some((model: any) => model.generation_model_id === catalogBindingId)
+          ? catalogBindingId
+          : String(provider?.selected_generation_model_id || "")
+      )
+    : (
+        models.some((model: any) => model.generation_model_id === previous)
+          ? previous
+          : String(provider?.selected_generation_model_id || "")
+      );
   const selected = models.find((model: any) => model.generation_model_id === requested)
     || models.find((model: any) => model.is_default)
     || models[0]
@@ -347,7 +362,7 @@ export function renderGenerationModelSelector(restorePreference = true): void {
     const profile = profiles.get(selected.capability_profile_id);
     els.model.value = selected.model_id;
     els.generationModelSummary.textContent = profileSummary(profile);
-    if (profile) adjustment = applyProfile(profile, selected, restorePreference);
+    if (profile && !state.generationCatalog) adjustment = applyProfile(profile, selected, restorePreference);
   } else {
     els.model.value = "";
     els.generationModelSummary.textContent = "";
@@ -379,7 +394,7 @@ function currentPreferenceParameters(): any {
 }
 
 async function persistPreference(): Promise<void> {
-  const provider = activeApiProvider();
+  const provider = selectedApiProvider();
   const model = currentGenerationModel();
   if (!provider || !model) return;
   const response = await fetch("/api/generation-model-preferences", {
@@ -413,6 +428,19 @@ function queuePreferenceSave(): void {
 }
 
 function handleModelChange(): void {
+  const catalog = state.generationCatalog;
+  if (catalog) {
+    const selection = resolveConfiguredModelSelection(
+      catalog,
+      state.selectedProviderId,
+      String(els.generationModelSelect?.value || ""),
+    );
+    if (selection) {
+      selectConcreteModel(selection.modelId);
+      selectGenerationProvider(selection.providerSelectionKey);
+      return;
+    }
+  }
   renderGenerationModelSelector(true);
   queuePreferenceSave();
 }

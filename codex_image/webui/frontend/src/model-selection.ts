@@ -1,6 +1,6 @@
 import type { CatalogModel, GenerationCatalog, ModelFamilyId } from "./types";
 import { getLegacyBridge } from "./state";
-import { renderProviderSelection } from "./provider-selection";
+import { providerBindingSelectionKey, renderProviderSelection } from "./provider-selection";
 import {
   migratePortableModelDraft,
   restoreCurrentModelParameterDraft,
@@ -15,6 +15,20 @@ export function modelsForFamily(catalog: GenerationCatalog, familyId: ModelFamil
 
 export function usesExpandedConcreteModelOptions(models: CatalogModel[]): boolean {
   return models.length > 1;
+}
+
+export function resolveConfiguredModelSelection(
+  catalog: GenerationCatalog,
+  providerId: string | null | undefined,
+  bindingId: string,
+): { modelId: string; providerSelectionKey: string } | null {
+  const provider = catalog.providers.find((item) => item.id === providerId);
+  const binding = provider?.bindings.find((item) => item.id === bindingId);
+  if (!provider || !binding) return null;
+  return {
+    modelId: binding.canonical_model_id,
+    providerSelectionKey: providerBindingSelectionKey(provider.id, binding.id),
+  };
 }
 
 function familyOptionButtons(): HTMLButtonElement[] {
