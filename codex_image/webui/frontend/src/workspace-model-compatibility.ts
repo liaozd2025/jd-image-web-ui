@@ -4,6 +4,7 @@ export function usesLegacyWorkspaceControls(
 ): boolean {
   const normalizedModelId = String(modelId || "").trim();
   return normalizedModelId === "gpt-image-2"
+    || familyId === "gpt-image"
     || familyId === "seedream-image"
     || /(?:^|[\/_-])seedream(?:[\/_-]|$)/i.test(normalizedModelId);
 }

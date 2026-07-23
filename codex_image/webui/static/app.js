@@ -33233,7 +33233,7 @@ ${hint}` : hint;
   // codex_image/webui/frontend/src/workspace-model-compatibility.ts
   function usesLegacyWorkspaceControls(modelId, familyId = null) {
     const normalizedModelId = String(modelId || "").trim();
-    return normalizedModelId === "gpt-image-2" || familyId === "seedream-image" || /(?:^|[\/_-])seedream(?:[\/_-]|$)/i.test(normalizedModelId);
+    return normalizedModelId === "gpt-image-2" || familyId === "gpt-image" || familyId === "seedream-image" || /(?:^|[\/_-])seedream(?:[\/_-]|$)/i.test(normalizedModelId);
   }
   function usesLegacyMainModelControl(modelId) {
     return !modelId || modelId === "gpt-image-2";

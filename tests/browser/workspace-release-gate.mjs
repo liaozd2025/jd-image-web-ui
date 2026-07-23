@@ -280,6 +280,10 @@ async function waitForWorkspace(page) {
   const secondBinding = multiCatalogProvider.bindings[1];
   await selectCatalogModel(firstBinding.canonical_model_id);
   await selectCatalogBinding(multiCatalogProvider, firstBinding);
+  check(catalogModel(firstBinding.canonical_model_id).family_id === "gpt-image", "GPT-family release fixture was not selected");
+  for (const selector of ["#sizeModeGroup", ".orientation-field", ".resolution-field", ".ratio-field", "#promptFidelityField"]) {
+    check(await page.locator(selector).isVisible(), `GPT-family legacy workspace control remained hidden: ${selector}`);
+  }
   check(await page.locator(`[data-family-id="${catalogModel(firstBinding.canonical_model_id).family_id}"]`).getAttribute("aria-checked") === "true", "v0.7 model family selector did not expose the active family");
   check(await page.locator("#generationProviderSelect").isEnabled(), "v0.7 provider selector was not keyboard selectable");
   await page.locator("#promptEditor").fill("preserve workspace while switching models");
@@ -684,12 +688,12 @@ try {
   await pageA.locator("#imageEditorModal").waitFor({ state: "visible" });
   check(await pageA.locator("#imageEditorKonvaMount").count() === 1, "original image editor was not mounted");
   await pageA.locator("#imageEditorCancel").click();
-  await pageA.locator('[data-parameter-id="output.count"]').getByRole("button", { name: "2", exact: true }).click();
+  await pageA.locator('#quantityGroup [data-val="2"]').click();
   await pageA.locator("#promptEditor").fill("browser image edit with two references");
   await runFromWorkspaceUi(pageA, "/api/edit");
   const edited = await waitForTask(pageA, "browser image edit with two references", "completed");
   check(edited.mode === "edit", "image edit was submitted as generation");
-  check(edited.total_count === 2 && edited.output_urls.length === 2, "v0.7 model quantity control did not produce two results");
+  check(edited.total_count === 2 && edited.output_urls.length === 2, "restored workspace quantity control did not produce two results");
   await eventually(async () => await pageA.locator(`[data-task-id="${edited.task_id}"]`).count(), "two-output task was not rendered");
   await pageA.locator(`[data-task-id="${edited.task_id}"]`).click();
   await eventually(async () => await pageA.locator("#previewGrid img").count() >= 2, "two generated results were not rendered in the original preview");

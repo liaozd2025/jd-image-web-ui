@@ -275,6 +275,10 @@ test("legacy workspace size controls remain available for GPT and Seedream", () 
     legacyWorkspace: true,
     customSize: true,
   });
+  assert.deepEqual(legacyParameterVisibility("gpt-image-1.5", "preset", "gpt-image"), {
+    legacyWorkspace: true,
+    customSize: false,
+  });
   assert.deepEqual(legacyParameterVisibility("doubao-seedream-5-0-lite-browser", "preset", "seedream-image"), {
     legacyWorkspace: true,
     customSize: false,
@@ -291,6 +295,7 @@ test("legacy workspace size controls remain available for GPT and Seedream", () 
 
 test("Seedream keeps only provider-specific v0.7 parameters beside legacy workspace controls", () => {
   assert.equal(usesLegacyWorkspaceControls("gpt-image-2", "gpt-image"), true);
+  assert.equal(usesLegacyWorkspaceControls("gpt-image-1.5", "gpt-image"), true);
   assert.equal(usesLegacyWorkspaceControls("doubao-seedream-5-0-260128", "seedream-image"), true);
   assert.equal(usesLegacyWorkspaceControls("vendor/seedream-5-pro", "custom-image"), true);
   assert.equal(usesLegacyWorkspaceControls("nano-banana-2", "gemini-image"), false);

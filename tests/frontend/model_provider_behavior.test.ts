@@ -467,6 +467,17 @@ test("GPT-only controls stay hidden for Gemini even without an eligible provider
     showApiDirectNotice: true,
     showPromptFidelity: true,
   });
+  assert.deepEqual(resolveModeSettingsVisibility({
+    catalogAvailable: true,
+    modelId: "gpt-image-1.5",
+    modelFamilyId: "gpt-image",
+    protocolProfile: "openai_images",
+    legacyDirectApi: true,
+  }), {
+    showMainModel: false,
+    showApiDirectNotice: true,
+    showPromptFidelity: true,
+  });
 });
 
 test("initial selection ignores stale IDs and does not invent a provider", () => {
