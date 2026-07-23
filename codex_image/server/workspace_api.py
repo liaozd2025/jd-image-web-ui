@@ -121,6 +121,8 @@ def install_workspace_routes(
                 return JSONResponse(status_code=422, content={"detail": "invalid_provider_settings"})
             except DepartmentCredentialNotFound as error:
                 return JSONResponse(status_code=409, content={"detail": str(error)})
+            except (GenerationModelInUse, GenerationModelNotFound) as error:
+                return JSONResponse(status_code=409, content={"detail": str(error)})
             except (ProviderVersionNotFound, ProviderVersionInactive) as error:
                 return JSONResponse(status_code=409, content={"detail": str(error)})
         else:
@@ -2270,63 +2272,31 @@ def _save_department_api_settings(
         api_key = str(raw_api_key or "").strip()
 
         if existing is None:
-            if raw_id in {"", "default"} and not api_key:
-                continue
-            if not api_key:
-                api_key = _department_source_api_key(item, departments)
-            if not api_key:
-                raise ValueError("new department provider requires an API key")
-            validated = _workspace_provider_payload(item)
-            created = providers.create_provider_version(
-                actor_user_id,
-                provider_key=validated.provider_key,
-                display_name=validated.display_name,
-                base_url=validated.base_url,
-                api_mode=validated.api_mode,
-                models=[model.canonical_payload() for model in validated.models],
-                parameter_constraints=validated.parameter_constraints,
+            raise ProviderVersionNotFound(
+                "PATCH /api/api-settings only updates existing providers"
             )
-            departments.save_credential(
-                actor_user_id,
-                provider_version_id=created.provider_version_id,
-                api_key=api_key,
-            )
-            catalog[created.provider_version_id] = created
-            continue
 
         validated = _workspace_provider_payload(item, existing=existing)
+        if not api_key and item.get("api_key_source_provider_id"):
+            api_key = _department_source_api_key(item, departments)
         if _workspace_provider_changed(existing, validated):
-            if not api_key:
-                api_key = departments.resolve_api_key(provider_version_id=existing.provider_version_id)
-            created = providers.create_provider_version(
+            updated = providers.update_provider_version(
                 actor_user_id,
-                provider_key=existing.provider_key,
+                provider_version_id=existing.provider_version_id,
                 display_name=validated.display_name,
                 base_url=validated.base_url,
                 api_mode=validated.api_mode,
-                models=[model.canonical_payload() for model in validated.models],
+                models=[
+                    {
+                        **model.canonical_payload(),
+                        "generation_model_id": model.generation_model_id,
+                    }
+                    for model in validated.models
+                ],
                 parameter_constraints=validated.parameter_constraints,
+                department_api_key=api_key or None,
             )
-            departments.save_credential(
-                actor_user_id,
-                provider_version_id=created.provider_version_id,
-                api_key=api_key,
-            )
-            try:
-                departments.set_active(
-                    actor_user_id,
-                    provider_version_id=existing.provider_version_id,
-                    is_active=False,
-                )
-            except DepartmentCredentialNotFound:
-                pass
-            providers.set_provider_active(
-                actor_user_id,
-                provider_version_id=existing.provider_version_id,
-                is_active=False,
-            )
-            catalog.pop(existing.provider_version_id, None)
-            catalog[created.provider_version_id] = created
+            catalog[updated.provider_version_id] = updated
         elif api_key:
             departments.save_credential(
                 actor_user_id,
@@ -2361,6 +2331,7 @@ def _workspace_provider_payload(
                 {
                     key: raw_model[key]
                     for key in (
+                        "generation_model_id",
                         "display_name",
                         "model_id",
                         "capability_profile_id",

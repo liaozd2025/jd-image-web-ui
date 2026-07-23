@@ -211,6 +211,26 @@ class ServerGenerationTaskTests(unittest.TestCase):
                             headers={"X-CSRF-Token": admin_csrf},
                         )
                         responses_provider_version_id = responses_provider.json()["provider"]["provider_version_id"]
+                        department_credential = admin.put(
+                            f"/api/admin/providers/department/{provider_version_id}",
+                            json={"api_key": TASK_API_KEY},
+                            headers={"X-CSRF-Token": admin_csrf},
+                        )
+                        self.assertEqual(
+                            department_credential.status_code,
+                            200,
+                            department_credential.text,
+                        )
+                        responses_department_credential = admin.put(
+                            f"/api/admin/providers/department/{responses_provider_version_id}",
+                            json={"api_key": TASK_API_KEY},
+                            headers={"X-CSRF-Token": admin_csrf},
+                        )
+                        self.assertEqual(
+                            responses_department_credential.status_code,
+                            200,
+                            responses_department_credential.text,
+                        )
 
                     with TestClient(create_server_app(settings)) as user:
                         user_login = login(
@@ -243,7 +263,7 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         self.assertTrue(workspace_health.json()["auth_available"])
                         workspace_settings = user.get("/api/api-settings")
                         self.assertEqual(workspace_settings.status_code, 200, workspace_settings.text)
-                        workspace_provider_id = f"personal-{provider_version_id}"
+                        workspace_provider_id = f"department-{provider_version_id}"
                         workspace_provider = next(
                             item
                             for item in workspace_settings.json()["settings"]["providers"]
@@ -262,7 +282,7 @@ class ServerGenerationTaskTests(unittest.TestCase):
                         reference_file_task = user.post(
                             "/api/generate",
                             data={
-                                "api_provider_id": f"personal-{responses_provider_version_id}",
+                                "api_provider_id": f"department-{responses_provider_version_id}",
                                 "model": "fake-image-1",
                                 "main_model": "fake-main-1",
                                 "prompt": "use reference document",

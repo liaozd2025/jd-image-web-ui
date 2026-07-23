@@ -116,45 +116,41 @@ class ServerGenerationModelValidationTests(unittest.TestCase):
                         )
                         user_csrf = user_changed["csrf_token"]
 
-                        created = admin.patch(
-                            "/api/api-settings",
+                        created = admin.post(
+                            "/api/admin/provider-catalog",
                             json={
-                                "providers": [
+                                "provider_key": "validation-provider",
+                                "display_name": "Validation Provider",
+                                "base_url": f"http://127.0.0.1:{fake_server.server_port}/v1",
+                                "api_mode": "images",
+                                "models": [
                                     {
-                                        "id": "validation-provider",
-                                        "provider_key": "validation-provider",
-                                        "name": "Validation Provider",
-                                        "base_url": f"http://127.0.0.1:{fake_server.server_port}/v1",
-                                        "api_mode": "images",
-                                        "api_key": DEPARTMENT_KEY,
-                                        "models": [
-                                            {
-                                                "display_name": "Validation Lite",
-                                                "model_id": "validation-lite",
-                                                "capability_profile_id": "seedream-5-lite",
-                                                "is_default": True,
-                                                "is_enabled": True,
-                                            },
-                                            {
-                                                "display_name": "Validation Generic",
-                                                "model_id": "validation-generic",
-                                                "capability_profile_id": "generic-basic",
-                                                "is_default": False,
-                                                "is_enabled": True,
-                                            }
-                                        ],
-                                    }
+                                        "display_name": "Validation Lite",
+                                        "model_id": "validation-lite",
+                                        "capability_profile_id": "seedream-5-lite",
+                                        "is_default": True,
+                                        "is_enabled": True,
+                                    },
+                                    {
+                                        "display_name": "Validation Generic",
+                                        "model_id": "validation-generic",
+                                        "capability_profile_id": "generic-basic",
+                                        "is_default": False,
+                                        "is_enabled": True,
+                                    },
                                 ]
                             },
                             headers={"X-CSRF-Token": admin_csrf},
                         )
-                        self.assertEqual(created.status_code, 200, created.text)
-                        provider = next(
-                            item
-                            for item in created.json()["settings"]["providers"]
-                            if item["provider_key"] == "validation-provider"
-                        )
+                        self.assertEqual(created.status_code, 201, created.text)
+                        provider = created.json()["provider"]
                         provider_id = provider["provider_version_id"]
+                        credential = admin.put(
+                            f"/api/admin/providers/department/{provider_id}",
+                            json={"api_key": DEPARTMENT_KEY},
+                            headers={"X-CSRF-Token": admin_csrf},
+                        )
+                        self.assertEqual(credential.status_code, 200, credential.text)
                         model_id = provider["models"][0]["generation_model_id"]
                         generic_model_id = next(
                             model["generation_model_id"]

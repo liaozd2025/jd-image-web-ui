@@ -65,7 +65,7 @@ class DepartmentProviderRepository:
                     FROM department_provider_credentials AS credentials
                     JOIN provider_catalog_versions AS versions
                       ON versions.provider_version_id = credentials.provider_version_id
-                    WHERE TRUE {condition}
+                    WHERE versions.deleted_at IS NULL {condition}
                     ORDER BY versions.provider_key, versions.version_number
                     """
                 )
@@ -76,14 +76,17 @@ class DepartmentProviderRepository:
             with connection.cursor(row_factory=dict_row) as cursor:
                 assert_writes_allowed(cursor)
                 cursor.execute(
-                    "SELECT provider_key, version_number, display_name, is_active FROM provider_catalog_versions WHERE provider_version_id = %s FOR UPDATE",
+                    """
+                    SELECT provider_key, version_number, display_name, is_active
+                    FROM provider_catalog_versions
+                    WHERE provider_version_id = %s AND deleted_at IS NULL
+                    FOR UPDATE
+                    """,
                     (provider_version_id,),
                 )
                 provider = cursor.fetchone()
                 if provider is None:
                     raise ProviderVersionNotFound("provider version was not found")
-                if not provider["is_active"]:
-                    raise ProviderVersionInactive("provider version is inactive")
                 encrypted = self.cipher.encrypt_department_api_key(
                     provider_version_id=provider_version_id,
                     api_key=api_key,
@@ -143,7 +146,7 @@ class DepartmentProviderRepository:
             api_key_mask=mask,
             has_credential=True,
             is_active=True,
-            provider_is_active=True,
+            provider_is_active=bool(provider["is_active"]),
             updated_at=updated_at.isoformat(),
         )
 
@@ -158,6 +161,7 @@ class DepartmentProviderRepository:
                     FROM provider_catalog_versions AS versions
                     WHERE credentials.provider_version_id = %s
                       AND versions.provider_version_id = credentials.provider_version_id
+                      AND versions.deleted_at IS NULL
                     RETURNING credentials.provider_version_id, versions.provider_key,
                         versions.version_number, versions.display_name, credentials.api_key_mask,
                         credentials.encrypted_api_key IS NOT NULL AS has_credential,
@@ -189,6 +193,7 @@ class DepartmentProviderRepository:
                     JOIN provider_catalog_versions AS versions USING (provider_version_id)
                     WHERE credentials.provider_version_id = %s
                       AND credentials.is_active AND versions.is_active
+                      AND versions.deleted_at IS NULL
                     """,
                     (provider_version_id,),
                 )

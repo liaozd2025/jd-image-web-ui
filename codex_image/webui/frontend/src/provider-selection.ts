@@ -139,7 +139,7 @@ export function settingsTabForProvider(_providerId: string | null | undefined): 
 }
 
 function optionLabel(entry: EligibleProviderBinding): string {
-  return entry.binding.display_name || entry.provider.name;
+  return entry.provider.name;
 }
 
 function applyOptionIcon(option: HTMLOptionElement, entry: EligibleProviderBinding): void {

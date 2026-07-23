@@ -15,6 +15,8 @@ from .providers import (
     PersonalCredentialNotFound,
     PersonalProviderCredential,
     ProviderApiMode,
+    ProviderCatalogMinimumRequired,
+    ProviderKeyConflict,
     ProviderRepository,
     ProviderVersion,
     ProviderVersionInactive,
@@ -178,15 +180,18 @@ def install_provider_routes(app: FastAPI, *, providers: ProviderRepository) -> N
         payload: ProviderVersionPayload,
         admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
     ) -> JSONResponse:
-        provider = providers.create_provider_version(
-            admin_session.user.user_id,
-            provider_key=payload.provider_key,
-            display_name=payload.display_name,
-            base_url=payload.base_url,
-            api_mode=payload.api_mode,
-            models=[model.canonical_payload() for model in payload.models],
-            parameter_constraints=payload.parameter_constraints,
-        )
+        try:
+            provider = providers.create_provider_version(
+                admin_session.user.user_id,
+                provider_key=payload.provider_key,
+                display_name=payload.display_name,
+                base_url=payload.base_url,
+                api_mode=payload.api_mode,
+                models=[model.canonical_payload() for model in payload.models],
+                parameter_constraints=payload.parameter_constraints,
+            )
+        except ProviderKeyConflict as error:
+            return JSONResponse(status_code=409, content={"detail": str(error)})
         return JSONResponse(status_code=201, content={"provider": _provider_payload(provider)})
 
     @app.patch("/api/admin/provider-catalog/{provider_version_id}/status", response_model=None)
@@ -204,6 +209,27 @@ def install_provider_routes(app: FastAPI, *, providers: ProviderRepository) -> N
         except ProviderVersionNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
         return JSONResponse(content={"provider": _provider_payload(provider)})
+
+    @app.delete("/api/admin/provider-catalog/{provider_version_id}", response_model=None)
+    def delete_provider_version(
+        provider_version_id: str,
+        admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
+    ) -> JSONResponse:
+        try:
+            providers.delete_provider_version(
+                admin_session.user.user_id,
+                provider_version_id=provider_version_id,
+            )
+        except ProviderVersionNotFound as error:
+            return JSONResponse(status_code=404, content={"detail": str(error)})
+        except ProviderCatalogMinimumRequired as error:
+            return JSONResponse(status_code=409, content={"detail": str(error)})
+        return JSONResponse(
+            content={
+                "provider_version_id": provider_version_id,
+                "deleted": True,
+            }
+        )
 
     @app.get("/api/providers/catalog", response_model=None)
     def active_catalog() -> JSONResponse:

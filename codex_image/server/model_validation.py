@@ -57,6 +57,7 @@ class ModelValidationRepository:
                       ON credentials.provider_version_id = models.provider_version_id
                     WHERE models.generation_model_id = %s
                       AND models.owner_user_id IS NULL
+                      AND versions.deleted_at IS NULL
                     FOR UPDATE OF models
                     """,
                     (generation_model_id,),
@@ -125,9 +126,12 @@ class ModelValidationRepository:
             with connection.cursor(row_factory=dict_row) as cursor:
                 cursor.execute(
                     """
-                    SELECT * FROM generation_model_validations
-                    WHERE generation_model_id = %s
-                    ORDER BY created_at DESC, validation_id DESC
+                    SELECT validations.*
+                    FROM generation_model_validations AS validations
+                    JOIN provider_catalog_versions AS versions USING (provider_version_id)
+                    WHERE validations.generation_model_id = %s
+                      AND versions.deleted_at IS NULL
+                    ORDER BY validations.created_at DESC, validations.validation_id DESC
                     LIMIT 1
                     """,
                     (generation_model_id,),
@@ -147,6 +151,8 @@ class ModelValidationRepository:
                     FROM generation_model_validations AS validations
                     JOIN provider_catalog_versions AS versions USING (provider_version_id)
                     WHERE validations.status = 'queued'
+                      AND versions.is_active = TRUE
+                      AND versions.deleted_at IS NULL
                     ORDER BY validations.created_at, validations.validation_id
                     FOR UPDATE OF validations SKIP LOCKED
                     LIMIT 1

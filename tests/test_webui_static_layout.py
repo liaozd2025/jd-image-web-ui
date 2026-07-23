@@ -187,8 +187,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn('/static/app.js?v=runtime-648', html)
-        self.assertIn('/static/styles.css?v=runtime-648', html)
+        self.assertIn('/static/app.js?v=runtime-649', html)
+        self.assertIn('/static/styles.css?v=runtime-649', html)
         self.assertIn('id="recentAssetDock"', html)
         self.assertRegex(html, r'class="image-input-footer"[\s\S]*id="recentAssetDock"[\s\S]*id="recentAssetList"')
         self.assertRegex(html, r'id="recentAssetDock"[\s\S]*id="quickGalleryDock"[\s\S]*id="galleryManagePanel"')
@@ -2706,7 +2706,10 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
             self.assertIn(action, settings_script)
         self.assertIn('return cookieValue("jd_image_csrf") || csrfToken', account_script)
         self.assertIn('headers.set("X-CSRF-Token", getCsrfToken())', settings_script)
-        self.assertIn('isServerWorkspace || !state.apiSettings.allow_new_provider', provider_script)
+        self.assertIn('method: "DELETE"', provider_script)
+        self.assertIn("/api/admin/provider-catalog/", provider_script)
+        self.assertIn('fetch("/api/admin/provider-catalog"', provider_script)
+        self.assertIn("openConfirmPopover(anchor || els.deleteApiProviderButton", provider_script)
     def test_existing_destructive_actions_keep_anchored_confirm_popovers(self) -> None:
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
@@ -2794,8 +2797,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn('/static/app.js?v=runtime-648', html)
-        self.assertIn('/static/styles.css?v=runtime-648', html)
+        self.assertIn('/static/app.js?v=runtime-649', html)
+        self.assertIn('/static/styles.css?v=runtime-649', html)
         self.assertIn('id="pasteClipboardButton"', html)
         self.assertIn('id="statusText"', html)
         self.assertRegex(
@@ -3241,8 +3244,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn("/static/app.js?v=runtime-648", html)
-        self.assertIn("/static/styles.css?v=runtime-648", html)
+        self.assertIn("/static/app.js?v=runtime-649", html)
+        self.assertIn("/static/styles.css?v=runtime-649", html)
         self.assertIn('const THEME_STORAGE_KEY = "codex-image-theme-preference";', script)
         self.assertIn('themePreference: "system"', script)
         self.assertIn('call(methods, "restoreThemePreference")', script)

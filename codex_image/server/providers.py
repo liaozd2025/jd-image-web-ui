@@ -27,6 +27,14 @@ class ProviderVersionInactive(RuntimeError):
     pass
 
 
+class ProviderCatalogMinimumRequired(RuntimeError):
+    pass
+
+
+class ProviderKeyConflict(RuntimeError):
+    pass
+
+
 class PersonalCredentialNotFound(RuntimeError):
     pass
 
@@ -76,7 +84,11 @@ class ProviderRepository:
         self.cipher = cipher
 
     def list_catalog(self, *, active_only: bool) -> list[ProviderVersion]:
-        where_clause = "WHERE is_active = TRUE" if active_only else ""
+        where_clause = (
+            "WHERE is_active = TRUE AND deleted_at IS NULL"
+            if active_only
+            else "WHERE deleted_at IS NULL"
+        )
         with self.connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
                 assert_writes_allowed(cursor)
@@ -168,13 +180,18 @@ class ProviderRepository:
                 )
                 cursor.execute(
                     """
-                    SELECT COALESCE(MAX(version_number), 0) + 1 AS next_version_number
+                    SELECT
+                        COALESCE(MAX(version_number), 0) + 1 AS next_version_number,
+                        BOOL_OR(deleted_at IS NULL) AS has_visible_provider
                     FROM provider_catalog_versions
                     WHERE provider_key = %s
                     """,
                     (provider_key,),
                 )
-                version_number = cursor.fetchone()["next_version_number"]
+                provider_key_state = cursor.fetchone()
+                if provider_key_state["has_visible_provider"]:
+                    raise ProviderKeyConflict("provider key already exists")
+                version_number = provider_key_state["next_version_number"]
                 cursor.execute(
                     """
                     INSERT INTO provider_catalog_versions (
@@ -253,6 +270,401 @@ class ProviderRepository:
             if provider.provider_version_id == provider_version_id
         )
 
+    def update_provider_version(
+        self,
+        actor_user_id: str,
+        *,
+        provider_version_id: str,
+        display_name: str,
+        base_url: str,
+        api_mode: ProviderApiMode,
+        models: list[dict[str, object]],
+        parameter_constraints: dict[str, object],
+        department_api_key: str | None = None,
+    ) -> ProviderVersion:
+        models = self._normalize_model_bindings(models, api_mode=api_mode)
+        self._validate_model_api_modes(models, api_mode=api_mode)
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
+                cursor.execute(
+                    """
+                    SELECT provider_key, base_url, api_mode
+                    FROM provider_catalog_versions
+                    WHERE provider_version_id = %s AND deleted_at IS NULL
+                    FOR UPDATE
+                    """,
+                    (provider_version_id,),
+                )
+                provider = cursor.fetchone()
+                if provider is None:
+                    raise ProviderVersionNotFound("provider version was not found")
+                cursor.execute(
+                    """
+                    SELECT generation_model_id, display_name, model_id,
+                           capability_profile_id, capability_profile_version,
+                           model_family_id, canonical_model_id, protocol_profile,
+                           parameter_codec, supported_operations,
+                           append_aspect_ratio_prompt, is_default, is_enabled,
+                           validation_status
+                    FROM generation_models
+                    WHERE provider_version_id = %s AND owner_user_id IS NULL
+                    FOR UPDATE
+                    """,
+                    (provider_version_id,),
+                )
+                existing_rows = cursor.fetchall()
+                existing_by_id = {
+                    str(row["generation_model_id"]): row
+                    for row in existing_rows
+                }
+                existing_by_model_id = {
+                    str(row["model_id"]): str(row["generation_model_id"])
+                    for row in existing_rows
+                }
+                resolved_models: list[tuple[str, dict[str, object], dict[str, Any] | None]] = []
+                resolved_ids: set[str] = set()
+                for model in models:
+                    requested_id = str(model.get("generation_model_id") or "")
+                    if requested_id and requested_id not in existing_by_id:
+                        raise GenerationModelNotFound(
+                            "generation model does not belong to the provider"
+                        )
+                    generation_model_id = (
+                        requested_id
+                        or existing_by_model_id.get(str(model.get("model_id") or ""), "")
+                        or str(uuid4())
+                    )
+                    if generation_model_id in resolved_ids:
+                        raise ValueError("generation_model_id must be unique within a provider")
+                    resolved_ids.add(generation_model_id)
+                    resolved_models.append(
+                        (generation_model_id, model, existing_by_id.get(generation_model_id))
+                    )
+
+                removed_ids = set(existing_by_id) - resolved_ids
+                if removed_ids:
+                    cursor.execute(
+                        """
+                        SELECT generation_model_id
+                        FROM server_generation_tasks
+                        WHERE generation_model_id = ANY(%s)
+                        UNION
+                        SELECT generation_model_id
+                        FROM generation_model_validations
+                        WHERE generation_model_id = ANY(%s)
+                        LIMIT 1
+                        """,
+                        (list(removed_ids), list(removed_ids)),
+                    )
+                    if cursor.fetchone() is not None:
+                        raise GenerationModelInUse(
+                            "a referenced generation model can only be disabled"
+                        )
+                    cursor.execute(
+                        """
+                        DELETE FROM generation_models
+                        WHERE provider_version_id = %s AND owner_user_id IS NULL
+                          AND generation_model_id = ANY(%s)
+                        """,
+                        (provider_version_id, list(removed_ids)),
+                    )
+
+                cursor.execute(
+                    """
+                    UPDATE generation_models
+                    SET is_default = FALSE, updated_at = CURRENT_TIMESTAMP
+                    WHERE provider_version_id = %s AND owner_user_id IS NULL
+                    """,
+                    (provider_version_id,),
+                )
+                provider_runtime_changed = (
+                    str(provider["base_url"]).rstrip("/") != base_url.rstrip("/")
+                    or provider["api_mode"] != api_mode
+                )
+                for generation_model_id, model, existing in resolved_models:
+                    model_runtime_changed = provider_runtime_changed or existing is None
+                    if existing is not None and not model_runtime_changed:
+                        model_runtime_changed = any(
+                            (
+                                str(existing["model_id"]) != str(model["model_id"]),
+                                str(existing["capability_profile_id"])
+                                != str(model["capability_profile_id"]),
+                                int(existing["capability_profile_version"])
+                                != int(model["capability_profile_version"]),
+                                str(existing["model_family_id"])
+                                != str(model["model_family_id"]),
+                                str(existing["canonical_model_id"])
+                                != str(model["canonical_model_id"]),
+                                str(existing["protocol_profile"])
+                                != str(model["protocol_profile"]),
+                                str(existing["parameter_codec"])
+                                != str(model["parameter_codec"]),
+                                list(existing["supported_operations"])
+                                != list(model["supported_operations"]),
+                                bool(existing["append_aspect_ratio_prompt"])
+                                != bool(model["append_aspect_ratio_prompt"]),
+                            )
+                        )
+                    validation_status = (
+                        "unverified"
+                        if model_runtime_changed
+                        else str(existing["validation_status"])
+                    )
+                    cursor.execute(
+                        """
+                        INSERT INTO generation_models (
+                            generation_model_id, provider_version_id, display_name, model_id,
+                            capability_profile_id, capability_profile_version,
+                            model_family_id, canonical_model_id, protocol_profile,
+                            parameter_codec, supported_operations,
+                            append_aspect_ratio_prompt, is_default, is_enabled,
+                            validation_status
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb,
+                            %s, %s, %s, %s
+                        )
+                        ON CONFLICT (generation_model_id) DO UPDATE SET
+                            display_name = EXCLUDED.display_name,
+                            model_id = EXCLUDED.model_id,
+                            capability_profile_id = EXCLUDED.capability_profile_id,
+                            capability_profile_version = EXCLUDED.capability_profile_version,
+                            model_family_id = EXCLUDED.model_family_id,
+                            canonical_model_id = EXCLUDED.canonical_model_id,
+                            protocol_profile = EXCLUDED.protocol_profile,
+                            parameter_codec = EXCLUDED.parameter_codec,
+                            supported_operations = EXCLUDED.supported_operations,
+                            append_aspect_ratio_prompt = EXCLUDED.append_aspect_ratio_prompt,
+                            is_default = EXCLUDED.is_default,
+                            is_enabled = EXCLUDED.is_enabled,
+                            validation_status = EXCLUDED.validation_status,
+                            validation_request_id = CASE
+                                WHEN EXCLUDED.validation_status = 'unverified' THEN NULL
+                                ELSE generation_models.validation_request_id
+                            END,
+                            validation_error = CASE
+                                WHEN EXCLUDED.validation_status = 'unverified' THEN NULL
+                                ELSE generation_models.validation_error
+                            END,
+                            validated_at = CASE
+                                WHEN EXCLUDED.validation_status = 'unverified' THEN NULL
+                                ELSE generation_models.validated_at
+                            END,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE generation_models.provider_version_id = EXCLUDED.provider_version_id
+                          AND generation_models.owner_user_id IS NULL
+                        """,
+                        (
+                            generation_model_id,
+                            provider_version_id,
+                            model["display_name"],
+                            model["model_id"],
+                            model["capability_profile_id"],
+                            model["capability_profile_version"],
+                            model["model_family_id"],
+                            model["canonical_model_id"],
+                            model["protocol_profile"],
+                            model["parameter_codec"],
+                            json.dumps(model["supported_operations"], separators=(",", ":")),
+                            model["append_aspect_ratio_prompt"],
+                            model["is_default"],
+                            model["is_enabled"],
+                            validation_status,
+                        ),
+                    )
+                if department_api_key:
+                    encrypted_api_key = self.cipher.encrypt_department_api_key(
+                        provider_version_id=provider_version_id,
+                        api_key=department_api_key,
+                    )
+                    api_key_mask = _mask_api_key(department_api_key)
+                    cursor.execute(
+                        """
+                        INSERT INTO department_provider_credentials (
+                            provider_version_id, encrypted_api_key, api_key_mask,
+                            is_active, configured_by_user_id
+                        ) VALUES (%s, %s, %s, TRUE, %s)
+                        ON CONFLICT (provider_version_id) DO UPDATE SET
+                            encrypted_api_key = EXCLUDED.encrypted_api_key,
+                            api_key_mask = EXCLUDED.api_key_mask,
+                            is_active = TRUE,
+                            configured_by_user_id = EXCLUDED.configured_by_user_id,
+                            updated_at = CURRENT_TIMESTAMP
+                        """,
+                        (
+                            provider_version_id,
+                            encrypted_api_key,
+                            api_key_mask,
+                            actor_user_id,
+                        ),
+                    )
+                    cursor.execute(
+                        """
+                        UPDATE generation_models
+                        SET validation_status = 'unverified',
+                            validation_request_id = NULL,
+                            validation_error = NULL,
+                            validated_at = NULL,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE provider_version_id = %s AND owner_user_id IS NULL
+                        """,
+                        (provider_version_id,),
+                    )
+                    record_audit_event(
+                        cursor,
+                        action="provider.department_credential_saved",
+                        actor_user_id=actor_user_id,
+                        subject_user_id=None,
+                        details={"provider_version_id": provider_version_id},
+                    )
+                    record_audit_event(
+                        cursor,
+                        action="model.validation_invalidated",
+                        actor_user_id=actor_user_id,
+                        subject_user_id=None,
+                        details={
+                            "provider_version_id": provider_version_id,
+                            "reason": "department_credential_changed",
+                        },
+                    )
+                cursor.execute(
+                    """
+                    SELECT generation_model_id, display_name, model_id,
+                           capability_profile_id, capability_profile_version,
+                           model_family_id, canonical_model_id, protocol_profile,
+                           parameter_codec, supported_operations,
+                           append_aspect_ratio_prompt, is_default, is_enabled,
+                           validation_status, validation_request_id,
+                           validation_error, validated_at, created_at, updated_at
+                    FROM generation_models
+                    WHERE provider_version_id = %s AND owner_user_id IS NULL
+                    ORDER BY is_default DESC, created_at, generation_model_id
+                    """,
+                    (provider_version_id,),
+                )
+                canonical_models = [
+                    self._generation_model_from_row(row)
+                    for row in cursor.fetchall()
+                ]
+                cursor.execute(
+                    """
+                    UPDATE provider_catalog_versions
+                    SET display_name = %s,
+                        base_url = %s,
+                        api_mode = %s,
+                        models = %s::jsonb,
+                        parameter_constraints = %s::jsonb
+                    WHERE provider_version_id = %s AND deleted_at IS NULL
+                    """,
+                    (
+                        display_name,
+                        base_url,
+                        api_mode,
+                        json.dumps(canonical_models, separators=(",", ":")),
+                        json.dumps(parameter_constraints, separators=(",", ":")),
+                        provider_version_id,
+                    ),
+                )
+                record_audit_event(
+                    cursor,
+                    action="provider.version_updated",
+                    actor_user_id=actor_user_id,
+                    subject_user_id=None,
+                    details={
+                        "provider_version_id": provider_version_id,
+                        "provider_key": provider["provider_key"],
+                        "generation_model_ids": [
+                            generation_model_id
+                            for generation_model_id, _, _ in resolved_models
+                        ],
+                    },
+                )
+        return next(
+            provider
+            for provider in self.list_catalog(active_only=False)
+            if provider.provider_version_id == provider_version_id
+        )
+
+    def delete_provider_version(
+        self,
+        actor_user_id: str,
+        *,
+        provider_version_id: str,
+    ) -> None:
+        with self.connections.connect() as connection:
+            with connection.cursor(row_factory=dict_row) as cursor:
+                assert_writes_allowed(cursor)
+                cursor.execute(
+                    "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                    ("provider_catalog_soft_delete",),
+                )
+                cursor.execute(
+                    """
+                    SELECT provider_key
+                    FROM provider_catalog_versions
+                    WHERE provider_version_id = %s AND deleted_at IS NULL
+                    FOR UPDATE
+                    """,
+                    (provider_version_id,),
+                )
+                provider = cursor.fetchone()
+                if provider is None:
+                    raise ProviderVersionNotFound("provider version was not found")
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) AS provider_count
+                    FROM provider_catalog_versions
+                    WHERE deleted_at IS NULL
+                    """
+                )
+                if int(cursor.fetchone()["provider_count"]) <= 1:
+                    raise ProviderCatalogMinimumRequired(
+                        "at least one provider must remain in the catalog"
+                    )
+                cursor.execute(
+                    """
+                    UPDATE provider_catalog_versions
+                    SET is_active = FALSE, deleted_at = CURRENT_TIMESTAMP
+                    WHERE provider_version_id = %s AND deleted_at IS NULL
+                    """,
+                    (provider_version_id,),
+                )
+                cursor.execute(
+                    """
+                    UPDATE department_provider_credentials
+                    SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+                    WHERE provider_version_id = %s
+                    """,
+                    (provider_version_id,),
+                )
+                cursor.execute(
+                    """
+                    UPDATE personal_provider_credentials
+                    SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+                    WHERE provider_version_id = %s
+                    """,
+                    (provider_version_id,),
+                )
+                cursor.execute(
+                    """
+                    UPDATE generation_models
+                    SET is_enabled = FALSE, is_default = FALSE,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE provider_version_id = %s
+                    """,
+                    (provider_version_id,),
+                )
+                record_audit_event(
+                    cursor,
+                    action="provider.version_deleted",
+                    actor_user_id=actor_user_id,
+                    subject_user_id=None,
+                    details={
+                        "provider_version_id": provider_version_id,
+                        "provider_key": provider["provider_key"],
+                    },
+                )
+
     def set_provider_active(
         self,
         actor_user_id: str,
@@ -267,7 +679,7 @@ class ProviderRepository:
                     """
                     UPDATE provider_catalog_versions
                     SET is_active = %s
-                    WHERE provider_version_id = %s
+                    WHERE provider_version_id = %s AND deleted_at IS NULL
                     RETURNING
                         provider_version_id,
                         provider_key,
@@ -317,6 +729,7 @@ class ProviderRepository:
                     JOIN provider_catalog_versions AS versions
                       ON versions.provider_version_id = credentials.provider_version_id
                     WHERE credentials.user_id = %s
+                      AND versions.deleted_at IS NULL
                     ORDER BY versions.provider_key, versions.version_number
                     """,
                     (user_id,),
@@ -539,6 +952,9 @@ class ProviderRepository:
                       ON versions.provider_version_id = credentials.provider_version_id
                     WHERE credentials.user_id = %s
                       AND credentials.provider_version_id = %s
+                      AND credentials.is_active = TRUE
+                      AND versions.is_active = TRUE
+                      AND versions.deleted_at IS NULL
                     FOR UPDATE
                     """,
                     (user_id, provider_version_id),
@@ -756,11 +1172,15 @@ class ProviderRepository:
                 assert_writes_allowed(cursor)
                 cursor.execute(
                     """
-                    SELECT is_default
-                    FROM generation_models
-                    WHERE generation_model_id = %s AND provider_version_id = %s
-                      AND owner_user_id = %s
-                    FOR UPDATE
+                    SELECT models.is_default
+                    FROM generation_models AS models
+                    JOIN provider_catalog_versions AS versions
+                      ON versions.provider_version_id = models.provider_version_id
+                    WHERE models.generation_model_id = %s
+                      AND models.provider_version_id = %s
+                      AND models.owner_user_id = %s
+                      AND versions.deleted_at IS NULL
+                    FOR UPDATE OF models
                     """,
                     (generation_model_id, provider_version_id, user_id),
                 )
@@ -812,6 +1232,7 @@ class ProviderRepository:
                     WHERE credentials.user_id = %s
                       AND credentials.provider_version_id = %s
                       AND versions.provider_version_id = credentials.provider_version_id
+                      AND versions.deleted_at IS NULL
                     RETURNING
                         credentials.provider_version_id,
                         versions.provider_key,
@@ -851,6 +1272,7 @@ class ProviderRepository:
                       AND credentials.is_active = TRUE
                       AND credentials.encrypted_api_key IS NOT NULL
                       AND versions.is_active = TRUE
+                      AND versions.deleted_at IS NULL
                     """,
                     (user_id, provider_version_id),
                 )
@@ -905,7 +1327,7 @@ class ProviderRepository:
             """
             SELECT provider_key, version_number, display_name, is_active
             FROM provider_catalog_versions
-            WHERE provider_version_id = %s
+            WHERE provider_version_id = %s AND deleted_at IS NULL
             FOR UPDATE
             """,
             (provider_version_id,),

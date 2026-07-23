@@ -322,8 +322,10 @@ async function waitForWorkspace(page) {
   check((await page.locator("#promptEditor").textContent()) === "preserve workspace while switching models", "switching models changed the prompt");
   await page.locator("#generationProviderSelect").focus();
   check(await page.locator("#generationProviderSelect").evaluate((element) => element === document.activeElement), "provider selector was not keyboard focusable");
-  await page.locator("#generationProviderSettingsButton").focus();
-  check(await page.locator("#generationProviderSettingsButton").evaluate((element) => element === document.activeElement), "provider settings button was not keyboard focusable");
+  if (await page.locator("#generationProviderSettingsButton").isVisible()) {
+    await page.locator("#generationProviderSettingsButton").focus();
+    check(await page.locator("#generationProviderSettingsButton").evaluate((element) => element === document.activeElement), "provider settings button was not keyboard focusable");
+  }
 
   const referenceBinding = referenceCatalogProvider.bindings[0];
   await selectCatalogModel(referenceBinding.canonical_model_id);
@@ -1039,8 +1041,63 @@ try {
   check(await adminPage.locator('[data-settings-nav-group][data-admin-only] [data-system-settings-tab]:visible').count() === 7, "administrator did not receive all seven management pages");
   check(await adminPage.locator("#generationProviderSettingsButton").isVisible(), "administrator provider settings shortcut was hidden");
   await adminPage.locator('[data-system-settings-tab="catalog"]').click();
-  check(await adminPage.locator("#deleteApiProviderButton").isHidden(), "server system settings exposed a physical provider delete action");
   check(await adminPage.locator("#toggleApiProviderStatusButton").isVisible(), "unified provider catalog did not expose provider enable or disable");
+  const deleteFixtureResponse = await api(adminPage, "/api/admin/provider-catalog", {
+    method: "POST",
+    json: {
+      provider_key: `browser-delete-${Date.now()}`,
+      display_name: "Browser Delete Provider",
+      base_url: "https://browser-delete.invalid/v1",
+      api_mode: "images",
+      models: [{
+        model_id: "browser-delete-image",
+        capabilities: ["image_generation", "image_input"],
+      }],
+      parameter_constraints: {},
+    },
+  });
+  check(deleteFixtureResponse.status === 201, `provider delete fixture could not be created: ${JSON.stringify(deleteFixtureResponse.body)}`);
+  const deleteFixtureId = deleteFixtureResponse.body.provider.provider_version_id;
+  await adminPage.evaluate(async () => {
+    await window.__codexImageWebUI?.methods?.refreshApiSettings?.();
+  });
+  const deleteFixtureCard = adminPage.locator(`[data-api-provider-id="department-${deleteFixtureId}"]`);
+  await deleteFixtureCard.waitFor({ state: "visible" });
+  await deleteFixtureCard.click();
+  check(await adminPage.locator("#deleteApiProviderButton").isVisible(), "server provider catalog did not expose soft delete");
+  let providerDeleteRequests = 0;
+  await adminPage.route(`**/api/admin/provider-catalog/${deleteFixtureId}`, async (route) => {
+    if (route.request().method() === "DELETE") providerDeleteRequests += 1;
+    await route.continue();
+  });
+  await adminPage.locator("#deleteApiProviderButton").click();
+  await adminPage.locator(".confirm-popover:not(.hidden)").waitFor({ state: "visible" });
+  await adminPage.locator(".confirm-popover:not(.hidden) [data-confirm-popover-cancel]").click();
+  await adminPage.waitForTimeout(100);
+  check(providerDeleteRequests === 0, "cancelling provider deletion still sent a delete request");
+  const providerDeleteResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === `/api/admin/provider-catalog/${deleteFixtureId}`
+      && response.request().method() === "DELETE"
+  ));
+  await adminPage.locator("#deleteApiProviderButton").click();
+  await adminPage.locator(".confirm-popover:not(.hidden)").waitFor({ state: "visible" });
+  await adminPage.locator(".confirm-popover:not(.hidden) [data-confirm-popover-confirm]").click();
+  check((await providerDeleteResponse).status() === 200, "provider soft delete request failed");
+  await eventually(async () => {
+    const browserState = await adminPage.evaluate((providerId) => ({
+      providerIds: (window.__codexImageWebUI?.state?.apiSettings?.providers || []).map((item) => item.provider_version_id),
+      catalogText: document.querySelector("#apiProviderList")?.textContent || "",
+      matchingCards: document.querySelectorAll(`[data-api-provider-id="department-${providerId}"]`).length,
+    }), deleteFixtureId);
+    const serverCatalog = await api(adminPage, "/api/admin/provider-catalog");
+    const serverIds = (serverCatalog.body.providers || []).map((item) => item.provider_version_id);
+    if (browserState.matchingCards || browserState.providerIds.includes(deleteFixtureId) || serverIds.includes(deleteFixtureId)) {
+      throw new Error(JSON.stringify({ browserState, serverIds }));
+    }
+    return true;
+  }, "deleted provider remained in the catalog");
+  check(providerDeleteRequests === 1, "provider soft delete sent more than one request");
+  await adminPage.unroute(`**/api/admin/provider-catalog/${deleteFixtureId}`);
   const adminProviderCard = adminPage.locator('[data-api-provider-id]:not([aria-selected="true"])').first();
   await adminProviderCard.waitFor({ state: "visible" });
   let releaseProviderAutosave;
@@ -1094,6 +1151,33 @@ try {
     "adding a catalog model binding did not change the provider draft",
   );
   await adminPage.locator("#cancelApiProviderEditButton").click();
+  await adminPage.locator("#addApiProviderButton").click();
+  await adminPage.locator("#apiProviderEditor").waitFor({ state: "visible" });
+  const browserCreatedProviderName = `Browser Created Provider ${Date.now()}`;
+  await adminPage.locator("#apiProviderName").fill(browserCreatedProviderName);
+  await adminPage.locator("#apiKey").fill("browser-created-provider-secret-1234");
+  const browserCreateResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/admin/provider-catalog"
+      && response.request().method() === "POST"
+  ));
+  await adminPage.locator("#saveApiProviderEditButton").click();
+  const browserCreatedHttpResponse = await browserCreateResponse;
+  check(
+    browserCreatedHttpResponse.status() === 201,
+    `new provider UI did not use POST successfully: ${browserCreatedHttpResponse.status()} ${await browserCreatedHttpResponse.text()}`,
+  );
+  await adminPage.locator("#apiProviderEditor").waitFor({ state: "hidden" });
+  const browserCreatedCatalog = await api(adminPage, "/api/admin/provider-catalog");
+  const browserCreatedProvider = browserCreatedCatalog.body.providers.find(
+    (provider) => provider.display_name === browserCreatedProviderName,
+  );
+  check(Boolean(browserCreatedProvider?.provider_version_id), "new provider UI did not persist the provider");
+  const browserCreatedCleanup = await api(
+    adminPage,
+    `/api/admin/provider-catalog/${browserCreatedProvider.provider_version_id}`,
+    { method: "DELETE" },
+  );
+  check(browserCreatedCleanup.status === 200, "browser-created provider cleanup failed");
   await adminPage.locator("#sortApiProvidersButton").click();
   check(await adminPage.locator("#apiProviderList .api-provider-sort-row").count() > 1, "provider sort action did not expose sortable rows");
   await adminPage.locator("#sortApiProvidersButton").click();

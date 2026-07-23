@@ -280,6 +280,16 @@ function uniqueCopiedProviderId(provider: any): string {
   return `provider-${Date.now()}`;
 }
 
+function providerKeyFromDraftId(id: string): string {
+  const normalized = String(id || "provider")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const candidate = normalized.length >= 2 ? normalized : `provider-${normalized || "custom"}`;
+  return candidate.slice(0, 64).replace(/-+$/g, "");
+}
+
 function copiedProviderName(provider: any): string {
   const sourceName = String(provider?.name || provider?.id || translate("apiSettings.newProvider")).trim();
   const rootName = formatTranslation("apiSettings.copyProviderName", { name: sourceName });
@@ -779,8 +789,7 @@ function renderApiProviderDetail(): void {
     els.toggleApiProviderStatusButton.classList.toggle("danger-button", providerActive);
     els.toggleApiProviderStatusButton.disabled = !provider.provider_version_id;
   }
-  const isServerWorkspace = Boolean(document.documentElement.dataset.userRole);
-  els.deleteApiProviderButton?.classList.toggle("hidden", isServerWorkspace || !state.apiSettings.allow_new_provider);
+  els.deleteApiProviderButton?.classList.toggle("hidden", !state.apiSettings.allow_new_provider);
 }
 
 function renderApiProviderEditor(): void {
@@ -982,6 +991,7 @@ export function addApiProvider(): void {
   state.apiProviderDraftIsNew = true;
   state.apiProviderDraft = normalizeApiProvider({
     id,
+    provider_key: providerKeyFromDraftId(id),
     name: translate("apiSettings.newProvider"),
     base_url: DEFAULT_API_BASE_URL,
     concurrency: DEFAULT_API_IMAGES_CONCURRENCY,
@@ -1009,6 +1019,9 @@ export function copyApiProvider(): void {
     ...provider,
     bindings: provider.bindings.map((binding: any, index: number) => ({ ...binding, id: `${id}-binding-${index + 1}` })),
     id,
+    provider_key: providerKeyFromDraftId(id),
+    provider_version_id: "",
+    version_number: undefined,
     name: copiedProviderName(provider),
     api_key: "",
     api_key_set: copiesSavedKey,
@@ -1021,12 +1034,45 @@ export function copyApiProvider(): void {
   els.apiProviderName?.focus();
 }
 
-export function deleteApiProvider(): void {
+export async function deleteApiProvider(): Promise<void> {
   if (apiProviderEditorActive()) {
     setApiSettingsFeedback(translate("apiSettings.finishEditFirst"), "error");
     return;
   }
   if (state.apiSettings.providers.length <= 1) return;
+  const provider = activeApiProvider();
+  const isServerWorkspace = Boolean(document.documentElement.dataset.userRole);
+  if (isServerWorkspace) {
+    if (!provider.provider_version_id) return;
+    if (els.deleteApiProviderButton) els.deleteApiProviderButton.disabled = true;
+    setApiSettingsFeedback(translate("apiSettings.deleteProviderStatus"), "running");
+    try {
+      const response = await fetch(
+        `/api/admin/provider-catalog/${encodeURIComponent(provider.provider_version_id)}`,
+        {
+          method: "DELETE",
+          headers: {
+            "X-CSRF-Token": getCsrfToken(),
+          },
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || translate("apiSettings.saveFailed"));
+      await refreshApiSettings();
+      await refreshGenerationCatalog();
+      await refreshHealth();
+      renderAuthSourceAfterProviderChange();
+      setApiSettingsFeedback(translate("apiSettings.deleteProviderStatus"), "ok");
+    } catch (error: any) {
+      setApiSettingsFeedback(error.message || translate("apiSettings.saveFailed"), "error");
+      renderApiProviderDetail();
+    } finally {
+      if (els.deleteApiProviderButton) {
+        els.deleteApiProviderButton.disabled = normalizeApiSettings(state.apiSettings).providers.length <= 1;
+      }
+    }
+    return;
+  }
   const activeId = state.apiSettings.active_provider_id;
   state.apiSettings.providers = state.apiSettings.providers.filter((provider: any) => provider.id !== activeId);
   state.apiSettings.active_provider_id = state.apiSettings.providers[0]?.id || "default";
@@ -1058,7 +1104,7 @@ export function confirmDeleteApiProvider(anchor: any = els.deleteApiProviderButt
     }),
     detail: translate("apiSettings.deleteProviderDetail"),
     confirmText: translate("action.delete"),
-    onConfirm: () => deleteApiProvider(),
+    onConfirm: deleteApiProvider,
   });
 }
 
@@ -1648,16 +1694,82 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
   }
   setApiSettingsFeedback(translate(autoSave ? "apiSettings.autoSaving" : "apiSettings.savingStatus"), "running");
   try {
-    const response = await fetch("/api/api-settings", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Token": getCsrfToken(),
-      },
-      body: JSON.stringify(payload),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || translate("apiSettings.saveFailed"));
+    let data: any;
+    const createsServerProvider = !autoSave
+      && previousDraftIsNew
+      && Boolean(document.documentElement.dataset.userRole);
+    if (createsServerProvider) {
+      const newProvider = payload.providers.find((provider: any) => provider.id === previousEditingId);
+      if (!newProvider) throw new Error(translate("apiSettings.saveFailed"));
+      if (!newProvider.api_key && !newProvider.api_key_source_provider_id) {
+        throw new Error(translate("apiSettings.apiKeyRequired"));
+      }
+      const createResponse = await fetch("/api/admin/provider-catalog", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": getCsrfToken(),
+        },
+        body: JSON.stringify({
+          provider_key: newProvider.provider_key,
+          display_name: newProvider.name,
+          base_url: newProvider.base_url,
+          api_mode: newProvider.api_mode,
+          models: newProvider.models,
+          parameter_constraints: {},
+        }),
+      });
+      const createdData = await createResponse.json().catch(() => ({}));
+      if (!createResponse.ok) {
+        throw new Error(createdData.detail || translate("apiSettings.saveFailed"));
+      }
+      const created = createdData.provider;
+      const createdProvider = {
+        ...newProvider,
+        id: `department-${created.provider_version_id}`,
+        provider_version_id: created.provider_version_id,
+        provider_key: created.provider_key,
+      };
+      const credentialResponse = newProvider.api_key
+        ? await fetch(`/api/admin/providers/department/${encodeURIComponent(created.provider_version_id)}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": getCsrfToken(),
+          },
+          body: JSON.stringify({ api_key: newProvider.api_key }),
+        })
+        : await fetch("/api/api-settings", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": getCsrfToken(),
+          },
+          body: JSON.stringify({ providers: [createdProvider] }),
+        });
+      const credentialData = await credentialResponse.json().catch(() => ({}));
+      if (!credentialResponse.ok) {
+        throw new Error(credentialData.detail || translate("apiSettings.saveFailed"));
+      }
+      const settingsResponse = await fetch("/api/api-settings", {
+        headers: { "Cache-Control": "no-cache" },
+      });
+      data = await settingsResponse.json().catch(() => ({}));
+      if (!settingsResponse.ok) {
+        throw new Error(data.detail || translate("apiSettings.loadFailed"));
+      }
+    } else {
+      const response = await fetch("/api/api-settings", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": getCsrfToken(),
+        },
+        body: JSON.stringify(payload),
+      });
+      data = await response.json();
+      if (!response.ok) throw new Error(data.detail || translate("apiSettings.saveFailed"));
+    }
     const preserveNewEditor = autoSave && apiProviderEditorActive();
     state.apiSettings = mergeApiProviderKeys(data.settings || {});
     if (!preserveNewEditor) {

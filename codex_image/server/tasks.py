@@ -164,6 +164,7 @@ class GenerationTaskRepository:
                           ON credentials.provider_version_id = versions.provider_version_id
                          AND credentials.is_active = TRUE
                         WHERE versions.provider_version_id = %s
+                          AND versions.deleted_at IS NULL
                         FOR UPDATE OF versions
                         """,
                         (provider_version_id,),
@@ -180,6 +181,7 @@ class GenerationTaskRepository:
                          AND credentials.user_id = %s
                          AND credentials.is_active = TRUE
                         WHERE versions.provider_version_id = %s
+                          AND versions.deleted_at IS NULL
                         FOR UPDATE OF versions
                         """,
                         (user_id, provider_version_id),
@@ -1151,6 +1153,7 @@ class GenerationTaskRepository:
                       ON scheduler_state.user_id = tasks.user_id
                     WHERE tasks.status = 'queued' AND tasks.deleted_at IS NULL
                       AND versions.is_active = TRUE
+                      AND versions.deleted_at IS NULL
                       AND (
                           (tasks.provider_scope = 'personal' AND credentials.encrypted_api_key IS NOT NULL)
                           OR (tasks.provider_scope = 'department' AND department_credentials.encrypted_api_key IS NOT NULL)

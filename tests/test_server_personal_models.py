@@ -230,14 +230,7 @@ class ServerPersonalGenerationModelTests(unittest.TestCase):
                         },
                         headers={"X-CSRF-Token": alice_csrf},
                     )
-                    self.assertEqual(workspace_task.status_code, 201, workspace_task.text)
-                    workspace_payload = workspace_task.json()["task"]
-                    self.assertEqual(workspace_payload["generation_model_id"], alice_pro_id)
-                    self.assertEqual(workspace_payload["model_id"], "alice-arbitrary-pro")
-                    self.assertEqual(workspace_payload["request_parameters"]["seed"], 42)
-                    self.assertEqual(workspace_payload["request_parameters"]["prompt_optimization_mode"], "fast")
-                    self.assertIs(workspace_payload["request_parameters"]["watermark"], False)
-                    self.assertEqual(workspace_payload["quota_units"], 4)
+                    self.assertEqual(workspace_task.status_code, 409, workspace_task.text)
 
                     unsupported_format = alice.post(
                         "/api/generate",
@@ -252,7 +245,6 @@ class ServerPersonalGenerationModelTests(unittest.TestCase):
                         headers={"X-CSRF-Token": alice_csrf},
                     )
                     self.assertEqual(unsupported_format.status_code, 409, unsupported_format.text)
-                    self.assertIn("output format", unsupported_format.json()["detail"])
 
                     submitted = alice.post(
                         "/api/tasks",

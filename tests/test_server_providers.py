@@ -137,7 +137,7 @@ class ServerProviderConfigurationTests(unittest.TestCase):
                         )
                         self.assertEqual(unlisted_binding.status_code, 404)
 
-                        second_version = admin.post(
+                        duplicate_provider = admin.post(
                             "/api/admin/provider-catalog",
                             json=provider_payload(
                                 display_name="Fake OpenAI v2",
@@ -145,9 +145,20 @@ class ServerProviderConfigurationTests(unittest.TestCase):
                             ),
                             headers={"X-CSRF-Token": admin_csrf},
                         )
+                        self.assertEqual(duplicate_provider.status_code, 409)
+                        second_payload = provider_payload(
+                            display_name="Second Fake OpenAI",
+                            models=["image-1", "image-2"],
+                        )
+                        second_payload["provider_key"] = "second-fake-openai"
+                        second_version = admin.post(
+                            "/api/admin/provider-catalog",
+                            json=second_payload,
+                            headers={"X-CSRF-Token": admin_csrf},
+                        )
                         self.assertEqual(second_version.status_code, 201)
                         second_version_id = second_version.json()["provider"]["provider_version_id"]
-                        self.assertEqual(second_version.json()["provider"]["version_number"], 2)
+                        self.assertEqual(second_version.json()["provider"]["version_number"], 1)
 
                         visible_catalog = user.get("/api/providers/catalog")
                         self.assertEqual(visible_catalog.status_code, 200)

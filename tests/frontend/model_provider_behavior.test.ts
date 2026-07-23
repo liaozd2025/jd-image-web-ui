@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { GenerationCatalog } from "../../codex_image/webui/frontend/src/types";
-import { eligibleProviders, resolveProviderId, settingsTabForProvider } from "../../codex_image/webui/frontend/src/provider-selection";
+import {
+  eligibleProviders,
+  renderProviderSelection,
+  resolveProviderId,
+  settingsTabForProvider,
+} from "../../codex_image/webui/frontend/src/provider-selection";
 import { applyServerModelPreferences, initialCatalogSelection, isGenerationCatalog, persistModelSelection, safeDraftValue } from "../../codex_image/webui/frontend/src/model-catalog";
 import {
   canonicalControlValues,
@@ -210,6 +215,62 @@ test("eligibleProviders filters by exact model, operation, and availability", ()
   assert.deepEqual(eligibleProviders(catalog, "model-a", "edit").map((provider) => provider.id), ["edit-only", "default"]);
   assert.deepEqual(eligibleProviders(catalog, "model-b", "edit"), []);
   assert.deepEqual(eligibleProviders(catalog, "model-b", "generate"), [], "runtime-unavailable bindings stay hidden");
+});
+
+test("workbench provider choices display provider names instead of model names", () => {
+  const providerCatalog = structuredClone(catalog) as any;
+  providerCatalog.providers = [{
+    id: "department-provider",
+    name: "火山方舟",
+    builtin: false,
+    available: true,
+    bindings: [{
+      id: "seedream-binding",
+      display_name: "doubao-seedream-5-0-pro-260628",
+      canonical_model_id: "model-a",
+      remote_model_id: "doubao-seedream-5-0-pro-260628",
+      protocol_profile: "openai_images",
+      parameter_codec: "gpt_openai_images",
+      operations: ["generate"],
+    }],
+  }];
+  providerCatalog.default_provider_by_model = { "model-a": "department-provider" };
+  const select = new FakeElement();
+  const runButton = new FakeElement();
+  const previousWindow = (globalThis as any).window;
+  const previousDocument = (globalThis as any).document;
+  (globalThis as any).document = {
+    createElement: () => new FakeElement(),
+  };
+  (globalThis as any).window = {
+    __codexImageWebUI: {
+      state: {
+        generationCatalog: providerCatalog,
+        selectedModelId: "model-a",
+        selectedProviderId: null,
+        selectedProviderBindingId: null,
+        lastProviderByModel: {},
+        lastProviderSelectionByModel: {},
+        authAvailable: false,
+        mode: "generate",
+      },
+      els: {
+        generationProviderSelect: select,
+        runButton,
+      },
+      methods: {
+        renderGenerationModelSelector() {},
+      },
+    },
+  };
+  try {
+    renderProviderSelection();
+    assert.equal(select.children[0]?.textContent, "火山方舟");
+    assert.equal(select.title, "火山方舟");
+  } finally {
+    (globalThis as any).window = previousWindow;
+    (globalThis as any).document = previousDocument;
+  }
 });
 
 test("resolveProviderId uses last, then backend default, then first", () => {
