@@ -1,6 +1,7 @@
 import { LOCALE_CHANGE_EVENT, translate } from "./i18n";
 import { aspectRatioSlots, createAspectRatioIcon } from "./aspect-ratio-controls";
 import { refreshSegmentedIndicators } from "./segmented-indicator";
+import { constrainedSizeForRatio } from "./model-size-support";
 import { getLegacyBridge } from "./state";
 import { usesLegacyWorkspaceControls } from "./workspace-model-compatibility";
 import type {
@@ -195,7 +196,14 @@ export function activeParameterValuesFor(
   draft: Record<string, unknown>,
 ): Record<string, unknown> {
   const values = Object.fromEntries(model.parameters.map((definition) => {
-    const value = draft[definition.id];
+    let value = draft[definition.id];
+    if (definition.id === "canvas.size" && typeof value === "string") {
+      value = constrainedSizeForRatio({
+        sizes: definition.allowed_values.filter((item) => typeof item === "string"),
+        custom_size: Boolean(definition.size_constraints) || definition.allowed_values.length === 0,
+        size_constraints: definition.size_constraints,
+      }, value, String(draft["canvas.aspect_ratio"] || ""));
+    }
     return [definition.id, cloneValue(parameterValueValid(definition, value) ? value : definition.default)];
   }));
   return Object.fromEntries(model.parameters

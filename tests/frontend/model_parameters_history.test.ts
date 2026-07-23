@@ -136,6 +136,43 @@ test("Seedream Lite defaults a stale 1K canvas size to its 2K minimum", () => {
   });
 });
 
+test("Seedream Lite canonical submission keeps the selected aspect ratio at a valid size", () => {
+  const seedreamLite = {
+    ...model,
+    id: "doubao-seedream-5-0-260128",
+    family_id: "seedream-image",
+    parameters: [
+      {
+        ...parameters[0],
+        id: "canvas.size",
+        default: "2048x2048",
+        allowed_values: [],
+        size_constraints: {
+          min_dimension: 512,
+          max_dimension: 4096,
+          min_pixels: 3_686_400,
+          min_aspect_ratio: 1 / 3,
+          max_aspect_ratio: 3,
+        },
+      },
+      {
+        ...parameters[0],
+        id: "canvas.aspect_ratio",
+        default: "1:1",
+        allowed_values: ["1:1", "9:16", "16:9"],
+      },
+    ],
+  } as any;
+
+  assert.deepEqual(activeParameterValuesFor(seedreamLite, "generate", {
+    "canvas.size": "1152x2048",
+    "canvas.aspect_ratio": "9:16",
+  }), {
+    "canvas.size": "1440x2560",
+    "canvas.aspect_ratio": "9:16",
+  });
+});
+
 test("parameter migration feedback skips clean reports and summarizes adjusted legacy values", () => {
   const notices: string[] = [];
   const { restore } = installBridge();

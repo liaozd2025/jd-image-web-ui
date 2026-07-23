@@ -301,16 +301,43 @@ async function waitForWorkspace(page) {
   await eventually(async () => await page.locator(".generation-model-reference-over-limit").count() === 0, "over-limit marker remained after returning within the limit");
   await eventually(async () => await page.locator("#runButton").isEnabled(), "submission stayed blocked after reference images returned within the limit");
   const preservedImageTitles = await page.locator("#imageThumbItems .thumb").evaluateAll((items) => items.map((item) => item.getAttribute("title")));
-  let preferenceSaved = page.waitForResponse((response) => {
+  const preferenceSaved = page.waitForResponse((response) => {
     if (new URL(response.url()).pathname !== "/api/generation-model-preferences" || response.request().method() !== "PUT") return false;
     try { return response.request().postDataJSON()?.generation_model_id === secondBinding.id; } catch { return false; }
-  });
+  }).catch((error) => error);
   await selectCatalogModel(secondBinding.canonical_model_id);
   await selectCatalogBinding(multiCatalogProvider, secondBinding);
   check(secondBinding.canonical_model_id.includes("seedream"), "Seedream release fixture was not selected");
   await eventually(
     async () => await page.locator("#size").inputValue() === "2048x2048",
     "Seedream Lite did not replace the unsupported 1K size with its 2K default",
+  );
+  await page.locator('#ratioGroup [data-val="9:16"]').click();
+  await eventually(
+    async () => await page.locator("#size").inputValue() === "1440x2560",
+    "Seedream Lite did not preserve 9:16 while meeting the provider minimum pixel count",
+  );
+  check(
+    (await page.locator("#pixelPreview").textContent()).includes("1440 x 2560"),
+    "Seedream Lite pixel preview did not show the actual 9:16 request size",
+  );
+  const seedreamSelection = await page.evaluate(() => {
+    const state = window.__codexImageWebUI?.state;
+    return {
+      draft: state?.parameterDraftsByModel?.[state?.selectedModelId || ""] || {},
+      task: window.__codexImageWebUI?.methods?.currentTaskParams?.() || {},
+    };
+  });
+  check(
+    seedreamSelection.draft["canvas.size"] === "1440x2560"
+      && seedreamSelection.task.size === "1440x2560"
+      && seedreamSelection.task.ratio === "9:16",
+    `Seedream Lite request lost the selected ratio: ${JSON.stringify(seedreamSelection)}`,
+  );
+  await page.locator('#ratioGroup [data-val="1:1"]').click();
+  await eventually(
+    async () => await page.locator("#size").inputValue() === "2048x2048",
+    "Seedream Lite square preset was not restored after the ratio release check",
   );
   for (const selector of ["#sizeModeGroup", ".orientation-field", ".resolution-field", ".ratio-field", "#promptFidelityField"]) {
     check(await page.locator(selector).isVisible(), `Seedream legacy workspace control remained hidden: ${selector}`);
@@ -322,6 +349,7 @@ async function waitForWorkspace(page) {
     );
   }
   const preferenceResponse = await preferenceSaved;
+  if (preferenceResponse instanceof Error) throw preferenceResponse;
   check(preferenceResponse.status() === 200, `model selection preference was not saved on the server: ${JSON.stringify(preferenceResponse.request().postDataJSON())} ${await preferenceResponse.text()}`);
   check((await page.locator("#promptEditor").textContent()) === "preserve workspace while switching models", "switching models changed the prompt");
   await page.locator("#generationProviderSelect").focus();

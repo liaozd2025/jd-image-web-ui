@@ -33657,6 +33657,73 @@ ${hint}` : hint;
     decorateLegacyAspectRatioButtons();
   }
 
+  // codex_image/webui/frontend/src/model-size-support.ts
+  function parseSize(size) {
+    const match = /^(\d+)x(\d+)$/i.exec(String(size || ""));
+    if (!match) return null;
+    const width = Number(match[1]);
+    const height = Number(match[2]);
+    return Number.isInteger(width) && Number.isInteger(height) && width > 0 && height > 0 ? [width, height] : null;
+  }
+  function parseRatio(ratio) {
+    const match = /^(\d+):(\d+)$/.exec(String(ratio || ""));
+    if (!match) return null;
+    const width = Number(match[1]);
+    const height = Number(match[2]);
+    return Number.isInteger(width) && Number.isInteger(height) && width > 0 && height > 0 ? [width, height] : null;
+  }
+  function greatestCommonDivisor(left, right) {
+    let a = Math.abs(left);
+    let b = Math.abs(right);
+    while (b) [a, b] = [b, a % b];
+    return a || 1;
+  }
+  function leastCommonMultiple(left, right) {
+    return Math.abs(left * right) / greatestCommonDivisor(left, right);
+  }
+  function sizeMatchesRatio(size, ratio) {
+    return size[0] * ratio[1] === size[1] * ratio[0];
+  }
+  function isModelSizeSupported(profile, size) {
+    if (!profile || !size) return false;
+    if (!profile.custom_size && !(profile.sizes || []).includes(size)) return false;
+    const dimensions2 = parseSize(size);
+    if (!dimensions2) return (profile.sizes || []).includes(size);
+    const [width, height] = dimensions2;
+    const constraints = profile.size_constraints || {};
+    const aspect = height ? width / height : 0;
+    return width >= Number(constraints.min_dimension || 1) && height >= Number(constraints.min_dimension || 1) && width <= Number(constraints.max_dimension || Number.MAX_SAFE_INTEGER) && height <= Number(constraints.max_dimension || Number.MAX_SAFE_INTEGER) && width * height >= Number(constraints.min_pixels || 1) && aspect >= Number(constraints.min_aspect_ratio || 0) && aspect <= Number(constraints.max_aspect_ratio || Number.MAX_SAFE_INTEGER);
+  }
+  function constrainedSizeForRatio(profile, size, ratio) {
+    const dimensions2 = parseSize(size);
+    const ratioDimensions = parseRatio(ratio);
+    if (!profile?.custom_size || !dimensions2 || !ratioDimensions) return size;
+    if (isModelSizeSupported(profile, size) && sizeMatchesRatio(dimensions2, ratioDimensions)) {
+      return size;
+    }
+    const ratioDivisor = greatestCommonDivisor(ratioDimensions[0], ratioDimensions[1]);
+    const ratioWidth = ratioDimensions[0] / ratioDivisor;
+    const ratioHeight = ratioDimensions[1] / ratioDivisor;
+    const constraints = profile.size_constraints || {};
+    const minimumDimension = Number(constraints.min_dimension || 1);
+    const minimumPixels = Number(constraints.min_pixels || 1);
+    const multipleOf = Math.max(1, Number(constraints.multiple_of || 16));
+    const unitMultiple = leastCommonMultiple(
+      multipleOf / greatestCommonDivisor(ratioWidth, multipleOf),
+      multipleOf / greatestCommonDivisor(ratioHeight, multipleOf)
+    );
+    const selectedArea = dimensions2[0] * dimensions2[1];
+    const minimumUnit = Math.max(
+      Math.sqrt(selectedArea / (ratioWidth * ratioHeight)),
+      minimumDimension / ratioWidth,
+      minimumDimension / ratioHeight,
+      Math.sqrt(minimumPixels / (ratioWidth * ratioHeight))
+    );
+    const unit = Math.ceil(minimumUnit / unitMultiple) * unitMultiple;
+    const candidate = `${ratioWidth * unit}x${ratioHeight * unit}`;
+    return isModelSizeSupported(profile, candidate) ? candidate : size;
+  }
+
   // codex_image/webui/frontend/src/model-parameters.ts
   function cloneValue(value) {
     if (Array.isArray(value)) return value.map(cloneValue);
@@ -33776,7 +33843,14 @@ ${hint}` : hint;
   }
   function activeParameterValuesFor(model, operation, draft) {
     const values = Object.fromEntries(model.parameters.map((definition) => {
-      const value = draft[definition.id];
+      let value = draft[definition.id];
+      if (definition.id === "canvas.size" && typeof value === "string") {
+        value = constrainedSizeForRatio({
+          sizes: definition.allowed_values.filter((item) => typeof item === "string"),
+          custom_size: Boolean(definition.size_constraints) || definition.allowed_values.length === 0,
+          size_constraints: definition.size_constraints
+        }, value, String(draft["canvas.aspect_ratio"] || ""));
+      }
       return [definition.id, cloneValue(parameterValueValid(definition, value) ? value : definition.default)];
     }));
     return Object.fromEntries(model.parameters.filter((definition) => definition.operations.includes(operation)).filter((definition) => definition.control !== "notice").filter((definition) => definition.visible_when.every((condition) => conditionMatches(condition, values))).map((definition) => [definition.id, cloneValue(values[definition.id])]));
@@ -37069,19 +37143,6 @@ ${hint}` : hint;
       setApiSettingsFeedback,
       saveApiSettings
     });
-  }
-
-  // codex_image/webui/frontend/src/model-size-support.ts
-  function isModelSizeSupported(profile, size) {
-    if (!profile || !size) return false;
-    if (!profile.custom_size && !(profile.sizes || []).includes(size)) return false;
-    const match = /^(\d+)x(\d+)$/i.exec(size);
-    if (!match) return (profile.sizes || []).includes(size);
-    const width = Number(match[1]);
-    const height = Number(match[2]);
-    const constraints = profile.size_constraints || {};
-    const aspect = height ? width / height : 0;
-    return width >= Number(constraints.min_dimension || 1) && height >= Number(constraints.min_dimension || 1) && width <= Number(constraints.max_dimension || Number.MAX_SAFE_INTEGER) && height <= Number(constraints.max_dimension || Number.MAX_SAFE_INTEGER) && width * height >= Number(constraints.min_pixels || 1) && aspect >= Number(constraints.min_aspect_ratio || 0) && aspect <= Number(constraints.max_aspect_ratio || Number.MAX_SAFE_INTEGER);
   }
 
   // codex_image/webui/frontend/src/generation-model.ts
@@ -41956,6 +42017,18 @@ ${galleryText}`;
     const [width, height] = presetDimensions(resolution, ratio);
     return `${width}x${height}`;
   }
+  function sizeForCurrentModelPreset(resolution, ratio) {
+    const size = sizeForPreset(resolution, ratio);
+    const { state: state33 } = getLegacyBridge();
+    const model = state33.generationCatalog?.models.find((item) => item.id === state33.selectedModelId);
+    const definition = model?.parameters.find((item) => item.id === "canvas.size");
+    if (!definition) return size;
+    return constrainedSizeForRatio({
+      sizes: definition.allowed_values.filter((value) => typeof value === "string"),
+      custom_size: Boolean(definition.size_constraints) || definition.allowed_values.length === 0,
+      size_constraints: definition.size_constraints
+    }, size, String(ratio || ""));
+  }
   function orientationForDimensions(width, height) {
     const numericWidth = Number(width);
     const numericHeight = Number(height);
@@ -41986,6 +42059,13 @@ ${galleryText}`;
       for (const [ratio, dimensions2] of Object.entries(ratios)) {
         if (`${dimensions2[0]}x${dimensions2[1]}` === size) {
           return { resolution, ratio, orientation: RATIO_ORIENTATION[ratio] || orientationForDimensions(dimensions2[0], dimensions2[1]) };
+        }
+      }
+    }
+    for (const [resolution, ratios] of Object.entries(GPT_IMAGE_2_SIZE_PRESETS)) {
+      for (const ratio of Object.keys(ratios)) {
+        if (sizeForCurrentModelPreset(resolution, ratio) === size) {
+          return { resolution, ratio, orientation: RATIO_ORIENTATION[ratio] || DEFAULT_ORIENTATION };
         }
       }
     }
@@ -42277,7 +42357,7 @@ ${galleryText}`;
       updateRequestPreview10();
       return;
     }
-    const size = sizeForPreset(els27.resolution?.value, els27.ratio?.value);
+    const size = sizeForCurrentModelPreset(els27.resolution?.value, els27.ratio?.value);
     els27.size.value = size;
     updatePixelPreview(size);
     updateCustomSize();
@@ -42285,7 +42365,10 @@ ${galleryText}`;
   }
   function populateCustomSizeFromCurrentPreset() {
     if (!els27.customWidth || !els27.customHeight) return;
-    const [width, height] = sizeForPreset(els27.resolution?.value, els27.ratio?.value).split("x");
+    const [width, height] = sizeForCurrentModelPreset(
+      els27.resolution?.value,
+      els27.ratio?.value
+    ).split("x");
     if (!width || !height) return;
     els27.customWidth.value = width;
     els27.customHeight.value = height;
@@ -42693,7 +42776,7 @@ ${galleryText}`;
     }
     return method(...args);
   }
-  function greatestCommonDivisor(left, right) {
+  function greatestCommonDivisor2(left, right) {
     let a = Math.abs(Math.round(left));
     let b = Math.abs(Math.round(right));
     while (b) [a, b] = [b, a % b];
@@ -42716,7 +42799,7 @@ ${galleryText}`;
     const parameters = record(params?.parameters);
     const sizeValue = parameters["canvas.size"] || params?.size;
     const [width, height] = normalizedDimensions(sizeValue);
-    const divisor = greatestCommonDivisor(width, height);
+    const divisor = greatestCommonDivisor2(width, height);
     const fidelity = String(params?.prompt_fidelity || "strict");
     const compression = parameters["gpt.output_compression"] ?? params?.output_compression;
     const canonicalModelId = String(params?.canonical_model_id || "gpt-image-2");
@@ -43300,7 +43383,7 @@ ${galleryText}`;
     if (modelId.startsWith("nano-banana")) return "gemini-image";
     return "unknown";
   }
-  function greatestCommonDivisor2(left, right) {
+  function greatestCommonDivisor3(left, right) {
     let a = Math.abs(Math.round(left));
     let b = Math.abs(Math.round(right));
     while (b) [a, b] = [b, a % b];
@@ -43332,7 +43415,7 @@ ${galleryText}`;
       parameters["canvas.size"] || source.output_size || params.size || request.size
     );
     const explicitRatio = String(parameters["canvas.aspect_ratio"] || params.ratio || "").trim();
-    const ratio = explicitRatio || (size ? `${size[0] / greatestCommonDivisor2(size[0], size[1])}:${size[1] / greatestCommonDivisor2(size[0], size[1])}` : "");
+    const ratio = explicitRatio || (size ? `${size[0] / greatestCommonDivisor3(size[0], size[1])}:${size[1] / greatestCommonDivisor3(size[0], size[1])}` : "");
     const explicitResolution = String(parameters["canvas.resolution"] || params.resolution || "").trim();
     const resolution = taskCanonicalModelId(task) === "gpt-image-2" ? normalizedGptResolution(explicitResolution) : explicitResolution;
     const honestResolution = resolution && resolution.toLowerCase() !== "custom" ? resolution : compactDimensions(size);
@@ -47784,7 +47867,7 @@ ${galleryText}`;
         if (presetDimensions2[0] === width && presetDimensions2[1] === height) return ratio;
       }
     }
-    const divisor = greatestCommonDivisor3(width, height);
+    const divisor = greatestCommonDivisor4(width, height);
     const normalized = `${Math.round(width / divisor)}:${Math.round(height / divisor)}`;
     if (normalized === "3:7") return "9:21";
     if (normalized === "7:3") return "21:9";
@@ -47833,7 +47916,7 @@ ${galleryText}`;
     if (!width || !height) return null;
     return [width, height];
   }
-  function greatestCommonDivisor3(left, right) {
+  function greatestCommonDivisor4(left, right) {
     let a = Math.abs(left);
     let b = Math.abs(right);
     while (b) {
@@ -48366,7 +48449,7 @@ ${galleryText}`;
       taskPromptFidelity: taskPromptFidelity2,
       taskResolution: taskResolution2,
       taskSizeDimensions,
-      greatestCommonDivisor: greatestCommonDivisor3,
+      greatestCommonDivisor: greatestCommonDivisor4,
       taskInputUrls,
       taskInputThumbnailUrls,
       taskInputThumbnailRoute,

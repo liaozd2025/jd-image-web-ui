@@ -14,7 +14,7 @@ import {
   customSizeValidationMessage,
   findPresetForSize,
   orientationForDimensions,
-  sizeForPreset,
+  sizeForCurrentModelPreset,
 } from "./size-presets";
 import { syncRadioButtons, updateRequestPreview } from "./output-controls";
 import { formatTranslation, LOCALE_CHANGE_EVENT } from "./i18n";
@@ -278,7 +278,7 @@ export function updateSizeFromPreset(event: any = null): void {
     return;
   }
 
-  const size = sizeForPreset(els.resolution?.value, els.ratio?.value);
+  const size = sizeForCurrentModelPreset(els.resolution?.value, els.ratio?.value);
   els.size.value = size;
   updatePixelPreview(size);
   updateCustomSize();
@@ -287,7 +287,10 @@ export function updateSizeFromPreset(event: any = null): void {
 
 export function populateCustomSizeFromCurrentPreset(): void {
   if (!els.customWidth || !els.customHeight) return;
-  const [width, height] = sizeForPreset(els.resolution?.value, els.ratio?.value).split("x");
+  const [width, height] = sizeForCurrentModelPreset(
+    els.resolution?.value,
+    els.ratio?.value,
+  ).split("x");
   if (!width || !height) return;
   els.customWidth.value = width;
   els.customHeight.value = height;

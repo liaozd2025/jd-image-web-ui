@@ -5,6 +5,7 @@ import { currentMainModel } from "./main-model-combobox";
 import { currentQuantity } from "./output-controls";
 import { translate } from "./i18n";
 import { currentGenerationModel } from "./generation-model";
+import { constrainedSizeForRatio } from "./model-size-support";
 import { usesLegacyMainModelControl, usesLegacyWorkspaceControls } from "./workspace-model-compatibility";
 
 export const DEFAULT_RESOLUTION = "standard";
@@ -126,6 +127,19 @@ export function sizeForPreset(resolution: any, ratio: any): string {
   return `${width}x${height}`;
 }
 
+export function sizeForCurrentModelPreset(resolution: any, ratio: any): string {
+  const size = sizeForPreset(resolution, ratio);
+  const { state } = getLegacyBridge();
+  const model = state.generationCatalog?.models.find((item) => item.id === state.selectedModelId);
+  const definition = model?.parameters.find((item) => item.id === "canvas.size");
+  if (!definition) return size;
+  return constrainedSizeForRatio({
+    sizes: definition.allowed_values.filter((value) => typeof value === "string"),
+    custom_size: Boolean(definition.size_constraints) || definition.allowed_values.length === 0,
+    size_constraints: definition.size_constraints,
+  }, size, String(ratio || ""));
+}
+
 export function orientationForRatio(ratio: any): string {
   return RATIO_ORIENTATION[ratio] || DEFAULT_ORIENTATION;
 }
@@ -164,6 +178,13 @@ export function findPresetForSize(size: any): any {
     for (const [ratio, dimensions] of Object.entries(ratios)) {
       if (`${dimensions[0]}x${dimensions[1]}` === size) {
         return { resolution, ratio, orientation: RATIO_ORIENTATION[ratio] || orientationForDimensions(dimensions[0], dimensions[1]) };
+      }
+    }
+  }
+  for (const [resolution, ratios] of Object.entries(GPT_IMAGE_2_SIZE_PRESETS)) {
+    for (const ratio of Object.keys(ratios)) {
+      if (sizeForCurrentModelPreset(resolution, ratio) === size) {
+        return { resolution, ratio, orientation: RATIO_ORIENTATION[ratio] || DEFAULT_ORIENTATION };
       }
     }
   }

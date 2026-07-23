@@ -365,7 +365,7 @@ class ReferenceFileFrontendContractTests(unittest.TestCase):
         self.assertIn("runtime-651", index)
         self.assertIn("runtime-651", history)
         self.assertIn("history-74", history)
-        self.assertIn('ilab-gpt-conjure-shell-v74', worker)
+        self.assertIn('ilab-gpt-conjure-shell-v75', worker)
         self.assertIn('/static/app.js?v=runtime-651', worker)
         self.assertIn('/static/styles.css?v=runtime-651', worker)
 

@@ -2414,6 +2414,9 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
                 function updatePixelPreview(size) { pixelPreviewArg = size; }
                 function updateRequestPreview() { requestPreviewUpdated += 1; }
                 function saveCurrentModelParameterDraft() { modelDraftSaved += 1; }
+                const state = { generationCatalog: null, selectedModelId: "" };
+                function getLegacyBridge() { return { state }; }
+                function constrainedSizeForRatio(profile, size) { return size; }
                 """,
                 self._extract_javascript_function(custom_size_source, "setCustomSizeMode"),
                 self._extract_javascript_function(custom_size_source, "updateSizeFromPreset"),
@@ -2423,6 +2426,7 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
                 self._extract_javascript_function(custom_size_source, "syncOrientationFromRatio"),
                 self._extract_javascript_function(custom_size_source, "syncRatioFromOrientation"),
                 self._extract_javascript_function(custom_size_source, "setSizeControlValue"),
+                self._extract_javascript_function(size_source, "sizeForCurrentModelPreset"),
                 self._extract_javascript_function(size_source, "sizeForPreset"),
                 self._extract_javascript_function(size_source, "presetDimensions"),
                 """

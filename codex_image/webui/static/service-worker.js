@@ -1,4 +1,4 @@
-const CACHE_NAME = "ilab-gpt-conjure-shell-v74";
+const CACHE_NAME = "ilab-gpt-conjure-shell-v75";
 const APP_SHELL_URLS = [
   "/",
   "/history",
