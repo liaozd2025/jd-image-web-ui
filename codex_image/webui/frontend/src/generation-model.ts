@@ -2,6 +2,7 @@ import { activeApiProvider } from "./api-provider-settings";
 import { getCsrfToken } from "./server-account";
 import { getLegacyBridge } from "./state";
 import { LOCALE_CHANGE_EVENT, translate } from "./i18n";
+import { isModelSizeSupported } from "./model-size-support";
 import { resolveConfiguredModelSelection, selectConcreteModel } from "./model-selection";
 import { selectGenerationProvider } from "./provider-selection";
 
@@ -88,21 +89,7 @@ function updateGenerationModelReferenceLimits(): void {
 }
 
 function sizeSupported(profile: any, size: string): boolean {
-  if (!profile || !size) return false;
-  if ((profile.sizes || []).includes(size)) return true;
-  if (!profile.custom_size) return false;
-  const match = /^(\d+)x(\d+)$/i.exec(size);
-  if (!match) return false;
-  const width = Number(match[1]);
-  const height = Number(match[2]);
-  const constraints = profile.size_constraints || {};
-  const aspect = height ? width / height : 0;
-  return width >= Number(constraints.min_dimension || 1)
-    && height >= Number(constraints.min_dimension || 1)
-    && width <= Number(constraints.max_dimension || Number.MAX_SAFE_INTEGER)
-    && height <= Number(constraints.max_dimension || Number.MAX_SAFE_INTEGER)
-    && aspect >= Number(constraints.min_aspect_ratio || 0)
-    && aspect <= Number(constraints.max_aspect_ratio || Number.MAX_SAFE_INTEGER);
+  return isModelSizeSupported(profile, size);
 }
 
 function profileSummary(profile: any): string {

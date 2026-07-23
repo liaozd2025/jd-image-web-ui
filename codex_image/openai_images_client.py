@@ -160,6 +160,8 @@ class OpenAIImagesImageClient:
         seed: int | None = None,
         prompt_optimization_mode: str | None = None,
         watermark: bool | None = None,
+        sequential_image_generation: str | None = None,
+        stream: bool | None = None,
     ) -> ImageResult:
         return self.generate_images(
             prompt=prompt,
@@ -177,6 +179,8 @@ class OpenAIImagesImageClient:
             seed=seed,
             prompt_optimization_mode=prompt_optimization_mode,
             watermark=watermark,
+            sequential_image_generation=sequential_image_generation,
+            stream=stream,
             n=1,
         )[0]
 
@@ -199,6 +203,8 @@ class OpenAIImagesImageClient:
         seed: int | None = None,
         prompt_optimization_mode: str | None = None,
         watermark: bool | None = None,
+        sequential_image_generation: str | None = None,
+        stream: bool | None = None,
     ) -> list[ImageResult]:
         del partial_images, debug_sse_path
         action = "edit" if reference_images else "generate"
@@ -218,6 +224,8 @@ class OpenAIImagesImageClient:
             seed=seed,
             prompt_optimization_mode=prompt_optimization_mode,
             watermark=watermark,
+            sequential_image_generation=sequential_image_generation,
+            stream=stream,
         )
         return self._request_and_parse_many(payload)
 
@@ -241,6 +249,8 @@ class OpenAIImagesImageClient:
         seed: int | None = None,
         prompt_optimization_mode: str | None = None,
         watermark: bool | None = None,
+        sequential_image_generation: str | None = None,
+        stream: bool | None = None,
     ) -> ImageResult:
         return self.edit_images(
             prompt=prompt,
@@ -261,6 +271,8 @@ class OpenAIImagesImageClient:
             seed=seed,
             prompt_optimization_mode=prompt_optimization_mode,
             watermark=watermark,
+            sequential_image_generation=sequential_image_generation,
+            stream=stream,
         )[0]
 
     def edit_images(
@@ -284,6 +296,8 @@ class OpenAIImagesImageClient:
         seed: int | None = None,
         prompt_optimization_mode: str | None = None,
         watermark: bool | None = None,
+        sequential_image_generation: str | None = None,
+        stream: bool | None = None,
     ) -> list[ImageResult]:
         del partial_images, debug_sse_path
         if not images:
@@ -307,6 +321,8 @@ class OpenAIImagesImageClient:
             seed=seed,
             prompt_optimization_mode=prompt_optimization_mode,
             watermark=watermark,
+            sequential_image_generation=sequential_image_generation,
+            stream=stream,
         )
         return self._request_and_parse_many(payload)
 
@@ -330,6 +346,8 @@ class OpenAIImagesImageClient:
         seed: int | None = None,
         prompt_optimization_mode: str | None = None,
         watermark: bool | None = None,
+        sequential_image_generation: str | None = None,
+        stream: bool | None = None,
     ) -> dict[str, Any]:
         del main_model
         image_model = str(model or self.image_model or DEFAULT_IMAGE_MODEL).strip() or DEFAULT_IMAGE_MODEL
@@ -365,6 +383,10 @@ class OpenAIImagesImageClient:
             payload["optimize_prompt_options"] = {"mode": prompt_optimization_mode}
         if watermark is not None:
             payload["watermark"] = bool(watermark)
+        if sequential_image_generation is not None:
+            payload["sequential_image_generation"] = str(sequential_image_generation)
+        if stream is not None:
+            payload["stream"] = bool(stream)
         return payload
 
     def _request_and_parse(self, payload: dict[str, Any]) -> ImageResult:
@@ -463,8 +485,10 @@ class OpenAIImagesImageClient:
             request_payload["optimize_prompt_options"] = payload["optimize_prompt_options"]
         if payload.get("watermark") is not None:
             request_payload["watermark"] = payload["watermark"]
-        request_payload["sequential_image_generation"] = "disabled"
-        request_payload["stream"] = False
+        if payload.get("sequential_image_generation") is not None:
+            request_payload["sequential_image_generation"] = payload["sequential_image_generation"]
+        if payload.get("stream") is not None:
+            request_payload["stream"] = payload["stream"]
         images = payload.get("images")
         image_values = [
             str(item.get("image_url") or "")

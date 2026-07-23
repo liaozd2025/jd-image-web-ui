@@ -245,6 +245,8 @@ class HeartbeatWorker:
                     claimed.task.capability_snapshot.get("protocol_adapter")
                     == "volcengine-ark-images"
                 )
+                phase_features = claimed.task.capability_snapshot.get("phase_features")
+                phase_features = phase_features if isinstance(phase_features, dict) else {}
                 results = []
                 actual_seeds: list[int | None] = []
                 successful_output_indices: list[int] = []
@@ -261,6 +263,12 @@ class HeartbeatWorker:
                                 "seed": actual_seed,
                                 "prompt_optimization_mode": prompt_optimization_mode,
                                 "watermark": False,
+                                "sequential_image_generation": (
+                                    "disabled"
+                                    if phase_features.get("sequential_generation")
+                                    else None
+                                ),
+                                "stream": False if phase_features.get("streaming") else None,
                             }
                         )
                     try:
@@ -456,11 +464,17 @@ class HeartbeatWorker:
                 profile = get_model_capability_profile(claimed.capability_profile_id)
                 adapter_parameters = {}
                 if profile.get("protocol_adapter") == "volcengine-ark-images":
+                    phase_features = profile.get("phase_features")
+                    phase_features = phase_features if isinstance(phase_features, dict) else {}
                     adapter_parameters = {
                         "prompt_optimization_mode": str(
                             parameters.get("prompt_optimization_mode") or "off"
                         ),
                         "watermark": bool(parameters.get("watermark", False)),
+                        "sequential_image_generation": (
+                            "disabled" if phase_features.get("sequential_generation") else None
+                        ),
+                        "stream": False if phase_features.get("streaming") else None,
                     }
                 result = client.generate_images(
                     **common_parameters,

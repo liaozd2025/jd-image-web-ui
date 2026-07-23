@@ -308,6 +308,10 @@ async function waitForWorkspace(page) {
   await selectCatalogModel(secondBinding.canonical_model_id);
   await selectCatalogBinding(multiCatalogProvider, secondBinding);
   check(secondBinding.canonical_model_id.includes("seedream"), "Seedream release fixture was not selected");
+  await eventually(
+    async () => await page.locator("#size").inputValue() === "2048x2048",
+    "Seedream Lite did not replace the unsupported 1K size with its 2K default",
+  );
   for (const selector of ["#sizeModeGroup", ".orientation-field", ".resolution-field", ".ratio-field", "#promptFidelityField"]) {
     check(await page.locator(selector).isVisible(), `Seedream legacy workspace control remained hidden: ${selector}`);
   }

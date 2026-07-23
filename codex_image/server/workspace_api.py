@@ -1450,6 +1450,7 @@ def _normalize_model_preference_parameters(
                 or height < int(constraints.get("min_dimension") or 1)
                 or width > int(constraints.get("max_dimension") or 32768)
                 or height > int(constraints.get("max_dimension") or 32768)
+                or width * height < int(constraints.get("min_pixels") or 1)
                 or aspect < float(constraints.get("min_aspect_ratio") or 0)
                 or aspect > float(constraints.get("max_aspect_ratio") or 1_000_000)
             ):

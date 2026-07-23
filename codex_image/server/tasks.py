@@ -2024,6 +2024,7 @@ def _validated_task_parameters(
             or height < minimum
             or width > maximum
             or height > maximum
+            or width * height < int(constraints.get("min_pixels") or 1)
             or aspect < float(constraints.get("min_aspect_ratio") or 0)
             or aspect > float(constraints.get("max_aspect_ratio") or 1_000_000)
         ):

@@ -12,7 +12,11 @@ from .audit import record_audit_event
 from .database import PostgresConnections
 from .provider_secrets import ProviderSecretCipher
 from .maintenance import assert_writes_allowed
-from .model_capabilities import get_model_capability_profile, provider_binding_defaults
+from .model_capabilities import (
+    get_model_capability_profile,
+    inferred_model_capability_profile_id,
+    provider_binding_defaults,
+)
 from codex_image.providers.capabilities import protocol_codec_pairs
 
 
@@ -1141,13 +1145,25 @@ class ProviderRepository:
         normalized: list[dict[str, object]] = []
         valid_pairs = protocol_codec_pairs()
         for model in models:
-            profile_id = str(model.get("capability_profile_id") or "generic-basic")
+            requested_profile_id = str(
+                model.get("capability_profile_id") or "generic-basic"
+            )
+            profile_id = inferred_model_capability_profile_id(
+                str(model.get("model_id") or ""),
+                requested_profile_id,
+            )
             defaults = provider_binding_defaults(
                 profile_id,
                 model_id=str(model.get("model_id") or ""),
                 api_mode=api_mode,
             )
-            item = {**defaults, **model}
+            item = {
+                **defaults,
+                **model,
+                "capability_profile_id": profile_id,
+            }
+            if profile_id != requested_profile_id:
+                item["model_family_id"] = defaults["model_family_id"]
             pair = (str(item["protocol_profile"]), str(item["parameter_codec"]))
             if pair not in valid_pairs:
                 raise ValueError(

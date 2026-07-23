@@ -25,6 +25,7 @@ from .providers import (
 from .model_capabilities import (
     PROFILE_VERSION,
     get_model_capability_profile,
+    inferred_model_capability_profile_id,
     model_capability_profile_exists,
 )
 
@@ -57,7 +58,10 @@ class ProviderModelPayload(BaseModel):
 
     @model_validator(mode="after")
     def validate_profile(self) -> "ProviderModelPayload":
-        profile_id = self.capability_profile_id or "generic-basic"
+        profile_id = inferred_model_capability_profile_id(
+            self.model_id,
+            self.capability_profile_id or "generic-basic",
+        )
         if not model_capability_profile_exists(profile_id):
             raise ValueError("capability_profile_id is not a built-in profile")
         self.capability_profile_id = profile_id

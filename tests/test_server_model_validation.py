@@ -205,7 +205,7 @@ class ServerGenerationModelValidationTests(unittest.TestCase):
                         self.assertEqual(
                             queued.json()["validation"]["request_parameters"],
                             {
-                                "size": "1024x1024",
+                                "size": "2048x2048",
                                 "n": 1,
                                 "output_format": "png",
                                 "prompt_optimization_mode": "off",
@@ -232,7 +232,7 @@ class ServerGenerationModelValidationTests(unittest.TestCase):
                         request = ValidationProviderHandler.requests[0]
                         self.assertEqual(request["path"], "/v1/images/generations")
                         self.assertEqual(request["body"]["model"], "validation-lite")
-                        self.assertEqual(request["body"]["size"], "1024x1024")
+                        self.assertEqual(request["body"]["size"], "2048x2048")
                         self.assertEqual(request["body"]["response_format"], "b64_json")
                         self.assertNotIn("n", request["body"])
                         self.assertIs(request["body"]["watermark"], False)

@@ -7,6 +7,31 @@ from typing import Any
 PROFILE_VERSION = 1
 
 
+def inferred_model_capability_profile_id(model_id: str, requested_profile_id: str) -> str:
+    normalized_model_id = str(model_id or "").strip().lower()
+    normalized_profile_id = str(requested_profile_id or "generic-basic").strip()
+    if normalized_profile_id != "generic-basic":
+        return normalized_profile_id
+    if (
+        "seedream-5-0-pro" in normalized_model_id
+        or "seedream-5.0-pro" in normalized_model_id
+        or "seedream_5_0_pro" in normalized_model_id
+    ):
+        return "seedream-5-pro"
+    if (
+        normalized_model_id
+        in {
+            "doubao-seedream-5-0-260128",
+            "doubao-seedream-5-0-lite-260128",
+        }
+        or "seedream-5-0-lite" in normalized_model_id
+        or "seedream-5.0-lite" in normalized_model_id
+        or "seedream_5_0_lite" in normalized_model_id
+    ):
+        return "seedream-5-lite"
+    return normalized_profile_id
+
+
 _PROFILES: tuple[dict[str, Any], ...] = (
     {
         "profile_id": "generic-basic",
@@ -83,12 +108,13 @@ _PROFILES: tuple[dict[str, Any], ...] = (
         "api_modes": ["images"],
         "task_modes": ["generate", "edit"],
         "max_reference_images": 16,
-        "sizes": ["1024x1024", "2048x2048", "4096x4096"],
+        "sizes": ["2048x2048", "4096x4096"],
         "default_size": "2048x2048",
         "custom_size": True,
         "size_constraints": {
             "min_dimension": 512,
             "max_dimension": 4096,
+            "min_pixels": 3_686_400,
             "min_aspect_ratio": 0.333333,
             "max_aspect_ratio": 3.0,
         },

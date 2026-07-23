@@ -14,6 +14,35 @@ PNG_1X1 = base64.b64decode(
 
 
 class VolcengineArkImagesClientTests(unittest.TestCase):
+    def test_seedream_pro_omits_unsupported_sequential_and_stream_parameters(self) -> None:
+        transport = FakeTransport(
+            [
+                FakeResponse(
+                    status=200,
+                    body=json.dumps(
+                        {
+                            "model": "doubao-seedream-5-0-pro-260628",
+                            "data": [{"b64_json": base64.b64encode(PNG_1X1).decode("ascii")}],
+                        }
+                    ).encode("utf-8"),
+                )
+            ]
+        )
+        client = OpenAIImagesImageClient(
+            api_key="test-ark-key",
+            base_url="https://ark.cn-beijing.volces.com/api/v3",
+            image_model="doubao-seedream-5-0-pro-260628",
+            protocol_adapter="volcengine-ark-images",
+            transport=transport,
+        )
+
+        client.generate_images(prompt="generate one image", n=1)
+
+        payload = json.loads(transport.requests[0]["body"])
+        self.assertNotIn("sequential_image_generation", payload)
+        self.assertNotIn("sequential_image_generation_options", payload)
+        self.assertNotIn("stream", payload)
+
     def test_seedream_uses_ark_json_generation_contract_for_reference_images(self) -> None:
         transport = FakeTransport(
             [
@@ -55,6 +84,8 @@ class VolcengineArkImagesClientTests(unittest.TestCase):
             seed=41,
             prompt_optimization_mode="standard",
             watermark=False,
+            sequential_image_generation="disabled",
+            stream=False,
             n=2,
         )
 

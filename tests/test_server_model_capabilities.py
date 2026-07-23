@@ -17,6 +17,58 @@ from tests.test_server_user_lifecycle import ADMIN_PASSWORD, change_password, lo
 TEST_DATABASE_URL = os.environ.get("JD_IMAGE_TEST_DATABASE_URL", "")
 
 
+class ModelCapabilityProfileTests(unittest.TestCase):
+    def test_official_seedream_lite_alias_uses_seedream_profile_and_valid_size(self) -> None:
+        from codex_image.server.model_capabilities import get_model_capability_profile
+        from codex_image.server.providers import ProviderRepository
+        from codex_image.server.tasks import TaskConfigurationError, _validated_task_parameters
+
+        normalized = ProviderRepository._normalize_model_bindings(
+            [
+                {
+                    "display_name": "Seedream 5.0 Lite",
+                    "model_id": "doubao-seedream-5-0-260128",
+                    "capability_profile_id": "generic-basic",
+                    "is_default": True,
+                    "is_enabled": True,
+                }
+            ],
+            api_mode="images",
+        )
+
+        self.assertEqual(normalized[0]["capability_profile_id"], "seedream-5-lite")
+        self.assertEqual(normalized[0]["model_family_id"], "seedream-image")
+        profile = get_model_capability_profile("seedream-5-lite")
+        self.assertNotIn("1024x1024", profile["sizes"])
+        self.assertEqual(profile["default_size"], "2048x2048")
+        self.assertEqual(profile["size_constraints"]["min_pixels"], 3_686_400)
+        with self.assertRaisesRegex(
+            TaskConfigurationError,
+            "does not support this output size",
+        ):
+            _validated_task_parameters(
+                {
+                    "mode": "generate",
+                    "size": "1024x1024",
+                    "output_format": "png",
+                    "n": 1,
+                },
+                profile,
+                reference_image_count=0,
+            )
+        accepted = _validated_task_parameters(
+            {
+                "mode": "generate",
+                "size": "2048x2048",
+                "output_format": "png",
+                "n": 1,
+            },
+            profile,
+            reference_image_count=0,
+        )
+        self.assertEqual(accepted["size"], "2048x2048")
+
+
 @unittest.skipUnless(TEST_DATABASE_URL, "set JD_IMAGE_TEST_DATABASE_URL to a real PostgreSQL database")
 class ServerModelCapabilityContractTests(unittest.TestCase):
     def test_legacy_provider_models_and_tasks_migrate_to_stable_model_records(self) -> None:
@@ -65,6 +117,7 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                         'https://legacy.example.invalid/v1', 'images',
                         '[{"model_id":"legacy-first","capabilities":["image_generation"]},
                           {"model_id":"legacy-second","capabilities":["image_generation"]},
+                          {"model_id":"doubao-seedream-5-0-260128","capabilities":["image_generation"]},
                           {"model_id":"doubao-seedream-5-0-pro-260628","capabilities":["image_generation"]}]'::jsonb,
                         'legacy-admin'
                     )
@@ -109,6 +162,13 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                 models,
                 [
                     ("legacy-first", "legacy-first", "generic-basic", True, True),
+                    (
+                        "doubao-seedream-5-0-260128",
+                        "doubao-seedream-5-0-260128",
+                        "seedream-5-lite",
+                        False,
+                        True,
+                    ),
                     (
                         "doubao-seedream-5-0-pro-260628",
                         "doubao-seedream-5-0-pro-260628",
@@ -210,6 +270,33 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                     )
                     self.assertEqual(incompatible_mode.status_code, 422, incompatible_mode.text)
                     self.assertIn("does not support provider API mode", incompatible_mode.text)
+
+                    inferred_lite = admin.post(
+                        "/api/admin/provider-catalog",
+                        json={
+                            "provider_key": "seedream-lite-alias",
+                            "display_name": "Seedream Lite Alias",
+                            "base_url": "https://ark.example.invalid/api/v3",
+                            "api_mode": "images",
+                            "models": [
+                                {
+                                    "display_name": "Seedream 5.0 Lite",
+                                    "model_id": "doubao-seedream-5-0-260128",
+                                    "capability_profile_id": "generic-basic",
+                                    "is_default": True,
+                                    "is_enabled": True,
+                                }
+                            ],
+                        },
+                        headers={"X-CSRF-Token": csrf},
+                    )
+                    self.assertEqual(inferred_lite.status_code, 201, inferred_lite.text)
+                    inferred_model = inferred_lite.json()["provider"]["models"][0]
+                    self.assertEqual(
+                        inferred_model["capability_profile_id"],
+                        "seedream-5-lite",
+                    )
+                    self.assertEqual(inferred_model["model_family_id"], "seedream-image")
 
                     created = admin.post(
                         "/api/admin/provider-catalog",

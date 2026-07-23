@@ -32,7 +32,7 @@ class CreateTaskPayload(BaseModel):
     provider_version_id: str = Field(min_length=1, max_length=64)
     model_id: str = Field(min_length=1, max_length=160)
     prompt: str = Field(min_length=1, max_length=16_000)
-    size: str = Field(default="1024x1024", pattern=r"^\d{2,5}x\d{2,5}$")
+    size: str | None = Field(default=None, pattern=r"^\d{2,5}x\d{2,5}$")
     quality: Literal["auto", "low", "medium", "high"] = "auto"
     output_format: Literal["png", "jpeg", "webp"] = "png"
     asset_version_ids: list[str] = Field(default_factory=list, max_length=16)

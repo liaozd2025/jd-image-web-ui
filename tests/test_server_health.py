@@ -46,6 +46,7 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0029_configured_department_models",
     "0030_upstream_v070_provider_bindings",
     "0031_provider_catalog_soft_delete",
+    "0032_seedream_5_lite_profile",
 ]
 
 
