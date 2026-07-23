@@ -8,7 +8,7 @@ let pendingUrlTab = "";
 const dirtyOwners = new Set<HTMLElement>();
 let hasLooseDirtyInput = false;
 
-const PERSONAL_TABS = new Set(["account", "language", "api", "notifications", "usage"]);
+const PERSONAL_TABS = new Set(["account", "language", "notifications", "usage"]);
 const ADMIN_TABS = new Set(["users", "catalog", "department", "shared", "scheduler", "content", "audit"]);
 const VALID_TABS = new Set([...PERSONAL_TABS, ...ADMIN_TABS]);
 const LAST_TAB_KEY = "codex-image-system-settings-tab";
@@ -124,9 +124,9 @@ export function setSystemSettingsTab(
   if (options.updateUrl !== false && !shell()?.classList.contains("hidden")) {
     updateSettingsUrl(true, options.historyMode || (selected === previousTab ? "replace" : "push"));
   }
-  if (options.refresh !== false && selected === "api") {
+  if (options.refresh !== false && selected === "catalog") {
     maybeCall("setApiSettingsFeedback", "", "");
-    maybeCall("populateApiSettingsForm");
+    maybeCall("refreshApiSettings");
     maybeCall("updateModeSpecificSettings");
   }
   document.dispatchEvent(new CustomEvent("codex-image-settings-tab-change", { detail: { tab: selected } }));

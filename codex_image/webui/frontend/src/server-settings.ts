@@ -20,24 +20,6 @@ interface BrowserSession {
   expires_at: string;
 }
 
-interface ProviderVersion {
-  provider_version_id: string;
-  provider_key: string;
-  display_name: string;
-  version_number: number;
-  base_url: string;
-  api_mode: string;
-  models: Array<{ model_id: string }>;
-  is_active: boolean;
-}
-
-interface DepartmentCredential {
-  provider_version_id: string;
-  api_key_mask?: string;
-  has_credential: boolean;
-  is_active: boolean;
-}
-
 interface SharedAsset {
   asset_id: string;
   asset_kind: string;
@@ -655,67 +637,11 @@ function showCredential(value: string): void {
   node.classList.remove("hidden");
 }
 
-function providerTitle(provider: ProviderVersion): string {
-  return `${provider.display_name} · v${provider.version_number}`;
-}
-
-function providerModels(provider: ProviderVersion): string {
-  return (provider.models || []).map((model) => model.model_id).join("、") || translate("serverSettings.noModels");
-}
-
-async function loadCatalog(): Promise<void> {
-  const result = await api("/api/admin/provider-catalog");
-  const rows = (result.providers || []).map((provider: ProviderVersion) => {
-    const rowActions = actions();
-    rowActions.append(actionButton(translate(provider.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
-      if (!window.confirm(formatTranslation(provider.is_active ? "serverSettings.confirmDeactivateProvider" : "serverSettings.confirmReactivateProvider", { provider: providerTitle(provider) }))) return;
-      await api(`/api/admin/provider-catalog/${encodeURIComponent(provider.provider_version_id)}/status`, {
-        method: "PATCH", ...jsonOptions({ is_active: !provider.is_active }),
-      });
-      await loadCatalog();
-    }, provider.is_active));
-    return listRow(providerTitle(provider), `${provider.provider_key} · ${provider.api_mode} · ${translate(provider.is_active ? "serverSettings.available" : "serverSettings.inactive")} · ${providerModels(provider)}`, rowActions);
-  });
-  replace("#settingsCatalogList", ...rows);
-}
-
 async function loadDepartment(): Promise<void> {
   if (!managedUsers.length) await loadUsers();
-  const [catalogResult, configuredResult, quotaResult] = await Promise.all([
-    api("/api/admin/provider-catalog"), api("/api/admin/providers/department"), api("/api/quotas/department"),
-  ]);
+  const quotaResult = await api("/api/quotas/department");
   const quotaInput = document.querySelector<HTMLInputElement>("#settingsDepartmentQuotaForm [name=quota_units]");
   if (quotaInput) quotaInput.value = String(quotaResult.quota?.global_quota_units ?? 0);
-  const configured = new Map<string, DepartmentCredential>((configuredResult.providers || []).map((item: DepartmentCredential) => [item.provider_version_id, item]));
-  const providerRows = (catalogResult.providers || []).map((provider: ProviderVersion) => {
-    const credential = configured.get(provider.provider_version_id);
-    const rowActions = actions();
-    const key = document.createElement("input");
-    key.className = "control";
-    key.type = "password";
-    key.autocomplete = "new-password";
-    key.dataset.settingsDraftKey = `department-credential:${provider.provider_version_id}`;
-    key.placeholder = credential?.api_key_mask || translate("serverSettings.departmentApiKeyPlaceholder");
-    key.addEventListener("input", () => markSystemSettingsDirty(key));
-    rowActions.append(key, actionButton(translate("serverSettings.saveCredential"), async () => {
-      if (!key.value) throw new Error(translate("serverSettings.enterApiKey"));
-      await api(`/api/admin/providers/department/${encodeURIComponent(provider.provider_version_id)}`, {
-        method: "PUT", ...jsonOptions({ api_key: key.value }),
-      });
-      key.value = "";
-      clearSystemSettingsDirty(key);
-      await loadDepartment();
-    }));
-    if (credential?.has_credential) rowActions.append(actionButton(translate(credential.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
-      if (!window.confirm(translate(credential.is_active ? "serverSettings.confirmDeactivateCredential" : "serverSettings.confirmReactivateCredential"))) return;
-      await api(`/api/admin/providers/department/${encodeURIComponent(provider.provider_version_id)}/status`, {
-        method: "PATCH", ...jsonOptions({ is_active: !credential.is_active }),
-      });
-      await loadDepartment();
-    }, credential.is_active));
-    return listRow(providerTitle(provider), `${translate(credential?.has_credential ? "serverSettings.configured" : "serverSettings.notConfigured")} · ${translate(provider.is_active ? "serverSettings.catalogAvailable" : "serverSettings.catalogInactive")}`, rowActions);
-  });
-  replacePreservingDynamicDrafts("#settingsDepartmentProviderList", ...providerRows);
 
   const ordinaryUsers = managedUsers.filter((user) => user.role === "user");
   const usageResults = await Promise.all(ordinaryUsers.map((user) => userUsage(user.user_id)));
@@ -899,7 +825,6 @@ const TAB_LOADERS: Record<string, () => Promise<void>> = {
   account: loadSessions,
   usage: loadUsage,
   users: loadUsers,
-  catalog: loadCatalog,
   department: loadDepartment,
   shared: loadShared,
   scheduler: loadScheduler,
@@ -931,11 +856,6 @@ function bindForms(): void {
   document.querySelector<HTMLFormElement>("#settingsCreateUserForm")?.addEventListener("submit", async (event) => {
     event.preventDefault(); const form = event.currentTarget as HTMLFormElement; const data = new FormData(form);
     try { const created = await api("/api/admin/users", { method: "POST", ...jsonOptions({ username: data.get("username") }) }); showCredential(formatTranslation("serverSettings.temporaryPassword", { username: created.user.username, password: created.temporary_password })); form.reset(); clearSystemSettingsDirty(form); await loadUsers(); } catch (error) { reportError(error); }
-  });
-  document.querySelector<HTMLFormElement>("#settingsCatalogForm")?.addEventListener("submit", async (event) => {
-    event.preventDefault(); const form = event.currentTarget as HTMLFormElement; const data = new FormData(form);
-    const models = String(data.get("models") || "").split(",").map((item) => item.trim()).filter(Boolean).map((model_id) => ({ model_id, capabilities: ["image_generation"] }));
-    try { await api("/api/admin/provider-catalog", { method: "POST", ...jsonOptions({ provider_key: data.get("provider_key"), display_name: data.get("display_name"), base_url: data.get("base_url"), api_mode: data.get("api_mode"), models, parameter_constraints: {} }) }); form.reset(); clearSystemSettingsDirty(form); await loadCatalog(); } catch (error) { reportError(error); }
   });
   document.querySelector<HTMLFormElement>("#settingsDepartmentQuotaForm")?.addEventListener("submit", async (event) => {
     event.preventDefault(); const form = event.currentTarget as HTMLFormElement; const data = new FormData(form);

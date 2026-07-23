@@ -9,7 +9,7 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <script src="/static/pwa.js?v=pwa-1" defer></script>
     <script src="/static/workspace-preload.js?v=server-1"></script>
-    <link rel="stylesheet" href="/static/styles.css?v=runtime-645" />
+    <link rel="stylesheet" href="/static/styles.css?v=runtime-646" />
   </head>
   <body>
     <div class="layout-container">
@@ -246,7 +246,7 @@
                   <option value="" data-i18n="modelSelection.catalogUnavailable">模型目录不可用</option>
                 </select>
               </div>
-              <button id="generationProviderSettingsButton" class="auth-source-settings-button" type="button" aria-label="打开供应商设置" title="打开供应商设置" data-i18n-attr="aria-label:modelSelection.openSettings;title:modelSelection.openSettings">
+              <button id="generationProviderSettingsButton" class="auth-source-settings-button hidden" type="button" hidden aria-label="打开供应商设置" title="打开供应商设置" data-i18n-attr="aria-label:modelSelection.openSettings;title:modelSelection.openSettings">
                 <svg class="auth-source-settings-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                   <path d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z" fill="none" stroke="currentColor" stroke-width="1.8"/>
                   <path d="M19.4 13.4a7.8 7.8 0 0 0 .1-1.4 7.8 7.8 0 0 0-.1-1.4l2-1.5-2-3.4-2.4 1a8 8 0 0 0-2.4-1.4L14.3 3h-4.6l-.4 2.3A8 8 0 0 0 6.9 6.7l-2.4-1-2 3.4 2 1.5a7.8 7.8 0 0 0-.1 1.4 7.8 7.8 0 0 0 .1 1.4l-2 1.5 2 3.4 2.4-1a8 8 0 0 0 2.4 1.4l.4 2.3h4.6l.4-2.3a8 8 0 0 0 2.4-1.4l2.4 1 2-3.4-2.1-1.5Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="1.8"/>
@@ -888,9 +888,6 @@
             <button id="systemSettingsLanguageTab" class="system-settings-tab" type="button" data-system-settings-tab="language" data-settings-search="外观 主题 语言 浅色 深色">
               <span aria-hidden="true">◐</span><span data-i18n="systemSettings.appearanceTab">外观与语言</span>
             </button>
-            <button id="systemSettingsApiTab" class="system-settings-tab" type="button" data-system-settings-tab="api" data-settings-search="API 供应商 密钥 模型">
-              <span aria-hidden="true">⌁</span><span data-i18n="systemSettings.apiProviderTab">API 供应商</span>
-            </button>
             <button id="systemSettingsStorageTab" class="system-settings-tab" type="button" data-system-settings-tab="notifications" data-settings-search="通知 提醒 站内 系统">
               <span aria-hidden="true">♧</span><span data-i18n="systemSettings.notificationsTab">通知</span>
             </button>
@@ -903,10 +900,10 @@
             <button class="system-settings-tab" type="button" data-system-settings-tab="users" data-settings-search="用户 管理 账号 重置密码 启用 停用">
               <span aria-hidden="true">♙</span><span data-i18n="systemSettings.usersTab">用户管理</span>
             </button>
-            <button class="system-settings-tab" type="button" data-system-settings-tab="catalog" data-settings-search="供应商 目录 版本 模型">
+            <button id="systemSettingsApiTab" class="system-settings-tab" type="button" data-system-settings-tab="catalog" data-settings-search="供应商 目录 版本 模型 API 密钥 验证">
               <span aria-hidden="true">▦</span><span data-i18n="systemSettings.catalogTab">供应商目录</span>
             </button>
-            <button class="system-settings-tab" type="button" data-system-settings-tab="department" data-settings-search="部门 供应商 API 密钥 额度 配额">
+            <button class="system-settings-tab" type="button" data-system-settings-tab="department" data-settings-search="部门 额度 配额 用户">
               <span aria-hidden="true">◇</span><span data-i18n="systemSettings.departmentTab">部门供应商与额度</span>
             </button>
             <button class="system-settings-tab" type="button" data-system-settings-tab="shared" data-settings-search="共享 资产 存储 空间">
@@ -948,8 +945,8 @@
             <div class="settings-form-actions"><button id="settingsLogoutOtherSessions" class="ghost-button danger-button" type="button" data-i18n="systemSettings.logoutOtherSessions">退出其他会话</button></div>
           </div>
         </section>
-        <section id="systemSettingsApiPanel" class="system-settings-section" data-system-settings-panel="api" hidden aria-hidden="true">
-          <header class="system-settings-page-heading"><p data-i18n="systemSettings.personalGroup">个人</p><h2 data-i18n="systemSettings.apiProviderTab">API 供应商</h2><span data-i18n="systemSettings.apiDescription">配置当前账户可使用的图像生成供应商。</span></header>
+        <section id="systemSettingsApiPanel" class="system-settings-section" data-system-settings-panel="catalog" data-admin-only hidden aria-hidden="true">
+          <header class="system-settings-page-heading"><p data-i18n="systemSettings.adminGroup">系统管理</p><h2 data-i18n="systemSettings.catalogTab">供应商目录</h2><span data-i18n="systemSettings.catalogDescription">维护部门可配置的供应商版本、模型和启用状态。</span></header>
           <div id="apiProviderSection" class="api-provider-section">
             <div class="api-provider-section-header">
               <div class="api-provider-section-title">
@@ -996,10 +993,15 @@
                   <dt data-i18n="apiSettings.concurrencyShort">并发</dt>
                   <dd id="apiProviderDetailConcurrency">4</dd>
                 </div>
+                <div>
+                  <dt data-i18n="apiSettings.providerStatus">状态</dt>
+                  <dd id="apiProviderDetailStatus">启用</dd>
+                </div>
               </dl>
               <div class="api-provider-detail-actions">
                 <button id="editApiProviderButton" class="ghost-button" type="button" data-i18n="action.edit">编辑</button>
                 <button id="copyApiProviderButton" class="ghost-button" type="button" data-i18n="apiSettings.copyProvider">复制</button>
+                <button id="toggleApiProviderStatusButton" class="ghost-button danger-button" type="button" data-i18n="apiSettings.disableProvider">停用</button>
                 <button id="deleteApiProviderButton" class="ghost-button danger-button" type="button" data-i18n="action.delete">删除</button>
               </div>
             </div>
@@ -1140,28 +1142,12 @@
           <div id="settingsUserList" class="settings-list settings-admin-list" aria-live="polite"></div>
         </section>
 
-        <section class="system-settings-section" data-system-settings-panel="catalog" data-admin-only hidden aria-hidden="true">
-          <header class="system-settings-page-heading"><p data-i18n="systemSettings.adminGroup">系统管理</p><h2 data-i18n="systemSettings.catalogTab">供应商目录</h2><span data-i18n="systemSettings.catalogDescription">维护部门可配置的供应商版本、模型和启用状态。</span></header>
-          <form id="settingsCatalogForm" class="settings-card settings-form" data-sensitive-form>
-            <div class="settings-form-grid">
-              <label><span data-i18n="systemSettings.identifier">标识</span><input name="provider_key" class="control" type="text" required /></label>
-              <label><span data-i18n="systemSettings.name">名称</span><input name="display_name" class="control" type="text" required /></label>
-              <label><span>Base URL</span><input name="base_url" class="control" type="url" required /></label>
-              <label><span data-i18n="systemSettings.apiMode">API 模式</span><select name="api_mode" class="control"><option value="images">Images</option><option value="responses">Responses</option></select></label>
-              <label class="settings-form-wide"><span data-i18n="systemSettings.modelsCsv">模型（逗号分隔）</span><input name="models" class="control" type="text" placeholder="gpt-image-2" required /></label>
-            </div>
-            <div class="settings-form-actions"><span id="settingsCatalogStatus" class="settings-action-status"></span><button class="run-button" type="submit" data-i18n="systemSettings.addVersion">新增版本</button></div>
-          </form>
-          <div id="settingsCatalogList" class="settings-list settings-admin-list"></div>
-        </section>
-
         <section class="system-settings-section" data-system-settings-panel="department" data-admin-only hidden aria-hidden="true">
-          <header class="system-settings-page-heading"><p data-i18n="systemSettings.adminGroup">系统管理</p><h2 data-i18n="systemSettings.departmentTab">部门供应商与额度</h2><span data-i18n="systemSettings.departmentDescription">配置部门级凭据、默认额度和用户额度。</span></header>
+          <header class="system-settings-page-heading"><p data-i18n="systemSettings.adminGroup">系统管理</p><h2 data-i18n="systemSettings.departmentTab">部门额度</h2><span data-i18n="systemSettings.departmentDescription">配置部门总额度和用户额度，供应商凭据统一在供应商目录中维护。</span></header>
           <form id="settingsDepartmentQuotaForm" class="settings-card settings-inline-form" data-sensitive-form>
             <label><span data-i18n="systemSettings.departmentQuota">部门周期总额度</span><input name="quota_units" class="control" type="number" min="0" step="1" required /></label>
             <button class="run-button" type="submit" data-i18n="systemSettings.saveQuota">保存额度</button>
           </form>
-          <h3 class="settings-section-title" data-i18n="systemSettings.providerCredentials">供应商凭据</h3><div id="settingsDepartmentProviderList" class="settings-list settings-admin-list"></div>
           <h3 class="settings-section-title" data-i18n="systemSettings.userQuota">用户额度</h3><div id="settingsUserQuotaList" class="settings-list settings-admin-list"></div>
         </section>
 
@@ -1545,7 +1531,7 @@
     </div>
 
     <div id="taskNotificationToastRegion" class="task-notification-toast-region" aria-live="polite"></div>
-  <script src="/static/app.js?v=runtime-645"></script>
+  <script src="/static/app.js?v=runtime-646"></script>
   <script src="/static/workspace-controls.js?v=server-1"></script>
   </body>
 </html>

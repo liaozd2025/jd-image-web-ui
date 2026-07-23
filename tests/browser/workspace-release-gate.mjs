@@ -442,6 +442,7 @@ try {
   await waitForWorkspace(pageA);
   check((await pageA.locator("#serverAccountName").textContent()).includes(credentials.userA.username), "current username was not shown in the sidebar account entry");
   check((await pageA.locator("#serverAccountRole").textContent()).trim() === "普通用户", "normal user role was not shown in the sidebar account entry");
+  check(await pageA.locator("#generationProviderSettingsButton").isHidden(), "normal user saw the provider settings shortcut");
   check(await pageA.locator("#serverAdminLink").count() === 0, "legacy administrator entry is still present");
   check(await pageA.locator("[data-auth-source]").count() === 0, "server workspace still exposed the Codex/local auth switcher");
   check(await pageA.locator("#systemSettingsCodexTab").isHidden(), "server workspace still exposed Codex settings");
@@ -455,7 +456,8 @@ try {
   await pageA.locator("#systemSettingsModal").waitFor({ state: "visible" });
   check(new URL(pageA.url()).searchParams.get("settingsTab") === "account", "system settings did not open on the account page");
   check(await pageA.locator("[data-settings-nav-group][data-admin-only]").isHidden(), "normal user saw the system-management navigation group");
-  check(await pageA.locator('[data-system-settings-tab="account"]:visible, [data-system-settings-tab="language"]:visible, [data-system-settings-tab="api"]:visible, [data-system-settings-tab="notifications"]:visible, [data-system-settings-tab="usage"]:visible').count() === 5, "normal user did not receive all five personal settings pages");
+  check(await pageA.locator('[data-system-settings-tab="account"]:visible, [data-system-settings-tab="language"]:visible, [data-system-settings-tab="notifications"]:visible, [data-system-settings-tab="usage"]:visible').count() === 4, "normal user did not receive the four first-phase personal settings pages");
+  check(await pageA.locator('[data-system-settings-tab="api"]:visible, [data-system-settings-tab="catalog"]:visible').count() === 0, "normal user saw provider configuration or catalog navigation");
   await pageA.locator("#systemSettingsSearch").fill("用户管理");
   check(await pageA.locator('[data-system-settings-tab="users"]:visible').count() === 0, "normal-user settings search revealed administrator navigation");
   await pageA.locator("#systemSettingsSearch").fill("");
@@ -538,38 +540,6 @@ try {
   await pageA.locator("#systemSettingsModalClose").click();
   await pageA.locator("#systemSettingsModal").waitFor({ state: "hidden" });
   check(await pageA.locator(".layout-container").isVisible(), "returning from settings did not restore the image workspace");
-  const providerCatalogA = await api(pageA, "/api/providers/catalog");
-  const personalProviderVersionId = providerCatalogA.body.providers.find((item) => item.provider_key === "browser-fake-provider")?.provider_version_id;
-  check(personalProviderVersionId, "personal provider catalog entry was missing");
-  await pageA.locator("#serverAccountButton").click();
-  await pageA.locator("#serverAccountSettingsButton").click();
-  await pageA.locator('[data-system-settings-tab="api"]').click();
-  const personalProviderCard = pageA.locator('[data-api-provider-id]', { hasText: "Browser Fake Provider · 个人" });
-  await personalProviderCard.waitFor({ state: "visible" });
-  await personalProviderCard.click();
-  await eventually(async () => await personalProviderCard.getAttribute("aria-selected") === "true", "personal provider card did not become active");
-  check(await pageA.locator("#editApiProviderButton").isEnabled(), "personal provider edit action remained disabled");
-  await pageA.locator("#editApiProviderButton").click();
-  const providerEditState = await pageA.evaluate(() => ({
-    editingId: window.__codexImageWebUI?.state?.apiProviderEditingId || null,
-    hasDraft: Boolean(window.__codexImageWebUI?.state?.apiProviderDraft),
-    activeId: window.__codexImageWebUI?.state?.apiSettings?.active_provider_id || null,
-  }));
-  check(providerEditState.editingId && providerEditState.hasDraft, `provider edit action did not create a draft: ${JSON.stringify(providerEditState)}`);
-  await pageA.locator("#apiProviderEditor").waitFor({ state: "visible" });
-  await pageA.locator("#apiKey").fill("browser-user-a-private-provider-key");
-  pageA.once("dialog", async (dialog) => dialog.dismiss());
-  await pageA.locator('[data-system-settings-tab="usage"]').click();
-  check(await pageA.locator('[data-system-settings-panel="api"]').isVisible(), "API Key draft was not protected by the unsaved-change guard");
-  const personalSaveResponse = pageA.waitForResponse((response) => (
-    new URL(response.url()).pathname === "/api/api-settings" && response.request().method() === "PATCH"
-  ));
-  await pageA.locator("#saveApiProviderEditButton").click();
-  check((await personalSaveResponse).status() === 200, "personal provider UI save was rejected");
-  const personalCredentialsA = await api(pageA, "/api/providers/personal");
-  check(personalCredentialsA.body.credentials.some((item) => item.provider_version_id === personalProviderVersionId), "personal provider UI save did not persist the credential");
-  await pageA.locator("#systemSettingsModalClose").click();
-
   const sharedGallery = await api(pageA, "/api/gallery");
   const sharedGalleryItem = sharedGallery.body.items.find((item) => item.scope === "shared" && item.read_only);
   check(sharedGalleryItem, "shared gallery item was not visible");
@@ -779,8 +749,6 @@ try {
   check(galleryB.body.items.some((item) => item.scope === "shared"), "shared gallery was not visible to second user");
   check(!galleryB.body.items.some((item) => item.id === privateAssetId), "second user saw first user's private gallery item");
   check((await api(pageB, privateAssetImageUrl)).status === 404, "second user accessed first user's private gallery file address");
-  const personalCredentialsB = await api(pageB, "/api/providers/personal");
-  check(!personalCredentialsB.body.credentials.some((item) => item.provider_version_id === personalProviderVersionId), "second user saw first user's personal provider configuration");
   check(!(await api(pageB, "/api/prompt-snippets")).body.snippets.some((item) => item.tag === "privateA"), "second user saw first user's prompt snippet");
   check(!(await api(pageB, "/api/prompt-templates")).body.templates.some((item) => item.title === "Private A template"), "second user saw first user's prompt template");
   check(!(await api(pageB, "/api/tasks/recent?limit=50")).body.tasks.some((item) => item.task_id === generated.task_id), "second user saw first user's task");
@@ -1069,8 +1037,10 @@ try {
   await adminPage.locator("#systemSettingsModal").waitFor({ state: "visible" });
   check(await adminPage.locator("[data-settings-nav-group][data-admin-only]").isVisible(), "administrator system-management navigation was not shown");
   check(await adminPage.locator('[data-settings-nav-group][data-admin-only] [data-system-settings-tab]:visible').count() === 7, "administrator did not receive all seven management pages");
-  await adminPage.locator('[data-system-settings-tab="api"]').click();
+  check(await adminPage.locator("#generationProviderSettingsButton").isVisible(), "administrator provider settings shortcut was hidden");
+  await adminPage.locator('[data-system-settings-tab="catalog"]').click();
   check(await adminPage.locator("#deleteApiProviderButton").isHidden(), "server system settings exposed a physical provider delete action");
+  check(await adminPage.locator("#toggleApiProviderStatusButton").isVisible(), "unified provider catalog did not expose provider enable or disable");
   const adminProviderCard = adminPage.locator('[data-api-provider-id]:not([aria-selected="true"])').first();
   await adminProviderCard.waitFor({ state: "visible" });
   let releaseProviderAutosave;
@@ -1185,9 +1155,9 @@ try {
   check(await adminPage.locator('#settingsCreateUserForm [name="username"]').inputValue() === "unsaved-user-draft", "saving one draft discarded another draft");
   adminPage.once("dialog", async (dialog) => dialog.accept());
   await adminPage.locator('[data-system-settings-tab="catalog"]').click();
-  await eventually(async () => (await adminPage.locator("#settingsCatalogList").textContent()).includes("Browser Fake Provider"), "provider catalog settings did not load");
+  await eventually(async () => (await adminPage.locator("#apiProviderList").textContent()).includes("Browser Fake Provider"), "unified provider catalog settings did not load");
   await adminPage.locator('[data-system-settings-tab="department"]').click();
-  await eventually(async () => (await adminPage.locator("#settingsDepartmentProviderList").textContent()).includes("Browser Fake Provider"), "department provider settings did not load");
+  check(await adminPage.locator("#settingsDepartmentProviderList").count() === 0, "department quota page still exposed duplicate provider credential management");
   await eventually(async () => (await adminPage.locator("#settingsUserQuotaList").textContent()).includes(credentials.userA.username), "per-user department quotas did not load");
   await adminPage.locator('[data-system-settings-tab="shared"]').click();
   await adminPage.locator("#settingsSharedStatus").selectOption("all");

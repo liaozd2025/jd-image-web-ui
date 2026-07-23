@@ -77,6 +77,9 @@ function renderCurrentUser(): void {
   setText("#serverAccountMenuRole", role);
   setText("#systemSettingsAccountRole", role);
   setText("#settingsAccountRole", role);
+  const providerSettingsButton = document.querySelector<HTMLElement>("#generationProviderSettingsButton");
+  providerSettingsButton?.classList.toggle("hidden", currentUser.role !== "admin");
+  providerSettingsButton?.toggleAttribute("hidden", currentUser.role !== "admin");
   setText("#serverAccountAvatar", avatar);
   setText("#serverAccountMenuAvatar", avatar);
   setText("#systemSettingsAccountAvatar", avatar);

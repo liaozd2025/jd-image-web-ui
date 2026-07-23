@@ -101,6 +101,7 @@ export function bindWebUIEvents(state: WebUIState, els: WebUIElements, methods: 
   els.copyApiProviderButton?.addEventListener("click", () => call(methods, "copyApiProvider"));
   els.addApiProviderButton?.addEventListener("click", () => call(methods, "addApiProvider"));
   els.sortApiProvidersButton?.addEventListener("click", () => call(methods, "toggleApiProviderSortMode"));
+  els.toggleApiProviderStatusButton?.addEventListener("click", () => call(methods, "confirmToggleApiProviderStatus", els.toggleApiProviderStatusButton));
   els.deleteApiProviderButton?.addEventListener("click", () => call(methods, "confirmDeleteApiProvider", els.deleteApiProviderButton));
   els.cancelApiProviderEditButton?.addEventListener("click", () => call(methods, "cancelApiProviderEdit"));
   els.saveApiProviderEditButton?.addEventListener("click", () => call(methods, "saveApiProviderEdit"));

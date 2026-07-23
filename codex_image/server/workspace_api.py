@@ -1930,26 +1930,8 @@ def _available_providers(
     departments: DepartmentProviderRepository,
 ) -> list[dict[str, Any]]:
     catalog = {item.provider_version_id: item for item in providers.list_catalog(active_only=True)}
-    personal = {item.provider_version_id: item for item in providers.list_personal_credentials(session.user.user_id)}
     department = {item.provider_version_id: item for item in departments.list_credentials(active_only=True)}
     result: list[dict[str, Any]] = []
-    if session.user.role != "admin":
-        for provider_version_id, credential in personal.items():
-            catalog_item = catalog.get(provider_version_id)
-            if catalog_item is None or not credential.has_credential or not credential.is_active:
-                continue
-            personal_models = providers.list_generation_models(
-                provider_version_id=provider_version_id,
-                owner_user_id=session.user.user_id,
-            )
-            result.append(
-                _provider_item(
-                    catalog_item,
-                    scope="personal",
-                    credential=credential,
-                    models=[model for model in personal_models if model.get("is_enabled")],
-                )
-            )
     for provider_version_id, credential in department.items():
         catalog_item = catalog.get(provider_version_id)
         if catalog_item is None or not credential.has_credential or not credential.is_active:
@@ -2275,7 +2257,7 @@ def _save_department_api_settings(
     departments: DepartmentProviderRepository,
 ) -> None:
     actor_user_id = session.user.user_id
-    catalog = {item.provider_version_id: item for item in providers.list_catalog(active_only=True)}
+    catalog = {item.provider_version_id: item for item in providers.list_catalog(active_only=False)}
     for item in payload.get("providers", []):
         if not isinstance(item, dict):
             continue
@@ -2484,11 +2466,11 @@ def _api_settings(
     providers: ProviderRepository,
     departments: DepartmentProviderRepository,
 ) -> dict[str, object]:
-    catalog = providers.list_catalog(active_only=True)
+    is_admin = session.user.role == "admin"
+    catalog = providers.list_catalog(active_only=not is_admin)
     personal = {item.provider_version_id: item for item in providers.list_personal_credentials(session.user.user_id)}
     department = {item.provider_version_id: item for item in departments.list_credentials(active_only=False)}
     items: list[dict[str, Any]] = []
-    is_admin = session.user.role == "admin"
     if is_admin:
         for catalog_item in catalog:
             items.append(
@@ -2579,7 +2561,17 @@ def _api_settings(
         else:
             item["selected_generation_model_id"] = ""
             item["model_selection_reason"] = "no_models"
-    active = next((item["id"] for item in items if item.get("api_key_set")), items[0]["id"] if items else "")
+    active = next(
+        (
+            item["id"]
+            for item in items
+            if item.get("api_key_set") and item.get("is_active")
+        ),
+        next(
+            (item["id"] for item in items if item.get("is_active")),
+            items[0]["id"] if items else "",
+        ),
+    )
     return {
         "codex_mode": "images",
         "active_provider_id": active,
@@ -2611,6 +2603,7 @@ def _provider_item(
         "id": f"{scope}-{catalog_item.provider_version_id}",
         "provider_version_id": catalog_item.provider_version_id,
         "provider_key": catalog_item.provider_key,
+        "version_number": catalog_item.version_number,
         "provider_scope": scope,
         "name": f"{catalog_item.display_name} · {label}" if include_scope_label else catalog_item.display_name,
         "base_url": catalog_item.base_url,
@@ -2620,6 +2613,7 @@ def _provider_item(
         "images_concurrency": 1,
         "api_key_set": bool(credential and credential.has_credential and credential.is_active),
         "api_key_masked": str(getattr(credential, "api_key_mask", "") or ""),
+        "is_active": bool(catalog_item.is_active),
         "read_only": scope == "department" if read_only is None else read_only,
         "catalog_fields_read_only": catalog_fields_read_only,
     }

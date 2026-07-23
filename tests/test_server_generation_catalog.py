@@ -6,6 +6,7 @@ import unittest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
+from codex_image.server.department_providers import DepartmentProviderCredential
 from codex_image.server.identity import AuthenticatedSession, UserAccount
 from codex_image.server.providers import PersonalProviderCredential, ProviderVersion
 from codex_image.server.workspace_api import (
@@ -48,7 +49,7 @@ class _Providers:
         return [self.credential] if user_id == "user-1" else []
 
     def list_generation_models(self, *, provider_version_id: str, owner_user_id: str | None):
-        if provider_version_id != "provider-1" or owner_user_id != "user-1":
+        if provider_version_id != "provider-1" or owner_user_id not in {"user-1", None}:
             return []
         return [
             {
@@ -100,7 +101,19 @@ class _Providers:
 
 class _Departments:
     def list_credentials(self, *, active_only: bool):
-        return []
+        return [
+            DepartmentProviderCredential(
+                provider_version_id="provider-1",
+                provider_key="gemini",
+                version_number=1,
+                display_name="Gemini Team",
+                api_key_mask="••••team",
+                has_credential=True,
+                is_active=True,
+                provider_is_active=True,
+                updated_at=datetime.now(UTC).isoformat(),
+            )
+        ]
 
 
 class ServerGenerationCatalogTests(unittest.TestCase):
@@ -124,7 +137,8 @@ class ServerGenerationCatalogTests(unittest.TestCase):
             [item["id"] for item in payload["models"]],
             ["nano-banana-2", "legacy-model", "vendor/seedream-5-pro"],
         )
-        self.assertEqual(payload["providers"][0]["provider_scope"], "personal")
+        self.assertEqual(payload["providers"][0]["provider_scope"], "department")
+        self.assertTrue(all(item["provider_scope"] == "department" for item in payload["providers"]))
         self.assertFalse(payload["providers"][0]["builtin"])
         self.assertEqual(payload["codex"], {"available": False, "mode": "images"})
         self.assertEqual(len(payload["providers"][0]["bindings"]), 3)

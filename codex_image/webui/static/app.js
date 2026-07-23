@@ -90,6 +90,7 @@
     els44.copyApiProviderButton?.addEventListener("click", () => call(methods, "copyApiProvider"));
     els44.addApiProviderButton?.addEventListener("click", () => call(methods, "addApiProvider"));
     els44.sortApiProvidersButton?.addEventListener("click", () => call(methods, "toggleApiProviderSortMode"));
+    els44.toggleApiProviderStatusButton?.addEventListener("click", () => call(methods, "confirmToggleApiProviderStatus", els44.toggleApiProviderStatusButton));
     els44.deleteApiProviderButton?.addEventListener("click", () => call(methods, "confirmDeleteApiProvider", els44.deleteApiProviderButton));
     els44.cancelApiProviderEditButton?.addEventListener("click", () => call(methods, "cancelApiProviderEdit"));
     els44.saveApiProviderEditButton?.addEventListener("click", () => call(methods, "saveApiProviderEdit"));
@@ -266,6 +267,7 @@
       apiProviderDetailKey: document.querySelector("#apiProviderDetailKey"),
       apiProviderDetailMode: document.querySelector("#apiProviderDetailMode"),
       apiProviderDetailConcurrency: document.querySelector("#apiProviderDetailConcurrency"),
+      apiProviderDetailStatus: document.querySelector("#apiProviderDetailStatus"),
       apiProviderEditor: document.querySelector("#apiProviderEditor"),
       apiProviderEditorTitle: document.querySelector("#apiProviderEditorTitle"),
       apiProviderName: document.querySelector("#apiProviderName"),
@@ -274,6 +276,7 @@
       copyApiProviderButton: document.querySelector("#copyApiProviderButton"),
       addApiProviderButton: document.querySelector("#addApiProviderButton"),
       sortApiProvidersButton: document.querySelector("#sortApiProvidersButton"),
+      toggleApiProviderStatusButton: document.querySelector("#toggleApiProviderStatusButton"),
       deleteApiProviderButton: document.querySelector("#deleteApiProviderButton"),
       cancelApiProviderEditButton: document.querySelector("#cancelApiProviderEditButton"),
       saveApiProviderEditButton: document.querySelector("#saveApiProviderEditButton"),
@@ -1344,7 +1347,7 @@
     "systemSettings.usageTab": "Storage & usage",
     "systemSettings.usersTab": "User management",
     "systemSettings.catalogTab": "Provider catalog",
-    "systemSettings.departmentTab": "Department providers & quota",
+    "systemSettings.departmentTab": "Department quota",
     "systemSettings.sharedTab": "Shared assets & storage",
     "systemSettings.schedulerTab": "Task scheduling",
     "systemSettings.contentTab": "Read-only user content",
@@ -1370,13 +1373,13 @@
     "systemSettings.usersDescription": "Create accounts, reset passwords, and activate or deactivate users.",
     "systemSettings.newUsername": "New username",
     "systemSettings.createUser": "Create user",
-    "systemSettings.catalogDescription": "Manage provider versions, models, and availability for the department.",
+    "systemSettings.catalogDescription": "Manage provider versions, models, department API keys, availability, and model validation in one place.",
     "systemSettings.identifier": "Identifier",
     "systemSettings.name": "Name",
     "systemSettings.apiMode": "API mode",
     "systemSettings.modelsCsv": "Models (comma-separated)",
     "systemSettings.addVersion": "Add version",
-    "systemSettings.departmentDescription": "Configure department credentials, the default quota, and per-user quotas.",
+    "systemSettings.departmentDescription": "Configure the department total and per-user quotas. Provider credentials are managed in the provider catalog.",
     "systemSettings.departmentQuota": "Department period quota",
     "systemSettings.saveQuota": "Save quota",
     "systemSettings.providerCredentials": "Provider credentials",
@@ -1549,6 +1552,18 @@
     "apiSettings.actualRequest": "Actual request",
     "apiSettings.newProviderAction": "New provider",
     "apiSettings.copyProvider": "Copy",
+    "apiSettings.providerStatus": "Status",
+    "apiSettings.providerActive": "Enabled",
+    "apiSettings.providerInactive": "Disabled",
+    "apiSettings.enableProvider": "Enable",
+    "apiSettings.disableProvider": "Disable",
+    "apiSettings.enableProviderTitle": "Enable provider?",
+    "apiSettings.disableProviderTitle": "Disable provider?",
+    "apiSettings.enableProviderMessage": "Enabled department models with valid configuration will become available in the workspace.",
+    "apiSettings.disableProviderMessage": "This provider's department models will be removed from the workspace immediately.",
+    "apiSettings.providerEnabled": "Provider enabled",
+    "apiSettings.providerDisabled": "Provider disabled",
+    "apiSettings.providerStatusFailed": "Could not update provider status",
     "apiSettings.copyProviderName": "{name} Copy",
     "apiSettings.copyProviderStatus": "Provider copied with its saved key. Edit the name, model, or replace the key before saving.",
     "apiSettings.copyProviderWithoutKeyStatus": "Provider copied. Edit the name, model, or add an API key before saving.",
@@ -11883,7 +11898,7 @@
     "systemSettings.usageTab": "\u5B58\u50A8\u4E0E\u7528\u91CF",
     "systemSettings.usersTab": "\u7528\u6237\u7BA1\u7406",
     "systemSettings.catalogTab": "\u4F9B\u5E94\u5546\u76EE\u5F55",
-    "systemSettings.departmentTab": "\u90E8\u95E8\u4F9B\u5E94\u5546\u4E0E\u989D\u5EA6",
+    "systemSettings.departmentTab": "\u90E8\u95E8\u989D\u5EA6",
     "systemSettings.sharedTab": "\u5171\u4EAB\u8D44\u4EA7\u4E0E\u5B58\u50A8",
     "systemSettings.schedulerTab": "\u4EFB\u52A1\u8C03\u5EA6",
     "systemSettings.contentTab": "\u7528\u6237\u5185\u5BB9\u53EA\u8BFB\u67E5\u770B",
@@ -11909,13 +11924,13 @@
     "systemSettings.usersDescription": "\u521B\u5EFA\u8D26\u53F7\u3001\u91CD\u7F6E\u5BC6\u7801\u4EE5\u53CA\u542F\u7528\u6216\u505C\u7528\u7528\u6237\u3002",
     "systemSettings.newUsername": "\u65B0\u7528\u6237\u540D",
     "systemSettings.createUser": "\u521B\u5EFA\u7528\u6237",
-    "systemSettings.catalogDescription": "\u7EF4\u62A4\u90E8\u95E8\u53EF\u914D\u7F6E\u7684\u4F9B\u5E94\u5546\u7248\u672C\u3001\u6A21\u578B\u548C\u542F\u7528\u72B6\u6001\u3002",
+    "systemSettings.catalogDescription": "\u7EDF\u4E00\u7EF4\u62A4\u4F9B\u5E94\u5546\u7248\u672C\u3001\u6A21\u578B\u3001\u90E8\u95E8 API Key\u3001\u542F\u505C\u72B6\u6001\u548C\u6A21\u578B\u9A8C\u8BC1\u3002",
     "systemSettings.identifier": "\u6807\u8BC6",
     "systemSettings.name": "\u540D\u79F0",
     "systemSettings.apiMode": "API \u6A21\u5F0F",
     "systemSettings.modelsCsv": "\u6A21\u578B\uFF08\u9017\u53F7\u5206\u9694\uFF09",
     "systemSettings.addVersion": "\u65B0\u589E\u7248\u672C",
-    "systemSettings.departmentDescription": "\u914D\u7F6E\u90E8\u95E8\u7EA7\u51ED\u636E\u3001\u9ED8\u8BA4\u989D\u5EA6\u548C\u7528\u6237\u989D\u5EA6\u3002",
+    "systemSettings.departmentDescription": "\u914D\u7F6E\u90E8\u95E8\u603B\u989D\u5EA6\u548C\u7528\u6237\u989D\u5EA6\uFF0C\u4F9B\u5E94\u5546\u51ED\u636E\u7EDF\u4E00\u5728\u4F9B\u5E94\u5546\u76EE\u5F55\u4E2D\u7EF4\u62A4\u3002",
     "systemSettings.departmentQuota": "\u90E8\u95E8\u5468\u671F\u603B\u989D\u5EA6",
     "systemSettings.saveQuota": "\u4FDD\u5B58\u989D\u5EA6",
     "systemSettings.providerCredentials": "\u4F9B\u5E94\u5546\u51ED\u636E",
@@ -12088,6 +12103,18 @@
     "apiSettings.actualRequest": "\u5B9E\u9645\u8BF7\u6C42",
     "apiSettings.newProviderAction": "\u65B0\u5EFA\u4F9B\u5E94\u5546",
     "apiSettings.copyProvider": "\u590D\u5236",
+    "apiSettings.providerStatus": "\u72B6\u6001",
+    "apiSettings.providerActive": "\u5DF2\u542F\u7528",
+    "apiSettings.providerInactive": "\u5DF2\u505C\u7528",
+    "apiSettings.enableProvider": "\u542F\u7528",
+    "apiSettings.disableProvider": "\u505C\u7528",
+    "apiSettings.enableProviderTitle": "\u542F\u7528\u4F9B\u5E94\u5546\uFF1F",
+    "apiSettings.disableProviderTitle": "\u505C\u7528\u4F9B\u5E94\u5546\uFF1F",
+    "apiSettings.enableProviderMessage": "\u542F\u7528\u540E\uFF0C\u914D\u7F6E\u6709\u6548\u7684\u90E8\u95E8\u6A21\u578B\u53EF\u5728\u5DE5\u4F5C\u53F0\u4F7F\u7528\u3002",
+    "apiSettings.disableProviderMessage": "\u505C\u7528\u540E\uFF0C\u8BE5\u4F9B\u5E94\u5546\u7684\u90E8\u95E8\u6A21\u578B\u5C06\u7ACB\u5373\u4ECE\u5DE5\u4F5C\u53F0\u79FB\u9664\u3002",
+    "apiSettings.providerEnabled": "\u4F9B\u5E94\u5546\u5DF2\u542F\u7528",
+    "apiSettings.providerDisabled": "\u4F9B\u5E94\u5546\u5DF2\u505C\u7528",
+    "apiSettings.providerStatusFailed": "\u66F4\u65B0\u4F9B\u5E94\u5546\u72B6\u6001\u5931\u8D25",
     "apiSettings.copyProviderName": "{name} \u526F\u672C",
     "apiSettings.copyProviderStatus": "\u5DF2\u590D\u5236\u914D\u7F6E\u548C\u5DF2\u4FDD\u5B58 Key\uFF0C\u53EF\u4FEE\u6539\u540D\u79F0\u3001\u6A21\u578B\u6216\u66FF\u6362 Key \u540E\u4FDD\u5B58",
     "apiSettings.copyProviderWithoutKeyStatus": "\u5DF2\u590D\u5236\u914D\u7F6E\uFF0C\u53EF\u4FEE\u6539\u540D\u79F0\u3001\u6A21\u578B\u6216\u586B\u5199 API Key \u540E\u4FDD\u5B58",
@@ -31407,6 +31434,9 @@ ${hint}` : hint;
     setText("#serverAccountMenuRole", role);
     setText("#systemSettingsAccountRole", role);
     setText("#settingsAccountRole", role);
+    const providerSettingsButton = document.querySelector("#generationProviderSettingsButton");
+    providerSettingsButton?.classList.toggle("hidden", currentUser.role !== "admin");
+    providerSettingsButton?.toggleAttribute("hidden", currentUser.role !== "admin");
     setText("#serverAccountAvatar", avatar);
     setText("#serverAccountMenuAvatar", avatar);
     setText("#systemSettingsAccountAvatar", avatar);
@@ -32855,7 +32885,7 @@ ${hint}` : hint;
   var pendingUrlTab = "";
   var dirtyOwners = /* @__PURE__ */ new Set();
   var hasLooseDirtyInput = false;
-  var PERSONAL_TABS = /* @__PURE__ */ new Set(["account", "language", "api", "notifications", "usage"]);
+  var PERSONAL_TABS = /* @__PURE__ */ new Set(["account", "language", "notifications", "usage"]);
   var ADMIN_TABS = /* @__PURE__ */ new Set(["users", "catalog", "department", "shared", "scheduler", "content", "audit"]);
   var VALID_TABS = /* @__PURE__ */ new Set([...PERSONAL_TABS, ...ADMIN_TABS]);
   var LAST_TAB_KEY = "codex-image-system-settings-tab";
@@ -32957,9 +32987,9 @@ ${hint}` : hint;
     if (options.updateUrl !== false && !shell()?.classList.contains("hidden")) {
       updateSettingsUrl(true, options.historyMode || (selected === previousTab ? "replace" : "push"));
     }
-    if (options.refresh !== false && selected === "api") {
+    if (options.refresh !== false && selected === "catalog") {
       maybeCall("setApiSettingsFeedback", "", "");
-      maybeCall("populateApiSettingsForm");
+      maybeCall("refreshApiSettings");
       maybeCall("updateModeSpecificSettings");
     }
     document.dispatchEvent(new CustomEvent("codex-image-settings-tab-change", { detail: { tab: selected } }));
@@ -33139,7 +33169,7 @@ ${hint}` : hint;
     renderProviderSelection();
   }
   function settingsTabForProvider(_providerId) {
-    return "api";
+    return "catalog";
   }
   function optionLabel(entry) {
     return entry.binding.display_name || entry.provider.name;
@@ -35398,6 +35428,7 @@ ${hint}` : hint;
       id,
       provider_version_id: String(provider.provider_version_id || "").trim(),
       provider_key: String(provider.provider_key || "").trim(),
+      version_number: Number.parseInt(String(provider.version_number || "0"), 10) || 0,
       provider_scope: provider.provider_scope === "department" ? "department" : "personal",
       name: String(provider.name || (id === "default" ? "Default" : `Provider ${index + 1}`)).trim() || id,
       base_url: String(provider.base_url || DEFAULT_API_BASE_URL).trim() || DEFAULT_API_BASE_URL,
@@ -35407,6 +35438,7 @@ ${hint}` : hint;
       images_concurrency: concurrency,
       api_key_set: Boolean(provider.api_key_set || provider.api_key),
       api_key_masked: String(provider.api_key_masked || ""),
+      is_active: provider.is_active !== false,
       api_key_source_provider_id: String(provider.api_key_source_provider_id || "").trim(),
       models,
       selected_generation_model_id: String(provider.selected_generation_model_id || "").trim(),
@@ -35518,6 +35550,8 @@ ${hint}` : hint;
   }
   function providerMetaLabel(provider) {
     return [
+      provider?.version_number ? `v${provider.version_number}` : "",
+      translate(provider?.is_active === false ? "apiSettings.providerInactive" : "apiSettings.providerActive"),
       `${provider?.bindings?.length || 0} \xB7 ${translate("apiSettings.modelBindings")}`,
       formatTranslation("apiSettings.concurrencyValue", {
         concurrency: String(normalizeApiImagesConcurrency(provider?.concurrency ?? provider?.images_concurrency))
@@ -35598,6 +35632,9 @@ ${hint}` : hint;
     if (els10.addApiProviderButton) els10.addApiProviderButton.disabled = visible || !allowCatalogManagement;
     if (els10.copyApiProviderButton) els10.copyApiProviderButton.disabled = visible || !allowCatalogManagement;
     if (els10.sortApiProvidersButton) els10.sortApiProvidersButton.disabled = visible || !allowCatalogManagement;
+    if (els10.toggleApiProviderStatusButton) {
+      els10.toggleApiProviderStatusButton.disabled = visible || !activeApiProvider().provider_version_id;
+    }
     if (els10.deleteApiProviderButton) {
       els10.deleteApiProviderButton.disabled = visible || normalizeApiSettings(state9.apiSettings).providers.length <= 1;
     }
@@ -35980,6 +36017,7 @@ ${hint}` : hint;
   }
   function renderApiProviderDetail() {
     const provider = activeApiProvider();
+    const providerActive = provider.is_active !== false;
     setElementText(els10.apiProviderDetailBaseUrl, provider.base_url || DEFAULT_API_BASE_URL);
     setElementText(els10.apiProviderDetailKey, providerKeyLabel(provider));
     setElementText(
@@ -35987,8 +36025,14 @@ ${hint}` : hint;
       `${provider.bindings?.length || 0} \xB7 ${translate("apiSettings.modelBindings")}`
     );
     setElementText(els10.apiProviderDetailConcurrency, normalizeApiImagesConcurrency(provider.concurrency ?? provider.images_concurrency));
+    setElementText(els10.apiProviderDetailStatus, translate(providerActive ? "apiSettings.providerActive" : "apiSettings.providerInactive"));
     if (els10.editApiProviderButton) els10.editApiProviderButton.disabled = Boolean(provider.read_only);
     els10.copyApiProviderButton?.classList.toggle("hidden", !state9.apiSettings.allow_new_provider);
+    if (els10.toggleApiProviderStatusButton) {
+      els10.toggleApiProviderStatusButton.textContent = translate(providerActive ? "apiSettings.disableProvider" : "apiSettings.enableProvider");
+      els10.toggleApiProviderStatusButton.classList.toggle("danger-button", providerActive);
+      els10.toggleApiProviderStatusButton.disabled = !provider.provider_version_id;
+    }
     const isServerWorkspace = Boolean(document.documentElement.dataset.userRole);
     els10.deleteApiProviderButton?.classList.toggle("hidden", isServerWorkspace || !state9.apiSettings.allow_new_provider);
   }
@@ -36250,7 +36294,53 @@ ${hint}` : hint;
       onConfirm: () => deleteApiProvider()
     });
   }
+  async function toggleApiProviderStatus() {
+    const provider = activeApiProvider();
+    if (document.documentElement.dataset.userRole !== "admin" || !provider.provider_version_id) return;
+    const nextActive = provider.is_active === false;
+    if (els10.toggleApiProviderStatusButton) els10.toggleApiProviderStatusButton.disabled = true;
+    setApiSettingsFeedback(translate(nextActive ? "apiSettings.enableProvider" : "apiSettings.disableProvider"), "running");
+    try {
+      const response = await fetch(
+        `/api/admin/provider-catalog/${encodeURIComponent(provider.provider_version_id)}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": getCsrfToken()
+          },
+          body: JSON.stringify({ is_active: nextActive })
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || translate("apiSettings.providerStatusFailed"));
+      await refreshApiSettings();
+      await refreshGenerationCatalog();
+      await refreshHealth();
+      setApiSettingsFeedback(translate(nextActive ? "apiSettings.providerEnabled" : "apiSettings.providerDisabled"), "ok");
+    } catch (error) {
+      setApiSettingsFeedback(error.message || translate("apiSettings.providerStatusFailed"), "error");
+      renderApiProviderDetail();
+    }
+  }
+  function confirmToggleApiProviderStatus(anchor = els10.toggleApiProviderStatusButton) {
+    if (apiProviderEditorActive()) {
+      setApiSettingsFeedback(translate("apiSettings.finishEditFirst"), "error");
+      return;
+    }
+    const provider = activeApiProvider();
+    if (!provider.provider_version_id) return;
+    const nextActive = provider.is_active === false;
+    openConfirmPopover4(anchor || els10.toggleApiProviderStatusButton, {
+      title: translate(nextActive ? "apiSettings.enableProviderTitle" : "apiSettings.disableProviderTitle"),
+      message: translate(nextActive ? "apiSettings.enableProviderMessage" : "apiSettings.disableProviderMessage"),
+      detail: `${provider.name || provider.id}${provider.version_number ? ` \xB7 v${provider.version_number}` : ""}`,
+      confirmText: translate(nextActive ? "apiSettings.enableProvider" : "apiSettings.disableProvider"),
+      onConfirm: toggleApiProviderStatus
+    });
+  }
   function openApiSettingsModal() {
+    if (document.documentElement.dataset.userRole !== "admin") return;
     closePromptPopover2();
     state9.apiProviderEditingId = null;
     state9.apiProviderDraft = null;
@@ -36258,7 +36348,7 @@ ${hint}` : hint;
     if (els10.apiProviderSearch) els10.apiProviderSearch.value = "";
     populateApiSettingsForm();
     setApiSettingsFeedback("", "");
-    openSystemSettingsModal("api");
+    openSystemSettingsModal("catalog");
     scrollActiveApiProviderCardIntoView(activeApiProvider().id, "center");
   }
   function openGenerationProviderSettings() {
@@ -36835,6 +36925,7 @@ ${hint}` : hint;
       currentApiProviderLabel: currentApiProviderLabel2,
       addApiProvider,
       confirmDeleteApiProvider,
+      confirmToggleApiProviderStatus,
       copyApiProvider,
       deleteApiProvider,
       editApiProvider,
@@ -51293,69 +51384,11 @@ ${fmtBytes(version.byte_size)}`));
     node.textContent = value;
     node.classList.remove("hidden");
   }
-  function providerTitle(provider) {
-    return `${provider.display_name} \xB7 v${provider.version_number}`;
-  }
-  function providerModels(provider) {
-    return (provider.models || []).map((model) => model.model_id).join("\u3001") || translate("serverSettings.noModels");
-  }
-  async function loadCatalog() {
-    const result = await api("/api/admin/provider-catalog");
-    const rows = (result.providers || []).map((provider) => {
-      const rowActions = actions();
-      rowActions.append(actionButton(translate(provider.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
-        if (!window.confirm(formatTranslation(provider.is_active ? "serverSettings.confirmDeactivateProvider" : "serverSettings.confirmReactivateProvider", { provider: providerTitle(provider) }))) return;
-        await api(`/api/admin/provider-catalog/${encodeURIComponent(provider.provider_version_id)}/status`, {
-          method: "PATCH",
-          ...jsonOptions({ is_active: !provider.is_active })
-        });
-        await loadCatalog();
-      }, provider.is_active));
-      return listRow(providerTitle(provider), `${provider.provider_key} \xB7 ${provider.api_mode} \xB7 ${translate(provider.is_active ? "serverSettings.available" : "serverSettings.inactive")} \xB7 ${providerModels(provider)}`, rowActions);
-    });
-    replace("#settingsCatalogList", ...rows);
-  }
   async function loadDepartment() {
     if (!managedUsers.length) await loadUsers();
-    const [catalogResult, configuredResult, quotaResult] = await Promise.all([
-      api("/api/admin/provider-catalog"),
-      api("/api/admin/providers/department"),
-      api("/api/quotas/department")
-    ]);
+    const quotaResult = await api("/api/quotas/department");
     const quotaInput = document.querySelector("#settingsDepartmentQuotaForm [name=quota_units]");
     if (quotaInput) quotaInput.value = String(quotaResult.quota?.global_quota_units ?? 0);
-    const configured = new Map((configuredResult.providers || []).map((item) => [item.provider_version_id, item]));
-    const providerRows = (catalogResult.providers || []).map((provider) => {
-      const credential = configured.get(provider.provider_version_id);
-      const rowActions = actions();
-      const key = document.createElement("input");
-      key.className = "control";
-      key.type = "password";
-      key.autocomplete = "new-password";
-      key.dataset.settingsDraftKey = `department-credential:${provider.provider_version_id}`;
-      key.placeholder = credential?.api_key_mask || translate("serverSettings.departmentApiKeyPlaceholder");
-      key.addEventListener("input", () => markSystemSettingsDirty(key));
-      rowActions.append(key, actionButton(translate("serverSettings.saveCredential"), async () => {
-        if (!key.value) throw new Error(translate("serverSettings.enterApiKey"));
-        await api(`/api/admin/providers/department/${encodeURIComponent(provider.provider_version_id)}`, {
-          method: "PUT",
-          ...jsonOptions({ api_key: key.value })
-        });
-        key.value = "";
-        clearSystemSettingsDirty(key);
-        await loadDepartment();
-      }));
-      if (credential?.has_credential) rowActions.append(actionButton(translate(credential.is_active ? "serverSettings.deactivate" : "serverSettings.reactivate"), async () => {
-        if (!window.confirm(translate(credential.is_active ? "serverSettings.confirmDeactivateCredential" : "serverSettings.confirmReactivateCredential"))) return;
-        await api(`/api/admin/providers/department/${encodeURIComponent(provider.provider_version_id)}/status`, {
-          method: "PATCH",
-          ...jsonOptions({ is_active: !credential.is_active })
-        });
-        await loadDepartment();
-      }, credential.is_active));
-      return listRow(providerTitle(provider), `${translate(credential?.has_credential ? "serverSettings.configured" : "serverSettings.notConfigured")} \xB7 ${translate(provider.is_active ? "serverSettings.catalogAvailable" : "serverSettings.catalogInactive")}`, rowActions);
-    });
-    replacePreservingDynamicDrafts("#settingsDepartmentProviderList", ...providerRows);
     const ordinaryUsers = managedUsers.filter((user) => user.role === "user");
     const usageResults = await Promise.all(ordinaryUsers.map((user) => userUsage(user.user_id)));
     const quotaRows = ordinaryUsers.map((user, index) => {
@@ -51522,7 +51555,6 @@ ${fmtBytes(version.byte_size)}`));
     account: loadSessions,
     usage: loadUsage,
     users: loadUsers,
-    catalog: loadCatalog,
     department: loadDepartment,
     shared: loadShared,
     scheduler: loadScheduler,
@@ -51567,20 +51599,6 @@ ${fmtBytes(version.byte_size)}`));
         form.reset();
         clearSystemSettingsDirty(form);
         await loadUsers();
-      } catch (error) {
-        reportError(error);
-      }
-    });
-    document.querySelector("#settingsCatalogForm")?.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      const data = new FormData(form);
-      const models = String(data.get("models") || "").split(",").map((item) => item.trim()).filter(Boolean).map((model_id) => ({ model_id, capabilities: ["image_generation"] }));
-      try {
-        await api("/api/admin/provider-catalog", { method: "POST", ...jsonOptions({ provider_key: data.get("provider_key"), display_name: data.get("display_name"), base_url: data.get("base_url"), api_mode: data.get("api_mode"), models, parameter_constraints: {} }) });
-        form.reset();
-        clearSystemSettingsDirty(form);
-        await loadCatalog();
       } catch (error) {
         reportError(error);
       }

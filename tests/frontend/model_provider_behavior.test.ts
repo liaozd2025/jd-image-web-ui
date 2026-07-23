@@ -219,10 +219,10 @@ test("resolveProviderId uses last, then backend default, then first", () => {
   assert.equal(resolveProviderId([], "first", "default"), null);
 });
 
-test("provider settings route all providers to API settings", () => {
-  assert.equal(settingsTabForProvider("codex"), "api");
-  assert.equal(settingsTabForProvider("default"), "api");
-  assert.equal(settingsTabForProvider(null), "api");
+test("provider settings route all providers to the admin catalog", () => {
+  assert.equal(settingsTabForProvider("codex"), "catalog");
+  assert.equal(settingsTabForProvider("default"), "catalog");
+  assert.equal(settingsTabForProvider(null), "catalog");
 });
 
 test("concrete model selection expands only when a family has multiple choices", () => {

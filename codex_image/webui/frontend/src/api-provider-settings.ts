@@ -105,6 +105,7 @@ export function normalizeApiProvider(provider: any = {}, index: any = 0): any {
     id,
     provider_version_id: String(provider.provider_version_id || "").trim(),
     provider_key: String(provider.provider_key || "").trim(),
+    version_number: Number.parseInt(String(provider.version_number || "0"), 10) || 0,
     provider_scope: provider.provider_scope === "department" ? "department" : "personal",
     name: String(provider.name || (id === "default" ? "Default" : `Provider ${index + 1}`)).trim() || id,
     base_url: String(provider.base_url || DEFAULT_API_BASE_URL).trim() || DEFAULT_API_BASE_URL,
@@ -114,6 +115,7 @@ export function normalizeApiProvider(provider: any = {}, index: any = 0): any {
     images_concurrency: concurrency,
     api_key_set: Boolean(provider.api_key_set || provider.api_key),
     api_key_masked: String(provider.api_key_masked || ""),
+    is_active: provider.is_active !== false,
     api_key_source_provider_id: String(provider.api_key_source_provider_id || "").trim(),
     models,
     selected_generation_model_id: String(provider.selected_generation_model_id || "").trim(),
@@ -252,6 +254,8 @@ function providerKeyLabel(provider: any): string {
 
 function providerMetaLabel(provider: any): string {
   return [
+    provider?.version_number ? `v${provider.version_number}` : "",
+    translate(provider?.is_active === false ? "apiSettings.providerInactive" : "apiSettings.providerActive"),
     `${provider?.bindings?.length || 0} · ${translate("apiSettings.modelBindings")}`,
     formatTranslation("apiSettings.concurrencyValue", {
       concurrency: String(normalizeApiImagesConcurrency(provider?.concurrency ?? provider?.images_concurrency)),
@@ -346,6 +350,9 @@ function setApiProviderEditorVisible(visible: boolean): void {
   if (els.addApiProviderButton) els.addApiProviderButton.disabled = visible || !allowCatalogManagement;
   if (els.copyApiProviderButton) els.copyApiProviderButton.disabled = visible || !allowCatalogManagement;
   if (els.sortApiProvidersButton) els.sortApiProvidersButton.disabled = visible || !allowCatalogManagement;
+  if (els.toggleApiProviderStatusButton) {
+    els.toggleApiProviderStatusButton.disabled = visible || !activeApiProvider().provider_version_id;
+  }
   if (els.deleteApiProviderButton) {
     els.deleteApiProviderButton.disabled = visible || normalizeApiSettings(state.apiSettings).providers.length <= 1;
   }
@@ -756,6 +763,7 @@ export function renderApiProviderList(): void {
 
 function renderApiProviderDetail(): void {
   const provider = activeApiProvider();
+  const providerActive = provider.is_active !== false;
   setElementText(els.apiProviderDetailBaseUrl, provider.base_url || DEFAULT_API_BASE_URL);
   setElementText(els.apiProviderDetailKey, providerKeyLabel(provider));
   setElementText(
@@ -763,8 +771,14 @@ function renderApiProviderDetail(): void {
     `${provider.bindings?.length || 0} · ${translate("apiSettings.modelBindings")}`,
   );
   setElementText(els.apiProviderDetailConcurrency, normalizeApiImagesConcurrency(provider.concurrency ?? provider.images_concurrency));
+  setElementText(els.apiProviderDetailStatus, translate(providerActive ? "apiSettings.providerActive" : "apiSettings.providerInactive"));
   if (els.editApiProviderButton) els.editApiProviderButton.disabled = Boolean(provider.read_only);
   els.copyApiProviderButton?.classList.toggle("hidden", !state.apiSettings.allow_new_provider);
+  if (els.toggleApiProviderStatusButton) {
+    els.toggleApiProviderStatusButton.textContent = translate(providerActive ? "apiSettings.disableProvider" : "apiSettings.enableProvider");
+    els.toggleApiProviderStatusButton.classList.toggle("danger-button", providerActive);
+    els.toggleApiProviderStatusButton.disabled = !provider.provider_version_id;
+  }
   const isServerWorkspace = Boolean(document.documentElement.dataset.userRole);
   els.deleteApiProviderButton?.classList.toggle("hidden", isServerWorkspace || !state.apiSettings.allow_new_provider);
 }
@@ -1048,7 +1062,55 @@ export function confirmDeleteApiProvider(anchor: any = els.deleteApiProviderButt
   });
 }
 
+async function toggleApiProviderStatus(): Promise<void> {
+  const provider = activeApiProvider();
+  if (document.documentElement.dataset.userRole !== "admin" || !provider.provider_version_id) return;
+  const nextActive = provider.is_active === false;
+  if (els.toggleApiProviderStatusButton) els.toggleApiProviderStatusButton.disabled = true;
+  setApiSettingsFeedback(translate(nextActive ? "apiSettings.enableProvider" : "apiSettings.disableProvider"), "running");
+  try {
+    const response = await fetch(
+      `/api/admin/provider-catalog/${encodeURIComponent(provider.provider_version_id)}/status`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": getCsrfToken(),
+        },
+        body: JSON.stringify({ is_active: nextActive }),
+      },
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail || translate("apiSettings.providerStatusFailed"));
+    await refreshApiSettings();
+    await refreshGenerationCatalog();
+    await refreshHealth();
+    setApiSettingsFeedback(translate(nextActive ? "apiSettings.providerEnabled" : "apiSettings.providerDisabled"), "ok");
+  } catch (error: any) {
+    setApiSettingsFeedback(error.message || translate("apiSettings.providerStatusFailed"), "error");
+    renderApiProviderDetail();
+  }
+}
+
+export function confirmToggleApiProviderStatus(anchor: any = els.toggleApiProviderStatusButton): void {
+  if (apiProviderEditorActive()) {
+    setApiSettingsFeedback(translate("apiSettings.finishEditFirst"), "error");
+    return;
+  }
+  const provider = activeApiProvider();
+  if (!provider.provider_version_id) return;
+  const nextActive = provider.is_active === false;
+  openConfirmPopover(anchor || els.toggleApiProviderStatusButton, {
+    title: translate(nextActive ? "apiSettings.enableProviderTitle" : "apiSettings.disableProviderTitle"),
+    message: translate(nextActive ? "apiSettings.enableProviderMessage" : "apiSettings.disableProviderMessage"),
+    detail: `${provider.name || provider.id}${provider.version_number ? ` · v${provider.version_number}` : ""}`,
+    confirmText: translate(nextActive ? "apiSettings.enableProvider" : "apiSettings.disableProvider"),
+    onConfirm: toggleApiProviderStatus,
+  });
+}
+
 export function openApiSettingsModal(): void {
+  if (document.documentElement.dataset.userRole !== "admin") return;
   closePromptPopover();
   state.apiProviderEditingId = null;
   state.apiProviderDraft = null;
@@ -1056,7 +1118,7 @@ export function openApiSettingsModal(): void {
   if (els.apiProviderSearch) els.apiProviderSearch.value = "";
   populateApiSettingsForm();
   setApiSettingsFeedback("", "");
-  openSystemSettingsModal("api");
+  openSystemSettingsModal("catalog");
   scrollActiveApiProviderCardIntoView(activeApiProvider().id, "center");
 }
 

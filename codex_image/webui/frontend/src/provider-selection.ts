@@ -134,8 +134,8 @@ export function syncCodexCatalogMode(mode: "images" | "responses"): void {
   renderProviderSelection();
 }
 
-export function settingsTabForProvider(_providerId: string | null | undefined): "api" {
-  return "api";
+export function settingsTabForProvider(_providerId: string | null | undefined): "catalog" {
+  return "catalog";
 }
 
 function optionLabel(entry: EligibleProviderBinding): string {
