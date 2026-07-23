@@ -1994,8 +1994,9 @@ def _legacy_parameter_payload(
     step: int | None = None,
     visible_when: list[dict[str, object]] | None = None,
     full_width: bool = False,
+    size_constraints: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    return {
+    payload = {
         "id": parameter_id,
         "label_key": label_key,
         "group": group,
@@ -2013,6 +2014,9 @@ def _legacy_parameter_payload(
         "object_choices": [],
         "object_presets": [],
     }
+    if size_constraints is not None:
+        payload["size_constraints"] = size_constraints
+    return payload
 
 
 def _legacy_catalog_model_payload(model: dict[str, object]) -> dict[str, object]:
@@ -2033,9 +2037,14 @@ def _legacy_catalog_model_payload(model: dict[str, object]) -> dict[str, object]
                 profile.get("default_size")
                 or (sizes[0] if sizes else "1024x1024")
             ),
-            allowed_values=[] if profile.get("custom_size") else sizes,
+            allowed_values=sizes,
             operations=operations,
             full_width=True,
+            size_constraints=(
+                dict(profile.get("size_constraints") or {})
+                if profile.get("custom_size")
+                else None
+            ),
         ),
         _legacy_parameter_payload(
             parameter_id="output.format",

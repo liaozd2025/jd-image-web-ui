@@ -32,23 +32,41 @@ function cloneValue(value: unknown): unknown {
   return value;
 }
 
-function gptSizeValid(value: unknown): boolean {
+function customCanvasSizeValid(
+  value: unknown,
+  constraints?: CatalogParameterDefinition["size_constraints"],
+): boolean {
   if (typeof value !== "string") return false;
   const match = value.match(/^(\d+)x(\d+)$/i);
   if (!match) return false;
   const width = Number(match[1]);
   const height = Number(match[2]);
   if (!Number.isInteger(width) || !Number.isInteger(height)) return false;
-  if (width < 16 || width > 3840 || height < 16 || height > 3840) return false;
-  if (width % 16 !== 0 || height % 16 !== 0) return false;
-  if (Math.max(width, height) / Math.min(width, height) > 3) return false;
+  const minimumDimension = Number(constraints?.min_dimension ?? 16);
+  const maximumDimension = Number(constraints?.max_dimension ?? 3840);
+  const multipleOf = Number(constraints?.multiple_of ?? (constraints ? 1 : 16));
+  const minimumAspectRatio = Number(constraints?.min_aspect_ratio ?? (1 / 3));
+  const maximumAspectRatio = Number(constraints?.max_aspect_ratio ?? 3);
+  if (
+    width < minimumDimension
+    || width > maximumDimension
+    || height < minimumDimension
+    || height > maximumDimension
+  ) return false;
+  if (multipleOf > 1 && (width % multipleOf !== 0 || height % multipleOf !== 0)) return false;
+  const aspectRatio = width / height;
+  if (aspectRatio < minimumAspectRatio || aspectRatio > maximumAspectRatio) return false;
   const pixels = width * height;
-  return pixels >= 655360 && pixels <= 8294400;
+  return pixels >= Number(constraints?.min_pixels ?? 655360)
+    && pixels <= Number(constraints?.max_pixels ?? Number.MAX_SAFE_INTEGER);
 }
 
 export function parameterValueValid(definition: CatalogParameterDefinition, value: unknown): boolean {
-  if (definition.id === "canvas.size" && definition.allowed_values.length === 0) {
-    return gptSizeValid(value);
+  if (definition.id === "canvas.size") {
+    if (definition.allowed_values.includes(value)) return true;
+    if (definition.size_constraints || definition.allowed_values.length === 0) {
+      return customCanvasSizeValid(value, definition.size_constraints);
+    }
   }
   const typeValid = definition.value_type === "string" ? typeof value === "string"
     : definition.value_type === "integer" ? typeof value === "number" && Number.isInteger(value)

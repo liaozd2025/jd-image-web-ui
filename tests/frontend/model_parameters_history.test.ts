@@ -101,6 +101,41 @@ test("draft initialization preserves valid values, defaults invalid values, and 
   });
 });
 
+test("Seedream Lite defaults a stale 1K canvas size to its 2K minimum", () => {
+  const seedreamLite = {
+    ...model,
+    id: "doubao-seedream-5-0-260128",
+    family_id: "seedream-image",
+    parameters: [
+      {
+        ...parameters[0],
+        id: "canvas.size",
+        default: "2048x2048",
+        allowed_values: [],
+        size_constraints: {
+          min_dimension: 512,
+          max_dimension: 4096,
+          min_pixels: 3_686_400,
+          min_aspect_ratio: 1 / 3,
+          max_aspect_ratio: 3,
+        },
+      },
+    ],
+  } as any;
+
+  assert.deepEqual(initializeParameterDraft(seedreamLite, {
+    "canvas.size": "1024x1024",
+  }), {
+    values: { "canvas.size": "2048x2048" },
+    defaulted: [{
+      id: "canvas.size",
+      previous: "1024x1024",
+      replacement: "2048x2048",
+    }],
+    dropped: [],
+  });
+});
+
 test("parameter migration feedback skips clean reports and summarizes adjusted legacy values", () => {
   const notices: string[] = [];
   const { restore } = installBridge();

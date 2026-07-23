@@ -1,7 +1,7 @@
 import type { CatalogModel, CatalogParameterDefinition, GenerationOperation } from "./types";
 import { selectedProviderBinding } from "./provider-selection";
 import { getLegacyBridge } from "./state";
-import { renderCurrentModelParameters } from "./model-parameters";
+import { parameterValueValid, renderCurrentModelParameters } from "./model-parameters";
 import { usesLegacyWorkspaceControls } from "./workspace-model-compatibility";
 
 function cloneValue(value: unknown): unknown {
@@ -42,26 +42,6 @@ function conditionMatches(
   if (condition.operator === "equals") return actual === condition.value;
   if (condition.operator === "not_equals") return actual !== condition.value;
   return Array.isArray(condition.value) && condition.value.includes(actual);
-}
-
-function parameterValueValid(parameter: CatalogParameterDefinition, value: unknown): boolean {
-  const typeValid = parameter.value_type === "string" ? typeof value === "string"
-    : parameter.value_type === "integer" ? typeof value === "number" && Number.isInteger(value)
-      : parameter.value_type === "boolean" ? typeof value === "boolean"
-        : parameter.value_type === "object" ? Boolean(value) && typeof value === "object" && !Array.isArray(value)
-          : false;
-  if (!typeValid) return false;
-  if (parameter.allowed_values.length && !parameter.allowed_values.includes(value)) return false;
-  if (typeof value === "number") {
-    if (parameter.minimum !== null && value < parameter.minimum) return false;
-    if (parameter.maximum !== null && value > parameter.maximum) return false;
-    if (parameter.step !== null) {
-      const base = parameter.minimum ?? 0;
-      const quotient = (value - base) / parameter.step;
-      if (Math.abs(quotient - Math.round(quotient)) > 1e-9) return false;
-    }
-  }
-  return true;
 }
 
 export function migratePortableModelDraft(

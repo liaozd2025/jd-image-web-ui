@@ -68,9 +68,107 @@ class ModelCapabilityProfileTests(unittest.TestCase):
         )
         self.assertEqual(accepted["size"], "2048x2048")
 
+    def test_seedream_lite_catalog_exposes_its_compound_size_constraints(self) -> None:
+        from codex_image.server.workspace_api import _legacy_catalog_model_payload
+
+        catalog_model = _legacy_catalog_model_payload(
+            {
+                "display_name": "Seedream 5.0 Lite",
+                "model_id": "doubao-seedream-5-0-260128",
+                "canonical_model_id": "doubao-seedream-5-0-260128",
+                "capability_profile_id": "seedream-5-lite",
+                "capability_profile_version": 1,
+                "model_family_id": "seedream-image",
+            }
+        )
+        size = next(
+            item
+            for item in catalog_model["parameters"]
+            if item["id"] == "canvas.size"
+        )
+
+        self.assertEqual(size["default"], "2048x2048")
+        self.assertEqual(size["size_constraints"]["min_pixels"], 3_686_400)
+
 
 @unittest.skipUnless(TEST_DATABASE_URL, "set JD_IMAGE_TEST_DATABASE_URL to a real PostgreSQL database")
 class ServerModelCapabilityContractTests(unittest.TestCase):
+    def test_seedream_lite_migration_replaces_stale_1k_user_preference(self) -> None:
+        from codex_image.server.database import PostgresConnections
+        from codex_image.server.migrations import MigrationRunner
+
+        with temporary_postgres_database(TEST_DATABASE_URL) as database_url:
+            connections = PostgresConnections(database_url, connect_timeout_seconds=5)
+            runner = MigrationRunner(connections)
+            runner.apply()
+            with psycopg.connect(database_url) as connection:
+                connection.execute(
+                    """
+                    INSERT INTO server_users (
+                        user_id, username, normalized_username, role, password_hash
+                    ) VALUES ('seedream-user', 'seedream-user', 'seedream-user', 'admin', 'unused')
+                    """
+                )
+                connection.execute(
+                    """
+                    INSERT INTO provider_catalog_versions (
+                        provider_version_id, provider_key, version_number, display_name,
+                        base_url, api_mode, models, created_by_user_id
+                    ) VALUES (
+                        'seedream-provider', 'seedream-provider', 1, '火山方舟',
+                        'https://ark.example.invalid/api/v3', 'images', '[]'::jsonb,
+                        'seedream-user'
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    INSERT INTO generation_models (
+                        generation_model_id, provider_version_id, display_name, model_id,
+                        capability_profile_id, capability_profile_version, model_family_id,
+                        canonical_model_id, protocol_profile, parameter_codec,
+                        supported_operations, append_aspect_ratio_prompt
+                    ) VALUES (
+                        'seedream-lite-binding', 'seedream-provider', 'Seedream 5.0 Lite',
+                        'doubao-seedream-5-0-260128', 'seedream-5-lite', 1,
+                        'seedream-image', 'doubao-seedream-5-0-260128', 'openai_images',
+                        'gpt_openai_images', '["generate","edit"]'::jsonb, FALSE
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    INSERT INTO generation_model_parameter_preferences (
+                        user_id, generation_model_id, parameters
+                    ) VALUES (
+                        'seedream-user', 'seedream-lite-binding',
+                        '{"size":"1024x1024","n":3,"output_format":"png"}'::jsonb
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    DELETE FROM server_schema_migrations
+                    WHERE version = '0033_seedream_5_lite_size_preferences'
+                    """
+                )
+
+            applied = runner.apply()
+            with psycopg.connect(database_url) as connection:
+                parameters = connection.execute(
+                    """
+                    SELECT parameters
+                    FROM generation_model_parameter_preferences
+                    WHERE user_id = 'seedream-user'
+                      AND generation_model_id = 'seedream-lite-binding'
+                    """
+                ).fetchone()[0]
+
+            self.assertIn("0033_seedream_5_lite_size_preferences", applied)
+            self.assertEqual(parameters["size"], "2048x2048")
+            self.assertEqual(parameters["resolution"], "2k")
+            self.assertEqual(parameters["n"], 3)
+
     def test_legacy_provider_models_and_tasks_migrate_to_stable_model_records(self) -> None:
         from codex_image.server.database import PostgresConnections
         from codex_image.server.migrations import MigrationRunner

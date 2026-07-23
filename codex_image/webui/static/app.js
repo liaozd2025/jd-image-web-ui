@@ -33665,22 +33665,31 @@ ${hint}` : hint;
     }
     return value;
   }
-  function gptSizeValid(value) {
+  function customCanvasSizeValid(value, constraints) {
     if (typeof value !== "string") return false;
     const match = value.match(/^(\d+)x(\d+)$/i);
     if (!match) return false;
     const width = Number(match[1]);
     const height = Number(match[2]);
     if (!Number.isInteger(width) || !Number.isInteger(height)) return false;
-    if (width < 16 || width > 3840 || height < 16 || height > 3840) return false;
-    if (width % 16 !== 0 || height % 16 !== 0) return false;
-    if (Math.max(width, height) / Math.min(width, height) > 3) return false;
+    const minimumDimension = Number(constraints?.min_dimension ?? 16);
+    const maximumDimension = Number(constraints?.max_dimension ?? 3840);
+    const multipleOf = Number(constraints?.multiple_of ?? (constraints ? 1 : 16));
+    const minimumAspectRatio = Number(constraints?.min_aspect_ratio ?? 1 / 3);
+    const maximumAspectRatio = Number(constraints?.max_aspect_ratio ?? 3);
+    if (width < minimumDimension || width > maximumDimension || height < minimumDimension || height > maximumDimension) return false;
+    if (multipleOf > 1 && (width % multipleOf !== 0 || height % multipleOf !== 0)) return false;
+    const aspectRatio = width / height;
+    if (aspectRatio < minimumAspectRatio || aspectRatio > maximumAspectRatio) return false;
     const pixels = width * height;
-    return pixels >= 655360 && pixels <= 8294400;
+    return pixels >= Number(constraints?.min_pixels ?? 655360) && pixels <= Number(constraints?.max_pixels ?? Number.MAX_SAFE_INTEGER);
   }
   function parameterValueValid(definition, value) {
-    if (definition.id === "canvas.size" && definition.allowed_values.length === 0) {
-      return gptSizeValid(value);
+    if (definition.id === "canvas.size") {
+      if (definition.allowed_values.includes(value)) return true;
+      if (definition.size_constraints || definition.allowed_values.length === 0) {
+        return customCanvasSizeValid(value, definition.size_constraints);
+      }
     }
     const typeValid = definition.value_type === "string" ? typeof value === "string" : definition.value_type === "integer" ? typeof value === "number" && Number.isInteger(value) : definition.value_type === "boolean" ? typeof value === "boolean" : definition.value_type === "object" ? Boolean(value) && typeof value === "object" && !Array.isArray(value) : false;
     if (!typeValid) return false;
@@ -34389,33 +34398,18 @@ ${hint}` : hint;
     }
     return Object.fromEntries(Object.entries(values).filter(([, value]) => value !== void 0 && value !== null));
   }
-  function parameterValueValid2(parameter, value) {
-    const typeValid = parameter.value_type === "string" ? typeof value === "string" : parameter.value_type === "integer" ? typeof value === "number" && Number.isInteger(value) : parameter.value_type === "boolean" ? typeof value === "boolean" : parameter.value_type === "object" ? Boolean(value) && typeof value === "object" && !Array.isArray(value) : false;
-    if (!typeValid) return false;
-    if (parameter.allowed_values.length && !parameter.allowed_values.includes(value)) return false;
-    if (typeof value === "number") {
-      if (parameter.minimum !== null && value < parameter.minimum) return false;
-      if (parameter.maximum !== null && value > parameter.maximum) return false;
-      if (parameter.step !== null) {
-        const base = parameter.minimum ?? 0;
-        const quotient = (value - base) / parameter.step;
-        if (Math.abs(quotient - Math.round(quotient)) > 1e-9) return false;
-      }
-    }
-    return true;
-  }
   function migratePortableModelDraft(sourceModel, targetModel, sourceDraft, targetDraft) {
     const sourceIds = new Set(sourceModel.parameters.map((definition) => definition.id));
     return Object.fromEntries(targetModel.parameters.map((definition) => {
       if (sourceIds.has(definition.id)) {
         const sourceValue = sourceDraft[definition.id];
         return [definition.id, cloneValue2(
-          parameterValueValid2(definition, sourceValue) ? sourceValue : definition.default
+          parameterValueValid(definition, sourceValue) ? sourceValue : definition.default
         )];
       }
       const targetValue = targetDraft[definition.id];
       return [definition.id, cloneValue2(
-        parameterValueValid2(definition, targetValue) ? targetValue : definition.default
+        parameterValueValid(definition, targetValue) ? targetValue : definition.default
       )];
     }));
   }

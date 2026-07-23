@@ -78,6 +78,15 @@ export interface CatalogParameterDefinition {
   full_width: boolean;
   object_choices?: CatalogObjectChoiceRow[];
   object_presets?: CatalogObjectPreset[];
+  size_constraints?: {
+    min_dimension?: number;
+    max_dimension?: number;
+    min_pixels?: number;
+    max_pixels?: number;
+    min_aspect_ratio?: number;
+    max_aspect_ratio?: number;
+    multiple_of?: number;
+  };
 }
 
 export interface CatalogModel {
