@@ -37341,6 +37341,10 @@ ${hint}` : hint;
       els11.seedValue.classList.toggle("hidden", els11.seedMode.value !== "fixed");
     }
     renderGenerationModelSelector(false);
+    if (state10.generationCatalog) {
+      getLegacyBridge().methods.queueCurrentModelPreferenceSave?.();
+      return;
+    }
     queuePreferenceSave();
   }
   async function loadProfiles() {

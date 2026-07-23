@@ -88,6 +88,17 @@ class WebUIGenerationModelContractTests(unittest.TestCase):
         self.assertIn("model?.is_enabled !== false", available_models)
         self.assertNotIn("validation_status", available_models)
 
+    def test_catalog_parameter_changes_use_the_catalog_preference_saver(self) -> None:
+        source = (ROOT / "codex_image/webui/frontend/src/generation-model.ts").read_text(encoding="utf-8")
+        handler = source[
+            source.index("function handleParameterChange"):
+            source.index("async function loadProfiles")
+        ]
+
+        self.assertIn("if (state.generationCatalog)", handler)
+        self.assertIn("queueCurrentModelPreferenceSave", handler)
+        self.assertLess(handler.index("queueCurrentModelPreferenceSave"), handler.index("queuePreferenceSave"))
+
     def test_model_selector_css_has_a_narrow_screen_contract(self) -> None:
         css = (ROOT / "codex_image/webui/static/styles/60-prompt.css").read_text(encoding="utf-8")
         self.assertIn(".generation-model-field", css)

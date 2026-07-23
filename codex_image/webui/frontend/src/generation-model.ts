@@ -450,6 +450,10 @@ function handleParameterChange(): void {
     els.seedValue.classList.toggle("hidden", els.seedMode.value !== "fixed");
   }
   renderGenerationModelSelector(false);
+  if (state.generationCatalog) {
+    getLegacyBridge().methods.queueCurrentModelPreferenceSave?.();
+    return;
+  }
   queuePreferenceSave();
 }
 
