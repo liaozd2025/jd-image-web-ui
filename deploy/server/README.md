@@ -11,7 +11,9 @@
 scripts/build-release.sh --version v1.0.0
 ```
 
-将 `dist/jd-image-web-ui-v1.0.0-linux-amd64.tar.gz` 复制到生产服务器，解压后执行：
+发布包包含应用、PostgreSQL 和 Nginx 的 amd64 镜像，不要求生产服务器访问
+Docker Hub。将 `dist/jd-image-web-ui-v1.0.0-linux-amd64.tar.gz` 复制到生产服务器，
+解压后执行：
 
 ```sh
 sudo ./deploy.sh install

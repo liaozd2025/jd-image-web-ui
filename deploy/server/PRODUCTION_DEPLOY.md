@@ -1,7 +1,8 @@
 # 生产部署包使用说明
 
 本发布包面向 Ubuntu 20.04 或更高版本的 Intel/AMD 服务器。生产机必须预先安装
-Docker Engine 和 Docker Compose v2，并能够访问 Docker Hub。
+Docker Engine 和 Docker Compose v2。应用、PostgreSQL 与 Nginx 镜像都包含在
+发布包内，安装和升级不访问 Docker Hub。
 
 ## 宿主机持久化目录
 
@@ -32,7 +33,7 @@ sudo ./deploy.sh install
 脚本会：
 
 1. 检查 Ubuntu、amd64、Docker 与 Compose v2；
-2. 导入随包交付的应用镜像，并在线拉取固定 digest 的 PostgreSQL 与 Nginx；
+2. 导入随包交付的应用、PostgreSQL 与 Nginx 镜像；
 3. 创建宿主机目录并生成数据库密码和主密钥；
 4. 启动 PostgreSQL、Web、Worker 和 Nginx；
 5. 等待 `/health/ready` 成功；
@@ -78,4 +79,6 @@ sudo docker compose \
 ```
 
 本脚本不负责 Docker 安装、TLS、域名、主机防火墙、自动备份、异机灾备、容量规划
-或旧 Docker 命名卷迁移。
+或旧 Docker 命名卷迁移。Docker Engine 如需安装，可由运维通过
+`https://download.docker.com/linux/ubuntu` 的官方 APT/DEB 源完成；该地址只提供
+Docker 软件包，不提供容器镜像。

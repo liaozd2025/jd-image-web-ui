@@ -73,6 +73,7 @@ class ProductionDeployTests(unittest.TestCase):
         self.assertRegex(source, r'NGINX_IMAGE="[^"]+@sha256:[0-9a-f]{64}"')
         self.assertIn("status --porcelain", source)
         self.assertIn("Git worktree is not clean", source)
+        self.assertIn('docker save \\\n    --output "${bundle_dir}/base-images.tar"', source)
 
     def test_deployer_preserves_secrets_and_separates_install_from_upgrade(self) -> None:
         source = DEPLOY_SCRIPT.read_text(encoding="utf-8")
@@ -82,6 +83,8 @@ class ProductionDeployTests(unittest.TestCase):
         self.assertIn("a deployment is already installed; use the upgrade command", source)
         self.assertIn("existing deployment configuration is missing", source)
         self.assertIn("--http-port is valid only for install", source)
+        self.assertIn('docker load --input "${SCRIPT_DIR}/base-images.tar"', source)
+        self.assertNotIn("docker pull", source)
         self.assertNotIn("docker compose down --volumes", source)
         self.assertNotIn("docker volume rm", source)
 

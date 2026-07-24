@@ -19,6 +19,7 @@ Usage:
   scripts/build-release.sh --version VERSION [--output DIR]
 
 Build a versioned linux/amd64 production bundle. The Git worktree must be clean.
+The bundle includes the application, PostgreSQL and Nginx images.
 
 Options:
   --version VERSION  Required release version, for example v1.2.0.
@@ -109,6 +110,7 @@ application_image=${app_image}
 application_base_image=${PYTHON_BASE_IMAGE}
 postgres_image=${POSTGRES_IMAGE}
 nginx_image=${NGINX_IMAGE}
+base_images_included=true
 created_at_utc=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 EOF
 }
@@ -143,6 +145,20 @@ build_bundle() {
   [[ "${image_platform}" == "${TARGET_PLATFORM}" ]] \
     || die "built application image platform is ${image_platform}, expected ${TARGET_PLATFORM}"
   docker save --output "${bundle_dir}/app-image.tar" "${app_image}"
+
+  printf 'Collecting pinned PostgreSQL and Nginx images for offline loading...\n'
+  docker pull --platform "${TARGET_PLATFORM}" "${POSTGRES_IMAGE}"
+  docker pull --platform "${TARGET_PLATFORM}" "${NGINX_IMAGE}"
+  local base_image base_platform
+  for base_image in "${POSTGRES_IMAGE}" "${NGINX_IMAGE}"; do
+    base_platform="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "${base_image}")"
+    [[ "${base_platform}" == "${TARGET_PLATFORM}" ]] \
+      || die "base image ${base_image} platform is ${base_platform}, expected ${TARGET_PLATFORM}"
+  done
+  docker save \
+    --output "${bundle_dir}/base-images.tar" \
+    "${POSTGRES_IMAGE}" \
+    "${NGINX_IMAGE}"
 
   install -m 0755 "${REPOSITORY_ROOT}/deploy/server/deploy.sh" "${bundle_dir}/deploy.sh"
   install -m 0644 "${REPOSITORY_ROOT}/deploy/server/compose.production.yml" "${bundle_dir}/compose.production.yml"

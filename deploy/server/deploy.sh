@@ -169,7 +169,7 @@ read_release_metadata() {
   [[ "${postgres_image}" =~ @sha256:[0-9a-f]{64}$ ]] || die "PostgreSQL image is not digest-pinned"
   [[ "${nginx_image}" =~ @sha256:[0-9a-f]{64}$ ]] || die "Nginx image is not digest-pinned"
 
-  for required_file in app-image.tar compose.production.yml nginx.conf manifest.txt; do
+  for required_file in app-image.tar base-images.tar compose.production.yml nginx.conf manifest.txt; do
     [[ -f "${SCRIPT_DIR}/${required_file}" ]] || die "release file is missing: ${required_file}"
   done
 }
@@ -236,10 +236,17 @@ load_application_image() {
     || die "application image platform is ${image_platform}, expected linux/amd64"
 }
 
-pull_base_images() {
-  log "Pulling pinned PostgreSQL and Nginx images..."
-  docker pull "${postgres_image}" >/dev/null
-  docker pull "${nginx_image}" >/dev/null
+load_base_images() {
+  log "Loading bundled PostgreSQL and Nginx images..."
+  docker load --input "${SCRIPT_DIR}/base-images.tar" >/dev/null
+  local base_image base_platform
+  for base_image in "${postgres_image}" "${nginx_image}"; do
+    docker image inspect "${base_image}" >/dev/null 2>&1 \
+      || die "bundled base image is missing after load: ${base_image}"
+    base_platform="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "${base_image}")"
+    [[ "${base_platform}" == "linux/amd64" ]] \
+      || die "base image platform is ${base_platform}, expected linux/amd64: ${base_image}"
+  done
 }
 
 prepare_host_directories() {
@@ -389,7 +396,7 @@ main() {
   validate_host
   read_release_metadata
   load_application_image
-  pull_base_images
+  load_base_images
   case "${action}" in
     install) run_install ;;
     upgrade) run_upgrade ;;

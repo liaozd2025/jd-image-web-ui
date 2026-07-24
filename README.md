@@ -23,8 +23,9 @@ docker compose -f compose.server.yml exec web \
 scripts/build-release.sh --version v1.0.0
 ```
 
-脚本生成的 `dist/jd-image-web-ui-v1.0.0-linux-amd64.tar.gz` 内含应用镜像和
-生产部署脚本。生产部署将 PostgreSQL 数据、图片资源与配置显式保存到宿主机
+脚本生成的 `dist/jd-image-web-ui-v1.0.0-linux-amd64.tar.gz` 内含应用、
+PostgreSQL 和 Nginx 镜像以及生产部署脚本，生产服务器不需要访问 Docker Hub。
+生产部署将 PostgreSQL 数据、图片资源与配置显式保存到宿主机
 `/srv/jd-image-web-ui`，详见 [生产部署包说明](deploy/server/PRODUCTION_DEPLOY.md)。
 
 ## 产品边界
