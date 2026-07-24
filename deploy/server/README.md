@@ -2,7 +2,28 @@
 
 产品只以服务器部署形态提供服务：用户通过反向代理的内网 HTTP 地址登录浏览器，Web、Worker 和 PostgreSQL 不直接向用户端开放端口。
 
-## 首次启动
+## 生产发布包
+
+正式生产环境不在服务器上编译源码。构建机从干净的 Git 工作区生成
+`linux/amd64` 发布包：
+
+```sh
+scripts/build-release.sh --version v1.0.0
+```
+
+将 `dist/jd-image-web-ui-v1.0.0-linux-amd64.tar.gz` 复制到生产服务器，解压后执行：
+
+```sh
+sudo ./deploy.sh install
+```
+
+生产脚本默认把 PostgreSQL、图片资源、配置和版本文件分别保存到
+`/srv/jd-image-web-ui/postgres`、`data`、`config` 和 `releases`，不使用 Docker
+命名卷。完整操作和范围边界见 [生产部署包使用说明](PRODUCTION_DEPLOY.md)。
+
+## 源码直接启动
+
+以下方式保留给开发和 Compose 验收；它使用 Docker 命名卷，不是正式生产交付方式。
 
 1. 安装 Docker Compose v2，在部署目录创建 `.env`。
 2. 复制 `.env.example` 为 `.env`，设置 `JD_IMAGE_POSTGRES_PASSWORD`，并用 `openssl rand -base64 32 | tr '+/' '-_' | tr -d '='` 生成 `JD_IMAGE_MASTER_KEY`；可选设置 `JD_IMAGE_HTTP_PORT`。如果 PostgreSQL 密码含 `@`、`:`、`/`、`#` 等 URL 保留字符，请改为设置 RFC 3986 URL 编码后的 `JD_IMAGE_DATABASE_URL`。
@@ -10,7 +31,7 @@
 4. 在 Web 容器中执行 `docker compose -f compose.server.yml exec web python -m codex_image.server.ops bootstrap-admin --username admin`，临时密码只显示一次，首次登录必须修改。
 5. 访问 `http://服务器地址:${JD_IMAGE_HTTP_PORT:-8787}`，确认 `/health/ready` 为 200。
 
-## 外部 PostgreSQL
+### 外部 PostgreSQL
 
 将 `JD_IMAGE_DATABASE_URL` 设置为外部 PostgreSQL 连接串，并叠加外部覆盖文件：
 

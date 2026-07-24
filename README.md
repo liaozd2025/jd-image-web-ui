@@ -17,6 +17,16 @@ docker compose -f compose.server.yml exec web \
 
 外部 PostgreSQL 使用 `JD_IMAGE_DATABASE_URL` 和 `compose.server.external-postgres.yml` 覆盖文件，详见 [服务器运维说明](deploy/server/README.md)。
 
+生产交付使用版本化发布包，不在生产服务器编译源码：
+
+```sh
+scripts/build-release.sh --version v1.0.0
+```
+
+脚本生成的 `dist/jd-image-web-ui-v1.0.0-linux-amd64.tar.gz` 内含应用镜像和
+生产部署脚本。生产部署将 PostgreSQL 数据、图片资源与配置显式保存到宿主机
+`/srv/jd-image-web-ui`，详见 [生产部署包说明](deploy/server/PRODUCTION_DEPLOY.md)。
+
 ## 产品边界
 
 - 用户只能使用浏览器用户名密码登录，账号由管理员创建。

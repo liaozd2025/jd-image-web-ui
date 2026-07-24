@@ -45,12 +45,16 @@ def main(argv: list[str] | None = None) -> int:
         "compose.server.yml",
         "compose.server.external-postgres.yml",
         "Dockerfile.server",
+        "scripts/build-release.sh",
         "codex_image/server/app.py",
         "codex_image/server/worker.py",
         "codex_image/server/ops.py",
         "codex_image/webui/static/index.html",
         "codex_image/webui/static/app.js",
         "deploy/server/README.md",
+        "deploy/server/PRODUCTION_DEPLOY.md",
+        "deploy/server/compose.production.yml",
+        "deploy/server/deploy.sh",
     )
     failures.extend(f"required release file is missing: {path}" for path in required if not (ROOT / path).is_file())
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
