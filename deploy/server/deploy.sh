@@ -166,8 +166,10 @@ read_release_metadata() {
   [[ "${release_version}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die "invalid release version"
   [[ "${git_commit}" =~ ^[0-9a-f]{40}$ ]] || die "invalid Git commit in release metadata"
   [[ "${app_image}" == "jd-image-web-ui:${release_version}" ]] || die "invalid application image tag"
-  [[ "${postgres_image}" =~ @sha256:[0-9a-f]{64}$ ]] || die "PostgreSQL image is not digest-pinned"
-  [[ "${nginx_image}" =~ @sha256:[0-9a-f]{64}$ ]] || die "Nginx image is not digest-pinned"
+  [[ "${postgres_image}" =~ ^jd-image-web-ui/postgres:[A-Za-z0-9._-]+$ ]] \
+    || die "invalid bundled PostgreSQL image tag"
+  [[ "${nginx_image}" =~ ^jd-image-web-ui/nginx:[A-Za-z0-9._-]+$ ]] \
+    || die "invalid bundled Nginx image tag"
 
   for required_file in app-image.tar base-images.tar compose.production.yml nginx.conf manifest.txt; do
     [[ -f "${SCRIPT_DIR}/${required_file}" ]] || die "release file is missing: ${required_file}"

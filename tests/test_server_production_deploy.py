@@ -69,10 +69,14 @@ class ProductionDeployTests(unittest.TestCase):
         source = BUILD_SCRIPT.read_text(encoding="utf-8")
         self.assertIn('readonly TARGET_PLATFORM="linux/amd64"', source)
         self.assertRegex(source, r'PYTHON_BASE_IMAGE="[^"]+@sha256:[0-9a-f]{64}"')
-        self.assertRegex(source, r'POSTGRES_IMAGE="[^"]+@sha256:[0-9a-f]{64}"')
-        self.assertRegex(source, r'NGINX_IMAGE="[^"]+@sha256:[0-9a-f]{64}"')
+        self.assertRegex(source, r'POSTGRES_SOURCE_IMAGE="[^"]+@sha256:[0-9a-f]{64}"')
+        self.assertRegex(source, r'NGINX_SOURCE_IMAGE="[^"]+@sha256:[0-9a-f]{64}"')
+        self.assertIn('POSTGRES_BUNDLED_IMAGE="jd-image-web-ui/postgres:', source)
+        self.assertIn('NGINX_BUNDLED_IMAGE="jd-image-web-ui/nginx:', source)
         self.assertIn("status --porcelain", source)
         self.assertIn("Git worktree is not clean", source)
+        self.assertIn('docker tag "${POSTGRES_SOURCE_IMAGE}" "${POSTGRES_BUNDLED_IMAGE}"', source)
+        self.assertIn('docker tag "${NGINX_SOURCE_IMAGE}" "${NGINX_BUNDLED_IMAGE}"', source)
         self.assertIn('docker save \\\n    --output "${bundle_dir}/base-images.tar"', source)
 
     def test_deployer_preserves_secrets_and_separates_install_from_upgrade(self) -> None:

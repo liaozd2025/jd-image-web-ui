@@ -6,8 +6,10 @@ readonly REPOSITORY_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 readonly DEFAULT_OUTPUT_DIR="${REPOSITORY_ROOT}/dist"
 readonly TARGET_PLATFORM="linux/amd64"
 readonly PYTHON_BASE_IMAGE="docker.io/library/python:3.13.14-slim-trixie@sha256:afe189875f1d2f9b45e287834fb9f2c273a5d59d354ae4050ab9affbf0a6ba06"
-readonly POSTGRES_IMAGE="docker.io/library/postgres:16.10-alpine@sha256:ab8380566c3ea09690a9ecaa85a59d82bfc6eb86744151a2a54335866c83a3e9"
-readonly NGINX_IMAGE="docker.io/library/nginx:1.27.5-alpine@sha256:62223d644fa234c3a1cc785ee14242ec47a77364226f1c811d2f669f96dc2ac8"
+readonly POSTGRES_SOURCE_IMAGE="docker.io/library/postgres:16.10-alpine@sha256:ab8380566c3ea09690a9ecaa85a59d82bfc6eb86744151a2a54335866c83a3e9"
+readonly NGINX_SOURCE_IMAGE="docker.io/library/nginx:1.27.5-alpine@sha256:62223d644fa234c3a1cc785ee14242ec47a77364226f1c811d2f669f96dc2ac8"
+readonly POSTGRES_BUNDLED_IMAGE="jd-image-web-ui/postgres:16.10-alpine-amd64"
+readonly NGINX_BUNDLED_IMAGE="jd-image-web-ui/nginx:1.27.5-alpine-amd64"
 
 release_version=""
 output_dir="${DEFAULT_OUTPUT_DIR}"
@@ -98,8 +100,8 @@ write_release_metadata() {
 JD_IMAGE_RELEASE_VERSION=${release_version}
 JD_IMAGE_GIT_COMMIT=${git_commit}
 JD_IMAGE_APP_IMAGE=${app_image}
-JD_IMAGE_POSTGRES_IMAGE=${POSTGRES_IMAGE}
-JD_IMAGE_NGINX_IMAGE=${NGINX_IMAGE}
+JD_IMAGE_POSTGRES_IMAGE=${POSTGRES_BUNDLED_IMAGE}
+JD_IMAGE_NGINX_IMAGE=${NGINX_BUNDLED_IMAGE}
 EOF
   cat >"${bundle_dir}/manifest.txt" <<EOF
 product=jd-image-web-ui
@@ -108,8 +110,10 @@ git_commit=${git_commit}
 target_platform=${TARGET_PLATFORM}
 application_image=${app_image}
 application_base_image=${PYTHON_BASE_IMAGE}
-postgres_image=${POSTGRES_IMAGE}
-nginx_image=${NGINX_IMAGE}
+postgres_image=${POSTGRES_BUNDLED_IMAGE}
+postgres_source_image=${POSTGRES_SOURCE_IMAGE}
+nginx_image=${NGINX_BUNDLED_IMAGE}
+nginx_source_image=${NGINX_SOURCE_IMAGE}
 base_images_included=true
 created_at_utc=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 EOF
@@ -147,18 +151,20 @@ build_bundle() {
   docker save --output "${bundle_dir}/app-image.tar" "${app_image}"
 
   printf 'Collecting pinned PostgreSQL and Nginx images for offline loading...\n'
-  docker pull --platform "${TARGET_PLATFORM}" "${POSTGRES_IMAGE}"
-  docker pull --platform "${TARGET_PLATFORM}" "${NGINX_IMAGE}"
+  docker pull --platform "${TARGET_PLATFORM}" "${POSTGRES_SOURCE_IMAGE}"
+  docker pull --platform "${TARGET_PLATFORM}" "${NGINX_SOURCE_IMAGE}"
   local base_image base_platform
-  for base_image in "${POSTGRES_IMAGE}" "${NGINX_IMAGE}"; do
+  for base_image in "${POSTGRES_SOURCE_IMAGE}" "${NGINX_SOURCE_IMAGE}"; do
     base_platform="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "${base_image}")"
     [[ "${base_platform}" == "${TARGET_PLATFORM}" ]] \
       || die "base image ${base_image} platform is ${base_platform}, expected ${TARGET_PLATFORM}"
   done
+  docker tag "${POSTGRES_SOURCE_IMAGE}" "${POSTGRES_BUNDLED_IMAGE}"
+  docker tag "${NGINX_SOURCE_IMAGE}" "${NGINX_BUNDLED_IMAGE}"
   docker save \
     --output "${bundle_dir}/base-images.tar" \
-    "${POSTGRES_IMAGE}" \
-    "${NGINX_IMAGE}"
+    "${POSTGRES_BUNDLED_IMAGE}" \
+    "${NGINX_BUNDLED_IMAGE}"
 
   install -m 0755 "${REPOSITORY_ROOT}/deploy/server/deploy.sh" "${bundle_dir}/deploy.sh"
   install -m 0644 "${REPOSITORY_ROOT}/deploy/server/compose.production.yml" "${bundle_dir}/compose.production.yml"
