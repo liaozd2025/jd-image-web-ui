@@ -17,6 +17,51 @@ function integer(value: unknown, fallback: number): number {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function firstDefined(source: Record<string, unknown>, ...keys: string[]): unknown {
+  return keys
+    .map((key) => source[key])
+    .find((value) => value !== undefined && value !== null);
+}
+
+function legacyRuntimeRequestedParameters(
+  task: WebUITask,
+  snapshot: Record<string, unknown>,
+): Record<string, unknown> {
+  const params = record(task.params);
+  const request = record(task.request);
+  const actual = record(snapshot.actual_parameters);
+  const source = { ...request, ...params, ...actual };
+  const canonical = {
+    ...record(request.parameters),
+    ...record(request.canonical_parameters),
+    ...record(params.canonical_parameters),
+    ...record(actual.canonical_parameters),
+  };
+  const aliases = new Map<string, string[]>([
+    ["canvas.size", ["canvas.size", "size"]],
+    ["canvas.aspect_ratio", ["canvas.aspect_ratio", "ratio"]],
+    ["canvas.resolution", ["canvas.resolution", "resolution"]],
+    ["output.count", ["output.count", "n"]],
+    ["output.format", ["output.format", "output_format"]],
+    ["gpt.quality", ["gpt.quality", "quality"]],
+    ["gpt.background", ["gpt.background", "background"]],
+    ["gpt.moderation", ["gpt.moderation", "moderation"]],
+    ["gpt.output_compression", ["gpt.output_compression", "output_compression"]],
+    ["gpt.web_search", ["gpt.web_search", "web_search"]],
+    ["gemini.google_search", ["gemini.google_search"]],
+    ["legacy.prompt_fidelity", ["legacy.prompt_fidelity", "prompt_fidelity"]],
+    ["legacy.prompt_optimization_mode", ["legacy.prompt_optimization_mode", "prompt_optimization_mode"]],
+    ["legacy.seed_mode", ["legacy.seed_mode", "seed_mode"]],
+    ["legacy.seed", ["legacy.seed", "seed"]],
+  ]);
+  aliases.forEach((keys, id) => {
+    if (canonical[id] !== undefined && canonical[id] !== null) return;
+    const value = firstDefined(source, ...keys);
+    if (value !== undefined) canonical[id] = value;
+  });
+  return canonical;
+}
+
 export function notifyParameterMigration(report: ParameterMigrationReport): void {
   const count = report.defaulted.length + report.dropped.length;
   if (!count) return;
@@ -28,21 +73,64 @@ export function notifyParameterMigration(report: ParameterMigrationReport): void
 function snapshotFromTask(task: WebUITask): GenerationSnapshotView {
   const raw = record(task.generation_snapshot);
   if (!Object.keys(raw).length) return legacyGenerationSnapshot(task);
+  const params = record(task.params);
+  const request = record(task.request);
+  const frozenParameters = record(raw.requested_parameters);
+  const providerId = String(
+    raw.provider_id
+    || params.api_provider_id
+    || request.webui_api_provider_id
+    || request.api_provider_id
+    || raw.provider_version_id
+    || raw.provider_key
+    || "codex",
+  );
   return {
     schema_version: integer(raw.schema_version, 1),
-    family_id: String(raw.family_id || "gpt-image"),
+    family_id: String(raw.family_id || raw.model_family_id || "gpt-image"),
     canonical_model_id: String(raw.canonical_model_id || "gpt-image-2"),
-    model_manifest_version: integer(raw.model_manifest_version, 1),
-    provider_id: String(raw.provider_id || "codex"),
-    provider_name: String(raw.provider_name || raw.provider_id || "Codex"),
+    model_manifest_version: integer(raw.model_manifest_version || raw.capability_profile_version, 1),
+    provider_id: providerId,
+    provider_name: String(
+      raw.provider_name
+      || task.api_provider_name
+      || params.api_provider_name
+      || request.webui_api_provider_name
+      || request.api_provider_name
+      || raw.provider_key
+      || (providerId === "codex" ? "Codex" : providerId),
+    ),
     binding_id: String(raw.binding_id || "legacy"),
     remote_model_id: String(raw.remote_model_id || raw.canonical_model_id || "gpt-image-2"),
     protocol_profile: String(raw.protocol_profile || "codex_images"),
     parameter_codec: String(raw.parameter_codec || "gpt_codex_images"),
-    requested_parameters: record(raw.requested_parameters),
+    requested_parameters: Object.keys(frozenParameters).length
+      ? frozenParameters
+      : legacyRuntimeRequestedParameters(task, raw),
     mapped_request: record(raw.mapped_request),
     legacy: false,
   };
+}
+
+export function catalogModelForGenerationSnapshot(
+  snapshot: GenerationSnapshotView,
+  catalog: GenerationCatalog | null | undefined,
+): CatalogModel | undefined {
+  if (!catalog) return undefined;
+  const aliases = new Set([
+    String(snapshot.canonical_model_id || "").trim(),
+    String(snapshot.remote_model_id || "").trim(),
+  ].filter(Boolean));
+  const direct = catalog.models.find((model) => (
+    aliases.has(model.id) || aliases.has(model.official_model_id)
+  ));
+  if (direct) return direct;
+  const binding = catalog.providers
+    .flatMap((provider) => provider.bindings || [])
+    .find((item) => aliases.has(String(item.remote_model_id || "").trim()));
+  return binding
+    ? catalog.models.find((model) => model.id === binding.canonical_model_id)
+    : undefined;
 }
 
 export function inspectTaskParameters(task: WebUITask): void {
@@ -104,9 +192,11 @@ export function taskParameterInspectorTitle(
   catalog?: GenerationCatalog | null,
 ): string {
   const historyLabel = translate("modelParameters.historyConfiguration");
-  const modelName = catalog?.models.find((model) => model.id === snapshot.canonical_model_id)?.display_name
+  const modelName = catalogModelForGenerationSnapshot(snapshot, catalog)?.display_name
     || snapshot.canonical_model_id;
-  return [historyLabel, modelName, snapshot.provider_name].filter(Boolean).join(" · ");
+  const providerName = catalog?.providers.find((provider) => provider.id === snapshot.provider_id)?.name
+    || snapshot.provider_name;
+  return [historyLabel, modelName, providerName].filter(Boolean).join(" · ");
 }
 
 const TASK_PARAMETER_INSPECTOR_HIDDEN_IDS = new Set([
@@ -121,6 +211,23 @@ const GPT_TASK_PARAMETER_INSPECTOR_ORDER = new Map([
   "gpt.moderation",
   "gpt.web_search",
 ].map((id, index) => [id, index]));
+const TASK_PARAMETER_FALLBACK_LABEL_KEYS = new Map([
+  ["canvas.size", "output.size"],
+  ["canvas.aspect_ratio", "canvas.aspectRatio"],
+  ["canvas.resolution", "canvas.resolution"],
+  ["output.count", "output.quantity"],
+  ["output.format", "output.format"],
+  ["gpt.quality", "output.quality"],
+  ["gpt.background", "output.background"],
+  ["gpt.moderation", "output.moderation"],
+  ["gpt.output_compression", "output.compression"],
+  ["gpt.web_search", "output.webSearch"],
+  ["gemini.google_search", "gemini.googleSearch"],
+  ["legacy.prompt_fidelity", "output.promptMode"],
+  ["legacy.prompt_optimization_mode", "generationModel.promptOptimization"],
+  ["legacy.seed_mode", "generationModel.seed"],
+  ["legacy.seed", "generationModel.seed"],
+]);
 
 function taskParameterVisibleInInspector(snapshot: GenerationSnapshotView, parameterId: string): boolean {
   if (TASK_PARAMETER_INSPECTOR_HIDDEN_IDS.has(parameterId)) return false;
@@ -183,13 +290,12 @@ export function taskParameterInspectionMatchesSelectedModel(
 export type TaskParameterInspectionAction = "preserve" | "inspect" | "clear";
 
 export function taskParameterInspectionAction(
-  task: WebUITask | null | undefined,
-  selectedModelId: string,
+  _task: WebUITask | null | undefined,
+  _selectedModelId: string,
   outputSettingsLocked: boolean,
 ): TaskParameterInspectionAction {
   if (outputSettingsLocked) return "preserve";
-  if (!task) return "clear";
-  return taskCanonicalModelId(task) === selectedModelId ? "clear" : "inspect";
+  return "clear";
 }
 
 export function reconcileTaskParameterInspection(): void {
@@ -233,7 +339,7 @@ export function renderTaskParameterInspector(): void {
     if (task) adoptTaskParameters(task);
   });
   els.taskParameterInspectorHeader?.replaceChildren(title, badge, adopt);
-  const model = state.generationCatalog?.models.find((item) => item.id === snapshot.canonical_model_id);
+  const model = catalogModelForGenerationSnapshot(snapshot, state.generationCatalog);
   const inspectorModel = taskParameterInspectorModel(snapshot, model);
   const inspectorParameters = taskParameterInspectorParameters(snapshot);
   if (inspectorModel && els.taskParameterInspectorGrid) {
@@ -252,7 +358,8 @@ export function renderTaskParameterInspector(): void {
   list?.replaceChildren();
   unknown.forEach(([id, value]) => {
     const term = document.createElement("dt");
-    term.textContent = id;
+    const labelKey = TASK_PARAMETER_FALLBACK_LABEL_KEYS.get(id);
+    term.textContent = labelKey ? translate(labelKey) : id;
     const description = document.createElement("dd");
     description.textContent = typeof value === "string" ? value : JSON.stringify(value);
     list?.append(term, description);
@@ -263,7 +370,7 @@ export function renderTaskParameterInspector(): void {
 export function adoptTaskParameters(task: WebUITask): ParameterMigrationReport {
   const { state, methods } = getLegacyBridge();
   const snapshot = snapshotFromTask(task);
-  const model = state.generationCatalog?.models.find((item) => item.id === snapshot.canonical_model_id);
+  const model = catalogModelForGenerationSnapshot(snapshot, state.generationCatalog);
   if (!model) {
     return {
       values: {},

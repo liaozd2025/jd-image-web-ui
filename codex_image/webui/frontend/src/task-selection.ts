@@ -34,11 +34,13 @@ function taskInputUrls(task) { return legacyMethod("taskInputUrls", task); }
 function uploadSource(file) { return legacyMethod("uploadSource", file); }
 function gallerySource(item) { return legacyMethod("gallerySource", item); }
 function assetSource(item) { return legacyMethod("assetSource", item); }
+function adoptTaskParameters(task) { return legacyMethod("adoptTaskParameters", task); }
 function inspectTaskParameters(task) { legacyMethod("inspectTaskParameters", task); }
 function clearTaskParameterInspection() { legacyMethod("clearTaskParameterInspection"); }
 
 function applyTaskToFormWithOutputLock(task) {
   const outputSettingsLocked = Boolean(legacyMethod("isOutputSettingsLocked"));
+  if (!outputSettingsLocked) adoptTaskParameters(task);
   const outputView = taskOutputSettingsView(task, String(state.selectedModelId || ""), outputSettingsLocked);
   applyTaskToForm(task, {
     preserveOutputSettings: outputView !== "editor",

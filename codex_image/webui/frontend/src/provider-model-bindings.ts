@@ -91,9 +91,90 @@ export function resolvedBindingOperations(
   return [...model.operations];
 }
 
+export function configurableProviderModels(
+  models: CatalogModel[],
+  profiles: unknown[],
+): CatalogModel[] {
+  const byId = new Map(models.map((model) => [model.id, model]));
+  profiles.forEach((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return;
+    const profile = value as Record<string, unknown>;
+    const id = String(profile.canonical_model_id || profile.profile_id || "").trim();
+    if (!id || byId.has(id)) return;
+    const operations = Array.isArray(profile.task_modes)
+      ? profile.task_modes.filter(
+        (operation): operation is GenerationOperation => operation === "generate" || operation === "edit",
+      )
+      : [];
+    const apiModes = Array.isArray(profile.api_modes) ? profile.api_modes : [];
+    const phaseFeatures = profile.phase_features && typeof profile.phase_features === "object"
+      ? profile.phase_features as Record<string, unknown>
+      : {};
+    byId.set(id, {
+      id,
+      family_id: String(profile.model_family_id || "custom-image"),
+      display_name: String(profile.display_name || id),
+      official_model_id: String(profile.official_model_id || id),
+      version: Number(profile.version || 1),
+      operations: operations.length ? operations : ["generate", "edit"],
+      parameters: [],
+      input_constraints: {
+        max_images: Number(profile.max_reference_images || 0),
+        supports_mask: Boolean(phaseFeatures.precise_edit),
+        supports_reference_files: apiModes.includes("responses"),
+      },
+      expand_advanced_parameters: false,
+    });
+  });
+  return [...byId.values()];
+}
+
+export function providerModelsFromBindings(
+  provider: any,
+  models: CatalogModel[],
+): any[] {
+  const bindings = Array.isArray(provider.bindings) ? provider.bindings : [];
+  const existingModels = Array.isArray(provider.models) ? provider.models : [];
+  const existingDefault = existingModels.find((model: any) => model.is_default);
+  return bindings.map((binding: any, index: number) => {
+    const existing = existingModels.find((model: any) => (
+      model.generation_model_id === binding.id
+      || (model.canonical_model_id || model.model_id) === binding.canonical_model_id
+    ));
+    const existingCanonicalModelId = existing?.canonical_model_id || existing?.model_id || "";
+    const preservesExistingModel = existingCanonicalModelId === binding.canonical_model_id;
+    const manifest = models.find((model) => model.id === binding.canonical_model_id);
+    const isDefault = existingDefault
+      ? existing === existingDefault
+      : index === 0;
+    return {
+      generation_model_id: existing?.generation_model_id || binding.id,
+      display_name: preservesExistingModel
+        ? existing?.display_name || manifest?.display_name || binding.remote_model_id
+        : manifest?.display_name || binding.remote_model_id,
+      model_id: binding.remote_model_id,
+      capability_profile_id: preservesExistingModel
+        ? existing?.capability_profile_id || binding.canonical_model_id || "generic-basic"
+        : binding.canonical_model_id || "generic-basic",
+      model_family_id: manifest?.family_id || existing?.model_family_id || "gpt-image",
+      canonical_model_id: binding.canonical_model_id,
+      protocol_profile: binding.protocol_profile,
+      parameter_codec: binding.parameter_codec,
+      supported_operations: binding.operations,
+      append_aspect_ratio_prompt: Boolean(binding.append_aspect_ratio_prompt),
+      is_default: isDefault,
+      is_enabled: existing?.is_enabled !== false,
+    };
+  });
+}
+
+
 export function availableProtocolsForModel(modelId: string): BindingProtocol[] {
   if (modelId.startsWith("nano-banana")) return ["gemini", "openai_images"];
-  if (modelId === "gpt-image-2") return ["openai_images", "openai_responses"];
+  if (modelId === "gpt-image-2" || modelId === "generic-basic") {
+    return ["openai_images", "openai_responses"];
+  }
+  if (modelId.toLowerCase().includes("seedream")) return ["openai_images"];
   return [];
 }
 
@@ -138,6 +219,9 @@ export function bindingTemplateForProtocol(
     return protocol === "gemini" ? "gemini_generate_content" : "gemini_openai_images";
   }
   if (modelId === "gpt-image-2") {
+    return protocol === "openai_responses" ? "gpt_openai_responses" : "gpt_openai_images";
+  }
+  if (modelId.toLowerCase().includes("seedream") || modelId === "generic-basic") {
     return protocol === "openai_responses" ? "gpt_openai_responses" : "gpt_openai_images";
   }
   throw new Error("unsupported_binding_protocol");

@@ -348,11 +348,9 @@ export function renderGenerationModelSelector(restorePreference = true): void {
   if (selected) {
     const profile = profiles.get(selected.capability_profile_id);
     els.model.value = selected.model_id;
-    els.generationModelSummary.textContent = profileSummary(profile);
     if (profile && !state.generationCatalog) adjustment = applyProfile(profile, selected, restorePreference);
   } else {
     els.model.value = "";
-    els.generationModelSummary.textContent = "";
   }
   const reason = selected ? selectionReason(provider) : "";
   const constraint = generationModelConstraintMessage();
@@ -448,6 +446,7 @@ async function loadProfiles(): Promise<void> {
   const response = await fetch("/api/model-capability-profiles");
   const data = await response.json();
   if (!response.ok) throw new Error(data.detail || translate("generationModel.profileUnavailable"));
+  state.modelCapabilityProfiles = Array.isArray(data.profiles) ? data.profiles : [];
   for (const profile of data.profiles || []) profiles.set(profile.profile_id, profile);
   renderGenerationModelSelector(true);
 }

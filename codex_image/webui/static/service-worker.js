@@ -1,10 +1,10 @@
-const CACHE_NAME = "ilab-gpt-conjure-shell-v75";
+const CACHE_NAME = "ilab-gpt-conjure-shell-v79";
 const APP_SHELL_URLS = [
   "/",
   "/history",
   "/manifest.webmanifest",
-  "/static/styles.css?v=runtime-651",
-  "/static/app.js?v=runtime-651",
+  "/static/styles.css?v=runtime-655",
+  "/static/app.js?v=runtime-655",
   "/static/history.js?v=history-74",
   "/static/pwa.js?v=pwa-1",
   "/static/brand/jiudian-pharma-logo.png",

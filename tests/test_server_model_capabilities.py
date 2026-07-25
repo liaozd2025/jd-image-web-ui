@@ -18,6 +18,43 @@ TEST_DATABASE_URL = os.environ.get("JD_IMAGE_TEST_DATABASE_URL", "")
 
 
 class ModelCapabilityProfileTests(unittest.TestCase):
+    def test_provider_model_payload_rejects_mismatched_canonical_model_and_profile(self) -> None:
+        from codex_image.server.providers_api import ProviderModelPayload
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "canonical_model_id does not match capability_profile_id",
+        ):
+            ProviderModelPayload(
+                model_id="doubao-seedream-5-0-pro-260628",
+                display_name="Seedream 5.0 Pro",
+                capability_profile_id="gpt-image-2",
+                model_family_id="seedream-image",
+                canonical_model_id="seedream-5-pro",
+                protocol_profile="openai_images",
+                parameter_codec="gpt_openai_images",
+                supported_operations=["generate", "edit"],
+                is_default=True,
+            )
+
+    def test_provider_model_payload_accepts_legacy_official_canonical_alias(self) -> None:
+        from codex_image.server.providers_api import ProviderModelPayload
+
+        model = ProviderModelPayload(
+            model_id="doubao-seedream-5-0-260128",
+            display_name="Seedream 5.0 Lite",
+            capability_profile_id="seedream-5-lite",
+            model_family_id="seedream-image",
+            canonical_model_id="doubao-seedream-5-0-260128",
+            protocol_profile="openai_images",
+            parameter_codec="gpt_openai_images",
+            supported_operations=["generate", "edit"],
+            is_default=True,
+        )
+
+        self.assertEqual(model.capability_profile_id, "seedream-5-lite")
+        self.assertEqual(model.canonical_model_id, "doubao-seedream-5-0-260128")
+
     def test_official_seedream_lite_alias_uses_seedream_profile_and_valid_size(self) -> None:
         from codex_image.server.model_capabilities import get_model_capability_profile
         from codex_image.server.providers import ProviderRepository
@@ -396,6 +433,50 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                     )
                     self.assertEqual(inferred_model["model_family_id"], "seedream-image")
 
+                    inferred_provider_id = inferred_lite.json()["provider"]["provider_version_id"]
+                    inferred_generation_model_id = inferred_model["generation_model_id"]
+                    with psycopg.connect(database_url) as connection:
+                        connection.execute(
+                            """
+                            UPDATE generation_models
+                            SET canonical_model_id = %s
+                            WHERE generation_model_id = %s
+                            """,
+                            (
+                                "doubao-seedream-5-0-260128",
+                                inferred_generation_model_id,
+                            ),
+                        )
+                    legacy_settings = admin.get("/api/api-settings").json()["settings"]
+                    legacy_provider = next(
+                        item
+                        for item in legacy_settings["providers"]
+                        if item["provider_version_id"] == inferred_provider_id
+                    )
+                    self.assertEqual(
+                        legacy_provider["models"][0]["canonical_model_id"],
+                        "doubao-seedream-5-0-260128",
+                    )
+                    saved_legacy_provider = admin.patch(
+                        "/api/api-settings",
+                        json={"providers": [legacy_provider]},
+                        headers={"X-CSRF-Token": csrf},
+                    )
+                    self.assertEqual(
+                        saved_legacy_provider.status_code,
+                        200,
+                        saved_legacy_provider.text,
+                    )
+                    saved_legacy_provider_record = next(
+                        item
+                        for item in saved_legacy_provider.json()["settings"]["providers"]
+                        if item["provider_version_id"] == inferred_provider_id
+                    )
+                    self.assertEqual(
+                        saved_legacy_provider_record["models"][0]["canonical_model_id"],
+                        "doubao-seedream-5-0-260128",
+                    )
+
                     created = admin.post(
                         "/api/admin/provider-catalog",
                         json={
@@ -429,7 +510,7 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                     self.assertEqual(provider["models"][0]["model_family_id"], "seedream-image")
                     self.assertEqual(
                         provider["models"][0]["canonical_model_id"],
-                        "doubao-seedream-5-0-lite-test",
+                        "seedream-5-lite",
                     )
                     self.assertEqual(provider["models"][0]["protocol_profile"], "openai_images")
                     self.assertEqual(provider["models"][0]["parameter_codec"], "gpt_openai_images")

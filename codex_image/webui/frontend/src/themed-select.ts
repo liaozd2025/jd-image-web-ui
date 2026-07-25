@@ -1,4 +1,4 @@
-const DEFAULT_SELECT_IDS = ["languageSelect", "generationProviderSelect"] as const;
+const DEFAULT_SELECT_IDS = ["languageSelect", "generationProviderSelect", "generationModelSelect"] as const;
 
 interface ThemedSelectInstance {
   id: number;

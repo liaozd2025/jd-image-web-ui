@@ -174,7 +174,7 @@ button:disabled {
   }
 
   .controls-col .image-panel {
-    flex: 1 1 var(--compact-image-panel-height);
+    flex: 0 0 var(--compact-image-panel-height);
     min-height: var(--compact-image-panel-height);
   }
 
@@ -185,7 +185,7 @@ button:disabled {
       122px + var(--compact-panel-padding) + var(--compact-panel-padding) +
         var(--compact-prompt-heading-gap) + var(--prompt-template-content-height)
     );
-    flex: 1.15 1 var(--compact-prompt-panel-height);
+    flex: 0 0 var(--compact-prompt-panel-height);
     min-height: max(
       var(--compact-prompt-panel-height),
       var(--compact-prompt-content-min-height)
@@ -194,7 +194,7 @@ button:disabled {
   }
 
   .controls-col .output-panel {
-    flex: 0 0 auto;
+    flex: 1 0 auto;
     min-height: 0;
   }
 

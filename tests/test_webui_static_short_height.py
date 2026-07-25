@@ -28,17 +28,17 @@ class WebUIShortHeightContractTests(unittest.TestCase):
         )
         self.assertRegex(
             block,
-            r"\.controls-col\s+\.image-panel\s*\{[^}]*flex:\s*1\s+1\s+var\(--compact-image-panel-height\)"
+            r"\.controls-col\s+\.image-panel\s*\{[^}]*flex:\s*0\s+0\s+var\(--compact-image-panel-height\)"
             r"[^}]*min-height:\s*var\(--compact-image-panel-height\)",
         )
         self.assertRegex(
             block,
-            r"\.controls-col\s+\.prompt-panel\s*\{[^}]*flex:\s*1\.15\s+1\s+var\(--compact-prompt-panel-height\)"
-            r"[^}]*min-height:\s*var\(--compact-prompt-panel-height\)",
+            r"\.controls-col\s+\.prompt-panel\s*\{[^}]*flex:\s*0\s+0\s+var\(--compact-prompt-panel-height\)"
+            r"[^}]*min-height:\s*max\([^}]*var\(--compact-prompt-panel-height\)",
         )
         self.assertRegex(
             block,
-            r"\.controls-col\s+\.output-panel\s*\{[^}]*flex:\s*0\s+0\s+auto",
+            r"\.controls-col\s+\.output-panel\s*\{[^}]*flex:\s*1\s+0\s+auto",
         )
         self.assertNotRegex(block, r"\.controls-col\s+\.output-settings-stage\s*\{")
         self.assertNotIn("align-content: space-between", block)
@@ -65,15 +65,15 @@ class WebUIShortHeightContractTests(unittest.TestCase):
         )
         self.assertRegex(
             block,
-            r"\.controls-col\s+\.image-panel\s*\{[^}]*flex:\s*1\s+1\s+var\(--compact-image-panel-height\)",
+            r"\.controls-col\s+\.image-panel\s*\{[^}]*flex:\s*0\s+0\s+var\(--compact-image-panel-height\)",
         )
         self.assertRegex(
             block,
-            r"\.controls-col\s+\.prompt-panel\s*\{[^}]*flex:\s*1\.15\s+1\s+var\(--compact-prompt-panel-height\)",
+            r"\.controls-col\s+\.prompt-panel\s*\{[^}]*flex:\s*0\s+0\s+var\(--compact-prompt-panel-height\)",
         )
         self.assertRegex(
             block,
-            r"\.controls-col\s+\.output-panel\s*\{[^}]*flex:\s*0\s+0\s+auto",
+            r"\.controls-col\s+\.output-panel\s*\{[^}]*flex:\s*1\s+0\s+auto",
         )
         self.assertNotRegex(top_level, r"\.mode-specific-settings\s*\{[^}]*grid-template-columns")
         self.assertNotRegex(top_level, r"\.quantity-quality-row\s*\{[^}]*display:\s*contents")

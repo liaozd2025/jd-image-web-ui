@@ -15,7 +15,6 @@ from .providers import (
     PersonalCredentialNotFound,
     PersonalProviderCredential,
     ProviderApiMode,
-    ProviderCatalogMinimumRequired,
     ProviderKeyConflict,
     ProviderRepository,
     ProviderVersion,
@@ -65,6 +64,18 @@ class ProviderModelPayload(BaseModel):
         if not model_capability_profile_exists(profile_id):
             raise ValueError("capability_profile_id is not a built-in profile")
         self.capability_profile_id = profile_id
+        profile = get_model_capability_profile(profile_id)
+        profile_canonical_model_id = str(profile.get("canonical_model_id") or "")
+        if (
+            self.canonical_model_id
+            and profile_canonical_model_id
+            and self.canonical_model_id != profile_canonical_model_id
+        ):
+            profile_official_model_id = str(profile.get("official_model_id") or "")
+            if self.canonical_model_id != profile_official_model_id:
+                raise ValueError(
+                    "canonical_model_id does not match capability_profile_id"
+                )
         self.display_name = (self.display_name or self.model_id).strip()
         if bool(self.protocol_profile) != bool(self.parameter_codec):
             raise ValueError("protocol_profile and parameter_codec must be configured together")
@@ -226,8 +237,6 @@ def install_provider_routes(app: FastAPI, *, providers: ProviderRepository) -> N
             )
         except ProviderVersionNotFound as error:
             return JSONResponse(status_code=404, content={"detail": str(error)})
-        except ProviderCatalogMinimumRequired as error:
-            return JSONResponse(status_code=409, content={"detail": str(error)})
         return JSONResponse(
             content={
                 "provider_version_id": provider_version_id,

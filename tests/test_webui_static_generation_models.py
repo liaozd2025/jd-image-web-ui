@@ -24,7 +24,8 @@ class WebUIGenerationModelContractTests(unittest.TestCase):
         self.assertLess(prompt.index('id="promptFindButton"'), prompt.index('id="generationModelField"'))
         self.assertLess(prompt.index('id="generationModelField"'), prompt.index('id="promptTemplateButton"'))
         self.assertIn('id="generationModelSelect"', prompt)
-        self.assertIn('aria-describedby="generationModelSummary generationModelNotice"', prompt)
+        self.assertIn('aria-describedby="generationModelNotice"', prompt)
+        self.assertNotIn('id="generationModelSummary"', prompt)
         self.assertLess(output.index('id="concreteModelSelect"'), output.index('id="modelParameterGrid"'))
 
     def test_submission_uses_stable_model_identity_and_explicit_advanced_parameters(self) -> None:
@@ -116,8 +117,8 @@ class WebUIGenerationModelContractTests(unittest.TestCase):
         responsive_css = (ROOT / "codex_image/webui/static/styles/80-utilities-responsive.css").read_text(encoding="utf-8")
         self.assertIn("function compactModelDisplayName", source)
         self.assertIn("option.title = fullLabel", source)
-        self.assertRegex(prompt_css, r"\.generation-model-select\s*\{[^}]*max-width:\s*240px")
-        self.assertRegex(prompt_css, r"\.generation-model-select\s*\{[^}]*text-overflow:\s*ellipsis")
+        self.assertRegex(prompt_css, r"\.generation-model-field\s*>\s*\.themed-select\s*\{[^}]*max-width:\s*240px")
+        self.assertRegex(prompt_css, r"\.generation-model-field\s*>\s*\.themed-select\s*\{[^}]*text-overflow:\s*ellipsis")
         self.assertRegex(
             responsive_css,
             r"\.controls-col \.prompt-compose\s*\{[^}]*min-height:\s*96px",

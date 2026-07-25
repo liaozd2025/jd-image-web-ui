@@ -1,4 +1,5 @@
 import { getLegacyBridge } from "./state";
+import type { CatalogModel } from "./types";
 import {
   API_SETTINGS_STORAGE_KEY,
   DEFAULT_API_BASE_URL,
@@ -30,6 +31,7 @@ import {
   BINDING_PROTOCOL_LABELS,
   BINDING_COMPATIBILITY_LABELS,
   availableCompatibilityLayers,
+  configurableProviderModels,
   availableProtocolsForModel,
   bindingFromProtocol,
   bindingTemplateForProtocol,
@@ -37,6 +39,7 @@ import {
   bindingTemplateSuggestion,
   isBindingTemplateBaseUrl,
   normalizeProviderBindings,
+  providerModelsFromBindings,
   readProviderBindingCards,
   renderProviderBindingCards,
   validateProviderBindingOverlaps,
@@ -48,6 +51,19 @@ const bridge = getLegacyBridge();
 const state = bridge.state;
 const els = bridge.els;
 let apiSettingsAutosaveTimerId: number | null = null;
+const EMPTY_API_PROVIDER = Object.freeze({
+  id: "",
+  provider_version_id: "",
+  provider_key: "",
+  name: "",
+  base_url: "",
+  api_mode: DEFAULT_API_MODE,
+  concurrency: DEFAULT_API_IMAGES_CONCURRENCY,
+  models: [],
+  bindings: [],
+  is_active: false,
+  read_only: true,
+});
 
 const MODEL_PROFILES = [
   ["generic-basic", "apiSettings.profileGeneric"],
@@ -58,6 +74,13 @@ const MODEL_PROFILES = [
   ["nano-banana-2", "Nano Banana 2"],
   ["nano-banana-2-lite", "Nano Banana 2 Lite"],
 ] as const;
+
+function providerBindingModels(): CatalogModel[] {
+  return configurableProviderModels(
+    state.generationCatalog?.models || [],
+    state.modelCapabilityProfiles || [],
+  );
+}
 
 function legacyMethod(name: string, ...args: any[]): any {
   const method = getLegacyBridge().methods[name];
@@ -155,36 +178,6 @@ function normalizeApiModel(model: any = {}, index = 0): any {
     validation_status: String(model.validation_status || "not_required"),
     validation_error: String(model.validation_error || ""),
   };
-}
-
-function providerModelsFromBindings(provider: any): any[] {
-  const bindings = Array.isArray(provider.bindings) ? provider.bindings : [];
-  const existingModels = Array.isArray(provider.models) ? provider.models : [];
-  const existingDefault = existingModels.find((model: any) => model.is_default);
-  return bindings.map((binding: any, index: number) => {
-    const existing = existingModels.find((model: any) => (
-      model.generation_model_id === binding.id
-      || (model.canonical_model_id || model.model_id) === binding.canonical_model_id
-    ));
-    const manifest = state.generationCatalog?.models?.find((model: any) => model.id === binding.canonical_model_id);
-    const isDefault = existingDefault
-      ? existing === existingDefault
-      : index === 0;
-    return {
-      generation_model_id: existing?.generation_model_id || binding.id,
-      display_name: existing?.display_name || manifest?.display_name || binding.remote_model_id,
-      model_id: binding.remote_model_id,
-      capability_profile_id: existing?.capability_profile_id || binding.canonical_model_id || "generic-basic",
-      model_family_id: manifest?.family_id || existing?.model_family_id || "gpt-image",
-      canonical_model_id: binding.canonical_model_id,
-      protocol_profile: binding.protocol_profile,
-      parameter_codec: binding.parameter_codec,
-      supported_operations: binding.operations,
-      append_aspect_ratio_prompt: Boolean(binding.append_aspect_ratio_prompt),
-      is_default: isDefault,
-      is_enabled: existing?.is_enabled !== false,
-    };
-  });
 }
 
 function appendProviderIdentity(target: HTMLElement, provider: any, className: string): void {
@@ -353,7 +346,7 @@ function setApiProviderEditorVisible(visible: boolean): void {
   else els.apiProviderSection?.removeAttribute("inert");
   els.apiProviderEditor?.classList.toggle("hidden", !visible);
   els.apiProviderEditor?.setAttribute("aria-hidden", visible ? "false" : "true");
-  els.apiProviderDetail?.classList.toggle("hidden", visible);
+  els.apiProviderDetail?.classList.toggle("hidden", visible || settings.providers.length === 0);
   els.apiSettingsActions?.classList.toggle("hidden", visible);
   els.apiSettingsActions?.setAttribute("aria-hidden", visible ? "true" : "false");
   if (els.editApiProviderButton) els.editApiProviderButton.disabled = visible;
@@ -364,7 +357,7 @@ function setApiProviderEditorVisible(visible: boolean): void {
     els.toggleApiProviderStatusButton.disabled = visible || !activeApiProvider().provider_version_id;
   }
   if (els.deleteApiProviderButton) {
-    els.deleteApiProviderButton.disabled = visible || normalizeApiSettings(state.apiSettings).providers.length <= 1;
+    els.deleteApiProviderButton.disabled = visible || !activeApiProvider().provider_version_id;
   }
   if (!visible) hideApiKeyReveal();
 }
@@ -668,7 +661,7 @@ function writeProviderForm(provider: any): void {
   renderProviderBindingCards(
     els.apiProviderBindings,
     provider.bindings || [],
-    state.generationCatalog?.models || [],
+    providerBindingModels(),
     provider.id,
     state.apiSettings.default_provider_by_model || {},
   );
@@ -763,7 +756,9 @@ export function renderApiProviderList(): void {
   if (!buttons.length) {
     const empty = document.createElement("div");
     empty.className = "api-provider-search-empty";
-    empty.textContent = translate("apiSettings.noProviderSearchResults");
+    empty.textContent = settings.providers.length
+      ? translate("apiSettings.noProviderSearchResults")
+      : formatTranslation("apiSettings.providerCount", { count: "0" });
     els.apiProviderList.replaceChildren(empty);
     return;
   }
@@ -773,6 +768,9 @@ export function renderApiProviderList(): void {
 
 function renderApiProviderDetail(): void {
   const provider = activeApiProvider();
+  const hasProvider = state.apiSettings.providers.length > 0;
+  els.apiProviderDetail?.classList.toggle("hidden", !hasProvider);
+  if (!hasProvider) return;
   const providerActive = provider.is_active !== false;
   setElementText(els.apiProviderDetailBaseUrl, provider.base_url || DEFAULT_API_BASE_URL);
   setElementText(els.apiProviderDetailKey, providerKeyLabel(provider));
@@ -831,7 +829,8 @@ function applyApiProviderDraft(settings: any): any {
 }
 
 export function normalizeApiSettings(settings: any = {}): any {
-  const rawProviders = Array.isArray(settings.providers) && settings.providers.length
+  const hasExplicitProviderList = Array.isArray(settings.providers);
+  const rawProviders = hasExplicitProviderList
     ? settings.providers
     : [{
       id: settings.active_provider_id || "default",
@@ -852,14 +851,16 @@ export function normalizeApiSettings(settings: any = {}): any {
     seen.add(normalized.id);
     providers.push(normalized);
   });
-  if (!providers.length) providers.push(normalizeApiProvider({}, 0));
-  const requestedActive = String(settings.active_provider_id || providers[0].id).trim().toLowerCase();
-  const activeProvider = providers.find((provider) => provider.id === requestedActive) || providers[0];
+  if (!providers.length && !hasExplicitProviderList) providers.push(normalizeApiProvider({}, 0));
+  const requestedActive = String(settings.active_provider_id || providers[0]?.id || "").trim().toLowerCase();
+  const activeProvider = providers.find((provider) => provider.id === requestedActive) || providers[0] || null;
   return {
     schema_version: 2,
     codex_mode: normalizeCodexMode(settings.codex_mode),
-    active_provider_id: activeProvider.id,
-    default_provider_by_model: { ...(settings.default_provider_by_model || { "gpt-image-2": activeProvider.id }) },
+    active_provider_id: activeProvider?.id || "",
+    default_provider_by_model: activeProvider
+      ? { ...(settings.default_provider_by_model || { "gpt-image-2": activeProvider.id }) }
+      : {},
     providers,
     allow_new_provider: Boolean(settings.allow_new_provider),
     credential_scope: settings.credential_scope === "department" ? "department" : "personal",
@@ -872,7 +873,9 @@ export function normalizeApiSettings(settings: any = {}): any {
 export function activeApiProvider(): any {
   const settings = normalizeApiSettings(state.apiSettings);
   state.apiSettings = settings;
-  return settings.providers.find((provider: any) => provider.id === settings.active_provider_id) || settings.providers[0];
+  return settings.providers.find((provider: any) => provider.id === settings.active_provider_id)
+    || settings.providers[0]
+    || EMPTY_API_PROVIDER;
 }
 
 export function restoreApiSettings(): void {
@@ -1039,7 +1042,6 @@ export async function deleteApiProvider(): Promise<void> {
     setApiSettingsFeedback(translate("apiSettings.finishEditFirst"), "error");
     return;
   }
-  if (state.apiSettings.providers.length <= 1) return;
   const provider = activeApiProvider();
   const isServerWorkspace = Boolean(document.documentElement.dataset.userRole);
   if (isServerWorkspace) {
@@ -1068,14 +1070,14 @@ export async function deleteApiProvider(): Promise<void> {
       renderApiProviderDetail();
     } finally {
       if (els.deleteApiProviderButton) {
-        els.deleteApiProviderButton.disabled = normalizeApiSettings(state.apiSettings).providers.length <= 1;
+        els.deleteApiProviderButton.disabled = !activeApiProvider().provider_version_id;
       }
     }
     return;
   }
   const activeId = state.apiSettings.active_provider_id;
   state.apiSettings.providers = state.apiSettings.providers.filter((provider: any) => provider.id !== activeId);
-  state.apiSettings.active_provider_id = state.apiSettings.providers[0]?.id || "default";
+  state.apiSettings.active_provider_id = state.apiSettings.providers[0]?.id || "";
   Object.entries(state.apiSettings.default_provider_by_model || {}).forEach(([modelId, providerId]) => {
     if (providerId === activeId) delete state.apiSettings.default_provider_by_model[modelId];
   });
@@ -1095,7 +1097,6 @@ export function confirmDeleteApiProvider(anchor: any = els.deleteApiProviderButt
     setApiSettingsFeedback(translate("apiSettings.finishEditFirst"), "error");
     return;
   }
-  if (state.apiSettings.providers.length <= 1) return;
   const provider = activeApiProvider();
   openConfirmPopover(anchor || els.deleteApiProviderButton, {
     title: translate("apiSettings.deleteProviderTitle"),
@@ -1307,8 +1308,8 @@ function bindingForCatalogModel(bindingId: string, model: any): any {
 export function addProviderBinding(): void {
   if (!apiProviderEditorActive()) return;
   const draft = draftProviderFromForm();
-  const models = state.generationCatalog?.models || [];
-  const model = models.find((item: any) => !draft.bindings.some((binding: any) => binding.canonical_model_id === item.id))
+  const models = providerBindingModels();
+  const model = models.find((item) => !draft.bindings.some((binding: any) => binding.canonical_model_id === item.id))
     || models[0];
   if (!model) {
     setApiSettingsFeedback(translate("apiSettings.catalogRequiredForBinding"), "error");
@@ -1342,7 +1343,7 @@ export function removeProviderBinding(bindingId: string): void {
   renderProviderBindingCards(
     els.apiProviderBindings,
     draft.bindings,
-    state.generationCatalog?.models || [],
+    providerBindingModels(),
     draft.id,
     defaultsForProviderDraft(draft),
   );
@@ -1389,7 +1390,7 @@ export function handleProviderBindingEditorChange(event: Event): void {
       if (!currentBase || isBindingTemplateBaseUrl(currentBase)) els.apiBaseUrl.value = suggestion.base_url;
     }
     const remoteInput = card.querySelector<HTMLInputElement>("[data-binding-remote-model]");
-    const model = state.generationCatalog?.models.find((item: any) => item.id === modelId);
+    const model = providerBindingModels().find((item) => item.id === modelId);
     if (remoteInput && !remoteInput.value.trim()) remoteInput.value = model?.official_model_id || modelId;
     const existingOperations = String(card.dataset.bindingModelOperations || "")
       .split(",")
@@ -1659,7 +1660,7 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
         icon_emoji: provider.icon_emoji || "",
         base_url: provider.base_url,
         image_model: provider.image_model,
-        models: providerModelsFromBindings(provider).map((model: any) => ({
+        models: providerModelsFromBindings(provider, providerBindingModels()).map((model: any) => ({
           generation_model_id: model.generation_model_id || undefined,
           display_name: model.display_name,
           model_id: model.model_id,

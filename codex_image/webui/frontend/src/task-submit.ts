@@ -6,7 +6,7 @@ import {
   appendServerCompatibleGenerationFields,
   currentGenerationSelection,
 } from "./generation-request";
-import { taskOutputControlValues } from "./task-model-summary";
+import { taskCustomAspectRatioDigits, taskOutputControlValues } from "./task-model-summary";
 import { usesLegacyMainModelControl, usesLegacyWorkspaceControls } from "./workspace-model-compatibility";
 
 const bridge = getLegacyBridge();
@@ -150,6 +150,20 @@ export function applyTaskOutputParams(task: any): void {
   }
   if (params.model && els.model) els.model.value = params.model;
   if (output.size) syncSizeControlsFromSize(output.size);
+  if (output.resolution && els.resolution) els.resolution.value = String(output.resolution);
+  if (output.ratio && els.ratio) els.ratio.value = String(output.ratio);
+  const customRatio = taskCustomAspectRatioDigits(task);
+  if (els.customRatioWidth && els.customRatioHeight) {
+    const useCustomRatio = Boolean(els.customSizeToggle?.checked && customRatio);
+    els.customRatioWidth.value = useCustomRatio ? String(customRatio?.width || "") : "";
+    els.customRatioHeight.value = useCustomRatio ? String(customRatio?.height || "") : "";
+    state.customAspectRatioLocked = useCustomRatio;
+    state.customAspectRatioValue = useCustomRatio && customRatio
+      ? customRatio.width / customRatio.height
+      : null;
+    state.customAspectRatioSource = useCustomRatio ? "history" : null;
+    els.customRatioField?.classList.toggle("active", useCustomRatio);
+  }
   if (output.n && els.nInput) {
     els.nInput.value = String(output.n);
   }
@@ -159,7 +173,7 @@ export function applyTaskOutputParams(task: any): void {
   if (output.output_compression !== null && output.output_compression !== undefined && els.compression) {
     els.compression.value = output.output_compression;
   }
-  [els.quality, els.outputFormat, els.moderation].forEach((element: any) => {
+  [els.resolution, els.ratio, els.quality, els.outputFormat, els.moderation].forEach((element: any) => {
     element?.dispatchEvent(new Event("change"));
   });
   updateQuantity();

@@ -97,6 +97,7 @@ _PROFILES: tuple[dict[str, Any], ...] = (
         },
         "model_family_id": "gpt-image",
         "canonical_model_id": "gpt-image-2",
+        "official_model_id": "gpt-image-2",
     },
     {
         "profile_id": "seedream-5-lite",
@@ -130,6 +131,9 @@ _PROFILES: tuple[dict[str, Any], ...] = (
             "sequential_generation": True,
             "streaming": True,
         },
+        "model_family_id": "seedream-image",
+        "canonical_model_id": "seedream-5-lite",
+        "official_model_id": "doubao-seedream-5-0-260128",
     },
     {
         "profile_id": "seedream-5-pro",
@@ -162,6 +166,9 @@ _PROFILES: tuple[dict[str, Any], ...] = (
             "sequential_generation": False,
             "streaming": False,
         },
+        "model_family_id": "seedream-image",
+        "canonical_model_id": "seedream-5-pro",
+        "official_model_id": "doubao-seedream-5-0-pro-260628",
     },
     {
         "profile_id": "nano-banana-pro",
@@ -187,6 +194,7 @@ _PROFILES: tuple[dict[str, Any], ...] = (
         "google_search": True,
         "model_family_id": "gemini-image",
         "canonical_model_id": "nano-banana-pro",
+        "official_model_id": "gemini-3-pro-image",
     },
     {
         "profile_id": "nano-banana-2",
@@ -212,6 +220,7 @@ _PROFILES: tuple[dict[str, Any], ...] = (
         "google_search": True,
         "model_family_id": "gemini-image",
         "canonical_model_id": "nano-banana-2",
+        "official_model_id": "gemini-3.1-flash-image",
     },
     {
         "profile_id": "nano-banana-2-lite",
@@ -237,6 +246,7 @@ _PROFILES: tuple[dict[str, Any], ...] = (
         "google_search": False,
         "model_family_id": "gemini-image",
         "canonical_model_id": "nano-banana-2-lite",
+        "official_model_id": "gemini-3.1-flash-lite-image",
     },
 )
 

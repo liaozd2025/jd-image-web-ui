@@ -968,6 +968,10 @@
   font-weight: 700;
 }
 
+.api-model-editor-heading strong {
+  flex: 0 0 auto;
+}
+
 .api-model-editor-heading .ghost-button {
   width: auto;
   min-width: 88px;
@@ -986,6 +990,7 @@
   display: grid;
   gap: 8px;
   padding-top: 4px;
+  container-type: inline-size;
 }
 
 .api-model-validation-section .api-model-editor-heading span {
@@ -1001,6 +1006,13 @@
   display: grid;
   min-width: 0;
   gap: 2px;
+}
+
+.api-model-validation-identity strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .api-model-validation-identity code {
@@ -1104,6 +1116,21 @@
   .api-model-row > select,
   .api-model-validation {
     grid-column: auto;
+  }
+}
+
+@container (max-width: 340px) {
+  .api-model-row.api-model-validation-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .api-model-validation-identity {
+    grid-column: 1 / -1;
+  }
+
+  .api-model-validation {
+    grid-column: auto;
+    justify-self: start;
   }
 }
 
