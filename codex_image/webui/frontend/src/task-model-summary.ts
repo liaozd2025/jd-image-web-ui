@@ -20,12 +20,12 @@ export function taskCanonicalModelId(task: unknown): string {
 export type TaskOutputSettingsView = "locked-summary" | "parameter-inspector" | "editor";
 
 export function taskOutputSettingsView(
-  task: unknown,
-  selectedModelId: string,
+  _task: unknown,
+  _selectedModelId: string,
   outputSettingsLocked: boolean,
 ): TaskOutputSettingsView {
   if (outputSettingsLocked) return "locked-summary";
-  return taskCanonicalModelId(task) === selectedModelId ? "editor" : "parameter-inspector";
+  return "editor";
 }
 
 export function taskRequestedParameters(task: unknown): Record<string, unknown> {
@@ -106,6 +106,23 @@ function dimensions(value: unknown): [number, number] | null {
 
 function compactDimensions(value: [number, number] | null): string {
   return value ? `${value[0]}×${value[1]}` : "";
+}
+
+export function taskCustomAspectRatioDigits(
+  task: unknown,
+): { width: number; height: number } | null {
+  const output = taskOutputControlValues(task);
+  const explicit = String(output.ratio || "").trim().match(/^(\d+)\s*:\s*(\d+)$/);
+  const source = explicit
+    ? [Number(explicit[1]), Number(explicit[2])] as [number, number]
+    : dimensions(output.size);
+  if (!source) return null;
+  const divisor = greatestCommonDivisor(source[0], source[1]);
+  const width = Math.round(source[0] / divisor);
+  const height = Math.round(source[1] / divisor);
+  return width >= 1 && width <= 9 && height >= 1 && height <= 9
+    ? { width, height }
+    : null;
 }
 
 function normalizedGptResolution(value: string): string {

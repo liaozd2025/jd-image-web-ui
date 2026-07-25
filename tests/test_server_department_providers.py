@@ -23,7 +23,7 @@ PERSONAL_KEY = "personal-provider-test-secret-5678"
 
 @unittest.skipUnless(TEST_DATABASE_URL, "set JD_IMAGE_TEST_DATABASE_URL to a real PostgreSQL database")
 class ServerDepartmentProviderTests(unittest.TestCase):
-    def test_department_provider_soft_delete_preserves_history_and_last_provider(self) -> None:
+    def test_department_provider_soft_delete_preserves_history_and_allows_empty_catalog(self) -> None:
         from codex_image.server.app import create_server_app
         from codex_image.server.config import ServerSettings
 
@@ -292,18 +292,30 @@ class ServerDepartmentProviderTests(unittest.TestCase):
                         f"/api/admin/provider-catalog/{second_id}",
                         headers={"X-CSRF-Token": admin_csrf},
                     )
-                    self.assertEqual(last_provider.status_code, 409, last_provider.text)
+                    self.assertEqual(last_provider.status_code, 200, last_provider.text)
+                    self.assertEqual(
+                        last_provider.json(),
+                        {"provider_version_id": second_id, "deleted": True},
+                    )
+                    self.assertEqual(
+                        admin.get("/api/admin/provider-catalog").json()["providers"],
+                        [],
+                    )
+                    self.assertEqual(
+                        admin.get("/api/generation-catalog").json()["providers"],
+                        [],
+                    )
                     with psycopg.connect(database_url) as connection:
                         deleted_audits = connection.execute(
                             """
                             SELECT COUNT(*)
                             FROM server_audit_events
                             WHERE action = 'provider.version_deleted'
-                              AND details ->> 'provider_version_id' = %s
+                              AND details ->> 'provider_version_id' IN (%s, %s)
                             """,
-                            (first_id,),
+                            (first_id, second_id),
                         ).fetchone()[0]
-                    self.assertEqual(deleted_audits, 1)
+                    self.assertEqual(deleted_audits, 2)
 
     def test_inactive_department_provider_is_updated_in_place(self) -> None:
         from codex_image.server.app import create_server_app

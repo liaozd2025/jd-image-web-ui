@@ -123,6 +123,7 @@ export function createDefaultState(): WebUIState {
   taskNotificationSeenKeys: new Set(),
   generationCatalog: null,
   generationCatalogError: null,
+  modelCapabilityProfiles: [],
   selectedFamilyId: null,
   selectedModelId: null,
   selectedProviderId: null,

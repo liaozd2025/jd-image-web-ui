@@ -452,6 +452,13 @@
   border: 1px solid var(--line);
 }
 
+.image-thumb-list .thumb {
+  flex: 0 0 auto;
+  width: auto;
+  height: min(var(--image-input-thumb-size), 100%);
+  aspect-ratio: 1;
+}
+
 .editable-thumb {
   cursor: pointer;
   outline: none;

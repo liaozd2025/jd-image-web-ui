@@ -613,6 +613,19 @@ test("deep draft sanitization never preserves an over-depth compound secret", ()
   assert.doesNotMatch(serialized, /deep-secret|must-not-survive-as-a-compound/);
 });
 
+test("catalog validation accepts an empty server provider catalog", () => {
+  const emptyCatalog: GenerationCatalog = {
+    ...catalog,
+    families: [],
+    models: [],
+    providers: [],
+    default_provider_by_model: {},
+    codex: { available: false, mode: "images" },
+  };
+
+  assert.equal(isGenerationCatalog(emptyCatalog), true);
+});
+
 test("catalog validation rejects malformed operations and broken Codex invariants", () => {
   assert.equal(isGenerationCatalog(catalog), true);
   const invalidOperation = structuredClone(catalog) as any;

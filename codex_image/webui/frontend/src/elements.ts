@@ -271,7 +271,6 @@ export function createWebUIElements(): WebUIElements {
   model: document.querySelector("#model"),
   generationModelField: document.querySelector("#generationModelField"),
   generationModelSelect: document.querySelector("#generationModelSelect"),
-  generationModelSummary: document.querySelector("#generationModelSummary"),
   generationModelNotice: document.querySelector("#generationModelNotice"),
   generationCallNotice: document.querySelector("#generationCallNotice"),
   promptOptimizationField: document.querySelector("#promptOptimizationField"),

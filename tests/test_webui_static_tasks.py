@@ -1607,6 +1607,7 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
                 function persistApiSettings() {}
                 function populateApiSettingsForm() {}
                 function taskOutputControlValues(task) { return task.params || {}; }
+                function taskCustomAspectRatioDigits() { return null; }
                 function syncSizeControlsFromSize() {}
                 function updatePromptCount() {}
                 function updateCompression() {}
@@ -1671,6 +1672,7 @@ class WebUIStaticTaskTests(WebUIStaticTestCase):
                 function setPromptWithGalleryRefs() {}
                 function persistMainModel() {}
                 function taskOutputControlValues(task) { return task.params || {}; }
+                function taskCustomAspectRatioDigits() { return null; }
                 function syncSizeControlsFromSize() {}
                 function updatePromptCount() {}
                 function updateCompression() {}

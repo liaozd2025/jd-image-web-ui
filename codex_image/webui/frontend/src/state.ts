@@ -25,6 +25,7 @@ export interface WebUIState {
   taskNotificationSeenKeys: Set<string>;
   generationCatalog: GenerationCatalog | null;
   generationCatalogError: string | null;
+  modelCapabilityProfiles: unknown[];
   selectedFamilyId: ModelFamilyId | null;
   selectedModelId: string | null;
   selectedProviderId: string | null;

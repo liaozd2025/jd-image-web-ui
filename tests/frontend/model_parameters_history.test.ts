@@ -21,6 +21,7 @@ import {
   aspectRatioSlots,
 } from "../../codex_image/webui/frontend/src/aspect-ratio-controls";
 import {
+  catalogModelForGenerationSnapshot,
   inspectTaskParameters,
   legacyGenerationSnapshot,
   notifyParameterMigration,
@@ -445,6 +446,90 @@ test("history inspect only stores a snapshot and cannot mutate frozen composer s
   }
 });
 
+test("legacy runtime snapshots recover their stored parameters and provider identity", () => {
+  const { state, restore } = installBridge();
+  try {
+    inspectTaskParameters({
+      task_id: "legacy-seedream-history",
+      provider_scope: "department",
+      params: {
+        api_provider_id: "department-provider-version",
+        api_provider_name: "火山方舟",
+        size: "3024x1296",
+        ratio: "21:9",
+        resolution: "standard",
+        n: 1,
+        output_format: "png",
+      },
+      request: {},
+      generation_snapshot: {
+        schema_version: 1,
+        runtime: "legacy",
+        model_family_id: "seedream-image",
+        canonical_model_id: "doubao-seedream-5-0-260128",
+        remote_model_id: "doubao-seedream-5-0-260128",
+        provider_version_id: "provider-version",
+        provider_key: "provider-1784418396398",
+        binding_id: "seedream-lite",
+        protocol_profile: "openai_images",
+        parameter_codec: "gpt_openai_images",
+        actual_parameters: {
+          size: "3024x1296",
+          ratio: "21:9",
+          resolution: "standard",
+          n: 1,
+          output_format: "png",
+          quality: "auto",
+          moderation: "auto",
+          web_search: false,
+          prompt_fidelity: "strict",
+          prompt_optimization_mode: "off",
+          seed_mode: "random",
+          seed: 1040967306,
+        },
+      },
+    } as any);
+
+    assert.equal(state.inspectedGenerationSnapshot.family_id, "seedream-image");
+    assert.equal(state.inspectedGenerationSnapshot.provider_id, "department-provider-version");
+    assert.equal(state.inspectedGenerationSnapshot.provider_name, "火山方舟");
+    assert.deepEqual(state.inspectedGenerationSnapshot.requested_parameters, {
+      "canvas.size": "3024x1296",
+      "canvas.aspect_ratio": "21:9",
+      "canvas.resolution": "standard",
+      "output.count": 1,
+      "output.format": "png",
+      "gpt.quality": "auto",
+      "gpt.moderation": "auto",
+      "gpt.web_search": false,
+      "legacy.prompt_fidelity": "strict",
+      "legacy.prompt_optimization_mode": "off",
+      "legacy.seed_mode": "random",
+      "legacy.seed": 1040967306,
+    });
+  } finally {
+    restore();
+  }
+});
+
+test("history model aliases resolve to the current catalog model", () => {
+  const seedreamCatalog = {
+    ...catalog,
+    models: [{
+      ...model,
+      id: "seedream-5-lite",
+      family_id: "seedream-image",
+      official_model_id: "doubao-seedream-5-0-260128",
+    }],
+  } as GenerationCatalog;
+  const snapshot = {
+    canonical_model_id: "doubao-seedream-5-0-260128",
+    remote_model_id: "doubao-seedream-5-0-260128",
+  } as any;
+
+  assert.equal(catalogModelForGenerationSnapshot(snapshot, seedreamCatalog)?.id, "seedream-5-lite");
+});
+
 test("old tasks receive a GPT-compatible legacy snapshot", () => {
   const snapshot = legacyGenerationSnapshot({
     task_id: "legacy",
@@ -536,12 +621,12 @@ test("GPT history inspector mirrors the visible Image editor controls", () => {
   assert.equal(translate("output.size", "zh-CN"), "输出尺寸");
 });
 
-test("history inspection closes when the selected model catches up with the task", () => {
+test("unlocked history keeps the editable output form across model changes", () => {
   const snapshot = { canonical_model_id: "gpt-image-2" } as any;
   assert.equal(taskParameterInspectionMatchesSelectedModel(snapshot, "nano-banana-2"), false);
   assert.equal(taskParameterInspectionMatchesSelectedModel(snapshot, "gpt-image-2"), true);
   const task = { task_id: "gpt-history", generation_snapshot: snapshot } as any;
-  assert.equal(taskParameterInspectionAction(task, "nano-banana-2", false), "inspect");
+  assert.equal(taskParameterInspectionAction(task, "nano-banana-2", false), "clear");
   assert.equal(taskParameterInspectionAction(task, "gpt-image-2", false), "clear");
   assert.equal(taskParameterInspectionAction(task, "nano-banana-2", true), "preserve");
 });

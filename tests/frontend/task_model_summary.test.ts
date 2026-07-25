@@ -5,6 +5,7 @@ import {
   taskCanvasSummaryParts,
   taskCanonicalModelId,
   taskChannelLabel,
+  taskCustomAspectRatioDigits,
   taskModelFamilyId,
   taskModelDisplayName,
   taskOutputSettingsView,
@@ -88,6 +89,21 @@ test("history output controls prefer frozen canonical parameters over stale lega
   });
 });
 
+test("historical custom ratios reduce to the editable single-digit ratio control", () => {
+  assert.deepEqual(taskCustomAspectRatioDigits({
+    params: {
+      size: "3024x1296",
+      ratio: "21:9",
+    },
+  }), { width: 7, height: 3 });
+  assert.equal(taskCustomAspectRatioDigits({
+    params: {
+      size: "1920x1080",
+      ratio: "16:9",
+    },
+  }), null);
+});
+
 test("pending task summaries use canonical request data before a snapshot exists", () => {
   const task = {
     task_id: "pending",
@@ -141,13 +157,13 @@ test("unknown canonical model IDs remain truthful instead of being guessed", () 
   assert.equal(taskUsesCanonicalModelSummary(task), true);
 });
 
-test("locked task selection keeps the visual summary while unlocked cross-model history uses the inspector", () => {
+test("locked task selection keeps the visual summary while unlocked history uses the editor", () => {
   const geminiTask = {
     generation_snapshot: { canonical_model_id: "nano-banana-2-lite" },
   };
 
   assert.equal(taskOutputSettingsView(geminiTask, "gpt-image-2", true), "locked-summary");
-  assert.equal(taskOutputSettingsView(geminiTask, "gpt-image-2", false), "parameter-inspector");
+  assert.equal(taskOutputSettingsView(geminiTask, "gpt-image-2", false), "editor");
   assert.equal(taskOutputSettingsView(geminiTask, "nano-banana-2-lite", false), "editor");
 });
 

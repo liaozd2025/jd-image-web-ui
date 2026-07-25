@@ -8,8 +8,10 @@ import {
   bindingForProtocolSelection,
   bindingFromProtocol,
   compatibilityForBinding,
+  configurableProviderModels,
   isBindingTemplateBaseUrl,
   normalizeProviderBindings,
+  providerModelsFromBindings,
   protocolForBinding,
   readProviderBindingCards,
   resolvedBindingOperations,
@@ -38,6 +40,11 @@ test("three direct protocols map explicitly by canonical model", () => {
   assert.deepEqual(availableProtocolsForModel("gpt-image-2"), ["openai_images", "openai_responses"]);
   assert.deepEqual(availableProtocolsForModel("unsupported-image"), []);
   assert.deepEqual(availableProtocolsForModel("nano-banana-pro"), ["gemini", "openai_images"]);
+  assert.deepEqual(availableProtocolsForModel("seedream-5-pro"), ["openai_images"]);
+  assert.deepEqual(
+    availableProtocolsForModel("doubao-seedream-5-0-pro-260628"),
+    ["openai_images"],
+  );
 
   const generateContent = bindingFromProtocol("b", "nano-banana-2", "anything/custom-looking", "gemini");
   assert.equal(generateContent.protocol_profile, "gemini_generate_content");
@@ -62,6 +69,105 @@ test("three direct protocols map explicitly by canonical model", () => {
     () => bindingFromProtocol("f", "gpt-image-2", "custom", "gemini"),
     /unsupported_binding_protocol/,
   );
+});
+
+test("provider binding model choices include every capability profile", () => {
+  const models = configurableProviderModels(
+    [{
+      id: "legacy-seedream",
+      family_id: "seedream-image",
+      display_name: "Legacy Seedream",
+      official_model_id: "vendor/legacy-seedream",
+      version: 1,
+      operations: ["generate", "edit"],
+      parameters: [],
+      input_constraints: {
+        max_images: 16,
+        supports_mask: false,
+        supports_reference_files: false,
+      },
+      expand_advanced_parameters: false,
+    }],
+    [{
+      profile_id: "seedream-5-pro",
+      canonical_model_id: "seedream-5-pro",
+      official_model_id: "doubao-seedream-5-0-pro-260628",
+      model_family_id: "seedream-image",
+      display_name: "Seedream 5.0 Pro",
+      version: 1,
+      task_modes: ["generate", "edit"],
+      max_reference_images: 16,
+    }],
+  );
+
+  assert.deepEqual(models.map((model) => model.id), [
+    "legacy-seedream",
+    "seedream-5-pro",
+  ]);
+  assert.equal(models[1].official_model_id, "doubao-seedream-5-0-pro-260628");
+});
+
+test("changing a concrete model replaces the stale capability profile", () => {
+  const savedModels = providerModelsFromBindings({
+    bindings: [{
+      id: "stable-generation-model-id",
+      canonical_model_id: "seedream-5-pro",
+      remote_model_id: "doubao-seedream-5-0-pro-260628",
+      protocol_profile: "openai_images",
+      parameter_codec: "gpt_openai_images",
+      operations: ["generate", "edit"],
+    }],
+    models: [{
+      generation_model_id: "stable-generation-model-id",
+      display_name: "GPT Image 2",
+      model_id: "gpt-image-2",
+      capability_profile_id: "gpt-image-2",
+      model_family_id: "gpt-image",
+      canonical_model_id: "gpt-image-2",
+      is_default: true,
+      is_enabled: true,
+    }],
+  }, [{
+    id: "seedream-5-pro",
+    family_id: "seedream-image",
+    display_name: "Seedream 5.0 Pro",
+    official_model_id: "doubao-seedream-5-0-pro-260628",
+    version: 1,
+    operations: ["generate", "edit"],
+    parameters: [],
+    input_constraints: {
+      max_images: 16,
+      supports_mask: false,
+      supports_reference_files: false,
+    },
+    expand_advanced_parameters: false,
+  }]);
+
+  assert.deepEqual(savedModels.map((model) => ({
+    generation_model_id: model.generation_model_id,
+    display_name: model.display_name,
+    capability_profile_id: model.capability_profile_id,
+    model_family_id: model.model_family_id,
+    canonical_model_id: model.canonical_model_id,
+  })), [{
+    generation_model_id: "stable-generation-model-id",
+    display_name: "Seedream 5.0 Pro",
+    capability_profile_id: "seedream-5-pro",
+    model_family_id: "seedream-image",
+    canonical_model_id: "seedream-5-pro",
+  }]);
+});
+
+test("Seedream bindings keep their Images protocol when a model is selected", () => {
+  const binding = bindingFromProtocol(
+    "seedream-pro",
+    "seedream-5-pro",
+    "doubao-seedream-5-0-pro-260628",
+    "openai_images",
+  );
+
+  assert.equal(binding.protocol_profile, "openai_images");
+  assert.equal(binding.parameter_codec, "gpt_openai_images");
 });
 
 test("compatibility layers stay binding-scoped and map to explicit transports", () => {

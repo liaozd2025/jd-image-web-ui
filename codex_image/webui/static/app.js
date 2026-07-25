@@ -434,7 +434,6 @@
       model: document.querySelector("#model"),
       generationModelField: document.querySelector("#generationModelField"),
       generationModelSelect: document.querySelector("#generationModelSelect"),
-      generationModelSummary: document.querySelector("#generationModelSummary"),
       generationModelNotice: document.querySelector("#generationModelNotice"),
       generationCallNotice: document.querySelector("#generationCallNotice"),
       promptOptimizationField: document.querySelector("#promptOptimizationField"),
@@ -14889,7 +14888,7 @@
   }
 
   // codex_image/webui/frontend/src/themed-select.ts
-  var DEFAULT_SELECT_IDS = ["languageSelect", "generationProviderSelect"];
+  var DEFAULT_SELECT_IDS = ["languageSelect", "generationProviderSelect", "generationModelSelect"];
   var instances = /* @__PURE__ */ new WeakMap();
   var openInstances = /* @__PURE__ */ new Set();
   var nextInstanceId = 1;
@@ -15746,6 +15745,7 @@
       taskNotificationSeenKeys: /* @__PURE__ */ new Set(),
       generationCatalog: null,
       generationCatalogError: null,
+      modelCapabilityProfiles: [],
       selectedFamilyId: null,
       selectedModelId: null,
       selectedProviderId: null,
@@ -34882,7 +34882,7 @@ ${hint}` : hint;
       const objectPresetsValid = item.object_presets === void 0 || Array.isArray(item.object_presets) && item.object_presets.every((preset) => object(preset) && nonempty(preset.id) && nonempty(preset.label_key) && object(preset.value) && typeof preset.matches_empty === "boolean");
       return nonempty(item.id) && nonempty(item.label_key) && ["model", "canvas", "generation", "advanced"].includes(String(item.group)) && ["select", "segmented", "boolean_segmented", "toggle", "slider", "number", "text", "notice", "choice_grid", "object_presets", "aspect_ratio_grid"].includes(String(item.control)) && valueType(item.value_type) && hasValueType(item.value_type, item.default) && Array.isArray(item.allowed_values) && item.allowed_values.every((value2) => hasValueType(item.value_type, value2)) && (item.scope === "application" || item.scope === "model") && finiteOrNull(item.minimum) && finiteOrNull(item.maximum) && finiteOrNull(item.step) && operations(item.operations) && typeof item.full_width === "boolean" && objectChoicesValid && objectPresetsValid && (item.control !== "boolean_segmented" || item.value_type === "boolean") && (item.control !== "choice_grid" || item.value_type === "object" && Array.isArray(item.object_choices) && item.object_choices.length > 0) && (item.control !== "object_presets" || item.value_type === "object" && Array.isArray(item.object_choices) && item.object_choices.length > 0 && Array.isArray(item.object_presets) && item.object_presets.length > 0) && (item.control !== "aspect_ratio_grid" || item.value_type === "string" && Array.isArray(item.allowed_values) && item.allowed_values.length > 0) && Array.isArray(item.visible_when) && item.visible_when.every((condition) => object(condition) && nonempty(condition.parameter_id) && ["equals", "not_equals", "in"].includes(String(condition.operator)) && (condition.operator !== "in" || Array.isArray(condition.value)));
     };
-    if (candidate.schema_version !== 1 || !Number.isInteger(candidate.manifest_version) || candidate.manifest_version <= 0 || !Array.isArray(candidate.families) || candidate.families.length === 0 || !Array.isArray(candidate.models) || candidate.models.length === 0 || !Array.isArray(candidate.providers) || candidate.providers.length === 0 || !object(candidate.default_provider_by_model) || !object(candidate.codex)) return false;
+    if (candidate.schema_version !== 1 || !Number.isInteger(candidate.manifest_version) || candidate.manifest_version <= 0 || !Array.isArray(candidate.families) || !Array.isArray(candidate.models) || !Array.isArray(candidate.providers) || !object(candidate.default_provider_by_model) || !object(candidate.codex)) return false;
     const families = candidate.families;
     if (!families.every((family) => object(family) && nonempty(family.id) && nonempty(family.display_name) && nonempty(family.short_name) && nonempty(family.label_key))) return false;
     const familyIds = new Set(families.map((family) => family.id));
@@ -35136,9 +35136,68 @@ ${hint}` : hint;
     if (hasLegacySplitBindings || !model) return binding.operations;
     return [...model.operations];
   }
+  function configurableProviderModels(models, profiles2) {
+    const byId = new Map(models.map((model) => [model.id, model]));
+    profiles2.forEach((value) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return;
+      const profile = value;
+      const id = String(profile.canonical_model_id || profile.profile_id || "").trim();
+      if (!id || byId.has(id)) return;
+      const operations = Array.isArray(profile.task_modes) ? profile.task_modes.filter(
+        (operation) => operation === "generate" || operation === "edit"
+      ) : [];
+      const apiModes = Array.isArray(profile.api_modes) ? profile.api_modes : [];
+      const phaseFeatures = profile.phase_features && typeof profile.phase_features === "object" ? profile.phase_features : {};
+      byId.set(id, {
+        id,
+        family_id: String(profile.model_family_id || "custom-image"),
+        display_name: String(profile.display_name || id),
+        official_model_id: String(profile.official_model_id || id),
+        version: Number(profile.version || 1),
+        operations: operations.length ? operations : ["generate", "edit"],
+        parameters: [],
+        input_constraints: {
+          max_images: Number(profile.max_reference_images || 0),
+          supports_mask: Boolean(phaseFeatures.precise_edit),
+          supports_reference_files: apiModes.includes("responses")
+        },
+        expand_advanced_parameters: false
+      });
+    });
+    return [...byId.values()];
+  }
+  function providerModelsFromBindings(provider, models) {
+    const bindings = Array.isArray(provider.bindings) ? provider.bindings : [];
+    const existingModels = Array.isArray(provider.models) ? provider.models : [];
+    const existingDefault = existingModels.find((model) => model.is_default);
+    return bindings.map((binding, index) => {
+      const existing = existingModels.find((model) => model.generation_model_id === binding.id || (model.canonical_model_id || model.model_id) === binding.canonical_model_id);
+      const existingCanonicalModelId = existing?.canonical_model_id || existing?.model_id || "";
+      const preservesExistingModel = existingCanonicalModelId === binding.canonical_model_id;
+      const manifest = models.find((model) => model.id === binding.canonical_model_id);
+      const isDefault = existingDefault ? existing === existingDefault : index === 0;
+      return {
+        generation_model_id: existing?.generation_model_id || binding.id,
+        display_name: preservesExistingModel ? existing?.display_name || manifest?.display_name || binding.remote_model_id : manifest?.display_name || binding.remote_model_id,
+        model_id: binding.remote_model_id,
+        capability_profile_id: preservesExistingModel ? existing?.capability_profile_id || binding.canonical_model_id || "generic-basic" : binding.canonical_model_id || "generic-basic",
+        model_family_id: manifest?.family_id || existing?.model_family_id || "gpt-image",
+        canonical_model_id: binding.canonical_model_id,
+        protocol_profile: binding.protocol_profile,
+        parameter_codec: binding.parameter_codec,
+        supported_operations: binding.operations,
+        append_aspect_ratio_prompt: Boolean(binding.append_aspect_ratio_prompt),
+        is_default: isDefault,
+        is_enabled: existing?.is_enabled !== false
+      };
+    });
+  }
   function availableProtocolsForModel(modelId) {
     if (modelId.startsWith("nano-banana")) return ["gemini", "openai_images"];
-    if (modelId === "gpt-image-2") return ["openai_images", "openai_responses"];
+    if (modelId === "gpt-image-2" || modelId === "generic-basic") {
+      return ["openai_images", "openai_responses"];
+    }
+    if (modelId.toLowerCase().includes("seedream")) return ["openai_images"];
     return [];
   }
   function availableCompatibilityLayers(modelId, protocol) {
@@ -35171,6 +35230,9 @@ ${hint}` : hint;
       return protocol === "gemini" ? "gemini_generate_content" : "gemini_openai_images";
     }
     if (modelId === "gpt-image-2") {
+      return protocol === "openai_responses" ? "gpt_openai_responses" : "gpt_openai_images";
+    }
+    if (modelId.toLowerCase().includes("seedream") || modelId === "generic-basic") {
       return protocol === "openai_responses" ? "gpt_openai_responses" : "gpt_openai_images";
     }
     throw new Error("unsupported_binding_protocol");
@@ -35450,6 +35512,19 @@ ${hint}` : hint;
   var state9 = bridge9.state;
   var els10 = bridge9.els;
   var apiSettingsAutosaveTimerId = null;
+  var EMPTY_API_PROVIDER = Object.freeze({
+    id: "",
+    provider_version_id: "",
+    provider_key: "",
+    name: "",
+    base_url: "",
+    api_mode: DEFAULT_API_MODE,
+    concurrency: DEFAULT_API_IMAGES_CONCURRENCY,
+    models: [],
+    bindings: [],
+    is_active: false,
+    read_only: true
+  });
   var MODEL_PROFILES = [
     ["generic-basic", "apiSettings.profileGeneric"],
     ["gpt-image-2", "GPT Image 2"],
@@ -35459,6 +35534,12 @@ ${hint}` : hint;
     ["nano-banana-2", "Nano Banana 2"],
     ["nano-banana-2-lite", "Nano Banana 2 Lite"]
   ];
+  function providerBindingModels() {
+    return configurableProviderModels(
+      state9.generationCatalog?.models || [],
+      state9.modelCapabilityProfiles || []
+    );
+  }
   function legacyMethod14(name, ...args) {
     const method = getLegacyBridge().methods[name];
     if (typeof method !== "function") {
@@ -35550,30 +35631,6 @@ ${hint}` : hint;
       validation_status: String(model.validation_status || "not_required"),
       validation_error: String(model.validation_error || "")
     };
-  }
-  function providerModelsFromBindings(provider) {
-    const bindings = Array.isArray(provider.bindings) ? provider.bindings : [];
-    const existingModels = Array.isArray(provider.models) ? provider.models : [];
-    const existingDefault = existingModels.find((model) => model.is_default);
-    return bindings.map((binding, index) => {
-      const existing = existingModels.find((model) => model.generation_model_id === binding.id || (model.canonical_model_id || model.model_id) === binding.canonical_model_id);
-      const manifest = state9.generationCatalog?.models?.find((model) => model.id === binding.canonical_model_id);
-      const isDefault = existingDefault ? existing === existingDefault : index === 0;
-      return {
-        generation_model_id: existing?.generation_model_id || binding.id,
-        display_name: existing?.display_name || manifest?.display_name || binding.remote_model_id,
-        model_id: binding.remote_model_id,
-        capability_profile_id: existing?.capability_profile_id || binding.canonical_model_id || "generic-basic",
-        model_family_id: manifest?.family_id || existing?.model_family_id || "gpt-image",
-        canonical_model_id: binding.canonical_model_id,
-        protocol_profile: binding.protocol_profile,
-        parameter_codec: binding.parameter_codec,
-        supported_operations: binding.operations,
-        append_aspect_ratio_prompt: Boolean(binding.append_aspect_ratio_prompt),
-        is_default: isDefault,
-        is_enabled: existing?.is_enabled !== false
-      };
-    });
   }
   function appendProviderIdentity(target, provider, className) {
     const icon = String(provider?.icon_emoji || "").trim();
@@ -35709,7 +35766,7 @@ ${hint}` : hint;
     else els10.apiProviderSection?.removeAttribute("inert");
     els10.apiProviderEditor?.classList.toggle("hidden", !visible);
     els10.apiProviderEditor?.setAttribute("aria-hidden", visible ? "false" : "true");
-    els10.apiProviderDetail?.classList.toggle("hidden", visible);
+    els10.apiProviderDetail?.classList.toggle("hidden", visible || settings.providers.length === 0);
     els10.apiSettingsActions?.classList.toggle("hidden", visible);
     els10.apiSettingsActions?.setAttribute("aria-hidden", visible ? "true" : "false");
     if (els10.editApiProviderButton) els10.editApiProviderButton.disabled = visible;
@@ -35720,7 +35777,7 @@ ${hint}` : hint;
       els10.toggleApiProviderStatusButton.disabled = visible || !activeApiProvider().provider_version_id;
     }
     if (els10.deleteApiProviderButton) {
-      els10.deleteApiProviderButton.disabled = visible || normalizeApiSettings(state9.apiSettings).providers.length <= 1;
+      els10.deleteApiProviderButton.disabled = visible || !activeApiProvider().provider_version_id;
     }
     if (!visible) hideApiKeyReveal();
   }
@@ -35997,7 +36054,7 @@ ${hint}` : hint;
     renderProviderBindingCards(
       els10.apiProviderBindings,
       provider.bindings || [],
-      state9.generationCatalog?.models || [],
+      providerBindingModels(),
       provider.id,
       state9.apiSettings.default_provider_by_model || {}
     );
@@ -36092,7 +36149,7 @@ ${hint}` : hint;
     if (!buttons.length) {
       const empty = document.createElement("div");
       empty.className = "api-provider-search-empty";
-      empty.textContent = translate("apiSettings.noProviderSearchResults");
+      empty.textContent = settings.providers.length ? translate("apiSettings.noProviderSearchResults") : formatTranslation("apiSettings.providerCount", { count: "0" });
       els10.apiProviderList.replaceChildren(empty);
       return;
     }
@@ -36101,6 +36158,9 @@ ${hint}` : hint;
   }
   function renderApiProviderDetail() {
     const provider = activeApiProvider();
+    const hasProvider = state9.apiSettings.providers.length > 0;
+    els10.apiProviderDetail?.classList.toggle("hidden", !hasProvider);
+    if (!hasProvider) return;
     const providerActive = provider.is_active !== false;
     setElementText(els10.apiProviderDetailBaseUrl, provider.base_url || DEFAULT_API_BASE_URL);
     setElementText(els10.apiProviderDetailKey, providerKeyLabel(provider));
@@ -36156,7 +36216,8 @@ ${hint}` : hint;
     return normalizeApiSettings(normalized);
   }
   function normalizeApiSettings(settings = {}) {
-    const rawProviders = Array.isArray(settings.providers) && settings.providers.length ? settings.providers : [{
+    const hasExplicitProviderList = Array.isArray(settings.providers);
+    const rawProviders = hasExplicitProviderList ? settings.providers : [{
       id: settings.active_provider_id || "default",
       name: settings.name || "Default",
       base_url: settings.base_url,
@@ -36175,14 +36236,14 @@ ${hint}` : hint;
       seen.add(normalized.id);
       providers.push(normalized);
     });
-    if (!providers.length) providers.push(normalizeApiProvider({}, 0));
-    const requestedActive = String(settings.active_provider_id || providers[0].id).trim().toLowerCase();
-    const activeProvider = providers.find((provider) => provider.id === requestedActive) || providers[0];
+    if (!providers.length && !hasExplicitProviderList) providers.push(normalizeApiProvider({}, 0));
+    const requestedActive = String(settings.active_provider_id || providers[0]?.id || "").trim().toLowerCase();
+    const activeProvider = providers.find((provider) => provider.id === requestedActive) || providers[0] || null;
     return {
       schema_version: 2,
       codex_mode: normalizeCodexMode(settings.codex_mode),
-      active_provider_id: activeProvider.id,
-      default_provider_by_model: { ...settings.default_provider_by_model || { "gpt-image-2": activeProvider.id } },
+      active_provider_id: activeProvider?.id || "",
+      default_provider_by_model: activeProvider ? { ...settings.default_provider_by_model || { "gpt-image-2": activeProvider.id } } : {},
       providers,
       allow_new_provider: Boolean(settings.allow_new_provider),
       credential_scope: settings.credential_scope === "department" ? "department" : "personal",
@@ -36192,7 +36253,7 @@ ${hint}` : hint;
   function activeApiProvider() {
     const settings = normalizeApiSettings(state9.apiSettings);
     state9.apiSettings = settings;
-    return settings.providers.find((provider) => provider.id === settings.active_provider_id) || settings.providers[0];
+    return settings.providers.find((provider) => provider.id === settings.active_provider_id) || settings.providers[0] || EMPTY_API_PROVIDER;
   }
   function restoreApiSettings() {
     try {
@@ -36347,7 +36408,6 @@ ${hint}` : hint;
       setApiSettingsFeedback(translate("apiSettings.finishEditFirst"), "error");
       return;
     }
-    if (state9.apiSettings.providers.length <= 1) return;
     const provider = activeApiProvider();
     const isServerWorkspace = Boolean(document.documentElement.dataset.userRole);
     if (isServerWorkspace) {
@@ -36376,14 +36436,14 @@ ${hint}` : hint;
         renderApiProviderDetail();
       } finally {
         if (els10.deleteApiProviderButton) {
-          els10.deleteApiProviderButton.disabled = normalizeApiSettings(state9.apiSettings).providers.length <= 1;
+          els10.deleteApiProviderButton.disabled = !activeApiProvider().provider_version_id;
         }
       }
       return;
     }
     const activeId = state9.apiSettings.active_provider_id;
     state9.apiSettings.providers = state9.apiSettings.providers.filter((provider2) => provider2.id !== activeId);
-    state9.apiSettings.active_provider_id = state9.apiSettings.providers[0]?.id || "default";
+    state9.apiSettings.active_provider_id = state9.apiSettings.providers[0]?.id || "";
     Object.entries(state9.apiSettings.default_provider_by_model || {}).forEach(([modelId, providerId]) => {
       if (providerId === activeId) delete state9.apiSettings.default_provider_by_model[modelId];
     });
@@ -36402,7 +36462,6 @@ ${hint}` : hint;
       setApiSettingsFeedback(translate("apiSettings.finishEditFirst"), "error");
       return;
     }
-    if (state9.apiSettings.providers.length <= 1) return;
     const provider = activeApiProvider();
     openConfirmPopover4(anchor || els10.deleteApiProviderButton, {
       title: translate("apiSettings.deleteProviderTitle"),
@@ -36599,7 +36658,7 @@ ${hint}` : hint;
   function addProviderBinding() {
     if (!apiProviderEditorActive()) return;
     const draft = draftProviderFromForm();
-    const models = state9.generationCatalog?.models || [];
+    const models = providerBindingModels();
     const model = models.find((item) => !draft.bindings.some((binding) => binding.canonical_model_id === item.id)) || models[0];
     if (!model) {
       setApiSettingsFeedback(translate("apiSettings.catalogRequiredForBinding"), "error");
@@ -36632,7 +36691,7 @@ ${hint}` : hint;
     renderProviderBindingCards(
       els10.apiProviderBindings,
       draft.bindings,
-      state9.generationCatalog?.models || [],
+      providerBindingModels(),
       draft.id,
       defaultsForProviderDraft(draft)
     );
@@ -36676,7 +36735,7 @@ ${hint}` : hint;
         if (!currentBase || isBindingTemplateBaseUrl(currentBase)) els10.apiBaseUrl.value = suggestion.base_url;
       }
       const remoteInput = card.querySelector("[data-binding-remote-model]");
-      const model = state9.generationCatalog?.models.find((item) => item.id === modelId);
+      const model = providerBindingModels().find((item) => item.id === modelId);
       if (remoteInput && !remoteInput.value.trim()) remoteInput.value = model?.official_model_id || modelId;
       const existingOperations = String(card.dataset.bindingModelOperations || "").split(",").filter(Boolean);
       card.dataset.bindingModelOperations = (model?.operations || existingOperations).join(",");
@@ -36907,7 +36966,7 @@ ${hint}` : hint;
           icon_emoji: provider.icon_emoji || "",
           base_url: provider.base_url,
           image_model: provider.image_model,
-          models: providerModelsFromBindings(provider).map((model) => ({
+          models: providerModelsFromBindings(provider, providerBindingModels()).map((model) => ({
             generation_model_id: model.generation_model_id || void 0,
             display_name: model.display_name,
             model_id: model.model_id,
@@ -37423,11 +37482,9 @@ ${hint}` : hint;
     if (selected) {
       const profile = profiles.get(selected.capability_profile_id);
       els11.model.value = selected.model_id;
-      els11.generationModelSummary.textContent = profileSummary(profile);
       if (profile && !state10.generationCatalog) adjustment = applyProfile(profile, selected, restorePreference);
     } else {
       els11.model.value = "";
-      els11.generationModelSummary.textContent = "";
     }
     const reason = selected ? selectionReason(provider) : "";
     const constraint = generationModelConstraintMessage();
@@ -37515,6 +37572,7 @@ ${hint}` : hint;
     const response = await fetch("/api/model-capability-profiles");
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || translate("generationModel.profileUnavailable"));
+    state10.modelCapabilityProfiles = Array.isArray(data.profiles) ? data.profiles : [];
     for (const profile of data.profiles || []) profiles.set(profile.profile_id, profile);
     renderGenerationModelSelector(true);
   }
@@ -43330,9 +43388,9 @@ ${galleryText}`;
   function taskCanonicalModelId(task) {
     return explicitCanonicalModelId(task) || "gpt-image-2";
   }
-  function taskOutputSettingsView(task, selectedModelId, outputSettingsLocked) {
+  function taskOutputSettingsView(_task, _selectedModelId, outputSettingsLocked) {
     if (outputSettingsLocked) return "locked-summary";
-    return taskCanonicalModelId(task) === selectedModelId ? "editor" : "parameter-inspector";
+    return "editor";
   }
   function taskRequestedParameters(task) {
     const source = record3(task);
@@ -43398,6 +43456,16 @@ ${galleryText}`;
   }
   function compactDimensions(value) {
     return value ? `${value[0]}\xD7${value[1]}` : "";
+  }
+  function taskCustomAspectRatioDigits(task) {
+    const output = taskOutputControlValues(task);
+    const explicit = String(output.ratio || "").trim().match(/^(\d+)\s*:\s*(\d+)$/);
+    const source = explicit ? [Number(explicit[1]), Number(explicit[2])] : dimensions(output.size);
+    if (!source) return null;
+    const divisor = greatestCommonDivisor3(source[0], source[1]);
+    const width = Math.round(source[0] / divisor);
+    const height = Math.round(source[1] / divisor);
+    return width >= 1 && width <= 9 && height >= 1 && height <= 9 ? { width, height } : null;
   }
   function normalizedGptResolution(value) {
     const normalized = value.trim().toLowerCase();
@@ -45910,6 +45978,18 @@ ${galleryText}`;
     }
     if (params.model && els34.model) els34.model.value = params.model;
     if (output.size) syncSizeControlsFromSize2(output.size);
+    if (output.resolution && els34.resolution) els34.resolution.value = String(output.resolution);
+    if (output.ratio && els34.ratio) els34.ratio.value = String(output.ratio);
+    const customRatio = taskCustomAspectRatioDigits(task);
+    if (els34.customRatioWidth && els34.customRatioHeight) {
+      const useCustomRatio = Boolean(els34.customSizeToggle?.checked && customRatio);
+      els34.customRatioWidth.value = useCustomRatio ? String(customRatio?.width || "") : "";
+      els34.customRatioHeight.value = useCustomRatio ? String(customRatio?.height || "") : "";
+      state25.customAspectRatioLocked = useCustomRatio;
+      state25.customAspectRatioValue = useCustomRatio && customRatio ? customRatio.width / customRatio.height : null;
+      state25.customAspectRatioSource = useCustomRatio ? "history" : null;
+      els34.customRatioField?.classList.toggle("active", useCustomRatio);
+    }
     if (output.n && els34.nInput) {
       els34.nInput.value = String(output.n);
     }
@@ -45919,7 +45999,7 @@ ${galleryText}`;
     if (output.output_compression !== null && output.output_compression !== void 0 && els34.compression) {
       els34.compression.value = output.output_compression;
     }
-    [els34.quality, els34.outputFormat, els34.moderation].forEach((element2) => {
+    [els34.resolution, els34.ratio, els34.quality, els34.outputFormat, els34.moderation].forEach((element2) => {
       element2?.dispatchEvent(new Event("change"));
     });
     updateQuantity2();
@@ -49634,6 +49714,9 @@ ${galleryText}`;
   function assetSource2(item) {
     return legacyMethod42("assetSource", item);
   }
+  function adoptTaskParameters(task) {
+    return legacyMethod42("adoptTaskParameters", task);
+  }
   function inspectTaskParameters(task) {
     legacyMethod42("inspectTaskParameters", task);
   }
@@ -49642,6 +49725,7 @@ ${galleryText}`;
   }
   function applyTaskToFormWithOutputLock(task) {
     const outputSettingsLocked = Boolean(legacyMethod42("isOutputSettingsLocked"));
+    if (!outputSettingsLocked) adoptTaskParameters(task);
     const outputView = taskOutputSettingsView(task, String(state31.selectedModelId || ""), outputSettingsLocked);
     applyTaskToForm2(task, {
       preserveOutputSettings: outputView !== "editor",
@@ -52000,6 +52084,44 @@ ${fmtBytes(version.byte_size)}`));
     const parsed = Number(value);
     return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
   }
+  function firstDefined2(source, ...keys) {
+    return keys.map((key) => source[key]).find((value) => value !== void 0 && value !== null);
+  }
+  function legacyRuntimeRequestedParameters(task, snapshot) {
+    const params = record4(task.params);
+    const request = record4(task.request);
+    const actual = record4(snapshot.actual_parameters);
+    const source = { ...request, ...params, ...actual };
+    const canonical = {
+      ...record4(request.parameters),
+      ...record4(request.canonical_parameters),
+      ...record4(params.canonical_parameters),
+      ...record4(actual.canonical_parameters)
+    };
+    const aliases = /* @__PURE__ */ new Map([
+      ["canvas.size", ["canvas.size", "size"]],
+      ["canvas.aspect_ratio", ["canvas.aspect_ratio", "ratio"]],
+      ["canvas.resolution", ["canvas.resolution", "resolution"]],
+      ["output.count", ["output.count", "n"]],
+      ["output.format", ["output.format", "output_format"]],
+      ["gpt.quality", ["gpt.quality", "quality"]],
+      ["gpt.background", ["gpt.background", "background"]],
+      ["gpt.moderation", ["gpt.moderation", "moderation"]],
+      ["gpt.output_compression", ["gpt.output_compression", "output_compression"]],
+      ["gpt.web_search", ["gpt.web_search", "web_search"]],
+      ["gemini.google_search", ["gemini.google_search"]],
+      ["legacy.prompt_fidelity", ["legacy.prompt_fidelity", "prompt_fidelity"]],
+      ["legacy.prompt_optimization_mode", ["legacy.prompt_optimization_mode", "prompt_optimization_mode"]],
+      ["legacy.seed_mode", ["legacy.seed_mode", "seed_mode"]],
+      ["legacy.seed", ["legacy.seed", "seed"]]
+    ]);
+    aliases.forEach((keys, id) => {
+      if (canonical[id] !== void 0 && canonical[id] !== null) return;
+      const value = firstDefined2(source, ...keys);
+      if (value !== void 0) canonical[id] = value;
+    });
+    return canonical;
+  }
   function notifyParameterMigration(report) {
     const count = report.defaulted.length + report.dropped.length;
     if (!count) return;
@@ -52010,21 +52132,40 @@ ${fmtBytes(version.byte_size)}`));
   function snapshotFromTask2(task) {
     const raw = record4(task.generation_snapshot);
     if (!Object.keys(raw).length) return legacyGenerationSnapshot(task);
+    const params = record4(task.params);
+    const request = record4(task.request);
+    const frozenParameters = record4(raw.requested_parameters);
+    const providerId = String(
+      raw.provider_id || params.api_provider_id || request.webui_api_provider_id || request.api_provider_id || raw.provider_version_id || raw.provider_key || "codex"
+    );
     return {
       schema_version: integer(raw.schema_version, 1),
-      family_id: String(raw.family_id || "gpt-image"),
+      family_id: String(raw.family_id || raw.model_family_id || "gpt-image"),
       canonical_model_id: String(raw.canonical_model_id || "gpt-image-2"),
-      model_manifest_version: integer(raw.model_manifest_version, 1),
-      provider_id: String(raw.provider_id || "codex"),
-      provider_name: String(raw.provider_name || raw.provider_id || "Codex"),
+      model_manifest_version: integer(raw.model_manifest_version || raw.capability_profile_version, 1),
+      provider_id: providerId,
+      provider_name: String(
+        raw.provider_name || task.api_provider_name || params.api_provider_name || request.webui_api_provider_name || request.api_provider_name || raw.provider_key || (providerId === "codex" ? "Codex" : providerId)
+      ),
       binding_id: String(raw.binding_id || "legacy"),
       remote_model_id: String(raw.remote_model_id || raw.canonical_model_id || "gpt-image-2"),
       protocol_profile: String(raw.protocol_profile || "codex_images"),
       parameter_codec: String(raw.parameter_codec || "gpt_codex_images"),
-      requested_parameters: record4(raw.requested_parameters),
+      requested_parameters: Object.keys(frozenParameters).length ? frozenParameters : legacyRuntimeRequestedParameters(task, raw),
       mapped_request: record4(raw.mapped_request),
       legacy: false
     };
+  }
+  function catalogModelForGenerationSnapshot(snapshot, catalog) {
+    if (!catalog) return void 0;
+    const aliases = new Set([
+      String(snapshot.canonical_model_id || "").trim(),
+      String(snapshot.remote_model_id || "").trim()
+    ].filter(Boolean));
+    const direct = catalog.models.find((model) => aliases.has(model.id) || aliases.has(model.official_model_id));
+    if (direct) return direct;
+    const binding = catalog.providers.flatMap((provider) => provider.bindings || []).find((item) => aliases.has(String(item.remote_model_id || "").trim()));
+    return binding ? catalog.models.find((model) => model.id === binding.canonical_model_id) : void 0;
   }
   function inspectTaskParameters2(task) {
     const { state: state33, methods } = getLegacyBridge();
@@ -52077,8 +52218,9 @@ ${fmtBytes(version.byte_size)}`));
   }
   function taskParameterInspectorTitle(snapshot, catalog) {
     const historyLabel = translate("modelParameters.historyConfiguration");
-    const modelName = catalog?.models.find((model) => model.id === snapshot.canonical_model_id)?.display_name || snapshot.canonical_model_id;
-    return [historyLabel, modelName, snapshot.provider_name].filter(Boolean).join(" \xB7 ");
+    const modelName = catalogModelForGenerationSnapshot(snapshot, catalog)?.display_name || snapshot.canonical_model_id;
+    const providerName = catalog?.providers.find((provider) => provider.id === snapshot.provider_id)?.name || snapshot.provider_name;
+    return [historyLabel, modelName, providerName].filter(Boolean).join(" \xB7 ");
   }
   var TASK_PARAMETER_INSPECTOR_HIDDEN_IDS = /* @__PURE__ */ new Set([
     "gpt.background",
@@ -52092,6 +52234,23 @@ ${fmtBytes(version.byte_size)}`));
     "gpt.moderation",
     "gpt.web_search"
   ].map((id, index) => [id, index]));
+  var TASK_PARAMETER_FALLBACK_LABEL_KEYS = /* @__PURE__ */ new Map([
+    ["canvas.size", "output.size"],
+    ["canvas.aspect_ratio", "canvas.aspectRatio"],
+    ["canvas.resolution", "canvas.resolution"],
+    ["output.count", "output.quantity"],
+    ["output.format", "output.format"],
+    ["gpt.quality", "output.quality"],
+    ["gpt.background", "output.background"],
+    ["gpt.moderation", "output.moderation"],
+    ["gpt.output_compression", "output.compression"],
+    ["gpt.web_search", "output.webSearch"],
+    ["gemini.google_search", "gemini.googleSearch"],
+    ["legacy.prompt_fidelity", "output.promptMode"],
+    ["legacy.prompt_optimization_mode", "generationModel.promptOptimization"],
+    ["legacy.seed_mode", "generationModel.seed"],
+    ["legacy.seed", "generationModel.seed"]
+  ]);
   function taskParameterVisibleInInspector(snapshot, parameterId) {
     if (TASK_PARAMETER_INSPECTOR_HIDDEN_IDS.has(parameterId)) return false;
     if (parameterId === "gpt.web_search" && !snapshot.protocol_profile.endsWith("_responses")) return false;
@@ -52129,10 +52288,9 @@ ${fmtBytes(version.byte_size)}`));
       Object.entries(snapshot.requested_parameters).filter(([id]) => taskParameterVisibleInInspector(snapshot, id))
     );
   }
-  function taskParameterInspectionAction(task, selectedModelId, outputSettingsLocked) {
+  function taskParameterInspectionAction(_task, _selectedModelId, outputSettingsLocked) {
     if (outputSettingsLocked) return "preserve";
-    if (!task) return "clear";
-    return taskCanonicalModelId(task) === selectedModelId ? "clear" : "inspect";
+    return "clear";
   }
   function reconcileTaskParameterInspection() {
     const { state: state33, methods } = getLegacyBridge();
@@ -52171,10 +52329,10 @@ ${fmtBytes(version.byte_size)}`));
     adopt.textContent = translate("output.lock.adoptTask");
     adopt.addEventListener("click", () => {
       const task = state33.tasks.find((item) => String(item.task_id) === String(state33.selectedTaskId));
-      if (task) adoptTaskParameters(task);
+      if (task) adoptTaskParameters2(task);
     });
     els44.taskParameterInspectorHeader?.replaceChildren(title, badge, adopt);
-    const model = state33.generationCatalog?.models.find((item) => item.id === snapshot.canonical_model_id);
+    const model = catalogModelForGenerationSnapshot(snapshot, state33.generationCatalog);
     const inspectorModel = taskParameterInspectorModel(snapshot, model);
     const inspectorParameters = taskParameterInspectorParameters(snapshot);
     if (inspectorModel && els44.taskParameterInspectorGrid) {
@@ -52193,17 +52351,18 @@ ${fmtBytes(version.byte_size)}`));
     list?.replaceChildren();
     unknown.forEach(([id, value]) => {
       const term = document.createElement("dt");
-      term.textContent = id;
+      const labelKey = TASK_PARAMETER_FALLBACK_LABEL_KEYS.get(id);
+      term.textContent = labelKey ? translate(labelKey) : id;
       const description = document.createElement("dd");
       description.textContent = typeof value === "string" ? value : JSON.stringify(value);
       list?.append(term, description);
     });
     list?.classList.toggle("hidden", unknown.length === 0);
   }
-  function adoptTaskParameters(task) {
+  function adoptTaskParameters2(task) {
     const { state: state33, methods } = getLegacyBridge();
     const snapshot = snapshotFromTask2(task);
-    const model = state33.generationCatalog?.models.find((item) => item.id === snapshot.canonical_model_id);
+    const model = catalogModelForGenerationSnapshot(snapshot, state33.generationCatalog);
     if (!model) {
       return {
         values: {},
@@ -52229,7 +52388,7 @@ ${fmtBytes(version.byte_size)}`));
   }
   function initTaskParameterInspectorFeature() {
     Object.assign(getLegacyBridge().methods, {
-      adoptTaskParameters,
+      adoptTaskParameters: adoptTaskParameters2,
       clearTaskParameterInspection: clearTaskParameterInspection3,
       inspectTaskParameters: inspectTaskParameters2,
       legacyGenerationSnapshot,

@@ -191,9 +191,9 @@ export function isGenerationCatalog(value: unknown): value is GenerationCatalog 
         && (condition.operator !== "in" || Array.isArray(condition.value)));
   };
   if (candidate.schema_version !== 1 || !Number.isInteger(candidate.manifest_version) || (candidate.manifest_version as number) <= 0
-      || !Array.isArray(candidate.families) || candidate.families.length === 0
-      || !Array.isArray(candidate.models) || candidate.models.length === 0
-      || !Array.isArray(candidate.providers) || candidate.providers.length === 0 || !object(candidate.default_provider_by_model)
+      || !Array.isArray(candidate.families)
+      || !Array.isArray(candidate.models)
+      || !Array.isArray(candidate.providers) || !object(candidate.default_provider_by_model)
       || !object(candidate.codex)) return false;
   const families = candidate.families as Record<string, unknown>[];
   if (!families.every((family) => object(family) && nonempty(family.id) && nonempty(family.display_name)

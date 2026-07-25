@@ -110,6 +110,27 @@ class WebUIResponsiveWorkspaceContractTests(unittest.TestCase):
             r"grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(62px,\s*1fr\)\)",
         )
 
+    def test_model_validation_cards_respond_to_their_container_width(self) -> None:
+        settings = Path(
+            "codex_image/webui/static/styles/74-api-system-settings.css"
+        ).read_text(encoding="utf-8")
+
+        self.assertRegex(
+            settings,
+            r"\.api-model-validation-section\s*\{[^}]*container-type:\s*inline-size",
+        )
+        self.assertRegex(
+            settings,
+            r"@container \(max-width:\s*340px\)[\s\S]*?"
+            r"\.api-model-row\.api-model-validation-row\s*\{[^}]*"
+            r"grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto",
+        )
+        self.assertRegex(
+            settings,
+            r"@container \(max-width:\s*340px\)[\s\S]*?"
+            r"\.api-model-validation-identity\s*\{[^}]*grid-column:\s*1\s*/\s*-1",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

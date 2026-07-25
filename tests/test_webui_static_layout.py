@@ -187,8 +187,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn('/static/app.js?v=runtime-651', html)
-        self.assertIn('/static/styles.css?v=runtime-651', html)
+        self.assertIn('/static/app.js?v=runtime-655', html)
+        self.assertIn('/static/styles.css?v=runtime-655', html)
         self.assertIn('id="recentAssetDock"', html)
         self.assertRegex(html, r'class="image-input-footer"[\s\S]*id="recentAssetDock"[\s\S]*id="recentAssetList"')
         self.assertRegex(html, r'id="recentAssetDock"[\s\S]*id="quickGalleryDock"[\s\S]*id="galleryManagePanel"')
@@ -938,16 +938,16 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertRegex(
             compact,
             r"\.controls-col\s+\.image-panel\s*\{[^}]*"
-            r"flex:\s*1\s+1\s+var\(--compact-image-panel-height\)",
+            r"flex:\s*0\s+0\s+var\(--compact-image-panel-height\)",
         )
         self.assertRegex(
             compact,
             r"\.controls-col\s+\.prompt-panel\s*\{[^}]*"
-            r"flex:\s*1\.15\s+1\s+var\(--compact-prompt-panel-height\)",
+            r"flex:\s*0\s+0\s+var\(--compact-prompt-panel-height\)",
         )
         self.assertRegex(
             compact,
-            r"\.controls-col\s+\.output-panel\s*\{[^}]*flex:\s*0\s+0\s+auto",
+            r"\.controls-col\s+\.output-panel\s*\{[^}]*flex:\s*1\s+0\s+auto",
         )
         self.assertRegex(compact, r"\.panel\s*\{[^}]*padding:\s*clamp\(")
         self.assertNotIn("align-content: space-between", compact)
@@ -1416,7 +1416,7 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertRegex(
             responsive,
             r"\.controls-col\s+\.image-panel\s*\{[^}]*"
-            r"flex:\s*1\s+1\s+var\(--compact-image-panel-height\)",
+            r"flex:\s*0\s+0\s+var\(--compact-image-panel-height\)",
         )
         self.assertRegex(output, r"\.output-settings-locked-summary\s*\{[^}]*position:\s*absolute[^}]*inset:\s*0")
         self.assertNotIn("--output-settings-editor-height", responsive + output + lock_source)
@@ -1768,6 +1768,9 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
     def test_api_provider_settings_regression_contract(self) -> None:
         html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
         provider_source = Path("codex_image/webui/frontend/src/api-provider-settings.ts").read_text(encoding="utf-8")
+        provider_bindings_source = Path(
+            "codex_image/webui/frontend/src/provider-model-bindings.ts"
+        ).read_text(encoding="utf-8")
         elements_source = Path("codex_image/webui/frontend/src/elements.ts").read_text(encoding="utf-8")
         server_source = Path("codex_image/server/workspace_api.py").read_text(encoding="utf-8")
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
@@ -1790,8 +1793,11 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertIn("export function normalizeApiProvider", provider_source)
         self.assertIn("models,", provider_source)
         self.assertIn("bindings,", provider_source)
-        self.assertIn("function providerModelsFromBindings", provider_source)
-        self.assertIn("models: providerModelsFromBindings(provider).map", provider_source)
+        self.assertIn("export function providerModelsFromBindings", provider_bindings_source)
+        self.assertIn(
+            "models: providerModelsFromBindings(provider, providerBindingModels()).map",
+            provider_source,
+        )
         self.assertIn("bindings: provider.bindings", provider_source)
         self.assertIn('provider.provider_scope !== "department"', provider_source)
         self.assertIn("/api/admin/generation-models/", provider_source)
@@ -2801,8 +2807,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn('/static/app.js?v=runtime-651', html)
-        self.assertIn('/static/styles.css?v=runtime-651', html)
+        self.assertIn('/static/app.js?v=runtime-655', html)
+        self.assertIn('/static/styles.css?v=runtime-655', html)
         self.assertIn('id="pasteClipboardButton"', html)
         self.assertIn('id="statusText"', html)
         self.assertRegex(
@@ -3248,8 +3254,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn("/static/app.js?v=runtime-651", html)
-        self.assertIn("/static/styles.css?v=runtime-651", html)
+        self.assertIn("/static/app.js?v=runtime-655", html)
+        self.assertIn("/static/styles.css?v=runtime-655", html)
         self.assertIn('const THEME_STORAGE_KEY = "codex-image-theme-preference";', script)
         self.assertIn('themePreference: "system"', script)
         self.assertIn('call(methods, "restoreThemePreference")', script)

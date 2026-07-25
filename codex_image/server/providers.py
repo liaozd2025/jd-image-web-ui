@@ -31,10 +31,6 @@ class ProviderVersionInactive(RuntimeError):
     pass
 
 
-class ProviderCatalogMinimumRequired(RuntimeError):
-    pass
-
-
 class ProviderKeyConflict(RuntimeError):
     pass
 
@@ -614,17 +610,6 @@ class ProviderRepository:
                 provider = cursor.fetchone()
                 if provider is None:
                     raise ProviderVersionNotFound("provider version was not found")
-                cursor.execute(
-                    """
-                    SELECT COUNT(*) AS provider_count
-                    FROM provider_catalog_versions
-                    WHERE deleted_at IS NULL
-                    """
-                )
-                if int(cursor.fetchone()["provider_count"]) <= 1:
-                    raise ProviderCatalogMinimumRequired(
-                        "at least one provider must remain in the catalog"
-                    )
                 cursor.execute(
                     """
                     UPDATE provider_catalog_versions
