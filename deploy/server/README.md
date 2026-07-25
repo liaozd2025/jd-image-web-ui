@@ -1,80 +1,94 @@
-# 服务器部署运维说明
+# 服务器部署文档
 
-产品只以服务器部署形态提供服务：用户通过反向代理的内网 HTTP 地址登录浏览器，Web、Worker 和 PostgreSQL 不直接向用户端开放端口。
+`jd-image-web-ui` 只以服务器形态提供服务：管理员在服务器上运行 Web、Worker、
+PostgreSQL 和 Nginx，用户通过浏览器登录使用。
 
-## 生产发布包
+## 文档入口
 
-正式生产环境不在服务器上编译源码。构建机从干净的 Git 工作区生成
-`linux/amd64` 发布包：
+- 正式生产环境：使用版本化离线发布包，数据库和图片资源保存到指定宿主机目录。
+  请按 [生产环境部署与运维手册](PRODUCTION_DEPLOY.md) 操作。
+- 开发和 Compose 验收：可以从源码构建并使用 Docker 命名卷，按本文后续章节操作。
+- 产品边界和开发验证：见仓库根目录的 [README](../../README.md) 和
+  [CONTEXT](../../CONTEXT.md)。
+
+生产环境不要执行源码 Compose 启动命令。生产发布包已经包含应用、PostgreSQL 和
+Nginx 的 `linux/amd64` 镜像，不需要访问 Docker Hub 或私有镜像仓库。
+
+## 生产部署速查
+
+在构建机的干净 Git 工作区生成发布包：
 
 ```sh
-scripts/build-release.sh --version v1.0.0
+./scripts/build-release.sh --version v1.0.0
 ```
 
-发布包包含应用、PostgreSQL 和 Nginx 的 amd64 镜像，不要求生产服务器访问
-Docker Hub。将 `dist/jd-image-web-ui-v1.0.0-linux-amd64.tar.gz` 复制到生产服务器，
-解压后执行：
+将 `dist/jd-image-web-ui-v1.0.0-linux-amd64.tar.gz` 传到生产服务器并解压，然后
+安装到指定目录：
 
 ```sh
-sudo ./deploy.sh install
+sudo ./deploy.sh install \
+  --root /data/jd-image-web-ui \
+  --http-port 8787 \
+  --admin-username admin
 ```
 
-生产脚本默认把 PostgreSQL、图片资源、配置和版本文件分别保存到
-`/srv/jd-image-web-ui/postgres`、`data`、`config` 和 `releases`，不使用 Docker
-命名卷。完整操作和范围边界见 [生产部署包使用说明](PRODUCTION_DEPLOY.md)。
+升级时必须复用相同的根目录：
+
+```sh
+sudo ./deploy.sh upgrade --root /data/jd-image-web-ui
+```
+
+完整的环境检查、传输校验、目录说明、验收、日常运维和受限网络排障均以
+[生产环境部署与运维手册](PRODUCTION_DEPLOY.md) 为准。
 
 ## 源码直接启动
 
-以下方式保留给开发和 Compose 验收；它使用 Docker 命名卷，不是正式生产交付方式。
+以下方式只用于开发和 Compose 验收。它会从源码构建应用并使用 Docker 命名卷，
+不是正式生产交付方式。
 
-1. 安装 Docker Compose v2，在部署目录创建 `.env`。
-2. 复制 `.env.example` 为 `.env`，设置 `JD_IMAGE_POSTGRES_PASSWORD`，并用 `openssl rand -base64 32 | tr '+/' '-_' | tr -d '='` 生成 `JD_IMAGE_MASTER_KEY`；可选设置 `JD_IMAGE_HTTP_PORT`。如果 PostgreSQL 密码含 `@`、`:`、`/`、`#` 等 URL 保留字符，请改为设置 RFC 3986 URL 编码后的 `JD_IMAGE_DATABASE_URL`。
-3. 执行 `docker compose -f compose.server.yml up -d --build`。
-4. 在 Web 容器中执行 `docker compose -f compose.server.yml exec web python -m codex_image.server.ops bootstrap-admin --username admin`，临时密码只显示一次，首次登录必须修改。
-5. 访问 `http://服务器地址:${JD_IMAGE_HTTP_PORT:-8787}`，确认 `/health/ready` 为 200。
-
-### 外部 PostgreSQL
-
-将 `JD_IMAGE_DATABASE_URL` 设置为外部 PostgreSQL 连接串，并叠加外部覆盖文件：
+1. 安装 Docker Compose v2，在仓库根目录创建 `.env`。
+2. 复制 `.env.example` 为 `.env`，设置 `JD_IMAGE_POSTGRES_PASSWORD`。
+3. 用 `openssl rand -base64 32 | tr '+/' '-_' | tr -d '='` 生成
+   `JD_IMAGE_MASTER_KEY`。
+4. 可选设置 `JD_IMAGE_HTTP_PORT`；默认端口为 `8787`。
+5. 启动服务并创建初始管理员。
 
 ```sh
-docker compose -f compose.server.yml -f compose.server.external-postgres.yml up -d --build
+docker compose -f compose.server.yml up -d --build
+docker compose -f compose.server.yml exec web \
+  python -m codex_image.server.ops bootstrap-admin --username admin
 ```
 
-外部数据库不需要把 5432 暴露给浏览器；Web 和 Worker 只通过连接串访问它。
+临时密码只显示一次，首次登录必须修改。访问
+`http://<服务器地址>:${JD_IMAGE_HTTP_PORT:-8787}`，并确认 `/health/ready`
+返回成功。
 
-## 日常运维
+如果 PostgreSQL 密码含 `@`、`:`、`/`、`#` 等 URL 保留字符，请设置经过
+RFC 3986 URL 编码的 `JD_IMAGE_DATABASE_URL`。
+
+### 使用外部 PostgreSQL
+
+将 `JD_IMAGE_DATABASE_URL` 设置为外部 PostgreSQL 连接串，并叠加覆盖文件：
+
+```sh
+docker compose \
+  -f compose.server.yml \
+  -f compose.server.external-postgres.yml \
+  up -d --build
+```
+
+外部数据库不需要把 `5432` 暴露给浏览器；Web 和 Worker 只通过连接串访问它。
+
+### 源码环境运维
 
 ```sh
 docker compose -f compose.server.yml ps
 docker compose -f compose.server.yml logs --tail=200 web worker proxy
 docker compose -f compose.server.yml stop
 docker compose -f compose.server.yml start
-docker compose -f compose.server.yml exec web python -m codex_image.server.ops reconcile-storage --json
+docker compose -f compose.server.yml exec -T web \
+  python -m codex_image.server.ops reconcile-storage --json
 ```
 
-备份和恢复会自动启用维护锁，期间拒绝新的写入：
-
-```sh
-docker compose -f compose.server.yml exec web python -m codex_image.server.ops backup --output /srv/jd-image-backups/$(date +%Y%m%d-%H%M%S)
-docker compose -f compose.server.yml exec web python -m codex_image.server.ops restore --backup /srv/jd-image-backups/某次备份 --confirm
-```
-
-回收站内容默认保留 30 天。核对命令只报告问题；物理清理必须显式确认：
-
-```sh
-docker compose -f compose.server.yml exec web python -m codex_image.server.ops purge-trash --confirm
-```
-
-如果维护进程异常退出且遗失锁令牌，先确认没有备份、恢复或清理进程仍在运行，再执行 `maintenance-lock force-release --confirm` 解锁。
-
-## 升级与回退
-
-先完成备份，再拉取新版本并执行 `up -d --build`。升级后检查 `/health/ready`、登录、历史任务和资产下载。若升级验证失败，停止服务、恢复数据库与文件卷备份，再回到上一版本镜像；不要删除 PostgreSQL 数据卷或服务器数据卷。
-
-常见故障定位：
-
-- Web 健康但 Ready 为 503：先查看数据库和 Worker 两个组件的状态。
-- Worker unavailable：检查 Worker 日志、`JD_IMAGE_DATA_ROOT` 挂载和数据库连接。
-- file_volume unavailable：检查持久卷是否可写及容器用户权限。
-- PostgreSQL unavailable：检查外部连接串、网络和数据库健康状态。
+如果 Ready 为 `503`，依次检查 PostgreSQL、Worker 和宿主机数据目录的状态及日志。
+生产发布包的命令和目录结构不要与这里的源码环境命令混用。

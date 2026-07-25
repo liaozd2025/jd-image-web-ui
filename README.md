@@ -2,7 +2,35 @@
 
 服务器部署版图片生成 Web 应用。产品只有一种交付形态：管理员在服务器上运行 Web、Worker 和 PostgreSQL，用户通过内网 HTTP 浏览器登录使用。
 
-## 快速部署
+## 生产部署
+
+正式生产环境使用版本化发布包，不在生产服务器编译源码，也不依赖私有镜像仓库。
+在构建机的干净 Git 工作区执行：
+
+```sh
+./scripts/build-release.sh --version v1.0.0
+```
+
+生成的 `dist/jd-image-web-ui-v1.0.0-linux-amd64.tar.gz` 包含应用、PostgreSQL、
+Nginx 的 `linux/amd64` 镜像和部署脚本。将发布包传到 Ubuntu 20.04 及以上的
+Intel/AMD 64 位生产服务器，解压后安装到指定宿主机目录：
+
+```sh
+sudo ./deploy.sh install \
+  --root /data/jd-image-web-ui \
+  --http-port 8787 \
+  --admin-username admin
+```
+
+数据库、图片资源、配置和版本文件都会保存到 `/data/jd-image-web-ui`。生产服务器
+无需访问 Docker Hub；Docker Engine 如需安装，使用
+`https://download.docker.com/linux/ubuntu` 官方软件源。
+
+完整步骤见 [生产环境部署与运维手册](deploy/server/PRODUCTION_DEPLOY.md)。
+
+## 源码环境快速启动
+
+以下方式用于开发和 Compose 验收，不是正式生产交付方式：
 
 ```sh
 cp .env.example .env  # 或手动设置下列变量
@@ -16,17 +44,6 @@ docker compose -f compose.server.yml exec web \
 浏览器访问 `http://服务器地址:8787`。数据库、Web 和 Worker 不直接向用户端暴露端口；只有 Nginx 反向代理提供内网 HTTP 入口。
 
 外部 PostgreSQL 使用 `JD_IMAGE_DATABASE_URL` 和 `compose.server.external-postgres.yml` 覆盖文件，详见 [服务器运维说明](deploy/server/README.md)。
-
-生产交付使用版本化发布包，不在生产服务器编译源码：
-
-```sh
-scripts/build-release.sh --version v1.0.0
-```
-
-脚本生成的 `dist/jd-image-web-ui-v1.0.0-linux-amd64.tar.gz` 内含应用、
-PostgreSQL 和 Nginx 镜像以及生产部署脚本，生产服务器不需要访问 Docker Hub。
-生产部署将 PostgreSQL 数据、图片资源与配置显式保存到宿主机
-`/srv/jd-image-web-ui`，详见 [生产部署包说明](deploy/server/PRODUCTION_DEPLOY.md)。
 
 ## 产品边界
 
