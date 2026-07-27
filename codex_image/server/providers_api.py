@@ -112,6 +112,7 @@ class ProviderVersionPayload(BaseModel):
     display_name: str = Field(min_length=1, max_length=160)
     base_url: str = Field(min_length=1, max_length=2048)
     api_mode: ProviderApiMode
+    concurrency_limit: int = Field(default=1, ge=1, le=128)
     models: list[ProviderModelPayload] = Field(min_length=1, max_length=100)
     parameter_constraints: dict[str, ConstraintValue] = Field(default_factory=dict)
 
@@ -121,9 +122,12 @@ class ProviderVersionPayload(BaseModel):
             raise ValueError("model_id must be unique within a provider version")
         explicit_defaults = [model for model in self.models if model.is_default is True]
         if not explicit_defaults:
-            if all(model.capabilities is not None for model in self.models):
+            if len(self.models) == 1 or all(
+                model.capabilities is not None for model in self.models
+            ):
                 # Expand-only compatibility for old callers. Structured callers
-                # must make the default an explicit, reviewable decision.
+                # with multiple models must make the default an explicit,
+                # reviewable decision.
                 self.models[0].is_default = True
                 explicit_defaults = [self.models[0]]
             else:
@@ -204,6 +208,7 @@ def install_provider_routes(app: FastAPI, *, providers: ProviderRepository) -> N
                 api_mode=payload.api_mode,
                 models=[model.canonical_payload() for model in payload.models],
                 parameter_constraints=payload.parameter_constraints,
+                concurrency_limit=payload.concurrency_limit,
             )
         except ProviderKeyConflict as error:
             return JSONResponse(status_code=409, content={"detail": str(error)})
@@ -389,6 +394,8 @@ def _provider_payload(provider: ProviderVersion) -> dict[str, object]:
         "display_name": provider.display_name,
         "base_url": provider.base_url,
         "api_mode": provider.api_mode,
+        "concurrency_limit": provider.concurrency_limit,
+        "images_concurrency": provider.concurrency_limit,
         "models": provider.models,
         "default_generation_model_id": default_model.get("generation_model_id") if default_model else None,
         "parameter_constraints": provider.parameter_constraints,

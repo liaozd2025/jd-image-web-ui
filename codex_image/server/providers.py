@@ -59,6 +59,7 @@ class ProviderVersion:
     parameter_constraints: dict[str, object]
     is_active: bool
     created_at: datetime
+    concurrency_limit: int = 1
 
 
 @dataclass(frozen=True)
@@ -103,6 +104,7 @@ class ProviderRepository:
                         api_mode,
                         models,
                         parameter_constraints,
+                        concurrency_limit,
                         is_active,
                         created_at
                     FROM provider_catalog_versions
@@ -146,6 +148,7 @@ class ProviderRepository:
                         parameter_constraints=provider.parameter_constraints,
                         is_active=provider.is_active,
                         created_at=provider.created_at,
+                        concurrency_limit=provider.concurrency_limit,
                     )
                     for provider in catalog
                 ]
@@ -160,7 +163,10 @@ class ProviderRepository:
         api_mode: ProviderApiMode,
         models: list[dict[str, object]],
         parameter_constraints: dict[str, object],
+        concurrency_limit: int = 1,
     ) -> ProviderVersion:
+        if not 1 <= concurrency_limit <= 128:
+            raise ValueError("concurrency_limit must be between 1 and 128")
         models = self._normalize_model_bindings(models, api_mode=api_mode)
         self._validate_model_api_modes(models, api_mode=api_mode)
         provider_version_id = str(uuid4())
@@ -203,8 +209,9 @@ class ProviderRepository:
                         api_mode,
                         models,
                         parameter_constraints,
+                        concurrency_limit,
                         created_by_user_id
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s)
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s)
                     RETURNING created_at
                     """,
                     (
@@ -216,6 +223,7 @@ class ProviderRepository:
                         api_mode,
                         json.dumps(canonical_models, separators=(",", ":")),
                         json.dumps(parameter_constraints, separators=(",", ":")),
+                        concurrency_limit,
                         actor_user_id,
                     ),
                 )
@@ -262,6 +270,7 @@ class ProviderRepository:
                         "provider_version_id": provider_version_id,
                         "provider_key": provider_key,
                         "version_number": version_number,
+                        "concurrency_limit": concurrency_limit,
                     },
                 )
         return next(
@@ -281,7 +290,10 @@ class ProviderRepository:
         models: list[dict[str, object]],
         parameter_constraints: dict[str, object],
         department_api_key: str | None = None,
+        concurrency_limit: int = 1,
     ) -> ProviderVersion:
+        if not 1 <= concurrency_limit <= 128:
+            raise ValueError("concurrency_limit must be between 1 and 128")
         models = self._normalize_model_bindings(models, api_mode=api_mode)
         self._validate_model_api_modes(models, api_mode=api_mode)
         with self.connections.connect() as connection:
@@ -326,6 +338,12 @@ class ProviderRepository:
                 resolved_ids: set[str] = set()
                 for model in models:
                     requested_id = str(model.get("generation_model_id") or "")
+                    client_binding_prefix = f"department-{provider_version_id}-binding-"
+                    if (
+                        requested_id.startswith(client_binding_prefix)
+                        and requested_id.removeprefix(client_binding_prefix).isdigit()
+                    ):
+                        requested_id = ""
                     if requested_id and requested_id not in existing_by_id:
                         raise GenerationModelNotFound(
                             "generation model does not belong to the provider"
@@ -553,7 +571,8 @@ class ProviderRepository:
                         base_url = %s,
                         api_mode = %s,
                         models = %s::jsonb,
-                        parameter_constraints = %s::jsonb
+                        parameter_constraints = %s::jsonb,
+                        concurrency_limit = %s
                     WHERE provider_version_id = %s AND deleted_at IS NULL
                     """,
                     (
@@ -562,6 +581,7 @@ class ProviderRepository:
                         api_mode,
                         json.dumps(canonical_models, separators=(",", ":")),
                         json.dumps(parameter_constraints, separators=(",", ":")),
+                        concurrency_limit,
                         provider_version_id,
                     ),
                 )
@@ -577,6 +597,7 @@ class ProviderRepository:
                             generation_model_id
                             for generation_model_id, _, _ in resolved_models
                         ],
+                        "concurrency_limit": concurrency_limit,
                     },
                 )
         return next(
@@ -678,6 +699,7 @@ class ProviderRepository:
                         api_mode,
                         models,
                         parameter_constraints,
+                        concurrency_limit,
                         is_active,
                         created_at
                     """,
@@ -1353,6 +1375,7 @@ class ProviderRepository:
             parameter_constraints=row["parameter_constraints"],
             is_active=row["is_active"],
             created_at=row["created_at"],
+            concurrency_limit=int(row["concurrency_limit"]),
         )
 
     @staticmethod

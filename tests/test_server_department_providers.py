@@ -453,7 +453,12 @@ class ServerDepartmentProviderTests(unittest.TestCase):
                     )
 
                     self.assertEqual(updated.status_code, 200, updated.text)
-                    self.assertNotIn(updated_key, updated.text)
+                    updated_provider = next(
+                        item
+                        for item in updated.json()["settings"]["providers"]
+                        if item["provider_version_id"] == provider_id
+                    )
+                    self.assertEqual(updated_provider["api_key"], updated_key)
                     catalog = admin.get("/api/admin/provider-catalog").json()["providers"]
                     self.assertEqual(len(catalog), 1)
                     current = catalog[0]
@@ -527,14 +532,101 @@ class ServerDepartmentProviderTests(unittest.TestCase):
                     self.assertEqual(saved_credential.status_code, 200, saved_credential.text)
                     admin_saved = admin.get("/api/api-settings")
                     self.assertEqual(admin_saved.status_code, 200, admin_saved.text)
-                    self.assertNotIn(DEPARTMENT_KEY, admin_saved.text)
                     department_provider = next(
                         item
                         for item in admin_saved.json()["settings"]["providers"]
                         if item["provider_scope"] == "department"
                     )
                     self.assertTrue(department_provider["api_key_set"])
+                    self.assertEqual(department_provider["api_key"], DEPARTMENT_KEY)
                     self.assertEqual(department_provider["image_model"], "seedream-test-model")
+
+                    client_generated_model_id = (
+                        f"department-{created_provider_id}-binding-1785142592616"
+                    )
+                    saved_two_models = admin.patch(
+                        "/api/api-settings",
+                        json={
+                            "providers": [
+                                {
+                                    "id": f"department-{created_provider_id}",
+                                    "provider_version_id": created_provider_id,
+                                    "provider_key": department_provider["provider_key"],
+                                    "name": department_provider["name"],
+                                    "base_url": department_provider["base_url"],
+                                    "api_mode": department_provider["api_mode"],
+                                    "images_concurrency": 4,
+                                    "models": [
+                                        department_provider["models"][0],
+                                        {
+                                            "generation_model_id": client_generated_model_id,
+                                            "display_name": "seedream-test-model-lite",
+                                            "model_id": "seedream-test-model-lite",
+                                            "capability_profile_id": "generic-basic",
+                                            "is_default": False,
+                                            "is_enabled": True,
+                                        },
+                                    ],
+                                }
+                            ]
+                        },
+                        headers={"X-CSRF-Token": admin_csrf},
+                    )
+                    self.assertEqual(
+                        saved_two_models.status_code,
+                        200,
+                        saved_two_models.text,
+                    )
+                    updated_department_provider = next(
+                        item
+                        for item in saved_two_models.json()["settings"]["providers"]
+                        if item["provider_version_id"] == created_provider_id
+                    )
+                    self.assertEqual(
+                        [model["model_id"] for model in updated_department_provider["models"]],
+                        ["seedream-test-model", "seedream-test-model-lite"],
+                    )
+                    self.assertNotEqual(
+                        updated_department_provider["models"][1]["generation_model_id"],
+                        client_generated_model_id,
+                    )
+                    self.assertEqual(
+                        updated_department_provider["images_concurrency"],
+                        4,
+                    )
+                    rejected_unknown_id = admin.patch(
+                        "/api/api-settings",
+                        json={
+                            "providers": [
+                                {
+                                    "id": f"department-{created_provider_id}",
+                                    "provider_version_id": created_provider_id,
+                                    "provider_key": department_provider["provider_key"],
+                                    "name": department_provider["name"],
+                                    "base_url": department_provider["base_url"],
+                                    "api_mode": department_provider["api_mode"],
+                                    "models": [
+                                        updated_department_provider["models"][0],
+                                        {
+                                            **updated_department_provider["models"][1],
+                                            "generation_model_id": "foreign-generation-model-id",
+                                            "display_name": "foreign model id must be rejected",
+                                        },
+                                    ],
+                                }
+                            ]
+                        },
+                        headers={"X-CSRF-Token": admin_csrf},
+                    )
+                    self.assertEqual(
+                        rejected_unknown_id.status_code,
+                        409,
+                        rejected_unknown_id.text,
+                    )
+                    self.assertEqual(
+                        rejected_unknown_id.json()["detail"],
+                        "generation model does not belong to the provider",
+                    )
 
                     created = admin.post(
                         "/api/admin/users",
@@ -581,7 +673,7 @@ class ServerDepartmentProviderTests(unittest.TestCase):
                     with psycopg.connect(database_url) as connection:
                         catalog_row = connection.execute(
                             """
-                            SELECT display_name, base_url, api_mode, models
+                            SELECT display_name, base_url, api_mode, models, concurrency_limit
                             FROM provider_catalog_versions
                             WHERE provider_version_id = %s
                             """,
@@ -606,6 +698,7 @@ class ServerDepartmentProviderTests(unittest.TestCase):
 
                     self.assertEqual(catalog_row[:3], ("Volcengine Ark", "https://ark.example.invalid/api/v3", "images"))
                     self.assertEqual(catalog_row[3][0]["model_id"], "seedream-test-model")
+                    self.assertEqual(catalog_row[4], 4)
                     self.assertIsNotNone(department_secret)
                     self.assertIsNotNone(personal_secret)
                     self.assertNotIn(DEPARTMENT_KEY, department_secret[0])

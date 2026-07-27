@@ -208,6 +208,31 @@ class DepartmentProviderRepository:
         except MasterKeyMismatch as error:
             raise DepartmentCredentialNotFound("department provider credential is unavailable") from error
 
+    def reveal_api_key(self, *, provider_version_id: str) -> str:
+        with self.connections.connect() as connection:
+            with connection.cursor() as cursor:
+                assert_writes_allowed(cursor)
+                cursor.execute(
+                    """
+                    SELECT encrypted_api_key
+                    FROM department_provider_credentials AS credentials
+                    JOIN provider_catalog_versions AS versions USING (provider_version_id)
+                    WHERE credentials.provider_version_id = %s
+                      AND versions.deleted_at IS NULL
+                    """,
+                    (provider_version_id,),
+                )
+                row = cursor.fetchone()
+        if row is None or not row[0]:
+            raise DepartmentCredentialNotFound("department provider credential was not found")
+        try:
+            return self.cipher.decrypt_department_api_key(
+                provider_version_id=provider_version_id,
+                encrypted_value=row[0],
+            )
+        except MasterKeyMismatch as error:
+            raise DepartmentCredentialNotFound("department provider credential is unavailable") from error
+
     def quota(self, user_id: str) -> DepartmentQuota:
         with self.connections.connect() as connection:
             with connection.cursor() as cursor:

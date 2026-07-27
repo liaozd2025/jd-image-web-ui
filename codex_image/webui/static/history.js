@@ -14513,7 +14513,7 @@
     instance.menu.replaceChildren(...buttons);
   }
   function resetThemedSelectMenuPosition(instance) {
-    instance.menu.classList.remove("is-portal", "opens-upward");
+    instance.menu.classList.remove("is-portal", "is-system-settings-portal", "opens-upward");
     ["top", "left", "width", "max-height"].forEach((property) => {
       instance.menu.style.removeProperty(property);
     });

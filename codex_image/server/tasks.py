@@ -1167,6 +1167,16 @@ class GenerationTaskRepository:
                           WHERE user_running_tasks.status = 'running'
                             AND user_running_tasks.user_id = tasks.user_id
                       ) < %s
+                      AND (
+                          SELECT COUNT(*) FROM server_generation_tasks AS provider_running_tasks
+                          WHERE provider_running_tasks.status = 'running'
+                            AND provider_running_tasks.provider_version_id = tasks.provider_version_id
+                            AND provider_running_tasks.provider_scope = tasks.provider_scope
+                            AND (
+                                tasks.provider_scope = 'department'
+                                OR provider_running_tasks.user_id = tasks.user_id
+                            )
+                      ) < versions.concurrency_limit
                     ORDER BY COALESCE(scheduler_state.last_claimed_at, TIMESTAMP 'epoch'),
                              tasks.queue_position, tasks.created_at, tasks.task_id
                     FOR UPDATE OF tasks SKIP LOCKED

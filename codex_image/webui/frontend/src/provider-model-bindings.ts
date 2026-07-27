@@ -136,6 +136,13 @@ export function providerModelsFromBindings(
   const bindings = Array.isArray(provider.bindings) ? provider.bindings : [];
   const existingModels = Array.isArray(provider.models) ? provider.models : [];
   const existingDefault = existingModels.find((model: any) => model.is_default);
+  const existingDefaultCanonicalModelId = existingDefault?.canonical_model_id
+    || existingDefault?.model_id
+    || "";
+  const existingDefaultStillBound = Boolean(existingDefault && bindings.some((binding: any) => (
+    (existingDefault.generation_model_id && existingDefault.generation_model_id === binding.id)
+    || existingDefaultCanonicalModelId === binding.canonical_model_id
+  )));
   return bindings.map((binding: any, index: number) => {
     const existing = existingModels.find((model: any) => (
       model.generation_model_id === binding.id
@@ -144,11 +151,11 @@ export function providerModelsFromBindings(
     const existingCanonicalModelId = existing?.canonical_model_id || existing?.model_id || "";
     const preservesExistingModel = existingCanonicalModelId === binding.canonical_model_id;
     const manifest = models.find((model) => model.id === binding.canonical_model_id);
-    const isDefault = existingDefault
+    const isDefault = existingDefaultStillBound
       ? existing === existingDefault
       : index === 0;
     return {
-      generation_model_id: existing?.generation_model_id || binding.id,
+      generation_model_id: existing?.generation_model_id || undefined,
       display_name: preservesExistingModel
         ? existing?.display_name || manifest?.display_name || binding.remote_model_id
         : manifest?.display_name || binding.remote_model_id,

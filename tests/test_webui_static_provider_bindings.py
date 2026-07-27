@@ -67,6 +67,103 @@ class WebUIStaticProviderBindingTests(unittest.TestCase):
         self.assertNotIn("provider-binding-api-mode", source)
         self.assertNotIn("调用方式", source)
 
+    def test_new_provider_keeps_base_url_for_manual_input(self) -> None:
+        normalizer = re.search(
+            r"export function normalizeApiProvider\(provider: any = \{\}, index: any = 0\): any \{"
+            r"([\s\S]*?)\n\}\n\nfunction normalizeApiModel",
+            self.provider_editor,
+        )
+        self.assertIsNotNone(normalizer)
+        self.assertRegex(
+            normalizer.group(1),
+            r'base_url:\s*"base_url"\s+in\s+provider\s+\?'
+            r'\s+String\(provider\.base_url\s+\?\?\s+""\)\.trim\(\)'
+            r'\s+:\s+DEFAULT_API_BASE_URL',
+        )
+
+        new_provider = re.search(
+            r"export function addApiProvider\(\): void \{([\s\S]*?)"
+            r"\n\}\n\nexport function copyApiProvider",
+            self.provider_editor,
+        )
+        self.assertIsNotNone(new_provider)
+        source = new_provider.group(1)
+        self.assertIn('base_url: ""', source)
+        self.assertNotIn("DEFAULT_API_BASE_URL", source)
+
+        binding_changes = re.search(
+            r"export function handleProviderBindingEditorChange\(event: Event\): void \{"
+            r"([\s\S]*?)\n\}\n\nfunction renderAuthSourceAfterProviderChange",
+            self.provider_editor,
+        )
+        self.assertIsNotNone(binding_changes)
+        source = binding_changes.group(1)
+        self.assertNotIn("bindingTemplateSuggestion", source)
+        self.assertNotIn("els.apiBaseUrl.value =", source)
+
+        self.assertIn(
+            'if (els.apiBaseUrl) els.apiBaseUrl.value = provider.base_url || "";',
+            self.provider_editor,
+        )
+        draft_form = re.search(
+            r"function draftProviderFromForm\(\): any \{([\s\S]*?)"
+            r"\n\}\n\nfunction readModelDraftRows",
+            self.provider_editor,
+        )
+        self.assertIsNotNone(draft_form)
+        self.assertNotIn("DEFAULT_API_BASE_URL", draft_form.group(1))
+
+    def test_new_provider_creation_submits_concurrency_limit(self) -> None:
+        self.assertIn(
+            "concurrency_limit: newProvider.images_concurrency",
+            self.provider_editor,
+        )
+
+    def test_new_model_binding_leaves_remote_model_name_empty(self) -> None:
+        binding_factory = re.search(
+            r"function bindingForCatalogModel\(bindingId: string, model: any\): any \{"
+            r"([\s\S]*?)\n\}\n\nexport function addProviderBinding",
+            self.provider_editor,
+        )
+        self.assertIsNotNone(binding_factory)
+        source = binding_factory.group(1)
+        self.assertNotIn("model.official_model_id || model.id", source)
+        self.assertRegex(source, r'remote_model_id:\s*""')
+
+        new_provider = re.search(
+            r"export function addApiProvider\(\): void \{([\s\S]*?)"
+            r"\n\}\n\nexport function copyApiProvider",
+            self.provider_editor,
+        )
+        self.assertIsNotNone(new_provider)
+        self.assertNotIn("DEFAULT_API_IMAGE_MODEL", new_provider.group(1))
+
+        binding_changes = re.search(
+            r"export function handleProviderBindingEditorChange\(event: Event\): void \{"
+            r"([\s\S]*?)\n\}\n\nfunction renderAuthSourceAfterProviderChange",
+            self.provider_editor,
+        )
+        self.assertIsNotNone(binding_changes)
+        self.assertNotRegex(
+            binding_changes.group(1),
+            r"remoteInput\.value\s*=\s*model\?\.official_model_id",
+        )
+
+    def test_model_binding_choices_are_select_controls(self) -> None:
+        source = self.module.read_text(encoding="utf-8")
+        for field in ("Model", "Protocol", "Compatibility"):
+            with self.subTest(field=field):
+                self.assertIn(f"const {field[0].lower() + field[1:]}Select = document.createElement(\"select\")", source)
+                self.assertIn(f"{field[0].lower() + field[1:]}Select.dataset.binding{field} = \"\"", source)
+
+    def test_doubao_seedream_is_a_supported_concrete_model_choice(self) -> None:
+        self.assertIn(
+            '["doubao-seedream", "Doubao Seedream"]',
+            self.provider_editor,
+        )
+        source = self.module.read_text(encoding="utf-8")
+        self.assertIn('modelId.toLowerCase().includes("seedream")', source)
+
     def test_provider_summary_uses_model_binding_language_not_legacy_request_mode(self) -> None:
         self.assertIn(
             '<dt data-i18n="apiSettings.modelBindings">模型绑定</dt>',

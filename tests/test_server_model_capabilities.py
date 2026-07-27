@@ -18,6 +18,41 @@ TEST_DATABASE_URL = os.environ.get("JD_IMAGE_TEST_DATABASE_URL", "")
 
 
 class ModelCapabilityProfileTests(unittest.TestCase):
+    def test_doubao_seedream_is_a_builtin_selectable_profile(self) -> None:
+        from codex_image.server.model_capabilities import (
+            get_model_capability_profile,
+            provider_binding_defaults,
+        )
+        from codex_image.server.providers_api import ProviderModelPayload
+
+        profile = get_model_capability_profile("doubao-seedream")
+
+        self.assertEqual(profile["display_name"], "Doubao Seedream")
+        self.assertEqual(profile["canonical_model_id"], "doubao-seedream")
+        self.assertEqual(profile["model_family_id"], "seedream-image")
+        self.assertEqual(profile["protocol_adapter"], "volcengine-ark-images")
+        self.assertEqual(profile["api_modes"], ["images"])
+        binding = provider_binding_defaults(
+            "doubao-seedream",
+            model_id="doubao-seed-2-1-pro-260628",
+            api_mode="images",
+        )
+        self.assertEqual(binding["canonical_model_id"], "doubao-seedream")
+        self.assertEqual(binding["protocol_profile"], "openai_images")
+        self.assertEqual(binding["parameter_codec"], "gpt_openai_images")
+        model = ProviderModelPayload(
+            model_id="doubao-seed-2-1-pro-260628",
+            display_name="Doubao Seedream",
+            capability_profile_id="doubao-seedream",
+            model_family_id="seedream-image",
+            canonical_model_id="doubao-seedream",
+            protocol_profile="openai_images",
+            parameter_codec="gpt_openai_images",
+            supported_operations=["generate", "edit"],
+            is_default=True,
+        )
+        self.assertEqual(model.capability_profile_id, "doubao-seedream")
+
     def test_provider_model_payload_rejects_mismatched_canonical_model_and_profile(self) -> None:
         from codex_image.server.providers_api import ProviderModelPayload
 
@@ -356,6 +391,7 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                         [
                             "generic-basic",
                             "gpt-image-2",
+                            "doubao-seedream",
                             "seedream-5-lite",
                             "seedream-5-pro",
                             "nano-banana-pro",
@@ -364,12 +400,8 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                         ],
                     )
                     self.assertEqual(
-                        profiles.json()["profiles"][2]["summary"],
-                        "连续组图 · 最高 4K",
-                    )
-                    self.assertEqual(
-                        profiles.json()["profiles"][2]["summary_key"],
-                        "generationModel.summarySeedreamLite",
+                        profiles.json()["profiles"][2]["display_name"],
+                        "Doubao Seedream",
                     )
                     self.assertEqual(
                         profiles.json()["profiles"][2]["protocol_adapter"],
@@ -377,10 +409,22 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                     )
                     self.assertEqual(
                         profiles.json()["profiles"][3]["summary"],
+                        "连续组图 · 最高 4K",
+                    )
+                    self.assertEqual(
+                        profiles.json()["profiles"][3]["summary_key"],
+                        "generationModel.summarySeedreamLite",
+                    )
+                    self.assertEqual(
+                        profiles.json()["profiles"][3]["protocol_adapter"],
+                        "volcengine-ark-images",
+                    )
+                    self.assertEqual(
+                        profiles.json()["profiles"][4]["summary"],
                         "精准编辑 · 最高 2K",
                     )
                     self.assertEqual(
-                        profiles.json()["profiles"][4]["output_formats"],
+                        profiles.json()["profiles"][5]["output_formats"],
                         ["png"],
                     )
 
@@ -575,7 +619,10 @@ class ServerModelCapabilityContractTests(unittest.TestCase):
                         },
                         headers={"X-CSRF-Token": csrf},
                     )
-                    self.assertEqual(missing_default.status_code, 422, missing_default.text)
+                    self.assertEqual(missing_default.status_code, 201, missing_default.text)
+                    self.assertTrue(
+                        missing_default.json()["provider"]["models"][0]["is_default"]
+                    )
 
     def test_legacy_model_payload_is_expanded_to_the_generic_profile(self) -> None:
         from codex_image.server.app import create_server_app

@@ -95,7 +95,10 @@ def install_workspace_routes(
     @app.get("/api/api-settings", response_model=None)
     def api_settings(request: Request) -> JSONResponse:
         session: AuthenticatedSession = request.state.auth_session
-        return JSONResponse(content={"settings": _api_settings(session, providers, departments)})
+        return JSONResponse(
+            content={"settings": _api_settings(session, providers, departments)},
+            headers={"Cache-Control": "no-store"},
+        )
 
     @app.get("/api/generation-catalog", response_model=None)
     def generation_catalog(request: Request) -> JSONResponse:
@@ -167,7 +170,10 @@ def install_workspace_routes(
                     return JSONResponse(status_code=409, content={"detail": str(error)})
                 except (ProviderVersionNotFound, ProviderVersionInactive) as error:
                     return JSONResponse(status_code=409, content={"detail": str(error)})
-        return JSONResponse(content={"settings": _api_settings(session, providers, departments)})
+        return JSONResponse(
+            content={"settings": _api_settings(session, providers, departments)},
+            headers={"Cache-Control": "no-store"},
+        )
 
     @app.get("/api/generation-model-preferences", response_model=None)
     def generation_model_preferences(request: Request) -> JSONResponse:
@@ -2305,6 +2311,7 @@ def _save_department_api_settings(
                 ],
                 parameter_constraints=validated.parameter_constraints,
                 department_api_key=api_key or None,
+                concurrency_limit=validated.concurrency_limit,
             )
             catalog[updated.provider_version_id] = updated
         elif api_key:
@@ -2331,6 +2338,14 @@ def _workspace_provider_payload(
     existing: ProviderVersion | None = None,
 ) -> ProviderVersionPayload:
     api_mode = str(item.get("api_mode") or (existing.api_mode if existing is not None else "images")).strip()
+    if "images_concurrency" in item:
+        concurrency_limit = item["images_concurrency"]
+    elif "concurrency" in item:
+        concurrency_limit = item["concurrency"]
+    elif "concurrency_limit" in item:
+        concurrency_limit = item["concurrency_limit"]
+    else:
+        concurrency_limit = getattr(existing, "concurrency_limit", 1)
     raw_models = item.get("models")
     if isinstance(raw_models, list) and raw_models:
         models: list[dict[str, object]] = []
@@ -2378,6 +2393,7 @@ def _workspace_provider_payload(
                 or (existing.base_url if existing is not None else "")
             ).strip(),
             "api_mode": api_mode,
+            "concurrency_limit": concurrency_limit,
             "models": models,
             "parameter_constraints": dict(existing.parameter_constraints) if existing is not None else {},
         }
@@ -2437,6 +2453,7 @@ def _workspace_provider_changed(existing: ProviderVersion, desired: ProviderVers
             existing.display_name != desired.display_name,
             existing.base_url.rstrip("/") != desired.base_url.rstrip("/"),
             existing.api_mode != desired.api_mode,
+            existing.concurrency_limit != desired.concurrency_limit,
             existing_models != desired_models,
         )
     )
@@ -2454,11 +2471,20 @@ def _api_settings(
     items: list[dict[str, Any]] = []
     if is_admin:
         for catalog_item in catalog:
+            credential = department.get(catalog_item.provider_version_id)
+            api_key = ""
+            if credential and credential.has_credential:
+                try:
+                    api_key = departments.reveal_api_key(
+                        provider_version_id=catalog_item.provider_version_id,
+                    )
+                except DepartmentCredentialNotFound:
+                    api_key = ""
             items.append(
                 _provider_item(
                     catalog_item,
                     scope="department",
-                    credential=department.get(catalog_item.provider_version_id),
+                    credential=credential,
                     models=providers.list_generation_models(
                         provider_version_id=catalog_item.provider_version_id,
                         owner_user_id=None,
@@ -2466,6 +2492,7 @@ def _api_settings(
                     read_only=False,
                     catalog_fields_read_only=False,
                     include_scope_label=False,
+                    api_key=api_key,
                 )
             )
     else:
@@ -2572,6 +2599,7 @@ def _provider_item(
     read_only: bool | None = None,
     catalog_fields_read_only: bool = True,
     include_scope_label: bool = True,
+    api_key: str = "",
 ) -> dict[str, Any]:
     resolved_models = list(catalog_item.models or []) if models is None else list(models)
     default_model = next(
@@ -2580,7 +2608,7 @@ def _provider_item(
     )
     first_model = str(default_model.get("model_id")) if isinstance(default_model, dict) else ""
     label = "个人" if scope == "personal" else "部门"
-    return {
+    item = {
         "id": f"{scope}-{catalog_item.provider_version_id}",
         "provider_version_id": catalog_item.provider_version_id,
         "provider_key": catalog_item.provider_key,
@@ -2591,13 +2619,16 @@ def _provider_item(
         "image_model": first_model,
         "models": resolved_models,
         "api_mode": catalog_item.api_mode,
-        "images_concurrency": 1,
+        "images_concurrency": int(getattr(catalog_item, "concurrency_limit", 1)),
         "api_key_set": bool(credential and credential.has_credential and credential.is_active),
         "api_key_masked": str(getattr(credential, "api_key_mask", "") or ""),
         "is_active": bool(catalog_item.is_active),
         "read_only": scope == "department" if read_only is None else read_only,
         "catalog_fields_read_only": catalog_fields_read_only,
     }
+    if api_key:
+        item["api_key"] = api_key
+    return item
 
 
 def _workspace_models_payload(models: list[object]) -> list[Any]:

@@ -34,10 +34,6 @@ import {
   configurableProviderModels,
   availableProtocolsForModel,
   bindingFromProtocol,
-  bindingTemplateForProtocol,
-  bindingTemplateForCompatibility,
-  bindingTemplateSuggestion,
-  isBindingTemplateBaseUrl,
   normalizeProviderBindings,
   providerModelsFromBindings,
   readProviderBindingCards,
@@ -45,7 +41,6 @@ import {
   validateProviderBindingOverlaps,
 } from "./provider-model-bindings";
 import type { BindingProtocol } from "./provider-model-bindings";
-import type { BindingCompatibility } from "./provider-model-bindings";
 
 const bridge = getLegacyBridge();
 const state = bridge.state;
@@ -68,6 +63,7 @@ const EMPTY_API_PROVIDER = Object.freeze({
 const MODEL_PROFILES = [
   ["generic-basic", "apiSettings.profileGeneric"],
   ["gpt-image-2", "GPT Image 2"],
+  ["doubao-seedream", "Doubao Seedream"],
   ["seedream-5-lite", "apiSettings.profileSeedreamLite"],
   ["seedream-5-pro", "apiSettings.profileSeedreamPro"],
   ["nano-banana-pro", "Nano Banana Pro"],
@@ -131,7 +127,9 @@ export function normalizeApiProvider(provider: any = {}, index: any = 0): any {
     version_number: Number.parseInt(String(provider.version_number || "0"), 10) || 0,
     provider_scope: provider.provider_scope === "department" ? "department" : "personal",
     name: String(provider.name || (id === "default" ? "Default" : `Provider ${index + 1}`)).trim() || id,
-    base_url: String(provider.base_url || DEFAULT_API_BASE_URL).trim() || DEFAULT_API_BASE_URL,
+    base_url: "base_url" in provider
+      ? String(provider.base_url ?? "").trim()
+      : DEFAULT_API_BASE_URL,
     api_key: String(provider.api_key || "").trim(),
     image_model: defaultModel.model_id,
     api_mode: apiMode,
@@ -216,14 +214,14 @@ function providerMode(provider: any): string {
 }
 
 function apiBaseUrlForEndpoint(value: any): string {
-  const withoutQueryOrFragment = String(value || DEFAULT_API_BASE_URL).trim().split(/[?#]/, 1)[0] || "";
-  let baseUrl = withoutQueryOrFragment.replace(/\/+$/, "") || DEFAULT_API_BASE_URL;
+  const withoutQueryOrFragment = String(value || "").trim().split(/[?#]/, 1)[0] || "";
+  let baseUrl = withoutQueryOrFragment.replace(/\/+$/, "");
   for (const suffix of ["/responses", "/images/generations", "/images/edits"]) {
     if (!baseUrl.endsWith(suffix)) continue;
     baseUrl = baseUrl.slice(0, -suffix.length).replace(/\/+$/, "");
     break;
   }
-  return baseUrl || DEFAULT_API_BASE_URL;
+  return baseUrl;
 }
 
 export function updateApiRequestEndpointPreview(): void {
@@ -231,7 +229,7 @@ export function updateApiRequestEndpointPreview(): void {
   const provider = state.apiProviderDraft || activeApiProvider();
   const baseUrl = apiBaseUrlForEndpoint(els.apiBaseUrl?.value || provider?.base_url);
   const bindingCount = readProviderBindingCards(els.apiProviderBindings).length || provider?.bindings?.length || 0;
-  const preview = `${baseUrl} · ${bindingCount} · ${translate("apiSettings.modelBindings")}`;
+  const preview = `${baseUrl || "Base URL"} · ${bindingCount} · ${translate("apiSettings.modelBindings")}`;
   els.apiRequestEndpointPreview.textContent = preview;
   els.apiRequestEndpointPreview.title = preview;
 }
@@ -373,7 +371,7 @@ function draftProviderFromForm(): any {
     ...draft,
     name: els.apiProviderName?.value || draft.name,
     icon_emoji: els.apiProviderIconEmoji ? els.apiProviderIconEmoji.value : draft.icon_emoji,
-    base_url: els.apiBaseUrl?.value || DEFAULT_API_BASE_URL,
+    base_url: els.apiBaseUrl?.value ?? draft.base_url ?? "",
     api_key: els.apiKey?.value || "",
     concurrency: normalizeApiImagesConcurrency(els.apiImagesConcurrency?.value),
     bindings: bindingCards,
@@ -643,7 +641,7 @@ function writeProviderForm(provider: any): void {
   const providerReadOnly = Boolean(provider.read_only);
   if (els.apiProviderName) els.apiProviderName.value = provider.name || "";
   if (els.apiProviderIconEmoji) els.apiProviderIconEmoji.value = provider.icon_emoji || "";
-  if (els.apiBaseUrl) els.apiBaseUrl.value = provider.base_url || DEFAULT_API_BASE_URL;
+  if (els.apiBaseUrl) els.apiBaseUrl.value = provider.base_url || "";
   if (els.apiImagesConcurrency) els.apiImagesConcurrency.value = String(normalizeApiImagesConcurrency(provider.concurrency ?? provider.images_concurrency));
   if (els.apiKey) {
     els.apiKey.value = provider.api_key || "";
@@ -996,9 +994,9 @@ export function addApiProvider(): void {
     id,
     provider_key: providerKeyFromDraftId(id),
     name: translate("apiSettings.newProvider"),
-    base_url: DEFAULT_API_BASE_URL,
+    base_url: "",
     concurrency: DEFAULT_API_IMAGES_CONCURRENCY,
-    bindings: [bindingFromProtocol(`${id}-gpt-image-2`, "gpt-image-2", DEFAULT_API_IMAGE_MODEL, "openai_images")],
+    bindings: [bindingFromProtocol(`${id}-gpt-image-2`, "gpt-image-2", "", "openai_images")],
   }, state.apiSettings.providers.length);
   populateApiSettingsForm();
   setApiSettingsFeedback(translate("apiSettings.newDraftStatus"), "running");
@@ -1278,7 +1276,7 @@ function bindingForCatalogModel(bindingId: string, model: any): any {
     return {
       id: bindingId,
       canonical_model_id: model.id,
-      remote_model_id: catalogBinding.remote_model_id || model.official_model_id || model.id,
+      remote_model_id: "",
       protocol_profile: catalogBinding.protocol_profile,
       parameter_codec: catalogBinding.parameter_codec,
       operations: [...(model.operations || catalogBinding.operations || ["generate", "edit"])],
@@ -1290,7 +1288,7 @@ function bindingForCatalogModel(bindingId: string, model: any): any {
     return bindingFromProtocol(
       bindingId,
       model.id,
-      model.official_model_id || model.id,
+      "",
       protocol,
       [...model.operations],
     );
@@ -1298,7 +1296,7 @@ function bindingForCatalogModel(bindingId: string, model: any): any {
   return {
     id: bindingId,
     canonical_model_id: model.id,
-    remote_model_id: model.official_model_id || model.id,
+    remote_model_id: "",
     protocol_profile: "openai_images",
     parameter_codec: "gpt_openai_images",
     operations: [...(model.operations || ["generate", "edit"])],
@@ -1384,14 +1382,7 @@ export function handleProviderBindingEditorChange(event: Event): void {
     }
     card.dataset.bindingProtocolChanged = "true";
     card.dataset.bindingCompatibilityChanged = "true";
-    if (state.apiProviderDraftIsNew && defaultProtocol) {
-      const suggestion = bindingTemplateSuggestion(bindingTemplateForProtocol(modelId, defaultProtocol));
-      const currentBase = String(els.apiBaseUrl?.value || "").trim();
-      if (!currentBase || isBindingTemplateBaseUrl(currentBase)) els.apiBaseUrl.value = suggestion.base_url;
-    }
-    const remoteInput = card.querySelector<HTMLInputElement>("[data-binding-remote-model]");
     const model = providerBindingModels().find((item) => item.id === modelId);
-    if (remoteInput && !remoteInput.value.trim()) remoteInput.value = model?.official_model_id || modelId;
     const existingOperations = String(card.dataset.bindingModelOperations || "")
       .split(",")
       .filter(Boolean);
@@ -1424,28 +1415,9 @@ export function handleProviderBindingEditorChange(event: Event): void {
       syncThemedSelect(compatibilitySelect);
     }
     card.dataset.bindingCompatibilityChanged = "true";
-    if (state.apiProviderDraftIsNew) {
-      const templateId = bindingTemplateForProtocol(modelId, protocol);
-      const suggestion = bindingTemplateSuggestion(templateId);
-      const currentBase = String(els.apiBaseUrl?.value || "").trim();
-      if (!currentBase || isBindingTemplateBaseUrl(currentBase)) els.apiBaseUrl.value = suggestion.base_url;
-    }
   }
   if (target.matches("[data-binding-compatibility]")) {
     card.dataset.bindingCompatibilityChanged = "true";
-    if (state.apiProviderDraftIsNew) {
-      const modelId = card.querySelector<HTMLSelectElement>("[data-binding-model]")?.value || "";
-      const protocol = (card.querySelector<HTMLSelectElement>("[data-binding-protocol]")?.value
-        || availableProtocolsForModel(modelId)[0]) as BindingProtocol;
-      const templateId = bindingTemplateForCompatibility(
-        modelId,
-        protocol,
-        target.value as BindingCompatibility,
-      );
-      const suggestion = bindingTemplateSuggestion(templateId);
-      const currentBase = String(els.apiBaseUrl?.value || "").trim();
-      if (!currentBase || isBindingTemplateBaseUrl(currentBase)) els.apiBaseUrl.value = suggestion.base_url;
-    }
   }
   updateApiRequestEndpointPreview();
 }
@@ -1616,6 +1588,36 @@ function setSaveButtonText(stateName: "saving" | "saved" | "failed" | "default")
   if (els.saveApiProviderEditButton) els.saveApiProviderEditButton.textContent = providerText;
 }
 
+function apiSettingsErrorMessage(detail: unknown, fallback: string): string {
+  const messages: string[] = [];
+  const collect = (value: unknown): void => {
+    if (typeof value === "string") {
+      if (value.trim()) messages.push(value.trim());
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach(collect);
+      return;
+    }
+    if (!value || typeof value !== "object") return;
+    if ("msg" in value && typeof value.msg === "string") {
+      collect(value.msg);
+      return;
+    }
+    if ("message" in value && typeof value.message === "string") {
+      collect(value.message);
+      return;
+    }
+    if ("detail" in value) collect(value.detail);
+  };
+  collect(detail);
+  return [...new Set(messages)]
+    .join("；")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .trim()
+    .slice(0, 500) || fallback;
+}
+
 export async function saveApiSettings(options: any = {}): Promise<boolean> {
   const autoSave = Boolean(options.auto);
   if (autoSave && apiProviderEditorActive()) return true;
@@ -1625,7 +1627,6 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
   }
   const previousSettings = normalizeApiSettings(state.apiSettings);
   const previousEditingId = state.apiProviderEditingId;
-  const previousDraft = state.apiProviderDraft ? structuredClone(state.apiProviderDraft) : null;
   const previousDraftIsNew = state.apiProviderDraftIsNew;
   if (!autoSave && apiProviderEditorActive()) {
     const bindings = readProviderBindingCards(els.apiProviderBindings);
@@ -1644,6 +1645,11 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
       return false;
     }
   }
+  const submittedDraft = !autoSave && apiProviderEditorActive()
+    ? draftProviderFromForm()
+    : null;
+  const rollbackDraft = submittedDraft || state.apiProviderDraft;
+  const previousDraft = rollbackDraft ? structuredClone(rollbackDraft) : null;
   const settings = readApiSettingsForm({ applyProviderDraft: !autoSave });
   persistApiSettings();
   const payload: any = {
@@ -1716,13 +1722,14 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
           display_name: newProvider.name,
           base_url: newProvider.base_url,
           api_mode: newProvider.api_mode,
+          concurrency_limit: newProvider.images_concurrency,
           models: newProvider.models,
           parameter_constraints: {},
         }),
       });
       const createdData = await createResponse.json().catch(() => ({}));
       if (!createResponse.ok) {
-        throw new Error(createdData.detail || translate("apiSettings.saveFailed"));
+        throw new Error(apiSettingsErrorMessage(createdData.detail, translate("apiSettings.saveFailed")));
       }
       const created = createdData.provider;
       const createdProvider = {
@@ -1750,14 +1757,14 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
         });
       const credentialData = await credentialResponse.json().catch(() => ({}));
       if (!credentialResponse.ok) {
-        throw new Error(credentialData.detail || translate("apiSettings.saveFailed"));
+        throw new Error(apiSettingsErrorMessage(credentialData.detail, translate("apiSettings.saveFailed")));
       }
       const settingsResponse = await fetch("/api/api-settings", {
         headers: { "Cache-Control": "no-cache" },
       });
       data = await settingsResponse.json().catch(() => ({}));
       if (!settingsResponse.ok) {
-        throw new Error(data.detail || translate("apiSettings.loadFailed"));
+        throw new Error(apiSettingsErrorMessage(data.detail, translate("apiSettings.loadFailed")));
       }
     } else {
       const response = await fetch("/api/api-settings", {
@@ -1769,7 +1776,9 @@ export async function saveApiSettings(options: any = {}): Promise<boolean> {
         body: JSON.stringify(payload),
       });
       data = await response.json();
-      if (!response.ok) throw new Error(data.detail || translate("apiSettings.saveFailed"));
+      if (!response.ok) {
+        throw new Error(apiSettingsErrorMessage(data.detail, translate("apiSettings.saveFailed")));
+      }
     }
     const preserveNewEditor = autoSave && apiProviderEditorActive();
     state.apiSettings = mergeApiProviderKeys(data.settings || {});

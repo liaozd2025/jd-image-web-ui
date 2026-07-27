@@ -48,6 +48,7 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0031_provider_catalog_soft_delete",
     "0032_seedream_5_lite_profile",
     "0033_seedream_5_lite_size_preferences",
+    "0034_provider_concurrency_limit",
 ]
 
 

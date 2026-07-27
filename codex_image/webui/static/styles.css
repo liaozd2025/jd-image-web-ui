@@ -3212,6 +3212,10 @@ select.themed-select-native {
   right: auto;
 }
 
+.themed-select-menu.is-system-settings-portal {
+  z-index: 10030;
+}
+
 .themed-select-menu::-webkit-scrollbar {
   width: 10px;
 }

@@ -196,7 +196,7 @@ function handleTriggerKeydown(instance: ThemedSelectInstance, event: KeyboardEve
 }
 
 function resetThemedSelectMenuPosition(instance: ThemedSelectInstance): void {
-  instance.menu.classList.remove("is-portal", "opens-upward");
+  instance.menu.classList.remove("is-portal", "is-system-settings-portal", "opens-upward");
   ["top", "left", "width", "max-height"].forEach((property) => {
     instance.menu.style.removeProperty(property);
   });
@@ -253,6 +253,10 @@ function openThemedSelect(instance: ThemedSelectInstance): void {
   renderOptions(instance);
   document.body.append(instance.menu);
   instance.menu.classList.add("is-portal");
+  instance.menu.classList.toggle(
+    "is-system-settings-portal",
+    Boolean(instance.host.closest(".system-settings-shell")),
+  );
   instance.menu.classList.remove("hidden");
   positionThemedSelectMenu(instance);
   instance.trigger.setAttribute("aria-expanded", "true");

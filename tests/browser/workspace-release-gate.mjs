@@ -1186,8 +1186,51 @@ try {
   await adminPage.locator("#addApiProviderButton").click();
   await adminPage.locator("#apiProviderEditor").waitFor({ state: "visible" });
   const browserCreatedProviderName = `Browser Created Provider ${Date.now()}`;
+  const browserCreatedProviderBaseUrl = "https://browser-created-provider.invalid/v1";
+  const browserCreatedRemoteModel = "browser-created-image-model";
   await adminPage.locator("#apiProviderName").fill(browserCreatedProviderName);
+  await adminPage.locator("#apiBaseUrl").fill(browserCreatedProviderBaseUrl);
   await adminPage.locator("#apiKey").fill("browser-created-provider-secret-1234");
+  await adminPage.locator("#apiProviderBindings [data-binding-remote-model]").fill(browserCreatedRemoteModel);
+  let rejectNextProviderCreate = true;
+  await adminPage.route("**/api/admin/provider-catalog", async (route) => {
+    if (route.request().method() === "POST" && rejectNextProviderCreate) {
+      rejectNextProviderCreate = false;
+      await route.fulfill({
+        status: 422,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail: [{
+            type: "value_error",
+            loc: ["body"],
+            msg: "Value error, exactly one default model is required",
+          }],
+        }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+  const rejectedProviderCreateResponse = adminPage.waitForResponse((response) => (
+    new URL(response.url()).pathname === "/api/admin/provider-catalog"
+      && response.request().method() === "POST"
+  ));
+  await adminPage.locator("#saveApiProviderEditButton").click();
+  check((await rejectedProviderCreateResponse).status() === 422, "provider create failure fixture did not run");
+  await eventually(
+    async () => (await adminPage.locator("#apiSettingsStatus").textContent())
+      .includes("Value error, exactly one default model is required"),
+    "provider create failure did not show the backend validation message",
+  );
+  check(await adminPage.locator("#apiProviderEditor").isVisible(), "failed provider create closed the editor");
+  check(await adminPage.locator("#apiProviderName").inputValue() === browserCreatedProviderName, "failed provider create cleared the provider name");
+  check(await adminPage.locator("#apiBaseUrl").inputValue() === browserCreatedProviderBaseUrl, "failed provider create cleared the Base URL");
+  check(await adminPage.locator("#apiKey").inputValue() === "browser-created-provider-secret-1234", "failed provider create cleared the API key");
+  check(
+    await adminPage.locator("#apiProviderBindings [data-binding-remote-model]").inputValue() === browserCreatedRemoteModel,
+    "failed provider create cleared the relay model name",
+  );
+  await adminPage.unroute("**/api/admin/provider-catalog");
   const browserCreateResponse = adminPage.waitForResponse((response) => (
     new URL(response.url()).pathname === "/api/admin/provider-catalog"
       && response.request().method() === "POST"

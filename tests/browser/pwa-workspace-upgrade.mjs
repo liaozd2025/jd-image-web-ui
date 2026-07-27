@@ -13,8 +13,8 @@ const serviceWorkerSource = readFileSync(
   "utf8",
 );
 const systemChrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const previousAppUrl = "/static/app.js?v=runtime-654";
-const previousCacheName = "ilab-gpt-conjure-shell-v78";
+const previousAppUrl = "/static/app.js?v=runtime-660";
+const previousCacheName = "ilab-gpt-conjure-shell-v84";
 const currentAppUrl = indexSource.match(
   /<script src="(\/static\/app\.js\?v=[^"]+)"><\/script>/,
 )?.[1];

@@ -15051,7 +15051,7 @@
     focusOption(instance, initialIndex);
   }
   function resetThemedSelectMenuPosition(instance) {
-    instance.menu.classList.remove("is-portal", "opens-upward");
+    instance.menu.classList.remove("is-portal", "is-system-settings-portal", "opens-upward");
     ["top", "left", "width", "max-height"].forEach((property) => {
       instance.menu.style.removeProperty(property);
     });
@@ -15100,6 +15100,10 @@
     renderOptions(instance);
     document.body.append(instance.menu);
     instance.menu.classList.add("is-portal");
+    instance.menu.classList.toggle(
+      "is-system-settings-portal",
+      Boolean(instance.host.closest(".system-settings-shell"))
+    );
     instance.menu.classList.remove("hidden");
     positionThemedSelectMenu(instance);
     instance.trigger.setAttribute("aria-expanded", "true");
@@ -35170,14 +35174,16 @@ ${hint}` : hint;
     const bindings = Array.isArray(provider.bindings) ? provider.bindings : [];
     const existingModels = Array.isArray(provider.models) ? provider.models : [];
     const existingDefault = existingModels.find((model) => model.is_default);
+    const existingDefaultCanonicalModelId = existingDefault?.canonical_model_id || existingDefault?.model_id || "";
+    const existingDefaultStillBound = Boolean(existingDefault && bindings.some((binding) => existingDefault.generation_model_id && existingDefault.generation_model_id === binding.id || existingDefaultCanonicalModelId === binding.canonical_model_id));
     return bindings.map((binding, index) => {
       const existing = existingModels.find((model) => model.generation_model_id === binding.id || (model.canonical_model_id || model.model_id) === binding.canonical_model_id);
       const existingCanonicalModelId = existing?.canonical_model_id || existing?.model_id || "";
       const preservesExistingModel = existingCanonicalModelId === binding.canonical_model_id;
       const manifest = models.find((model) => model.id === binding.canonical_model_id);
-      const isDefault = existingDefault ? existing === existingDefault : index === 0;
+      const isDefault = existingDefaultStillBound ? existing === existingDefault : index === 0;
       return {
-        generation_model_id: existing?.generation_model_id || binding.id,
+        generation_model_id: existing?.generation_model_id || void 0,
         display_name: preservesExistingModel ? existing?.display_name || manifest?.display_name || binding.remote_model_id : manifest?.display_name || binding.remote_model_id,
         model_id: binding.remote_model_id,
         capability_profile_id: preservesExistingModel ? existing?.capability_profile_id || binding.canonical_model_id || "generic-basic" : binding.canonical_model_id || "generic-basic",
@@ -35326,16 +35332,6 @@ ${hint}` : hint;
       }
     }
     return null;
-  }
-  function bindingTemplateSuggestion(templateId) {
-    const template = BINDING_TEMPLATES[templateId];
-    return { base_url: template.base_url };
-  }
-  function isBindingTemplateBaseUrl(value) {
-    const normalized = String(value || "").trim().replace(/\/+$/, "");
-    return Object.values(BINDING_TEMPLATES).some(
-      (template) => template.base_url.replace(/\/+$/, "") === normalized
-    );
   }
   function option(value, label, selected) {
     const element2 = document.createElement("option");
@@ -35528,6 +35524,7 @@ ${hint}` : hint;
   var MODEL_PROFILES = [
     ["generic-basic", "apiSettings.profileGeneric"],
     ["gpt-image-2", "GPT Image 2"],
+    ["doubao-seedream", "Doubao Seedream"],
     ["seedream-5-lite", "apiSettings.profileSeedreamLite"],
     ["seedream-5-pro", "apiSettings.profileSeedreamPro"],
     ["nano-banana-pro", "Nano Banana Pro"],
@@ -35591,7 +35588,7 @@ ${hint}` : hint;
       version_number: Number.parseInt(String(provider.version_number || "0"), 10) || 0,
       provider_scope: provider.provider_scope === "department" ? "department" : "personal",
       name: String(provider.name || (id === "default" ? "Default" : `Provider ${index + 1}`)).trim() || id,
-      base_url: String(provider.base_url || DEFAULT_API_BASE_URL).trim() || DEFAULT_API_BASE_URL,
+      base_url: "base_url" in provider ? String(provider.base_url ?? "").trim() : DEFAULT_API_BASE_URL,
       api_key: String(provider.api_key || "").trim(),
       image_model: defaultModel.model_id,
       api_mode: apiMode,
@@ -35659,21 +35656,21 @@ ${hint}` : hint;
     return normalized.providers.find((provider) => provider.id === providerId) || normalized.providers[0];
   }
   function apiBaseUrlForEndpoint(value) {
-    const withoutQueryOrFragment = String(value || DEFAULT_API_BASE_URL).trim().split(/[?#]/, 1)[0] || "";
-    let baseUrl = withoutQueryOrFragment.replace(/\/+$/, "") || DEFAULT_API_BASE_URL;
+    const withoutQueryOrFragment = String(value || "").trim().split(/[?#]/, 1)[0] || "";
+    let baseUrl = withoutQueryOrFragment.replace(/\/+$/, "");
     for (const suffix of ["/responses", "/images/generations", "/images/edits"]) {
       if (!baseUrl.endsWith(suffix)) continue;
       baseUrl = baseUrl.slice(0, -suffix.length).replace(/\/+$/, "");
       break;
     }
-    return baseUrl || DEFAULT_API_BASE_URL;
+    return baseUrl;
   }
   function updateApiRequestEndpointPreview() {
     if (!els10.apiRequestEndpointPreview) return;
     const provider = state9.apiProviderDraft || activeApiProvider();
     const baseUrl = apiBaseUrlForEndpoint(els10.apiBaseUrl?.value || provider?.base_url);
     const bindingCount = readProviderBindingCards(els10.apiProviderBindings).length || provider?.bindings?.length || 0;
-    const preview = `${baseUrl} \xB7 ${bindingCount} \xB7 ${translate("apiSettings.modelBindings")}`;
+    const preview = `${baseUrl || "Base URL"} \xB7 ${bindingCount} \xB7 ${translate("apiSettings.modelBindings")}`;
     els10.apiRequestEndpointPreview.textContent = preview;
     els10.apiRequestEndpointPreview.title = preview;
   }
@@ -35791,7 +35788,7 @@ ${hint}` : hint;
       ...draft,
       name: els10.apiProviderName?.value || draft.name,
       icon_emoji: els10.apiProviderIconEmoji ? els10.apiProviderIconEmoji.value : draft.icon_emoji,
-      base_url: els10.apiBaseUrl?.value || DEFAULT_API_BASE_URL,
+      base_url: els10.apiBaseUrl?.value ?? draft.base_url ?? "",
       api_key: els10.apiKey?.value || "",
       concurrency: normalizeApiImagesConcurrency(els10.apiImagesConcurrency?.value),
       bindings: bindingCards,
@@ -36038,7 +36035,7 @@ ${hint}` : hint;
     const providerReadOnly = Boolean(provider.read_only);
     if (els10.apiProviderName) els10.apiProviderName.value = provider.name || "";
     if (els10.apiProviderIconEmoji) els10.apiProviderIconEmoji.value = provider.icon_emoji || "";
-    if (els10.apiBaseUrl) els10.apiBaseUrl.value = provider.base_url || DEFAULT_API_BASE_URL;
+    if (els10.apiBaseUrl) els10.apiBaseUrl.value = provider.base_url || "";
     if (els10.apiImagesConcurrency) els10.apiImagesConcurrency.value = String(normalizeApiImagesConcurrency(provider.concurrency ?? provider.images_concurrency));
     if (els10.apiKey) {
       els10.apiKey.value = provider.api_key || "";
@@ -36364,9 +36361,9 @@ ${hint}` : hint;
       id,
       provider_key: providerKeyFromDraftId(id),
       name: translate("apiSettings.newProvider"),
-      base_url: DEFAULT_API_BASE_URL,
+      base_url: "",
       concurrency: DEFAULT_API_IMAGES_CONCURRENCY,
-      bindings: [bindingFromProtocol(`${id}-gpt-image-2`, "gpt-image-2", DEFAULT_API_IMAGE_MODEL, "openai_images")]
+      bindings: [bindingFromProtocol(`${id}-gpt-image-2`, "gpt-image-2", "", "openai_images")]
     }, state9.apiSettings.providers.length);
     populateApiSettingsForm();
     setApiSettingsFeedback(translate("apiSettings.newDraftStatus"), "running");
@@ -36629,7 +36626,7 @@ ${hint}` : hint;
       return {
         id: bindingId,
         canonical_model_id: model.id,
-        remote_model_id: catalogBinding.remote_model_id || model.official_model_id || model.id,
+        remote_model_id: "",
         protocol_profile: catalogBinding.protocol_profile,
         parameter_codec: catalogBinding.parameter_codec,
         operations: [...model.operations || catalogBinding.operations || ["generate", "edit"]],
@@ -36641,7 +36638,7 @@ ${hint}` : hint;
       return bindingFromProtocol(
         bindingId,
         model.id,
-        model.official_model_id || model.id,
+        "",
         protocol,
         [...model.operations]
       );
@@ -36649,7 +36646,7 @@ ${hint}` : hint;
     return {
       id: bindingId,
       canonical_model_id: model.id,
-      remote_model_id: model.official_model_id || model.id,
+      remote_model_id: "",
       protocol_profile: "openai_images",
       parameter_codec: "gpt_openai_images",
       operations: [...model.operations || ["generate", "edit"]]
@@ -36729,14 +36726,7 @@ ${hint}` : hint;
       }
       card.dataset.bindingProtocolChanged = "true";
       card.dataset.bindingCompatibilityChanged = "true";
-      if (state9.apiProviderDraftIsNew && defaultProtocol) {
-        const suggestion = bindingTemplateSuggestion(bindingTemplateForProtocol(modelId, defaultProtocol));
-        const currentBase = String(els10.apiBaseUrl?.value || "").trim();
-        if (!currentBase || isBindingTemplateBaseUrl(currentBase)) els10.apiBaseUrl.value = suggestion.base_url;
-      }
-      const remoteInput = card.querySelector("[data-binding-remote-model]");
       const model = providerBindingModels().find((item) => item.id === modelId);
-      if (remoteInput && !remoteInput.value.trim()) remoteInput.value = model?.official_model_id || modelId;
       const existingOperations = String(card.dataset.bindingModelOperations || "").split(",").filter(Boolean);
       card.dataset.bindingModelOperations = (model?.operations || existingOperations).join(",");
     }
@@ -36767,27 +36757,9 @@ ${hint}` : hint;
         syncThemedSelect(compatibilitySelect);
       }
       card.dataset.bindingCompatibilityChanged = "true";
-      if (state9.apiProviderDraftIsNew) {
-        const templateId = bindingTemplateForProtocol(modelId, protocol);
-        const suggestion = bindingTemplateSuggestion(templateId);
-        const currentBase = String(els10.apiBaseUrl?.value || "").trim();
-        if (!currentBase || isBindingTemplateBaseUrl(currentBase)) els10.apiBaseUrl.value = suggestion.base_url;
-      }
     }
     if (target.matches("[data-binding-compatibility]")) {
       card.dataset.bindingCompatibilityChanged = "true";
-      if (state9.apiProviderDraftIsNew) {
-        const modelId = card.querySelector("[data-binding-model]")?.value || "";
-        const protocol = card.querySelector("[data-binding-protocol]")?.value || availableProtocolsForModel(modelId)[0];
-        const templateId = bindingTemplateForCompatibility(
-          modelId,
-          protocol,
-          target.value
-        );
-        const suggestion = bindingTemplateSuggestion(templateId);
-        const currentBase = String(els10.apiBaseUrl?.value || "").trim();
-        if (!currentBase || isBindingTemplateBaseUrl(currentBase)) els10.apiBaseUrl.value = suggestion.base_url;
-      }
     }
     updateApiRequestEndpointPreview();
   }
@@ -36923,6 +36895,31 @@ ${hint}` : hint;
     }[stateName];
     if (els10.saveApiProviderEditButton) els10.saveApiProviderEditButton.textContent = providerText;
   }
+  function apiSettingsErrorMessage(detail, fallback) {
+    const messages = [];
+    const collect = (value) => {
+      if (typeof value === "string") {
+        if (value.trim()) messages.push(value.trim());
+        return;
+      }
+      if (Array.isArray(value)) {
+        value.forEach(collect);
+        return;
+      }
+      if (!value || typeof value !== "object") return;
+      if ("msg" in value && typeof value.msg === "string") {
+        collect(value.msg);
+        return;
+      }
+      if ("message" in value && typeof value.message === "string") {
+        collect(value.message);
+        return;
+      }
+      if ("detail" in value) collect(value.detail);
+    };
+    collect(detail);
+    return [...new Set(messages)].join("\uFF1B").replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 500) || fallback;
+  }
   async function saveApiSettings(options = {}) {
     const autoSave = Boolean(options.auto);
     if (autoSave && apiProviderEditorActive()) return true;
@@ -36932,7 +36929,6 @@ ${hint}` : hint;
     }
     const previousSettings = normalizeApiSettings(state9.apiSettings);
     const previousEditingId = state9.apiProviderEditingId;
-    const previousDraft = state9.apiProviderDraft ? structuredClone(state9.apiProviderDraft) : null;
     const previousDraftIsNew = state9.apiProviderDraftIsNew;
     if (!autoSave && apiProviderEditorActive()) {
       const bindings = readProviderBindingCards(els10.apiProviderBindings);
@@ -36950,6 +36946,9 @@ ${hint}` : hint;
         return false;
       }
     }
+    const submittedDraft = !autoSave && apiProviderEditorActive() ? draftProviderFromForm() : null;
+    const rollbackDraft = submittedDraft || state9.apiProviderDraft;
+    const previousDraft = rollbackDraft ? structuredClone(rollbackDraft) : null;
     const settings = readApiSettingsForm({ applyProviderDraft: !autoSave });
     persistApiSettings();
     const payload2 = {
@@ -37018,13 +37017,14 @@ ${hint}` : hint;
             display_name: newProvider.name,
             base_url: newProvider.base_url,
             api_mode: newProvider.api_mode,
+            concurrency_limit: newProvider.images_concurrency,
             models: newProvider.models,
             parameter_constraints: {}
           })
         });
         const createdData = await createResponse.json().catch(() => ({}));
         if (!createResponse.ok) {
-          throw new Error(createdData.detail || translate("apiSettings.saveFailed"));
+          throw new Error(apiSettingsErrorMessage(createdData.detail, translate("apiSettings.saveFailed")));
         }
         const created = createdData.provider;
         const createdProvider = {
@@ -37050,14 +37050,14 @@ ${hint}` : hint;
         });
         const credentialData = await credentialResponse.json().catch(() => ({}));
         if (!credentialResponse.ok) {
-          throw new Error(credentialData.detail || translate("apiSettings.saveFailed"));
+          throw new Error(apiSettingsErrorMessage(credentialData.detail, translate("apiSettings.saveFailed")));
         }
         const settingsResponse = await fetch("/api/api-settings", {
           headers: { "Cache-Control": "no-cache" }
         });
         data = await settingsResponse.json().catch(() => ({}));
         if (!settingsResponse.ok) {
-          throw new Error(data.detail || translate("apiSettings.loadFailed"));
+          throw new Error(apiSettingsErrorMessage(data.detail, translate("apiSettings.loadFailed")));
         }
       } else {
         const response = await fetch("/api/api-settings", {
@@ -37069,7 +37069,9 @@ ${hint}` : hint;
           body: JSON.stringify(payload2)
         });
         data = await response.json();
-        if (!response.ok) throw new Error(data.detail || translate("apiSettings.saveFailed"));
+        if (!response.ok) {
+          throw new Error(apiSettingsErrorMessage(data.detail, translate("apiSettings.saveFailed")));
+        }
       }
       const preserveNewEditor = autoSave && apiProviderEditorActive();
       state9.apiSettings = mergeApiProviderKeys(data.settings || {});

@@ -88,23 +88,37 @@ test("provider binding model choices include every capability profile", () => {
       },
       expand_advanced_parameters: false,
     }],
-    [{
-      profile_id: "seedream-5-pro",
-      canonical_model_id: "seedream-5-pro",
-      official_model_id: "doubao-seedream-5-0-pro-260628",
-      model_family_id: "seedream-image",
-      display_name: "Seedream 5.0 Pro",
-      version: 1,
-      task_modes: ["generate", "edit"],
-      max_reference_images: 16,
-    }],
+    [
+      {
+        profile_id: "doubao-seedream",
+        canonical_model_id: "doubao-seedream",
+        official_model_id: "doubao-seedream",
+        model_family_id: "seedream-image",
+        display_name: "Doubao Seedream",
+        version: 1,
+        task_modes: ["generate", "edit"],
+        max_reference_images: 16,
+      },
+      {
+        profile_id: "seedream-5-pro",
+        canonical_model_id: "seedream-5-pro",
+        official_model_id: "doubao-seedream-5-0-pro-260628",
+        model_family_id: "seedream-image",
+        display_name: "Seedream 5.0 Pro",
+        version: 1,
+        task_modes: ["generate", "edit"],
+        max_reference_images: 16,
+      },
+    ],
   );
 
   assert.deepEqual(models.map((model) => model.id), [
     "legacy-seedream",
+    "doubao-seedream",
     "seedream-5-pro",
   ]);
-  assert.equal(models[1].official_model_id, "doubao-seedream-5-0-pro-260628");
+  assert.equal(models[1].display_name, "Doubao Seedream");
+  assert.equal(models[2].official_model_id, "doubao-seedream-5-0-pro-260628");
 });
 
 test("changing a concrete model replaces the stale capability profile", () => {
@@ -156,6 +170,49 @@ test("changing a concrete model replaces the stale capability profile", () => {
     model_family_id: "seedream-image",
     canonical_model_id: "seedream-5-pro",
   }]);
+});
+
+test("new provider bindings do not submit their client-only binding id as a generation model id", () => {
+  const savedModels = providerModelsFromBindings({
+    bindings: [{
+      id: "department-provider-version-1-binding-1785142592616",
+      canonical_model_id: "generic-basic",
+      remote_model_id: "relay-image-model",
+      protocol_profile: "openai_images",
+      parameter_codec: "gpt_openai_images",
+      operations: ["generate", "edit"],
+    }],
+    models: [],
+  }, []);
+
+  assert.equal(savedModels.length, 1);
+  assert.equal(savedModels[0].generation_model_id, undefined);
+});
+
+test("replacing the previous default model makes the first current binding default", () => {
+  const savedModels = providerModelsFromBindings({
+    bindings: [{
+      id: "provider-binding-1",
+      canonical_model_id: "doubao-seedream",
+      remote_model_id: "doubao-seedream-5-0-pro-260628",
+      protocol_profile: "openai_images",
+      parameter_codec: "gpt_openai_images",
+      operations: ["generate", "edit"],
+    }],
+    models: [{
+      generation_model_id: "",
+      display_name: "GPT Image 2",
+      model_id: "gpt-image-2",
+      capability_profile_id: "gpt-image-2",
+      canonical_model_id: "gpt-image-2",
+      is_default: true,
+      is_enabled: true,
+    }],
+  }, []);
+
+  assert.equal(savedModels.length, 1);
+  assert.equal(savedModels[0].canonical_model_id, "doubao-seedream");
+  assert.equal(savedModels[0].is_default, true);
 });
 
 test("Seedream bindings keep their Images protocol when a model is selected", () => {
