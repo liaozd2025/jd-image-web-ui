@@ -40,6 +40,16 @@ require_command() {
   command -v "$1" >/dev/null 2>&1 || die "required command is missing: $1"
 }
 
+create_portable_tar_gz() {
+  local source_directory="$1"
+  local archive_path="$2"
+  local entry="$3"
+  COPYFILE_DISABLE=1 tar --no-xattrs \
+    -C "${source_directory}" \
+    -czf "${archive_path}" \
+    "${entry}"
+}
+
 parse_arguments() {
   while (($#)); do
     case "$1" in
@@ -123,7 +133,10 @@ build_bundle() {
     "${package_root}/codex_image/auth.py" \
     "${package_root}/codex_image/cli.py"
 
-  tar -C "${package_root}" -czf "${bundle_dir}/app-package.tar.gz" codex_image
+  create_portable_tar_gz \
+    "${package_root}" \
+    "${bundle_dir}/app-package.tar.gz" \
+    codex_image
   package_sha256="$(sha256sum "${bundle_dir}/app-package.tar.gz" | awk '{print $1}')"
   requirements_sha256="$(sha256sum "${REPOSITORY_ROOT}/requirements-server.txt" | awk '{print $1}')"
 
@@ -150,7 +163,10 @@ images_included=false
 created_at_utc=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 EOF
 
-  tar -C "${temporary_root}" -czf "${temporary_root}/${bundle_name}.tar.gz" "${bundle_name}"
+  create_portable_tar_gz \
+    "${temporary_root}" \
+    "${temporary_root}/${bundle_name}.tar.gz" \
+    "${bundle_name}"
   mv -- "${temporary_root}/${bundle_name}.tar.gz" "${archive_path}"
   printf 'Program update created: %s\n' "${archive_path}"
 }

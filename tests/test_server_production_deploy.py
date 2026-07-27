@@ -152,7 +152,8 @@ class ProductionDeployTests(unittest.TestCase):
             self.assertTrue(archive.is_file())
             with tarfile.open(archive, "r:gz") as outer:
                 bundle_root = "jd-image-web-ui-v9.8.7-program-update"
-                names = set(outer.getnames())
+                outer_members = outer.getmembers()
+                names = {member.name for member in outer_members}
                 expected_files = {
                     f"{bundle_root}/app-package.tar.gz",
                     f"{bundle_root}/compose.update.yml",
@@ -172,10 +173,24 @@ class ProductionDeployTests(unittest.TestCase):
                 self.assertIsNotNone(manifest_member)
                 manifest = manifest_member.read().decode("utf-8")
 
+            for member in outer_members:
+                self.assertFalse(Path(member.name).name.startswith("._"), member.name)
+                self.assertFalse(
+                    any(key.startswith("LIBARCHIVE.xattr.") for key in member.pax_headers),
+                    member.name,
+                )
+
             package_path = Path(temporary_directory) / "app-package.tar.gz"
             package_path.write_bytes(package_bytes)
             with tarfile.open(package_path, "r:gz") as package:
-                package_names = set(package.getnames())
+                package_members = package.getmembers()
+                package_names = {member.name for member in package_members}
+            for member in package_members:
+                self.assertFalse(Path(member.name).name.startswith("._"), member.name)
+                self.assertFalse(
+                    any(key.startswith("LIBARCHIVE.xattr.") for key in member.pax_headers),
+                    member.name,
+                )
             self.assertIn("codex_image/server/web.py", package_names)
             self.assertIn("codex_image/server/auth.py", package_names)
             self.assertIn("codex_image/webui/static/index.html", package_names)
