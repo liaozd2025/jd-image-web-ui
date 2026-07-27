@@ -38,6 +38,22 @@ sudo ./deploy.sh install \
 sudo ./deploy.sh upgrade --root /data/jd-image-web-ui
 ```
 
+日常仅更新程序代码时，在干净的 Git 工作区生成小型程序更新包：
+
+```sh
+./scripts/build-update-package.sh --version v1.0.1
+```
+
+传到生产服务器并解压后执行：
+
+```sh
+sudo ./deploy.sh update --root /data/jd-image-web-ui
+```
+
+`update` 不构建、加载或拉取镜像，只重建 Web 和 Worker 容器来挂载新程序包；
+PostgreSQL、Nginx、数据库和资源目录不参与更新。若服务依赖有变化，脚本会拒绝
+程序更新，应改用完整发布包的 `upgrade`。
+
 完整的环境检查、传输校验、目录说明、验收、日常运维和受限网络排障均以
 [生产环境部署与运维手册](PRODUCTION_DEPLOY.md) 为准。
 

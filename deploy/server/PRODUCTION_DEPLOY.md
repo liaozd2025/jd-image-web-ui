@@ -4,8 +4,9 @@
 及以上版本的 Intel/AMD 64 位服务器。生产环境使用 Docker Compose 部署，
 PostgreSQL 数据、图片资源和配置全部保存在指定的宿主机目录中。
 
-发布包已包含应用、PostgreSQL 和 Nginx 的 `linux/amd64` 镜像。生产服务器只需
-预装 Docker Engine 与 Docker Compose v2，部署过程中不访问 Docker Hub，
+首次安装和完整运行时升级包已包含应用、PostgreSQL 和 Nginx 的 `linux/amd64`
+镜像。日常代码更新使用单独的程序更新包，不包含也不重新创建任何镜像。生产服务器
+只需预装 Docker Engine 与 Docker Compose v2，部署过程中不访问 Docker Hub，
 也不需要私有镜像仓库。
 
 ## 1. 部署结果
@@ -36,7 +37,7 @@ PostgreSQL 数据、图片资源和配置全部保存在指定的宿主机目录
 
 ### 2.1 构建机
 
-构建机需要：
+构建首次安装或完整升级包时，构建机需要：
 
 - 可正常运行 Docker Engine 和 Docker Buildx；
 - 可访问构建脚本中锁定的 Docker Hub 基础镜像；
@@ -53,6 +54,9 @@ docker buildx version
 
 `git status --short` 必须没有输出。发布包会记录当前 Git 提交，构建脚本因此拒绝
 从脏工作区生成不可追溯的生产包。
+
+只生成程序更新包时不需要 Docker 或 Buildx，但仍要求干净的 Git 工作区，并需要
+`git`、`tar` 和 `sha256sum`。
 
 ### 2.2 生产服务器
 
@@ -84,6 +88,8 @@ sudo ss -lntp | grep ':8787 ' || true
 该地址只提供 Docker 软件包，不提供容器镜像。
 
 ## 3. 在构建机生成发布包
+
+### 3.1 首次安装或完整升级包
 
 进入仓库根目录，从干净的 Git 工作区构建：
 
@@ -127,6 +133,36 @@ Error: Git worktree is not clean; commit or stash all changes before building a 
 
 先运行 `git status --short` 查看修改，确认后提交或暂存，再重新构建。不要为了绕过
 检查而删除不明确的本地修改。
+
+### 3.2 日常程序更新包
+
+服务端依赖没有变化时，使用程序更新包：
+
+```sh
+./scripts/build-update-package.sh --version v1.1.0
+```
+
+成功后生成：
+
+```text
+dist/jd-image-web-ui-v1.1.0-program-update.tar.gz
+```
+
+程序更新包只包含：
+
+```text
+jd-image-web-ui-v1.1.0-program-update/
+├── app-package.tar.gz     # Python 服务代码、SQL 迁移和 Web 静态资源
+├── compose.update.yml     # Web/Worker 只读程序挂载
+├── deploy.sh
+├── manifest.txt           # Git 提交、程序包和依赖校验值
+├── README.md
+├── requirements-server.txt
+└── update.env
+```
+
+该构建脚本不会执行任何 Docker 命令，也不会生成 `app-image.tar` 或
+`base-images.tar`。
 
 ## 4. 将发布包传到生产服务器
 
@@ -204,7 +240,8 @@ sudo ./deploy.sh install --admin-username admin
 - `--root`：专用的绝对目录，不能是 `/` 或 `/srv`；
 - `--http-port`：`1` 到 `65535`，只允许在首次安装时设置；
 - `--admin-username`：2 到 64 位，只能包含字母、数字、点、下划线和连字符；
-- 已完成安装后不能再次用 `install` 部署新版本，应使用 `upgrade`。
+- 已完成安装后不能再次用 `install` 部署新版本；日常代码更新使用 `update`，
+  运行时依赖或镜像变化才使用 `upgrade`。
 
 ## 6. 宿主机持久化目录
 
@@ -219,8 +256,9 @@ sudo ./deploy.sh install --admin-username admin
 │   ├── .env               # 数据库密码、主密钥、端口和目录配置
 │   └── .installed         # 安装完成标记
 ├── releases/
-│   └── v1.0.0/            # 当前版本的 Compose、Nginx 和发布信息
-└── current -> releases/v1.0.0
+│   ├── v1.0.0/            # 首次安装的 Compose、Nginx 和发布信息
+│   └── v1.1.0/            # 程序包、只读挂载配置和发布信息
+└── current -> releases/v1.1.0
 ```
 
 `postgres/`、`data/` 和 `backups/` 都通过 bind mount 挂入容器，不是 Docker
@@ -244,11 +282,17 @@ sudo ./deploy.sh install --admin-username admin
 export JD_IMAGE_ROOT=/data/jd-image-web-ui
 
 jd_compose() {
+  local -a compose_files=(
+    --file "$JD_IMAGE_ROOT/current/compose.production.yml"
+  )
+  if [[ -f "$JD_IMAGE_ROOT/current/compose.update.yml" ]]; then
+    compose_files+=(--file "$JD_IMAGE_ROOT/current/compose.update.yml")
+  fi
   sudo docker compose \
     --project-name jd-image-web-ui \
     --env-file "$JD_IMAGE_ROOT/config/.env" \
     --env-file "$JD_IMAGE_ROOT/current/release.env" \
-    --file "$JD_IMAGE_ROOT/current/compose.production.yml" \
+    "${compose_files[@]}" \
     "$@"
 }
 ```
@@ -326,44 +370,82 @@ jd_compose exec -T web \
 
 本版本的生产部署范围不包括自动备份和异机灾备。
 
-## 9. 升级
+## 9. 更新与升级
 
-在构建机生成新版本发布包，并按第 4 节传到生产服务器。解压后进入新版本目录：
+### 9.1 日常程序更新
+
+在构建机按第 3.2 节生成程序更新包，生成并传输校验文件：
+
+```sh
+cd dist
+sha256sum jd-image-web-ui-v1.1.0-program-update.tar.gz \
+  > jd-image-web-ui-v1.1.0-program-update.tar.gz.sha256
+scp jd-image-web-ui-v1.1.0-program-update.tar.gz \
+  jd-image-web-ui-v1.1.0-program-update.tar.gz.sha256 \
+  deploy@<服务器IP>:/tmp/jd-image-release/
+```
+
+在生产服务器校验、解压并进入更新包目录：
 
 ```sh
 cd /tmp/jd-image-release
-tar -xzf jd-image-web-ui-v1.1.0-linux-amd64.tar.gz
-cd jd-image-web-ui-v1.1.0-linux-amd64
+sha256sum -c jd-image-web-ui-v1.1.0-program-update.tar.gz.sha256
+tar -xzf jd-image-web-ui-v1.1.0-program-update.tar.gz
+cd jd-image-web-ui-v1.1.0-program-update
 ```
 
-升级时必须传入首次安装使用的同一个根目录：
+执行程序更新时必须传入首次安装使用的同一个根目录：
 
 ```sh
+sudo ./deploy.sh update --root /data/jd-image-web-ui
+```
+
+`update` 会：
+
+- 校验程序包、Git 提交和服务依赖清单；
+- 复用当前应用、PostgreSQL 和 Nginx 镜像，不执行镜像构建、加载或拉取；
+- 只重建 Web 和 Worker 容器，将新程序目录只读挂载到 `/app/codex_image`；
+- 保持 PostgreSQL 和 Nginx 容器运行；
+- 保留 `postgres/`、`data/`、`backups/`、`config/.env` 和全部账号；
+- 就绪检查成功后更新 `current`，失败时恢复上一版本 Web/Worker。
+
+Web 和 Worker 切换时会有短暂服务中断。应用启动时仍会执行带数据库 advisory lock
+的增量迁移，但不会清空、重建或重新初始化数据库。数据库迁移是前向操作，程序自动
+回退不代表数据库 schema 回退。
+
+如果 `requirements-server.txt` 与当前应用镜像不同，脚本会在重建 Web/Worker
+之前停止，并提示使用完整升级包。不要修改更新包中的依赖校验值来绕过检查。
+
+### 9.2 完整运行时升级
+
+只有 Python 服务依赖、基础镜像或生产 Compose 拓扑变化时，才按第 3.1 节构建完整
+发布包。传到生产服务器并解压后执行：
+
+```sh
+cd /tmp/jd-image-release/jd-image-web-ui-v1.1.0-linux-amd64
 sudo ./deploy.sh upgrade --root /data/jd-image-web-ui
 ```
 
-升级会：
+`upgrade` 会导入完整发布包中的应用、PostgreSQL 和 Nginx 镜像，并启动整套
+Compose 服务，但仍复用原数据库密码、主密钥、管理员账号以及所有宿主机持久化
+目录。
 
-- 导入新发布包内的镜像；
-- 复用原有 `postgres/`、`data/`、`backups/` 和 `config/.env`；
-- 保留原数据库密码、主密钥、端口和管理员账号；
-- 创建新的 `releases/<version>` 目录；
-- 就绪检查成功后更新 `current` 链接。
-
-升级时不要传 `--http-port` 或 `--admin-username`。应用启动时会自动执行数据库迁移。
-本版本不提供数据库迁移后的自动回滚；升级失败时不要删除数据库、资源目录、旧镜像
-或失败版本日志。
-
-升级后重复第 7 节的容器、健康接口、登录、历史任务和图片访问检查。
+`update` 和 `upgrade` 都不接受 `--http-port` 或 `--admin-username`。执行后重复
+第 7 节的容器、健康接口、登录、历史任务和图片访问检查。升级失败时不要删除
+数据库、资源目录、旧镜像或失败版本日志。
 
 ## 10. 受限网络说明
 
-生产服务器不需要访问 `registry-1.docker.io`。部署日志应该包含：
+生产服务器不需要访问 `registry-1.docker.io`。执行首次安装或完整 `upgrade` 时，
+部署日志应该包含：
 
 ```text
 [jd-image] Loading application image ...
 [jd-image] Loading bundled PostgreSQL and Nginx images...
 ```
+
+执行日常 `update` 时不应出现上述两行，而应显示程序版本切换、Web/Worker 启动和
+就绪检查；该路径使用 `--pull never`，不会加载或拉取镜像。
 
 如果生产服务器出现：
 
@@ -386,8 +468,10 @@ test -f base-images.tar
 grep '^base_images_included=true$' manifest.txt
 ```
 
-三个命令都应成功。生产部署必须通过随包提供的 `deploy.sh` 执行，该脚本使用
-`docker load` 导入镜像，并以 `--pull never` 启动服务。
+三个命令都应成功。完整生产部署必须通过随包提供的 `deploy.sh` 执行，该脚本使用
+`docker load` 导入镜像，并以 `--pull never` 启动服务。程序更新包不包含这些
+文件，应检查 `manifest.txt` 中的 `release_kind=program-update` 和
+`images_included=false`。
 
 `download.docker.com` 只能解决 Docker Engine 和 Compose 软件包的下载问题，
 不能替代 Docker Hub 容器镜像仓库。
@@ -417,26 +501,27 @@ sudo ss -lntp | grep ':8787 '
 
 ### deployment did not become ready
 
-脚本超时后会打印容器状态和最近日志。也可以手动执行：
+脚本超时后会打印容器状态和最近日志。按第 7.1 节定义 `JD_IMAGE_ROOT` 和
+`jd_compose` 后，也可以手动执行：
 
 ```sh
-export JD_IMAGE_ROOT=/data/jd-image-web-ui
-sudo docker compose \
-  --project-name jd-image-web-ui \
-  --env-file "$JD_IMAGE_ROOT/config/.env" \
-  --env-file "$JD_IMAGE_ROOT/releases/v1.0.0/release.env" \
-  --file "$JD_IMAGE_ROOT/releases/v1.0.0/compose.production.yml" \
-  ps
-sudo docker compose \
-  --project-name jd-image-web-ui \
-  --env-file "$JD_IMAGE_ROOT/config/.env" \
-  --env-file "$JD_IMAGE_ROOT/releases/v1.0.0/release.env" \
-  --file "$JD_IMAGE_ROOT/releases/v1.0.0/compose.production.yml" \
-  logs --tail=200 postgres web worker proxy
+jd_compose ps
+jd_compose logs --tail=200 postgres web worker proxy
 ```
 
-把命令中的版本替换为实际失败版本。首次安装在就绪前失败时，修复 Docker、端口、
-磁盘或网络问题后，可以用相同参数重新运行 `install`；脚本会复用已生成的配置。
+首次安装在就绪前失败时，修复 Docker、端口、磁盘或网络问题后，可以用相同参数
+重新运行 `install`；脚本会复用已生成的配置。程序更新失败时脚本会尝试恢复上一
+版本 Web/Worker，并保持 `current` 不变。
+
+### server dependencies changed
+
+说明程序更新包中的 `requirements-server.txt` 与当前应用镜像不一致。程序包不能
+安全地补充系统或 Python 依赖，因此脚本会在切换服务前停止。请构建完整发布包并
+执行：
+
+```sh
+sudo ./deploy.sh upgrade --root /data/jd-image-web-ui
+```
 
 ### Ready 返回 503
 
@@ -452,7 +537,9 @@ sudo docker compose \
 
 ## 12. 范围与安全边界
 
-部署脚本负责版本化镜像导入、容器启动、健康检查、宿主机持久化和初始管理员创建。
+部署脚本负责首次安装、完整镜像升级、纯程序包更新、容器启动、健康检查、宿主机
+持久化和初始管理员创建。程序更新不会重建镜像，也不会操作 PostgreSQL/Nginx
+容器。
 以下事项不在本版本脚本范围内：
 
 - Docker Engine 和 Compose 的安装；

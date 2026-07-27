@@ -28,6 +28,27 @@ sudo ./deploy.sh install \
 
 完整步骤见 [生产环境部署与运维手册](deploy/server/PRODUCTION_DEPLOY.md)。
 
+### 日常程序更新
+
+Python 服务依赖没有变化时，只生成和传输程序更新包，不需要重新构建或导入任何
+Docker 镜像：
+
+```sh
+./scripts/build-update-package.sh --version v1.0.1
+```
+
+将生成的 `dist/jd-image-web-ui-v1.0.1-program-update.tar.gz` 传到生产服务器，
+解压后执行：
+
+```sh
+sudo ./deploy.sh update --root /data/jd-image-web-ui
+```
+
+该命令复用当前应用、PostgreSQL 和 Nginx 镜像，只重建 Web、Worker 容器以挂载
+新程序包；数据库、图片、配置以及 PostgreSQL/Nginx 容器保持不变。若
+`requirements-server.txt` 发生变化，脚本会在更新前拒绝执行，此时应使用完整
+发布包和 `deploy.sh upgrade`。
+
 ## 源码环境快速启动
 
 以下方式用于开发和 Compose 验收，不是正式生产交付方式：
