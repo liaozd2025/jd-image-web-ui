@@ -58,6 +58,25 @@ class ProductionDeployTests(unittest.TestCase):
                 ],
             )
 
+    def test_update_compose_clears_docker_client_proxies_for_application_services(self) -> None:
+        document = yaml.safe_load(UPDATE_COMPOSE.read_text(encoding="utf-8"))
+        expected_proxy_environment = {
+            "HTTP_PROXY": "",
+            "HTTPS_PROXY": "",
+            "ALL_PROXY": "",
+            "NO_PROXY": "",
+            "http_proxy": "",
+            "https_proxy": "",
+            "all_proxy": "",
+            "no_proxy": "",
+        }
+
+        for service_name in ("web", "worker"):
+            self.assertEqual(
+                document["services"][service_name]["environment"],
+                expected_proxy_environment,
+            )
+
     def test_production_compose_uses_only_explicit_host_bind_mounts(self) -> None:
         document = yaml.safe_load(PRODUCTION_COMPOSE.read_text(encoding="utf-8"))
         services = document["services"]
@@ -89,6 +108,26 @@ class ProductionDeployTests(unittest.TestCase):
             services["proxy"]["ports"],
             ["${JD_IMAGE_HTTP_BIND:-0.0.0.0}:${JD_IMAGE_HTTP_PORT:-8787}:80"],
         )
+
+    def test_production_application_services_do_not_inherit_docker_client_proxies(self) -> None:
+        document = yaml.safe_load(PRODUCTION_COMPOSE.read_text(encoding="utf-8"))
+        expected_proxy_environment = {
+            "HTTP_PROXY": "",
+            "HTTPS_PROXY": "",
+            "ALL_PROXY": "",
+            "NO_PROXY": "",
+            "http_proxy": "",
+            "https_proxy": "",
+            "all_proxy": "",
+            "no_proxy": "",
+        }
+
+        for service_name in ("web", "worker"):
+            environment = document["services"][service_name]["environment"]
+            for variable_name, expected_value in expected_proxy_environment.items():
+                with self.subTest(service=service_name, variable=variable_name):
+                    self.assertIn(variable_name, environment)
+                    self.assertEqual(environment[variable_name], expected_value)
 
     def test_release_builder_pins_amd64_base_images_and_rejects_dirty_builds(self) -> None:
         source = BUILD_SCRIPT.read_text(encoding="utf-8")

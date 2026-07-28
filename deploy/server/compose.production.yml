@@ -5,6 +5,14 @@ x-application-environment: &application-environment
   JD_IMAGE_DATABASE_CONNECT_TIMEOUT_SECONDS: ${JD_IMAGE_DATABASE_CONNECT_TIMEOUT_SECONDS:-2}
   JD_IMAGE_WORKER_HEARTBEAT_INTERVAL_SECONDS: ${JD_IMAGE_WORKER_HEARTBEAT_INTERVAL_SECONDS:-2}
   JD_IMAGE_WORKER_HEARTBEAT_TTL_SECONDS: ${JD_IMAGE_WORKER_HEARTBEAT_TTL_SECONDS:-10}
+  HTTP_PROXY: ""
+  HTTPS_PROXY: ""
+  ALL_PROXY: ""
+  NO_PROXY: ""
+  http_proxy: ""
+  https_proxy: ""
+  all_proxy: ""
+  no_proxy: ""
 
 x-service-logging: &service-logging
   driver: json-file

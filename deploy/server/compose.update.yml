@@ -4,11 +4,23 @@ x-app-package-volume: &app-package-volume
   target: /app/codex_image
   read_only: true
 
+x-proxy-free-environment: &proxy-free-environment
+  HTTP_PROXY: ""
+  HTTPS_PROXY: ""
+  ALL_PROXY: ""
+  NO_PROXY: ""
+  http_proxy: ""
+  https_proxy: ""
+  all_proxy: ""
+  no_proxy: ""
+
 services:
   web:
+    environment: *proxy-free-environment
     volumes:
       - *app-package-volume
 
   worker:
+    environment: *proxy-free-environment
     volumes:
       - *app-package-volume
