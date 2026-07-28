@@ -16,6 +16,9 @@ git_commit=""
 app_image=""
 postgres_image=""
 nginx_image=""
+package_sha256=""
+requirements_sha256=""
+current_release_dir=""
 temporary_env=""
 temporary_release=""
 
@@ -24,10 +27,12 @@ usage() {
 Usage:
   sudo ./deploy.sh install [--root DIR] [--admin-username USER] [--http-port PORT]
   sudo ./deploy.sh upgrade [--root DIR]
+  sudo ./deploy.sh update [--root DIR]
 
 Commands:
   install  Create a new deployment, generate secrets and bootstrap the first admin.
   upgrade  Reuse the existing secrets and host data with the bundled application image.
+  update   Reuse all installed images and update only the Web and Worker program package.
 
 Options:
   --root DIR             Host persistence root. Defaults to /srv/jd-image-web-ui.
@@ -65,7 +70,7 @@ parse_arguments() {
     exit 2
   }
   case "$1" in
-    install|upgrade)
+    install|upgrade|update)
       action="$1"
       shift
       ;;
@@ -74,7 +79,7 @@ parse_arguments() {
       exit 0
       ;;
     *)
-      die "first argument must be install or upgrade"
+      die "first argument must be install, upgrade or update"
       ;;
   esac
 
@@ -122,10 +127,19 @@ validate_host() {
     || die "supported host operating system is Ubuntu 20.04 or newer"
 
   require_command docker
-  require_command openssl
+  require_command awk
+  require_command cmp
+  require_command find
+  require_command grep
   require_command install
   require_command sed
   require_command tar
+  if [[ "${action}" == "install" ]]; then
+    require_command openssl
+  fi
+  if [[ "${action}" == "update" ]]; then
+    require_command sha256sum
+  fi
   docker info >/dev/null 2>&1 || die "Docker daemon is unavailable"
   compose_version="$(docker compose version --short 2>/dev/null || true)"
   [[ "${compose_version}" =~ ^v?2\. ]] || die "Docker Compose v2 is required"
@@ -138,11 +152,11 @@ validate_arguments() {
     || die "--root must identify a dedicated application directory"
   [[ "${http_port}" =~ ^[0-9]+$ ]] || die "--http-port must be an integer"
   ((http_port >= 1 && http_port <= 65535)) || die "--http-port must be between 1 and 65535"
-  if [[ "${action}" == "upgrade" && -n "${admin_username}" ]]; then
+  if [[ "${action}" != "install" && -n "${admin_username}" ]]; then
     die "--admin-username is valid only for install"
   fi
-  if [[ "${action}" == "upgrade" && "${http_port_explicit}" == "true" ]]; then
-    die "--http-port is valid only for install; upgrades preserve the installed port"
+  if [[ "${action}" != "install" && "${http_port_explicit}" == "true" ]]; then
+    die "--http-port is valid only for install; upgrades and updates preserve the installed port"
   fi
 }
 
@@ -174,6 +188,124 @@ read_release_metadata() {
   for required_file in app-image.tar base-images.tar compose.production.yml nginx.conf manifest.txt; do
     [[ -f "${SCRIPT_DIR}/${required_file}" ]] || die "release file is missing: ${required_file}"
   done
+}
+
+validate_application_archive() {
+  local archive="${SCRIPT_DIR}/app-package.tar.gz"
+  local entry line entry_count=0
+  while IFS= read -r entry; do
+    [[ -n "${entry}" ]] || continue
+    ((entry_count += 1))
+    [[ "${entry}" == "codex_image" || "${entry}" == "codex_image/" || "${entry}" == codex_image/* ]] \
+      || die "program package contains an unexpected path: ${entry}"
+    [[ "${entry}" != /* \
+      && "${entry}" != *"/../"* \
+      && "${entry}" != "../"* \
+      && "${entry}" != */.. ]] \
+      || die "program package contains an unsafe path: ${entry}"
+  done < <(tar -tzf "${archive}")
+  ((entry_count > 0)) || die "program package is empty"
+
+  while IFS= read -r line; do
+    case "${line:0:1}" in
+      -|d) ;;
+      *) die "program package may contain only regular files and directories" ;;
+    esac
+  done < <(tar -tvzf "${archive}")
+}
+
+read_update_metadata() {
+  local metadata_file="${SCRIPT_DIR}/update.env"
+  [[ -f "${metadata_file}" ]] || die "update metadata is missing: ${metadata_file}"
+
+  local key value
+  while IFS='=' read -r key value; do
+    case "${key}" in
+      JD_IMAGE_RELEASE_VERSION) release_version="${value}" ;;
+      JD_IMAGE_GIT_COMMIT) git_commit="${value}" ;;
+      JD_IMAGE_PACKAGE_SHA256) package_sha256="${value}" ;;
+      JD_IMAGE_REQUIREMENTS_SHA256) requirements_sha256="${value}" ;;
+      "") ;;
+      *) die "unexpected key in update metadata: ${key}" ;;
+    esac
+  done <"${metadata_file}"
+
+  [[ "${release_version}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die "invalid update version"
+  [[ "${git_commit}" =~ ^[0-9a-f]{40}$ ]] || die "invalid Git commit in update metadata"
+  [[ "${package_sha256}" =~ ^[0-9a-f]{64}$ ]] || die "invalid program package checksum"
+  [[ "${requirements_sha256}" =~ ^[0-9a-f]{64}$ ]] || die "invalid dependency checksum"
+
+  for required_file in \
+    app-package.tar.gz \
+    compose.update.yml \
+    manifest.txt \
+    README.md \
+    requirements-server.txt; do
+    [[ -f "${SCRIPT_DIR}/${required_file}" ]] || die "update file is missing: ${required_file}"
+  done
+
+  local actual_package_sha256 actual_requirements_sha256
+  actual_package_sha256="$(sha256sum "${SCRIPT_DIR}/app-package.tar.gz" | awk '{print $1}')"
+  [[ "${actual_package_sha256}" == "${package_sha256}" ]] \
+    || die "program package checksum does not match update metadata"
+  actual_requirements_sha256="$(sha256sum "${SCRIPT_DIR}/requirements-server.txt" | awk '{print $1}')"
+  [[ "${actual_requirements_sha256}" == "${requirements_sha256}" ]] \
+    || die "dependency checksum does not match update metadata"
+  grep -qx 'release_kind=program-update' "${SCRIPT_DIR}/manifest.txt" \
+    || die "manifest does not describe a program update"
+  grep -qx 'images_included=false' "${SCRIPT_DIR}/manifest.txt" \
+    || die "program update manifest must not include images"
+  validate_application_archive
+}
+
+read_active_release_metadata() {
+  local current_target current_env key value
+  current_target="$(readlink "${deploy_root}/current")"
+  [[ "${current_target}" =~ ^releases/[A-Za-z0-9][A-Za-z0-9._-]*$ ]] \
+    || die "current release link has an invalid target: ${current_target}"
+  current_release_dir="${deploy_root}/${current_target}"
+  current_env="${current_release_dir}/release.env"
+  [[ -f "${current_env}" ]] || die "current release metadata is missing: ${current_env}"
+  [[ -f "${current_release_dir}/compose.production.yml" ]] \
+    || die "current production Compose file is missing"
+  [[ -f "${current_release_dir}/nginx.conf" ]] || die "current Nginx configuration is missing"
+
+  app_image=""
+  postgres_image=""
+  nginx_image=""
+  while IFS='=' read -r key value; do
+    case "${key}" in
+      JD_IMAGE_APP_IMAGE) app_image="${value}" ;;
+      JD_IMAGE_POSTGRES_IMAGE) postgres_image="${value}" ;;
+      JD_IMAGE_NGINX_IMAGE) nginx_image="${value}" ;;
+      JD_IMAGE_RELEASE_VERSION|JD_IMAGE_GIT_COMMIT|JD_IMAGE_APP_PACKAGE_DIR|"") ;;
+      *) die "unexpected key in current release metadata: ${key}" ;;
+    esac
+  done <"${current_env}"
+
+  [[ "${app_image}" =~ ^jd-image-web-ui:[A-Za-z0-9._-]+$ ]] \
+    || die "current application image tag is invalid"
+  [[ "${postgres_image}" =~ ^jd-image-web-ui/postgres:[A-Za-z0-9._-]+$ ]] \
+    || die "current PostgreSQL image tag is invalid"
+  [[ "${nginx_image}" =~ ^jd-image-web-ui/nginx:[A-Za-z0-9._-]+$ ]] \
+    || die "current Nginx image tag is invalid"
+}
+
+validate_runtime_dependencies() {
+  local image_platform runtime_requirements_sha256
+  image_platform="$(
+    docker image inspect --format '{{.Os}}/{{.Architecture}}' "${app_image}" 2>/dev/null
+  )" || die "installed application image is missing: ${app_image}"
+  [[ "${image_platform}" == "linux/amd64" ]] \
+    || die "installed application image platform is ${image_platform}, expected linux/amd64"
+
+  runtime_requirements_sha256="$(
+    docker run --pull never --rm --entrypoint python "${app_image}" -c \
+      "from hashlib import sha256; from pathlib import Path; print(sha256(Path('/app/requirements-server.txt').read_bytes()).hexdigest())" \
+      2>/dev/null
+  )" || die "could not read dependency declaration from installed application image"
+  [[ "${runtime_requirements_sha256}" == "${requirements_sha256}" ]] || die \
+    "server dependencies changed; build a full release and use the upgrade command"
 }
 
 directory_has_entries() {
@@ -293,14 +425,85 @@ stage_release() {
   temporary_release=""
 }
 
+stage_update_release() {
+  local releases_dir="${deploy_root}/releases"
+  local target_dir="${releases_dir}/${release_version}"
+  if [[ -d "${target_dir}" ]]; then
+    for filename in \
+      app-package.tar.gz \
+      compose.update.yml \
+      deploy.sh \
+      manifest.txt \
+      README.md \
+      requirements-server.txt \
+      update.env; do
+      [[ -f "${target_dir}/${filename}" ]] \
+        || die "existing update directory is incomplete: ${target_dir}"
+      cmp -s "${SCRIPT_DIR}/${filename}" "${target_dir}/${filename}" \
+        || die "update ${release_version} already exists with different contents"
+    done
+    [[ -f "${target_dir}/application/codex_image/__init__.py" ]] \
+      || die "existing update directory has no extracted application package"
+    return
+  fi
+
+  temporary_release="$(mktemp -d "${releases_dir}/.${release_version}.XXXXXX")"
+  install -m 0644 \
+    "${current_release_dir}/compose.production.yml" \
+    "${temporary_release}/compose.production.yml"
+  install -m 0644 "${current_release_dir}/nginx.conf" "${temporary_release}/nginx.conf"
+  install -m 0644 "${SCRIPT_DIR}/app-package.tar.gz" "${temporary_release}/app-package.tar.gz"
+  install -m 0644 "${SCRIPT_DIR}/compose.update.yml" "${temporary_release}/compose.update.yml"
+  install -m 0755 "${SCRIPT_DIR}/deploy.sh" "${temporary_release}/deploy.sh"
+  install -m 0644 "${SCRIPT_DIR}/manifest.txt" "${temporary_release}/manifest.txt"
+  install -m 0644 "${SCRIPT_DIR}/README.md" "${temporary_release}/README.md"
+  install -m 0644 \
+    "${SCRIPT_DIR}/requirements-server.txt" \
+    "${temporary_release}/requirements-server.txt"
+  install -m 0644 "${SCRIPT_DIR}/update.env" "${temporary_release}/update.env"
+
+  install -d -m 0755 "${temporary_release}/application"
+  tar --no-same-owner \
+    -xzf "${temporary_release}/app-package.tar.gz" \
+    -C "${temporary_release}/application"
+  [[ -f "${temporary_release}/application/codex_image/__init__.py" ]] \
+    || die "program package does not contain codex_image/__init__.py"
+  find "${temporary_release}/application" -type d -exec chmod 0755 {} +
+  find "${temporary_release}/application" -type f -exec chmod 0644 {} +
+
+  cat >"${temporary_release}/release.env" <<EOF
+JD_IMAGE_RELEASE_VERSION=${release_version}
+JD_IMAGE_GIT_COMMIT=${git_commit}
+JD_IMAGE_APP_IMAGE=${app_image}
+JD_IMAGE_POSTGRES_IMAGE=${postgres_image}
+JD_IMAGE_NGINX_IMAGE=${nginx_image}
+JD_IMAGE_APP_PACKAGE_DIR=${target_dir}/application/codex_image
+EOF
+  chmod 0644 "${temporary_release}/release.env"
+
+  mv -- "${temporary_release}" "${target_dir}"
+  temporary_release=""
+}
+
+compose_release() {
+  local release_dir="$1"
+  shift
+  local -a compose_command=(
+    docker compose
+    --project-name "${COMPOSE_PROJECT_NAME}"
+    --env-file "${deploy_root}/config/.env"
+    --env-file "${release_dir}/release.env"
+    --file "${release_dir}/compose.production.yml"
+  )
+  if [[ -f "${release_dir}/compose.update.yml" ]]; then
+    compose_command+=(--file "${release_dir}/compose.update.yml")
+  fi
+  compose_command+=("$@")
+  "${compose_command[@]}"
+}
+
 compose() {
-  local release_dir="${deploy_root}/releases/${release_version}"
-  docker compose \
-    --project-name "${COMPOSE_PROJECT_NAME}" \
-    --env-file "${deploy_root}/config/.env" \
-    --env-file "${release_dir}/release.env" \
-    --file "${release_dir}/compose.production.yml" \
-    "$@"
+  compose_release "${deploy_root}/releases/${release_version}" "$@"
 }
 
 start_release() {
@@ -308,20 +511,48 @@ start_release() {
   compose up --detach --no-build --pull never --remove-orphans
 }
 
-wait_until_ready() {
+start_application_release() {
+  local release_dir="$1"
+  log "Starting program release $(basename "${release_dir}")..."
+  compose_release "${release_dir}" \
+    up --detach --no-deps --force-recreate --no-build --pull never web worker
+}
+
+read_worker_instance_id() {
+  local release_dir="$1"
+  local instance_id
+  instance_id="$(
+    compose_release "${release_dir}" exec -T web python -c \
+      "import json, urllib.request; payload = json.load(urllib.request.urlopen('http://127.0.0.1:8787/health/ready', timeout=3)); print(payload['components']['worker'].get('instance_id', ''))" \
+      2>/dev/null
+  )" || return 1
+  [[ -n "${instance_id}" ]] || return 1
+  printf '%s\n' "${instance_id}"
+}
+
+release_is_ready() {
+  local release_dir="$1"
+  local replaced_worker_instance_id="${2:-}"
   local deadline=$((SECONDS + READY_TIMEOUT_SECONDS))
   log "Waiting for the deployment readiness check..."
   while ((SECONDS < deadline)); do
-    if compose exec -T web python -c \
-      "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/health/ready', timeout=3).read()" \
+    if compose_release "${release_dir}" exec -T web python -c \
+      "import json, sys, urllib.request; payload = json.load(urllib.request.urlopen('http://127.0.0.1:8787/health/ready', timeout=3)); instance_id = payload['components']['worker'].get('instance_id', ''); raise SystemExit(0 if instance_id and instance_id != sys.argv[1] else 1)" \
+      "${replaced_worker_instance_id}" \
       >/dev/null 2>&1; then
       return
     fi
     sleep 2
   done
-  compose ps >&2 || true
-  compose logs --tail=100 postgres web worker proxy >&2 || true
-  die "deployment did not become ready within ${READY_TIMEOUT_SECONDS} seconds"
+  compose_release "${release_dir}" ps >&2 || true
+  compose_release "${release_dir}" logs --tail=100 postgres web worker proxy >&2 || true
+  return 1
+}
+
+wait_until_ready() {
+  local release_dir="${deploy_root}/releases/${release_version}"
+  release_is_ready "${release_dir}" \
+    || die "deployment did not become ready within ${READY_TIMEOUT_SECONDS} seconds"
 }
 
 prompt_for_admin_username() {
@@ -391,18 +622,62 @@ run_upgrade() {
   log "Upgrade complete. Persistent database and resource directories were preserved."
 }
 
+run_update() {
+  read_update_metadata
+  validate_existing_configuration
+  read_active_release_metadata
+  validate_runtime_dependencies
+
+  local previous_release_dir="${current_release_dir}"
+  local update_release_dir="${deploy_root}/releases/${release_version}"
+  local previous_version previous_worker_instance_id
+  previous_version="$(basename "${previous_release_dir}")"
+  previous_worker_instance_id="$(read_worker_instance_id "${previous_release_dir}")" \
+    || die "current Worker is not ready; repair the deployment before updating"
+  if [[ "${previous_release_dir}" == "${update_release_dir}" ]]; then
+    log "Program update ${release_version} is already active; verifying services."
+  else
+    log "Updating program package ${previous_version} to ${release_version}."
+  fi
+
+  stage_update_release
+  if start_application_release "${update_release_dir}" \
+    && release_is_ready "${update_release_dir}" "${previous_worker_instance_id}" \
+    && activate_release; then
+    compose_release "${update_release_dir}" ps
+    log "Program update complete. Installed images, database and resource directories were preserved."
+    return
+  fi
+
+  log "Program update ${release_version} failed."
+  log "Restoring the previous application release ${previous_version}..."
+  if start_application_release "${previous_release_dir}" \
+    && release_is_ready "${previous_release_dir}"; then
+    die "program update failed; the previous Web and Worker release was restored"
+  fi
+  die "program update failed and the previous Web and Worker release could not be restored"
+}
+
 main() {
   trap cleanup EXIT
   parse_arguments "$@"
   validate_arguments
   validate_host
-  read_release_metadata
-  load_application_image
-  load_base_images
   case "${action}" in
-    install) run_install ;;
-    upgrade) run_upgrade ;;
+    install|upgrade)
+      read_release_metadata
+      load_application_image
+      load_base_images
+      if [[ "${action}" == "install" ]]; then
+        run_install
+      else
+        run_upgrade
+      fi
+      ;;
+    update) run_update ;;
   esac
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

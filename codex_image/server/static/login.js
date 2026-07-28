@@ -3,8 +3,58 @@ import { cookieValue } from "/auth-static/common.js";
 const loginForm = document.querySelector("#login-form");
 const passwordForm = document.querySelector("#password-form");
 const THEME_STORAGE_KEY = "codex-image-theme-preference";
+const REMEMBERED_LOGIN_STORAGE_KEY = "jd-image-remembered-login";
+const REMEMBERED_LOGIN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const VALID_THEMES = new Set(["system", "light", "dark"]);
 let csrfToken = "";
+
+function clearRememberedLogin() {
+  try {
+    window.localStorage.removeItem(REMEMBERED_LOGIN_STORAGE_KEY);
+  } catch {
+    // Storage can be unavailable in restricted browser modes.
+  }
+}
+
+function readRememberedLogin() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(REMEMBERED_LOGIN_STORAGE_KEY) || "null");
+    if (
+      !value
+      || typeof value.username !== "string"
+      || typeof value.password !== "string"
+      || !Number.isFinite(value.expiresAt)
+      || value.expiresAt <= Date.now()
+    ) {
+      clearRememberedLogin();
+      return null;
+    }
+    return value;
+  } catch {
+    clearRememberedLogin();
+    return null;
+  }
+}
+
+function saveRememberedLogin(username, password) {
+  try {
+    window.localStorage.setItem(REMEMBERED_LOGIN_STORAGE_KEY, JSON.stringify({
+      username,
+      password,
+      expiresAt: Date.now() + REMEMBERED_LOGIN_TTL_MS,
+    }));
+  } catch {
+    // Login still works when browser storage is unavailable.
+  }
+}
+
+function restoreRememberedLogin() {
+  const remembered = readRememberedLogin();
+  if (!remembered) return;
+  loginForm.querySelector("#username").value = remembered.username;
+  loginForm.querySelector("#password").value = remembered.password;
+  loginForm.querySelector("#remember-me").checked = true;
+}
 
 function syncWorkspaceTheme() {
   let preference = "system";
@@ -36,6 +86,11 @@ function setSubmitting(form, submitting) {
 }
 
 syncWorkspaceTheme();
+restoreRememberedLogin();
+
+loginForm.querySelector("#remember-me").addEventListener("change", (event) => {
+  if (!event.currentTarget.checked) clearRememberedLogin();
+});
 
 if (new URLSearchParams(window.location.search).get("change") === "1") {
   showPasswordForm();
@@ -44,7 +99,9 @@ if (new URLSearchParams(window.location.search).get("change") === "1") {
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const error = loginForm.querySelector("#login-error");
+  const username = loginForm.querySelector("#username").value;
   const password = loginForm.querySelector("#password").value;
+  const rememberMe = loginForm.querySelector("#remember-me").checked;
   setSubmitting(loginForm, true);
   error.textContent = "";
   try {
@@ -52,8 +109,9 @@ loginForm.addEventListener("submit", async (event) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        username: loginForm.querySelector("#username").value,
+        username,
         password,
+        remember_me: rememberMe,
       }),
     });
     if (!response.ok) {
@@ -61,6 +119,8 @@ loginForm.addEventListener("submit", async (event) => {
       return;
     }
     const result = await response.json();
+    if (rememberMe) saveRememberedLogin(username, password);
+    else clearRememberedLogin();
     csrfToken = result.csrf_token;
     if (result.user.must_change_password) {
       showPasswordForm(password);
@@ -95,6 +155,13 @@ passwordForm.addEventListener("submit", async (event) => {
     if (!response.ok) {
       error.textContent = "密码修改失败，请检查输入";
       return;
+    }
+    const remembered = readRememberedLogin();
+    if (remembered) {
+      saveRememberedLogin(
+        remembered.username,
+        passwordForm.querySelector("#new-password").value,
+      );
     }
     window.location.assign("/");
   } catch {

@@ -268,7 +268,6 @@ export const RU_DICTIONARY: TranslationDictionary = {
     "version.standardManualInstall": "Updater-enabled macOS standard apps support user-confirmed replacement; older macOS apps and Windows standard ZIP packages still update manually.",
     "version.noUpdater": "Эта среда выполнения не является переносимым пакетом, поэтому программу обновления невозможно запустить автоматически.",
     "version.openUpdater": "Запустить программу обновления",
-    "version.release": "Посмотреть выпуск",
     "version.updaterStarted": "Обновление запустилось. Закройте текущее окно сервера WebUI и следуйте инструкциям программы обновления.",
     "version.updaterFailed": "Не удалось запустить программу обновления. Запустите скрипт обновления из пакета вручную.",
     "notifications.title": "Уведомления",

@@ -73,6 +73,7 @@ class AuthenticatedSession:
     session_id: str
     user_agent: str
     csrf_token_hash: str
+    remember_me: bool = False
 
 
 @dataclass(frozen=True)
@@ -173,6 +174,7 @@ class IdentityRepository:
         password: str,
         *,
         ttl_seconds: int,
+        remember_me: bool,
         failure_limit: int,
         lock_seconds: int,
         user_agent: str,
@@ -287,6 +289,7 @@ class IdentityRepository:
                     cursor,
                     user,
                     ttl_seconds=ttl_seconds,
+                    remember_me=remember_me,
                     user_agent=user_agent,
                 )
                 record_audit_event(
@@ -302,6 +305,7 @@ class IdentityRepository:
         user: UserAccount,
         *,
         ttl_seconds: int,
+        remember_me: bool,
         user_agent: str,
     ) -> SessionCredentials:
         with self.connections.connect() as connection:
@@ -311,6 +315,7 @@ class IdentityRepository:
                     cursor,
                     user,
                     ttl_seconds=ttl_seconds,
+                    remember_me=remember_me,
                     user_agent=user_agent,
                 )
 
@@ -330,7 +335,8 @@ class IdentityRepository:
                         users.is_active,
                         sessions.session_id,
                         sessions.user_agent,
-                        sessions.csrf_token_hash
+                        sessions.csrf_token_hash,
+                        sessions.remember_me
                     FROM server_sessions AS sessions
                     JOIN server_users AS users ON users.user_id = sessions.user_id
                     WHERE sessions.token_hash = %s
@@ -362,6 +368,7 @@ class IdentityRepository:
             session_id=row["session_id"],
             user_agent=row["user_agent"],
             csrf_token_hash=row["csrf_token_hash"],
+            remember_me=bool(row["remember_me"]),
         )
 
     def change_password(
@@ -666,6 +673,7 @@ class IdentityRepository:
         user: UserAccount,
         *,
         ttl_seconds: int,
+        remember_me: bool,
         user_agent: str,
     ) -> SessionCredentials:
         session = SessionCredentials(
@@ -680,8 +688,10 @@ class IdentityRepository:
                 user_id,
                 csrf_token_hash,
                 user_agent,
+                remember_me,
                 expires_at
             ) VALUES (
+                %s,
                 %s,
                 %s,
                 %s,
@@ -696,6 +706,7 @@ class IdentityRepository:
                 user.user_id,
                 hash_token(session.csrf_token),
                 user_agent[:512] or "Unknown browser",
+                remember_me,
                 ttl_seconds,
             ),
         )

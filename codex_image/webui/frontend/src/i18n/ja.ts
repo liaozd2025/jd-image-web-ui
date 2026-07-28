@@ -268,7 +268,6 @@ export const JA_DICTIONARY: TranslationDictionary = {
     "version.standardManualInstall": "Updater-enabled macOS standard apps support user-confirmed replacement; older macOS apps and Windows standard ZIP packages still update manually.",
     "version.noUpdater": "このランタイムはポータブル パッケージではないため、アップデーターを自動的に開始できません。",
     "version.openUpdater": "アップデーターの開始",
-    "version.release": "リリースを見る",
     "version.updaterStarted": "アップデータを開始しました。現在の WebUI サーバーウィンドウを閉じ、アップデータの案内に従ってください。",
     "version.updaterFailed": "アップデーターを開始できませんでした。パッケージからアップデータ スクリプトを手動で実行します。",
     "notifications.title": "タスク通知",

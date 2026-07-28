@@ -15,6 +15,7 @@ class ServerSettings:
     worker_heartbeat_interval_seconds: float = 2.0
     worker_heartbeat_ttl_seconds: float = 10.0
     session_ttl_seconds: int = 12 * 60 * 60
+    remembered_session_ttl_seconds: int = 30 * 24 * 60 * 60
     session_cookie_secure: bool = False
     login_failure_limit: int = 5
     login_lock_seconds: int = 5 * 60
@@ -43,6 +44,12 @@ class ServerSettings:
                 values.get("JD_IMAGE_WORKER_HEARTBEAT_TTL_SECONDS", "10")
             ),
             session_ttl_seconds=int(values.get("JD_IMAGE_SESSION_TTL_SECONDS", str(12 * 60 * 60))),
+            remembered_session_ttl_seconds=int(
+                values.get(
+                    "JD_IMAGE_REMEMBERED_SESSION_TTL_SECONDS",
+                    str(30 * 24 * 60 * 60),
+                )
+            ),
             session_cookie_secure=_environment_bool(
                 values.get("JD_IMAGE_SESSION_COOKIE_SECURE", "false")
             ),
@@ -63,6 +70,10 @@ class ServerSettings:
             raise ValueError("worker_heartbeat_ttl_seconds must be positive")
         if self.session_ttl_seconds <= 0:
             raise ValueError("session_ttl_seconds must be positive")
+        if self.remembered_session_ttl_seconds < self.session_ttl_seconds:
+            raise ValueError(
+                "remembered_session_ttl_seconds must be at least session_ttl_seconds"
+            )
         if self.login_failure_limit <= 0:
             raise ValueError("login_failure_limit must be positive")
         if self.login_lock_seconds <= 0:

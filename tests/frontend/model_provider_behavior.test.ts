@@ -15,6 +15,7 @@ import {
   migratePortableModelDraft,
 } from "../../codex_image/webui/frontend/src/model-parameter-drafts";
 import { resolveModeSettingsVisibility } from "../../codex_image/webui/frontend/src/mode-settings-visibility";
+import { buildGenerationModelPreferencePayload } from "../../codex_image/webui/frontend/src/model-preference-request";
 import { serverCompatibleGenerationFields } from "../../codex_image/webui/frontend/src/generation-request";
 import {
   renderModelSelectors,
@@ -45,6 +46,35 @@ const catalog: GenerationCatalog = {
   default_provider_by_model: { "model-a": "default" },
   codex: { available: false, mode: "images" },
 };
+
+test("incomplete legacy provider state does not produce a model preference request", () => {
+  const parameters = {
+    size: "1024x1024",
+    resolution: "standard",
+    ratio: "1:1",
+    orientation: "square",
+    n: 1,
+    output_format: "png",
+    prompt_optimization_mode: "off",
+    seed_mode: "random",
+  };
+
+  assert.equal(buildGenerationModelPreferencePayload(
+    { provider_scope: "personal", provider_version_id: "" },
+    { generation_model_id: "" },
+    parameters,
+  ), null);
+  assert.deepEqual(buildGenerationModelPreferencePayload(
+    { provider_scope: "department", provider_version_id: "provider-v1" },
+    { generation_model_id: "model-v1" },
+    parameters,
+  ), {
+    provider_scope: "department",
+    provider_version_id: "provider-v1",
+    generation_model_id: "model-v1",
+    parameters,
+  });
+});
 
 test("canonical selections are bridged to the authenticated server task fields", () => {
   assert.deepEqual(serverCompatibleGenerationFields({

@@ -1,0 +1,14 @@
+x-app-package-volume: &app-package-volume
+  type: bind
+  source: ${JD_IMAGE_APP_PACKAGE_DIR:?JD_IMAGE_APP_PACKAGE_DIR is required}
+  target: /app/codex_image
+  read_only: true
+
+services:
+  web:
+    volumes:
+      - *app-package-volume
+
+  worker:
+    volumes:
+      - *app-package-volume

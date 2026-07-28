@@ -45,7 +45,6 @@ function renderAppVersion(statusText?: string): void {
   const source = els().versionSource as HTMLElement | null;
   const onboardingNotice = els().versionOnboardingNotice as HTMLElement | null;
   const onboardingBody = els().versionOnboardingBody as HTMLElement | null;
-  const releaseLink = els().versionReleaseLink as HTMLAnchorElement | null;
   const standardDownloadLink = els().versionStandardDownloadLink as HTMLAnchorElement | null;
   const updateButton = els().versionUpdateButton as HTMLButtonElement | null;
   const continuePortableButton = els().versionContinuePortableButton as HTMLButtonElement | null;
@@ -82,9 +81,6 @@ function renderAppVersion(statusText?: string): void {
   if (latest) latest.textContent = latestLabel;
   if (source) {
     source.textContent = runtimeSourceLabel(payload?.source);
-  }
-  if (releaseLink) {
-    releaseLink.href = payload?.release_url || "https://github.com/kadevin/ilab-conjure/releases";
   }
   if (panel) {
     panel.classList.toggle("has-onboarding", Boolean(onboarding));

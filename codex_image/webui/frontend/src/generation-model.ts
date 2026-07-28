@@ -2,6 +2,7 @@ import { activeApiProvider } from "./api-provider-settings";
 import { getCsrfToken } from "./server-account";
 import { getLegacyBridge } from "./state";
 import { LOCALE_CHANGE_EVENT, translate } from "./i18n";
+import { buildGenerationModelPreferencePayload } from "./model-preference-request";
 import { isModelSizeSupported } from "./model-size-support";
 import { resolveConfiguredModelSelection, selectConcreteModel } from "./model-selection";
 import { selectGenerationProvider } from "./provider-selection";
@@ -381,16 +382,16 @@ function currentPreferenceParameters(): any {
 async function persistPreference(): Promise<void> {
   const provider = selectedApiProvider();
   const model = currentGenerationModel();
-  if (!provider || !model) return;
+  const payload = buildGenerationModelPreferencePayload(
+    provider,
+    model,
+    currentPreferenceParameters(),
+  );
+  if (!payload) return;
   const response = await fetch("/api/generation-model-preferences", {
     method: "PUT",
     headers: { "Content-Type": "application/json", "X-CSRF-Token": getCsrfToken() },
-    body: JSON.stringify({
-      provider_scope: provider.provider_scope,
-      provider_version_id: provider.provider_version_id,
-      generation_model_id: model.generation_model_id,
-      parameters: currentPreferenceParameters(),
-    }),
+    body: JSON.stringify(payload),
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.detail || translate("generationModel.preferenceSaveFailed"));

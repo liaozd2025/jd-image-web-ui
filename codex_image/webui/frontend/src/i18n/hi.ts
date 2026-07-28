@@ -268,7 +268,6 @@ export const HI_DICTIONARY: TranslationDictionary = {
     "version.standardManualInstall": "Updater-enabled macOS standard apps support user-confirmed replacement; older macOS apps and Windows standard ZIP packages still update manually.",
     "version.noUpdater": "यह रनटाइम एक पोर्टेबल पैकेज नहीं है, इसलिए अपडेटर स्वचालित रूप से प्रारंभ नहीं किया जा सकता है।",
     "version.openUpdater": "अद्यतनकर्ता प्रारंभ करें",
-    "version.release": "रिलीज देखें",
     "version.updaterStarted": "अपडेटर प्रारंभ हुआ. वर्तमान WebUI सर्वर विंडो बंद करें, फिर अपडेटर निर्देशों का पालन करें।",
     "version.updaterFailed": "अद्यतनकर्ता प्रारंभ नहीं किया जा सका. अपडेटर स्क्रिप्ट को पैकेज से मैन्युअल रूप से चलाएँ।",
     "notifications.title": "सूचनाएं",

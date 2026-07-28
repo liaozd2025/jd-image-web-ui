@@ -98,7 +98,15 @@ interface AuditEvent {
   outcome: string;
   occurred_at: string;
   actor_user_id: string;
+  actor_username?: string | null;
   subject_user_id?: string;
+  subject_username?: string | null;
+}
+
+interface AuditBrowserState {
+  page: number;
+  page_size: 20;
+  action: string;
 }
 
 let initialized = false;
@@ -107,6 +115,7 @@ const PAGE_SIZE = 20 as const;
 const sharedBrowser: PageBrowserState = { page: 1, page_size: 20, query: "", status: "active", kind: "", state: "", category_id: "" };
 const taskBrowser: PageBrowserState = { page: 1, page_size: 20, query: "", status: "", kind: "", state: "active", category_id: "" };
 const assetBrowser: PageBrowserState = { page: 1, page_size: 20, query: "", status: "", kind: "", state: "active", category_id: "" };
+const auditBrowser: AuditBrowserState = { page: 1, page_size: 20, action: "" };
 let currentContentView: "tasks" | "assets" = "tasks";
 const searchTimers = new Map<string, number>();
 let previewRequestId = 0;
@@ -814,11 +823,29 @@ function setContentView(view: "tasks" | "assets", options: { reload?: boolean } 
   if (reload) void loadContent().catch(reportError);
 }
 
-async function loadAudit(action = ""): Promise<void> {
-  const query = action ? `&action=${encodeURIComponent(action)}` : "";
-  const result = await api(`/api/admin/audit?limit=100${query}`);
-  const rows = (result.events || []).map((event: AuditEvent) => listRow(`${event.action} · ${event.outcome}`, formatTranslation("serverSettings.auditMeta", { date: fmtDate(event.occurred_at), actor: event.actor_user_id, subject: event.subject_user_id ? formatTranslation("serverSettings.auditSubject", { subject: event.subject_user_id }) : "" })));
+async function loadAudit(): Promise<void> {
+  const params = new URLSearchParams({ page: String(auditBrowser.page), page_size: String(auditBrowser.page_size) });
+  if (auditBrowser.action) params.set("action", auditBrowser.action);
+  const result = await api(`/api/admin/audit?${params}`);
+  const rows = (result.events || []).map((event: AuditEvent) => {
+    const actor = event.actor_username || translate("serverSettings.unidentifiedUser");
+    const subject = event.subject_username
+      ? formatTranslation("serverSettings.auditSubject", { subject: event.subject_username })
+      : "";
+    return listRow(
+      `${event.action} · ${event.outcome}`,
+      formatTranslation("serverSettings.auditMeta", {
+        date: fmtDate(event.occurred_at),
+        actor,
+        subject,
+      }),
+    );
+  });
   replace("#settingsAuditList", ...rows);
+  renderPagination("#settingsAuditPagination", result.pagination, (page) => {
+    auditBrowser.page = page;
+    void loadAudit().catch(reportError);
+  });
 }
 
 const TAB_LOADERS: Record<string, () => Promise<void>> = {
@@ -829,7 +856,7 @@ const TAB_LOADERS: Record<string, () => Promise<void>> = {
   shared: loadShared,
   scheduler: loadScheduler,
   content: loadContent,
-  audit: () => loadAudit(),
+  audit: loadAudit,
 };
 
 async function loadTab(tab: string): Promise<void> {
@@ -866,7 +893,11 @@ function bindForms(): void {
     try { await api("/api/admin/scheduler", { method: "PATCH", ...jsonOptions({ global_concurrency: Number(data.get("global_concurrency")), per_user_concurrency: Number(data.get("per_user_concurrency")) }) }); clearSystemSettingsDirty(form); await loadScheduler(); } catch (error) { reportError(error); }
   });
   document.querySelector<HTMLFormElement>("#settingsAuditFilter")?.addEventListener("submit", (event) => {
-    event.preventDefault(); const data = new FormData(event.currentTarget as HTMLFormElement); void loadAudit(String(data.get("action") || "")).catch(reportError);
+    event.preventDefault();
+    const data = new FormData(event.currentTarget as HTMLFormElement);
+    auditBrowser.action = String(data.get("action") || "").trim();
+    auditBrowser.page = 1;
+    void loadAudit().catch(reportError);
   });
   document.querySelector("#settingsContentUser")?.addEventListener("change", () => {
     taskBrowser.page = 1;

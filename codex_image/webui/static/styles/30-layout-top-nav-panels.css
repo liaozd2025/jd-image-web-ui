@@ -339,25 +339,6 @@
   color: var(--primary-foreground);
 }
 
-.github-link {
-  width: var(--top-nav-control-height);
-  padding: 0;
-  color: var(--text-secondary);
-  text-decoration: none;
-}
-
-.github-link:hover,
-.github-link:focus-visible {
-  color: var(--primary-strong);
-  outline: none;
-}
-
-.github-link-icon {
-  width: 17px;
-  height: 17px;
-  display: block;
-}
-
 .auth-source-switcher {
   order: 1;
   flex: 0 1 auto;

@@ -107,11 +107,12 @@ async function upload(page, path, fields, files) {
   });
 }
 
-async function loginAndChangePassword(page, account) {
+async function loginAndChangePassword(page, account, { remember = false } = {}) {
   await page.goto(`${baseUrl}/`, { waitUntil: "domcontentloaded" });
   await page.waitForURL(/\/login(?:\?|$)/);
   await page.locator("#username").fill(account.username);
   await page.locator("#password").fill(account.temporaryPassword);
+  if (remember) await page.getByLabel("记住我（30 天）").check();
   await page.locator("#login-form button[type=submit]").click();
   await page.locator("#password-form").waitFor({ state: "visible" });
   await page.locator("#new-password").fill(account.password);
@@ -134,7 +135,36 @@ async function verifyLoginExperience(browser) {
     );
     await page.getByRole("heading", { name: "让灵感更快" }).waitFor({ state: "visible" });
     await page.getByRole("heading", { name: "登录图片工作区" }).waitFor({ state: "visible" });
+    const rememberMe = page.getByLabel("记住我（30 天）");
+    await rememberMe.waitFor({ state: "visible" });
+    check(!(await rememberMe.isChecked()), "remember-me option was enabled by default");
     check(await page.locator("#prototype-switcher, [data-variant]").count() === 0, "login page still exposed prototype controls");
+
+    await page.route("**/api/auth/login", (route) => (
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          user: { must_change_password: true },
+          csrf_token: "remembered-login-browser-check",
+        }),
+      })
+    ));
+    await page.locator("#login-form").getByLabel("用户名").fill("remembered-browser-user");
+    await page.locator("#login-form").getByLabel("密码").fill("remembered-browser-password");
+    await rememberMe.check();
+    await page.locator("#login-form button[type=submit]").click();
+    await page.locator("#password-form").waitFor({ state: "visible" });
+    await page.goto(`${baseUrl}/login`, { waitUntil: "domcontentloaded" });
+    await eventually(
+      async () => (
+        await page.locator("#username").inputValue() === "remembered-browser-user"
+        && await page.locator("#password").inputValue() === "remembered-browser-password"
+        && await page.getByLabel("记住我（30 天）").isChecked()
+      ),
+      "successful remembered login did not restore username, password, and checkbox",
+    );
+    await page.unroute("**/api/auth/login");
 
     await page.evaluate(() => localStorage.setItem("codex-image-theme-preference", "light"));
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -152,6 +182,7 @@ async function verifyLoginExperience(browser) {
     check(await page.getByText("九典制药", { exact: true }).isVisible(), "login brand was hidden at 390px");
     check(await page.getByText("图片内容生产平台", { exact: true }).isVisible(), "login platform name was hidden at 390px");
     check(await page.getByRole("heading", { name: "登录图片工作区" }).isVisible(), "login form was hidden at 390px");
+    check(await page.getByLabel("记住我（30 天）").isVisible(), "remember-me option was hidden at 390px");
 
     await page.goto(`${baseUrl}/login?change=1`, { waitUntil: "domcontentloaded" });
     await page.locator("#password-form").waitFor({ state: "visible" });
@@ -161,17 +192,22 @@ async function verifyLoginExperience(browser) {
     );
 
     await page.goto(`${baseUrl}/login`, { waitUntil: "domcontentloaded" });
-    await page.route("**/api/auth/login", (route) => (
-      route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ detail: "invalid credentials" }) })
-    ));
+    let invalidLoginPayload;
+    await page.route("**/api/auth/login", (route) => {
+      invalidLoginPayload = route.request().postDataJSON();
+      return route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ detail: "invalid credentials" }) });
+    });
     await page.locator("#login-form").getByLabel("用户名").fill("invalid-user");
     await page.locator("#login-form").getByLabel("密码").fill("invalid-password");
+    await page.getByLabel("记住我（30 天）").check();
     await page.locator("#login-form button[type=submit]").click();
     await eventually(
       async () => (await page.locator("#login-error").textContent())?.includes("用户名或密码错误"),
       "invalid-login message was not shown",
     );
+    check(invalidLoginPayload?.remember_me === true, "remember-me choice was not submitted to the login API");
     await page.unroute("**/api/auth/login");
+    await page.getByLabel("记住我（30 天）").uncheck();
 
     await page.route("**/api/auth/login", async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 250));
@@ -773,7 +809,7 @@ try {
   pageB.on("pageerror", (error) => consoleErrors.push(`user-b pageerror: ${error.message}`));
   pageB.on("console", (message) => collectConsoleError("user-b", message));
   pageB.on("response", (response) => collectServerError("user-b", response));
-  await loginAndChangePassword(pageB, credentials.userB);
+  await loginAndChangePassword(pageB, credentials.userB, { remember: true });
   await waitForWorkspace(pageB);
   await pageB.locator("#gallerySharedManageButton").click();
   await pageB.locator("#galleryDrawer.open").waitFor({ state: "visible" });
@@ -1366,8 +1402,53 @@ try {
   ));
   await adminPage.locator("#settingsSchedulerForm").getByRole("button", { name: "保存调度设置" }).click();
   check((await schedulerSaveResponse).status() === 200, "scheduler settings save failed");
+  for (let index = 0; index < 21; index += 1) {
+    check(
+      (await api(adminPage, `/api/admin/users/${userAId}/tasks?page=1&page_size=20`)).status === 200,
+      "could not create enough audit events to verify pagination",
+    );
+  }
+  const auditFirstPage = await api(adminPage, "/api/admin/audit?page=1&page_size=20");
+  check(
+    auditFirstPage.status === 200
+      && auditFirstPage.body.pagination.page_size === 20
+      && auditFirstPage.body.pagination.total_pages >= 2,
+    "audit API did not expose 20-item pagination",
+  );
+  check(
+    auditFirstPage.body.events.some((event) => event.actor_username === credentials.admin.username),
+    "audit API did not resolve the operator username",
+  );
+  check(
+    auditFirstPage.body.events.some((event) => event.subject_username === credentials.userA.username),
+    "audit API did not resolve the subject username",
+  );
   await adminPage.locator('[data-system-settings-tab="audit"]').click();
   await eventually(async () => Boolean((await adminPage.locator("#settingsAuditList").textContent()).trim()), "audit settings did not load");
+  const auditText = await adminPage.locator("#settingsAuditList").textContent();
+  check(auditText.includes(credentials.admin.username), "audit settings did not show the operator username");
+  check(auditText.includes(credentials.userA.username), "audit settings did not show the subject username");
+  check(!auditText.includes(userAId), "audit settings exposed a subject user ID");
+  check(
+    auditFirstPage.body.events.every((event) => !event.actor_user_id || !auditText.includes(event.actor_user_id)),
+    "audit settings exposed an operator user ID",
+  );
+  check(
+    (await adminPage.locator("#settingsAuditPagination .settings-pagination-label").textContent()).includes("第 1 页"),
+    "audit settings did not render the first page label",
+  );
+  const auditNext = adminPage.locator('#settingsAuditPagination [data-page-action="next"]');
+  check(!(await auditNext.isDisabled()), "audit settings next-page action was unexpectedly disabled");
+  await auditNext.click();
+  await eventually(
+    async () => (await adminPage.locator("#settingsAuditPagination .settings-pagination-label").textContent()).includes("第 2 页"),
+    "audit settings did not navigate to the second page",
+  );
+  await adminPage.locator('#settingsAuditPagination [data-page-action="previous"]').click();
+  await eventually(
+    async () => (await adminPage.locator("#settingsAuditPagination .settings-pagination-label").textContent()).includes("第 1 页"),
+    "audit settings did not return to the first page",
+  );
   const adminTasks = await api(adminPage, `/api/admin/users/${userAId}/tasks?page=1&page_size=20`);
   check(adminTasks.status === 200 && adminTasks.body.pagination.page_size === 20 && adminTasks.body.tasks.some((item) => item.task_id === generated.task_id), "admin could not inspect paginated user tasks");
   check((await api(pageA, `/api/admin/users/${userAId}/tasks?page=1&page_size=20`)).status === 403, "ordinary user reached the administrator task page");
@@ -1477,6 +1558,14 @@ try {
   await pageB.locator("#serverAccountMenu").waitFor({ state: "visible" });
   await pageB.locator("#serverLogoutButton").click();
   await pageB.waitForURL(/\/login(?:\?|$)/);
+  await eventually(
+    async () => (
+      await pageB.locator("#username").inputValue() === credentials.userB.username
+      && await pageB.locator("#password").inputValue() === credentials.userB.password
+      && await pageB.getByLabel("记住我（30 天）").isChecked()
+    ),
+    "logout did not restore the remembered username, current password, and checkbox",
+  );
   await Promise.all([contextA.close(), contextB.close(), adminContext.close()]);
 } finally {
   await browser.close();
