@@ -187,8 +187,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn('/static/app.js?v=runtime-661', html)
-        self.assertIn('/static/styles.css?v=runtime-661', html)
+        self.assertIn('/static/app.js?v=runtime-662', html)
+        self.assertIn('/static/styles.css?v=runtime-662', html)
         self.assertIn('id="recentAssetDock"', html)
         self.assertRegex(html, r'class="image-input-footer"[\s\S]*id="recentAssetDock"[\s\S]*id="recentAssetList"')
         self.assertRegex(html, r'id="recentAssetDock"[\s\S]*id="quickGalleryDock"[\s\S]*id="galleryManagePanel"')
@@ -1644,11 +1644,11 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertIn('aria-label="打开供应商设置"', html)
         self.assertIn('title="打开供应商设置"', html)
         self.assertNotIn("双击打开 API 设置", html)
-        self.assertIn('id="githubLink"', html)
-        self.assertIn('href="https://github.com/kadevin/ilab-gpt-conjure"', html)
-        self.assertIn('aria-label="GitHub"', html)
-        self.assertIn('target="_blank"', html)
-        self.assertIn('rel="noreferrer"', html)
+        self.assertNotIn('id="githubLink"', html)
+        self.assertNotIn('href="https://github.com/kadevin/ilab-gpt-conjure"', html)
+        self.assertNotIn('aria-label="GitHub"', html)
+        self.assertNotIn('id="versionReleaseLink"', html)
+        self.assertNotIn("versionReleaseLink:", script)
         nav_actions = html[html.index('<div class="nav-actions">'):html.index('<div id="taskNotificationCenter"')]
         self.assertNotIn('id="languageSwitcher"', nav_actions)
         self.assertRegex(styles, r"\.nav-actions\s*\{[^}]*--top-nav-control-height:\s*36px")
@@ -1667,7 +1667,7 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertIn('els.apiProviderQuick?.classList.add("hidden")', script)
         self.assertNotIn('els.apiProviderQuick?.classList.toggle("hidden", selected !== "api")', script)
         self.assertRegex(styles, r"\.auth-source-settings-button\s*\{[^}]*width:\s*var\(--top-nav-control-height\)")
-        self.assertRegex(styles, r"\.github-link\s*\{[^}]*width:\s*var\(--top-nav-control-height\)")
+        self.assertNotIn(".github-link", styles)
         self.assertNotRegex(styles, r"\.api-provider-quick\s*\{[^}]*position:\s*absolute")
         self.assertRegex(styles, r"\.api-provider-quick\s*\{[^}]*height:\s*var\(--top-nav-control-height\)")
         self.assertRegex(styles, r"\.api-provider-quick\s*\{[^}]*border-radius:\s*var\(--top-nav-control-radius\)")
@@ -2802,13 +2802,42 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         self.assertRegex(styles, r"\.settings-content-grid\s*\{[^}]*display:\s*grid")
         self.assertRegex(styles, r"\.settings-content-thumbnail\s*\{[^}]*object-fit:\s*contain")
         self.assertRegex(styles, r"\.settings-content-preview\s*\{[^}]*position:\s*fixed")
+
+    def test_audit_settings_use_server_pagination_and_usernames(self) -> None:
+        html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
+        settings_source = Path(
+            "codex_image/webui/frontend/src/server-settings.ts"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('id="settingsAuditPagination"', html)
+        self.assertIn(
+            'data-i18n-attr="aria-label:systemSettings.auditPagination"',
+            html,
+        )
+        self.assertIn(
+            'const auditBrowser: AuditBrowserState = { page: 1, page_size: 20, action: "" };',
+            settings_source,
+        )
+        self.assertIn(
+            'new URLSearchParams({ page: String(auditBrowser.page), page_size: String(auditBrowser.page_size) })',
+            settings_source,
+        )
+        self.assertIn("event.actor_username", settings_source)
+        self.assertIn("event.subject_username", settings_source)
+        self.assertNotIn("actor: event.actor_user_id", settings_source)
+        self.assertNotIn("subject: event.subject_user_id", settings_source)
+        self.assertIn(
+            'renderPagination("#settingsAuditPagination", result.pagination',
+            settings_source,
+        )
+        self.assertIn("auditBrowser.page = 1", settings_source)
     def test_image_input_accepts_clipboard_images(self) -> None:
         html = Path("codex_image/webui/static/index.html").read_text(encoding="utf-8")
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn('/static/app.js?v=runtime-661', html)
-        self.assertIn('/static/styles.css?v=runtime-661', html)
+        self.assertIn('/static/app.js?v=runtime-662', html)
+        self.assertIn('/static/styles.css?v=runtime-662', html)
         self.assertIn('id="pasteClipboardButton"', html)
         self.assertIn('id="statusText"', html)
         self.assertRegex(
@@ -3254,8 +3283,8 @@ class WebUIStaticLayoutTests(WebUIStaticTestCase):
         script = self._frontend_script_source()
         styles = Path("codex_image/webui/static/styles.css").read_text(encoding="utf-8")
 
-        self.assertIn("/static/app.js?v=runtime-661", html)
-        self.assertIn("/static/styles.css?v=runtime-661", html)
+        self.assertIn("/static/app.js?v=runtime-662", html)
+        self.assertIn("/static/styles.css?v=runtime-662", html)
         self.assertIn('const THEME_STORAGE_KEY = "codex-image-theme-preference";', script)
         self.assertIn('themePreference: "system"', script)
         self.assertIn('call(methods, "restoreThemePreference")', script)

@@ -180,7 +180,6 @@
       concreteModelOptions: document.querySelector("#concreteModelOptions"),
       generationProviderSelect: document.querySelector("#generationProviderSelect"),
       generationProviderSettingsButton: document.querySelector("#generationProviderSettingsButton"),
-      githubLink: document.querySelector("#githubLink"),
       apiStatus: document.querySelector("#apiStatus"),
       versionInfo: document.querySelector("#versionInfo"),
       versionLabel: document.querySelector("#versionLabel"),
@@ -193,7 +192,6 @@
       versionSource: document.querySelector("#versionSource"),
       versionOnboardingNotice: document.querySelector("#versionOnboardingNotice"),
       versionOnboardingBody: document.querySelector("#versionOnboardingBody"),
-      versionReleaseLink: document.querySelector("#versionReleaseLink"),
       versionStandardDownloadLink: document.querySelector("#versionStandardDownloadLink"),
       versionUpdateButton: document.querySelector("#versionUpdateButton"),
       versionContinuePortableButton: document.querySelector("#versionContinuePortableButton"),
@@ -791,7 +789,6 @@
     "version.standardManualInstall": "Updater-enabled macOS standard apps support user-confirmed replacement; older macOS apps and Windows standard ZIP packages still update manually.",
     "version.noUpdater": "This runtime is not a portable package, so the updater cannot be started automatically.",
     "version.openUpdater": "Start updater",
-    "version.release": "View release",
     "version.updaterStarted": "Updater started. Close the current WebUI server window, then follow the updater prompts.",
     "version.updaterFailed": "Could not start the updater. Run the updater script from the package manually.",
     "version.onboardingTitle": "0.5.5 adds standard app packages",
@@ -1417,6 +1414,7 @@
     "systemSettings.sharedPagination": "Shared asset pages",
     "systemSettings.taskPagination": "Generated content pages",
     "systemSettings.assetPagination": "Personal asset pages",
+    "systemSettings.auditPagination": "Audit log pages",
     "systemSettings.schedulerDescription": "Adjust global and per-user concurrency and review the current queue.",
     "systemSettings.globalConcurrency": "Global concurrency",
     "systemSettings.perUserConcurrency": "Per-user concurrency",
@@ -1512,6 +1510,7 @@
     "serverSettings.createdAt": "Created {date}",
     "serverSettings.auditMeta": "{date} \xB7 actor {actor}{subject}",
     "serverSettings.auditSubject": " \xB7 subject {subject}",
+    "serverSettings.unidentifiedUser": "Unidentified user",
     "serverSettings.passwordUpdated": "Password updated",
     "serverSettings.confirmLogoutOthers": "Sign out every session except the current device?",
     "serverSettings.sessionExpired": "Your login session has expired",
@@ -2116,7 +2115,6 @@
     "version.standardManualInstall": "Updater-enabled macOS standard apps support user-confirmed replacement; older macOS apps and Windows standard ZIP packages still update manually.",
     "version.noUpdater": "Da es sich bei dieser Laufzeitumgebung nicht um ein portables Paket handelt, kann der Updater nicht automatisch gestartet werden.",
     "version.openUpdater": "Updater starten",
-    "version.release": "Ver\xF6ffentlichung ansehen",
     "version.updaterStarted": "Updater gestartet. Schlie\xDFen Sie das aktuelle WebUI-Serverfenster und befolgen Sie dann die Anweisungen des Updaters.",
     "version.updaterFailed": "Der Updater konnte nicht gestartet werden. F\xFChren Sie das Updater-Skript manuell aus dem Paket aus.",
     "notifications.title": "Benachrichtigungen",
@@ -3141,7 +3139,6 @@
     "version.standardManualInstall": "Updater-enabled macOS standard apps support user-confirmed replacement; older macOS apps and Windows standard ZIP packages still update manually.",
     "version.noUpdater": "Este tiempo de ejecuci\xF3n no es un paquete port\xE1til, por lo que el actualizador no se puede iniciar autom\xE1ticamente.",
     "version.openUpdater": "Iniciar actualizador",
-    "version.release": "Ver comunicado",
     "version.updaterStarted": "Se inici\xF3 el actualizador. Cierre la ventana actual del servidor WebUI y luego siga las indicaciones del actualizador.",
     "version.updaterFailed": "No se pudo iniciar el actualizador. Ejecute manualmente el script de actualizaci\xF3n del paquete.",
     "notifications.title": "Notificaciones",
@@ -4166,7 +4163,6 @@
     "version.standardManualInstall": "Updater-enabled macOS standard apps support user-confirmed replacement; older macOS apps and Windows standard ZIP packages still update manually.",
     "version.noUpdater": "Ce runtime n'est pas un package portable, le programme de mise \xE0 jour ne peut donc pas \xEAtre d\xE9marr\xE9 automatiquement.",
     "version.openUpdater": "D\xE9marrer le programme de mise \xE0 jour",
-    "version.release": "Voir la version",
     "version.updaterStarted": "Le programme de mise \xE0 jour a d\xE9marr\xE9. Fermez la fen\xEAtre actuelle du serveur WebUI, puis suivez les invites du programme de mise \xE0 jour.",
     "version.updaterFailed": "Impossible de d\xE9marrer le programme de mise \xE0 jour. Ex\xE9cutez manuellement le script de mise \xE0 jour \xE0 partir du package.",
     "notifications.title": "Notifications",
@@ -5191,7 +5187,6 @@
     "version.standardManualInstall": "Updater-enabled macOS standard apps support user-confirmed replacement; older macOS apps and Windows standard ZIP packages still update manually.",
     "version.noUpdater": "\u3053\u306E\u30E9\u30F3\u30BF\u30A4\u30E0\u306F\u30DD\u30FC\u30BF\u30D6\u30EB \u30D1\u30C3\u30B1\u30FC\u30B8\u3067\u306F\u306A\u3044\u305F\u3081\u3001\u30A2\u30C3\u30D7\u30C7\u30FC\u30BF\u30FC\u3092\u81EA\u52D5\u7684\u306B\u958B\u59CB\u3067\u304D\u307E\u305B\u3093\u3002",
     "version.openUpdater": "\u30A2\u30C3\u30D7\u30C7\u30FC\u30BF\u30FC\u306E\u958B\u59CB",
-    "version.release": "\u30EA\u30EA\u30FC\u30B9\u3092\u898B\u308B",
     "version.updaterStarted": "\u30A2\u30C3\u30D7\u30C7\u30FC\u30BF\u3092\u958B\u59CB\u3057\u307E\u3057\u305F\u3002\u73FE\u5728\u306E WebUI \u30B5\u30FC\u30D0\u30FC\u30A6\u30A3\u30F3\u30C9\u30A6\u3092\u9589\u3058\u3001\u30A2\u30C3\u30D7\u30C7\u30FC\u30BF\u306E\u6848\u5185\u306B\u5F93\u3063\u3066\u304F\u3060\u3055\u3044\u3002",
     "version.updaterFailed": "\u30A2\u30C3\u30D7\u30C7\u30FC\u30BF\u30FC\u3092\u958B\u59CB\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u30D1\u30C3\u30B1\u30FC\u30B8\u304B\u3089\u30A2\u30C3\u30D7\u30C7\u30FC\u30BF \u30B9\u30AF\u30EA\u30D7\u30C8\u3092\u624B\u52D5\u3067\u5B9F\u884C\u3057\u307E\u3059\u3002",
     "notifications.title": "\u30BF\u30B9\u30AF\u901A\u77E5",
@@ -6216,7 +6211,6 @@
     "version.standardManualInstall": "Updater-enabled macOS standard apps support user-confirmed replacement; older macOS apps and Windows standard ZIP packages still update manually.",
     "version.noUpdater": "\uC774 \uB7F0\uD0C0\uC784\uC740 \uC774\uC2DD \uAC00\uB2A5\uD55C \uD328\uD0A4\uC9C0\uAC00 \uC544\uB2C8\uBBC0\uB85C \uC5C5\uB370\uC774\uD2B8 \uD504\uB85C\uADF8\uB7A8\uC744 \uC790\uB3D9\uC73C\uB85C \uC2DC\uC791\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.",
     "version.openUpdater": "\uC5C5\uB370\uC774\uD130 \uC2DC\uC791",
-    "version.release": "\uB9B4\uB9AC\uC2A4 \uBCF4\uAE30",
     "version.updaterStarted": "\uC5C5\uB370\uC774\uD130\uAC00 \uC2DC\uC791\uB418\uC5C8\uC2B5\uB2C8\uB2E4. \uD604\uC7ACWebUI\uC11C\uBC84 \uCC3D\uC744 \uB2EB\uC740 \uB2E4\uC74C \uC5C5\uB370\uC774\uD2B8 \uD504\uB85C\uADF8\uB7A8\uC758 \uC9C0\uC2DC\uB97C \uB530\uB985\uB2C8\uB2E4.",
     "version.updaterFailed": "\uC5C5\uB370\uC774\uD2B8 \uD504\uB85C\uADF8\uB7A8\uC744 \uC2DC\uC791\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. \uD328\uD0A4\uC9C0\uC5D0\uC11C \uC5C5\uB370\uC774\uD130 \uC2A4\uD06C\uB9BD\uD2B8\uB97C \uC218\uB3D9\uC73C\uB85C \uC2E4\uD589\uD569\uB2C8\uB2E4.",
     "notifications.title": "\uC791\uC5C5 \uC54C\uB9BC",
@@ -7241,7 +7235,6 @@
     "version.standardManualInstall": "Updater-enabled macOS standard apps support user-confirmed replacement; older macOS apps and Windows standard ZIP packages still update manually.",
     "version.noUpdater": "Este tempo de execu\xE7\xE3o n\xE3o \xE9 um pacote port\xE1til, portanto o atualizador n\xE3o pode ser iniciado automaticamente.",
     "version.openUpdater": "Iniciar atualizador",
-    "version.release": "Ver lan\xE7amento",
     "version.updaterStarted": "Atualizador iniciado. Feche a janela atual do servidor WebUI e siga as instru\xE7\xF5es do atualizador.",
     "version.updaterFailed": "N\xE3o foi poss\xEDvel iniciar o atualizador. Execute o script do atualizador do pacote manualmente.",
     "notifications.title": "Notifica\xE7\xF5es",
@@ -8266,7 +8259,6 @@
     "version.standardManualInstall": "Updater-enabled macOS standard apps support user-confirmed replacement; older macOS apps and Windows standard ZIP packages still update manually.",
     "version.noUpdater": "\u042D\u0442\u0430 \u0441\u0440\u0435\u0434\u0430 \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u0438\u044F \u043D\u0435 \u044F\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u0438\u043C\u044B\u043C \u043F\u0430\u043A\u0435\u0442\u043E\u043C, \u043F\u043E\u044D\u0442\u043E\u043C\u0443 \u043F\u0440\u043E\u0433\u0440\u0430\u043C\u043C\u0443 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F \u043D\u0435\u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E \u0437\u0430\u043F\u0443\u0441\u0442\u0438\u0442\u044C \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438.",
     "version.openUpdater": "\u0417\u0430\u043F\u0443\u0441\u0442\u0438\u0442\u044C \u043F\u0440\u043E\u0433\u0440\u0430\u043C\u043C\u0443 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F",
-    "version.release": "\u041F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u0432\u044B\u043F\u0443\u0441\u043A",
     "version.updaterStarted": "\u041E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435 \u0437\u0430\u043F\u0443\u0441\u0442\u0438\u043B\u043E\u0441\u044C. \u0417\u0430\u043A\u0440\u043E\u0439\u0442\u0435 \u0442\u0435\u043A\u0443\u0449\u0435\u0435 \u043E\u043A\u043D\u043E \u0441\u0435\u0440\u0432\u0435\u0440\u0430 WebUI \u0438 \u0441\u043B\u0435\u0434\u0443\u0439\u0442\u0435 \u0438\u043D\u0441\u0442\u0440\u0443\u043A\u0446\u0438\u044F\u043C \u043F\u0440\u043E\u0433\u0440\u0430\u043C\u043C\u044B \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F.",
     "version.updaterFailed": "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u043F\u0443\u0441\u0442\u0438\u0442\u044C \u043F\u0440\u043E\u0433\u0440\u0430\u043C\u043C\u0443 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F. \u0417\u0430\u043F\u0443\u0441\u0442\u0438\u0442\u0435 \u0441\u043A\u0440\u0438\u043F\u0442 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F \u0438\u0437 \u043F\u0430\u043A\u0435\u0442\u0430 \u0432\u0440\u0443\u0447\u043D\u0443\u044E.",
     "notifications.title": "\u0423\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F",
@@ -9291,7 +9283,6 @@
     "version.standardManualInstall": "Updater-enabled macOS standard apps support user-confirmed replacement; older macOS apps and Windows standard ZIP packages still update manually.",
     "version.noUpdater": "Questo runtime non \xE8 un pacchetto portatile, quindi il programma di aggiornamento non pu\xF2 essere avviato automaticamente.",
     "version.openUpdater": "Avvia l'aggiornamento",
-    "version.release": "Visualizza la versione",
     "version.updaterStarted": "Avviato l'aggiornamento. Chiudi la finestra del server WebUI corrente, quindi segui le istruzioni del programma di aggiornamento.",
     "version.updaterFailed": "Impossibile avviare l'aggiornamento. Esegui manualmente lo script di aggiornamento dal pacchetto.",
     "notifications.title": "Notifiche",
@@ -10316,7 +10307,6 @@
     "version.standardManualInstall": "Updater-enabled macOS standard apps support user-confirmed replacement; older macOS apps and Windows standard ZIP packages still update manually.",
     "version.noUpdater": "\u092F\u0939 \u0930\u0928\u091F\u093E\u0907\u092E \u090F\u0915 \u092A\u094B\u0930\u094D\u091F\u0947\u092C\u0932 \u092A\u0948\u0915\u0947\u091C \u0928\u0939\u0940\u0902 \u0939\u0948, \u0907\u0938\u0932\u093F\u090F \u0905\u092A\u0921\u0947\u091F\u0930 \u0938\u094D\u0935\u091A\u093E\u0932\u093F\u0924 \u0930\u0942\u092A \u0938\u0947 \u092A\u094D\u0930\u093E\u0930\u0902\u092D \u0928\u0939\u0940\u0902 \u0915\u093F\u092F\u093E \u091C\u093E \u0938\u0915\u0924\u093E \u0939\u0948\u0964",
     "version.openUpdater": "\u0905\u0926\u094D\u092F\u0924\u0928\u0915\u0930\u094D\u0924\u093E \u092A\u094D\u0930\u093E\u0930\u0902\u092D \u0915\u0930\u0947\u0902",
-    "version.release": "\u0930\u093F\u0932\u0940\u091C \u0926\u0947\u0916\u0947\u0902",
     "version.updaterStarted": "\u0905\u092A\u0921\u0947\u091F\u0930 \u092A\u094D\u0930\u093E\u0930\u0902\u092D \u0939\u0941\u0906. \u0935\u0930\u094D\u0924\u092E\u093E\u0928 WebUI \u0938\u0930\u094D\u0935\u0930 \u0935\u093F\u0902\u0921\u094B \u092C\u0902\u0926 \u0915\u0930\u0947\u0902, \u092B\u093F\u0930 \u0905\u092A\u0921\u0947\u091F\u0930 \u0928\u093F\u0930\u094D\u0926\u0947\u0936\u094B\u0902 \u0915\u093E \u092A\u093E\u0932\u0928 \u0915\u0930\u0947\u0902\u0964",
     "version.updaterFailed": "\u0905\u0926\u094D\u092F\u0924\u0928\u0915\u0930\u094D\u0924\u093E \u092A\u094D\u0930\u093E\u0930\u0902\u092D \u0928\u0939\u0940\u0902 \u0915\u093F\u092F\u093E \u091C\u093E \u0938\u0915\u093E. \u0905\u092A\u0921\u0947\u091F\u0930 \u0938\u094D\u0915\u094D\u0930\u093F\u092A\u094D\u091F \u0915\u094B \u092A\u0948\u0915\u0947\u091C \u0938\u0947 \u092E\u0948\u0928\u094D\u092F\u0941\u0905\u0932 \u0930\u0942\u092A \u0938\u0947 \u091A\u0932\u093E\u090F\u0901\u0964",
     "notifications.title": "\u0938\u0942\u091A\u0928\u093E\u090F\u0902",
@@ -11343,7 +11333,6 @@
     "version.standardManualInstall": "macOS \u6807\u51C6 App \u5728\u66F4\u65B0\u52A9\u624B\u53EF\u7528\u65F6\u652F\u6301\u7528\u6237\u786E\u8BA4\u540E\u81EA\u52A8\u8986\u76D6\uFF1B\u65E7\u7248 macOS App \u548C Windows \u6807\u51C6 ZIP \u4ECD\u9700\u624B\u52A8\u66FF\u6362\u3002",
     "version.noUpdater": "\u5F53\u524D\u4E0D\u662F\u4E00\u952E\u5305\u8FD0\u884C\uFF0C\u4E0D\u80FD\u81EA\u52A8\u542F\u52A8\u66F4\u65B0\u5668\u3002",
     "version.openUpdater": "\u542F\u52A8\u66F4\u65B0\u5668",
-    "version.release": "\u67E5\u770B\u53D1\u5E03\u9875",
     "version.updaterStarted": "\u66F4\u65B0\u5668\u5DF2\u542F\u52A8\u3002\u8BF7\u5173\u95ED\u5F53\u524D WebUI \u670D\u52A1\u7A97\u53E3\uFF0C\u518D\u6309\u66F4\u65B0\u5668\u63D0\u793A\u64CD\u4F5C\u3002",
     "version.updaterFailed": "\u542F\u52A8\u66F4\u65B0\u5668\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u8FD0\u884C\u5305\u5185\u66F4\u65B0\u811A\u672C\u3002",
     "version.onboardingTitle": "0.5.5 \u65B0\u589E\u6807\u51C6\u5E94\u7528\u5305",
@@ -11969,6 +11958,7 @@
     "systemSettings.sharedPagination": "\u5171\u4EAB\u8D44\u4EA7\u5206\u9875",
     "systemSettings.taskPagination": "\u751F\u6210\u5185\u5BB9\u5206\u9875",
     "systemSettings.assetPagination": "\u4E2A\u4EBA\u8D44\u4EA7\u5206\u9875",
+    "systemSettings.auditPagination": "\u5BA1\u8BA1\u65E5\u5FD7\u5206\u9875",
     "systemSettings.schedulerDescription": "\u8C03\u6574\u5168\u5C40\u4E0E\u5355\u7528\u6237\u5E76\u53D1\u4E0A\u9650\uFF0C\u67E5\u770B\u5F53\u524D\u961F\u5217\u3002",
     "systemSettings.globalConcurrency": "\u5168\u5C40\u5E76\u53D1",
     "systemSettings.perUserConcurrency": "\u5355\u7528\u6237\u5E76\u53D1",
@@ -12064,6 +12054,7 @@
     "serverSettings.createdAt": "\u521B\u5EFA\u4E8E {date}",
     "serverSettings.auditMeta": "{date} \xB7 \u64CD\u4F5C\u8005 {actor}{subject}",
     "serverSettings.auditSubject": " \xB7 \u5BF9\u8C61 {subject}",
+    "serverSettings.unidentifiedUser": "\u672A\u8BC6\u522B\u7528\u6237",
     "serverSettings.passwordUpdated": "\u5BC6\u7801\u5DF2\u66F4\u65B0",
     "serverSettings.confirmLogoutOthers": "\u786E\u5B9A\u9000\u51FA\u9664\u5F53\u524D\u8BBE\u5907\u5916\u7684\u5168\u90E8\u4F1A\u8BDD\u5417\uFF1F",
     "serverSettings.sessionExpired": "\u767B\u5F55\u5DF2\u5931\u6548",
@@ -12668,7 +12659,6 @@
     "version.standardManualInstall": "macOS \u6A19\u6E96 App \u5728\u66F4\u65B0\u52A9\u624B\u53EF\u7528\u6642\u652F\u63F4\u7528\u6236\u78BA\u8A8D\u5F8C\u81EA\u52D5\u8986\u84CB\uFF1B\u820A\u7248 macOS App \u548C Windows \u6A19\u6E96 ZIP \u4ECD\u9700\u624B\u52D5\u66FF\u63DB\u3002",
     "version.noUpdater": "\u76EE\u524D\u4E0D\u662F\u4E00\u9375\u5305\u904B\u884C\uFF0C\u4E0D\u80FD\u81EA\u52D5\u555F\u52D5\u66F4\u65B0\u5668\u3002",
     "version.openUpdater": "\u555F\u52D5\u66F4\u65B0\u5668",
-    "version.release": "\u67E5\u770B\u767C\u5E03\u9801",
     "version.updaterStarted": "\u66F4\u65B0\u5668\u5DF2\u555F\u52D5\u3002\u8ACB\u95DC\u9589\u76EE\u524DWebUI\u670D\u52D9\u8996\u7A97\uFF0C\u518D\u6309\u66F4\u65B0\u5668\u63D0\u793A\u64CD\u4F5C\u3002",
     "version.updaterFailed": "\u555F\u52D5\u66F4\u65B0\u5668\u5931\u6557\uFF0C\u8ACB\u624B\u52D5\u57F7\u884C\u5305\u5167\u66F4\u65B0\u8173\u672C\u3002",
     "version.onboardingTitle": "0.5.5 \u65B0\u589E\u6A19\u6E96\u61C9\u7528\u7A0B\u5F0F\u5305",
@@ -13703,7 +13693,6 @@
     "version.standardManualInstall": "macOS \u6A19\u6E96 App \u5728\u66F4\u65B0\u52A9\u624B\u53EF\u7528\u6642\u652F\u63F4\u4F7F\u7528\u8005\u78BA\u8A8D\u5F8C\u81EA\u52D5\u8986\u84CB\uFF1B\u820A\u7248 macOS App \u548C Windows \u6A19\u6E96 ZIP \u4ECD\u9700\u624B\u52D5\u66FF\u63DB\u3002",
     "version.noUpdater": "\u76EE\u524D\u4E0D\u662F\u4E00\u9375\u5305\u904B\u884C\uFF0C\u4E0D\u80FD\u81EA\u52D5\u555F\u52D5\u66F4\u65B0\u5668\u3002",
     "version.openUpdater": "\u555F\u52D5\u66F4\u65B0\u5668",
-    "version.release": "\u67E5\u770B\u767C\u5E03\u9801",
     "version.updaterStarted": "\u66F4\u65B0\u5668\u5DF2\u555F\u52D5\u3002\u8ACB\u95DC\u9589\u76EE\u524DWebUI\u670D\u52D9\u8996\u7A97\uFF0C\u518D\u6309\u66F4\u65B0\u5668\u63D0\u793A\u64CD\u4F5C\u3002",
     "version.updaterFailed": "\u555F\u52D5\u66F4\u65B0\u5668\u5931\u6557\uFF0C\u8ACB\u624B\u52D5\u57F7\u884C\u5305\u5167\u66F4\u65B0\u8173\u672C\u3002",
     "version.onboardingTitle": "0.5.5 \u65B0\u589E\u6A19\u6E96\u61C9\u7528\u7A0B\u5F0F\u5305",
@@ -50837,7 +50826,6 @@ ${galleryText}`;
     const source = els43().versionSource;
     const onboardingNotice = els43().versionOnboardingNotice;
     const onboardingBody = els43().versionOnboardingBody;
-    const releaseLink = els43().versionReleaseLink;
     const standardDownloadLink = els43().versionStandardDownloadLink;
     const updateButton = els43().versionUpdateButton;
     const continuePortableButton = els43().versionContinuePortableButton;
@@ -50870,9 +50858,6 @@ ${galleryText}`;
     if (latest) latest.textContent = latestLabel;
     if (source) {
       source.textContent = runtimeSourceLabel(payload?.source);
-    }
-    if (releaseLink) {
-      releaseLink.href = payload?.release_url || "https://github.com/kadevin/ilab-conjure/releases";
     }
     if (panel) {
       panel.classList.toggle("has-onboarding", Boolean(onboarding));
@@ -51190,6 +51175,7 @@ ${galleryText}`;
   var sharedBrowser = { page: 1, page_size: 20, query: "", status: "active", kind: "", state: "", category_id: "" };
   var taskBrowser = { page: 1, page_size: 20, query: "", status: "", kind: "", state: "active", category_id: "" };
   var assetBrowser = { page: 1, page_size: 20, query: "", status: "", kind: "", state: "active", category_id: "" };
+  var auditBrowser = { page: 1, page_size: 20, action: "" };
   var currentContentView = "tasks";
   var searchTimers = /* @__PURE__ */ new Map();
   var previewRequestId = 0;
@@ -51864,11 +51850,27 @@ ${fmtBytes(version.byte_size)}`));
     else assetBrowser.page = 1;
     if (reload) void loadContent().catch(reportError);
   }
-  async function loadAudit(action = "") {
-    const query = action ? `&action=${encodeURIComponent(action)}` : "";
-    const result = await api(`/api/admin/audit?limit=100${query}`);
-    const rows = (result.events || []).map((event) => listRow(`${event.action} \xB7 ${event.outcome}`, formatTranslation("serverSettings.auditMeta", { date: fmtDate(event.occurred_at), actor: event.actor_user_id, subject: event.subject_user_id ? formatTranslation("serverSettings.auditSubject", { subject: event.subject_user_id }) : "" })));
+  async function loadAudit() {
+    const params = new URLSearchParams({ page: String(auditBrowser.page), page_size: String(auditBrowser.page_size) });
+    if (auditBrowser.action) params.set("action", auditBrowser.action);
+    const result = await api(`/api/admin/audit?${params}`);
+    const rows = (result.events || []).map((event) => {
+      const actor = event.actor_username || translate("serverSettings.unidentifiedUser");
+      const subject = event.subject_username ? formatTranslation("serverSettings.auditSubject", { subject: event.subject_username }) : "";
+      return listRow(
+        `${event.action} \xB7 ${event.outcome}`,
+        formatTranslation("serverSettings.auditMeta", {
+          date: fmtDate(event.occurred_at),
+          actor,
+          subject
+        })
+      );
+    });
     replace("#settingsAuditList", ...rows);
+    renderPagination("#settingsAuditPagination", result.pagination, (page) => {
+      auditBrowser.page = page;
+      void loadAudit().catch(reportError);
+    });
   }
   var TAB_LOADERS = {
     account: loadSessions,
@@ -51878,7 +51880,7 @@ ${fmtBytes(version.byte_size)}`));
     shared: loadShared,
     scheduler: loadScheduler,
     content: loadContent,
-    audit: () => loadAudit()
+    audit: loadAudit
   };
   async function loadTab(tab) {
     await TAB_LOADERS[tab]?.();
@@ -51949,7 +51951,9 @@ ${fmtBytes(version.byte_size)}`));
     document.querySelector("#settingsAuditFilter")?.addEventListener("submit", (event) => {
       event.preventDefault();
       const data = new FormData(event.currentTarget);
-      void loadAudit(String(data.get("action") || "")).catch(reportError);
+      auditBrowser.action = String(data.get("action") || "").trim();
+      auditBrowser.page = 1;
+      void loadAudit().catch(reportError);
     });
     document.querySelector("#settingsContentUser")?.addEventListener("change", () => {
       taskBrowser.page = 1;

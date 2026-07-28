@@ -268,7 +268,6 @@ export const DE_DICTIONARY: TranslationDictionary = {
     "version.standardManualInstall": "Updater-enabled macOS standard apps support user-confirmed replacement; older macOS apps and Windows standard ZIP packages still update manually.",
     "version.noUpdater": "Da es sich bei dieser Laufzeitumgebung nicht um ein portables Paket handelt, kann der Updater nicht automatisch gestartet werden.",
     "version.openUpdater": "Updater starten",
-    "version.release": "Veröffentlichung ansehen",
     "version.updaterStarted": "Updater gestartet. Schließen Sie das aktuelle WebUI-Serverfenster und befolgen Sie dann die Anweisungen des Updaters.",
     "version.updaterFailed": "Der Updater konnte nicht gestartet werden. Führen Sie das Updater-Skript manuell aus dem Paket aus.",
     "notifications.title": "Benachrichtigungen",

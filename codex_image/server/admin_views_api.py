@@ -469,33 +469,52 @@ def install_admin_view_routes(
         request: Request,
         admin_session: Annotated[AuthenticatedSession, Depends(require_admin)],
     ) -> JSONResponse:
-        limit = _limit(request, default=100, maximum=200)
-        if limit is None:
-            return JSONResponse(status_code=422, content={"detail": "invalid_audit_limit"})
+        page = parse_page_request(
+            request,
+            default_page_size=20,
+            maximum_page_size=200,
+        )
+        if page is None:
+            return JSONResponse(status_code=422, content={"detail": "invalid_audit_page"})
         conditions = ["TRUE"]
         values: list[object] = []
         for key, column in (("actor_user_id", "actor_user_id"), ("subject_user_id", "subject_user_id"), ("action", "action")):
             value = request.query_params.get(key)
             if value:
-                conditions.append(f"{column} = %s")
+                conditions.append(f"events.{column} = %s")
                 values.append(value)
         for key, operator in (("occurred_after", ">="), ("occurred_before", "<=")):
             value = request.query_params.get(key)
             if value:
-                conditions.append(f"occurred_at {operator} %s::timestamptz")
+                conditions.append(f"events.occurred_at {operator} %s::timestamptz")
                 values.append(value)
         with connections.connect() as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
                 cursor.execute(
                     f"""
-                    SELECT event_id, action, outcome, actor_user_id, subject_user_id,
-                           details, occurred_at
-                    FROM server_audit_events
+                    SELECT COUNT(*) AS total_items
+                    FROM server_audit_events AS events
                     WHERE {' AND '.join(conditions)}
-                    ORDER BY occurred_at DESC, event_id DESC
-                    LIMIT %s
                     """,
-                    (*values, limit),
+                    values,
+                )
+                total_items = int(cursor.fetchone()["total_items"])
+                cursor.execute(
+                    f"""
+                    SELECT events.event_id, events.action, events.outcome,
+                           events.actor_user_id, actor.username AS actor_username,
+                           events.subject_user_id, subject.username AS subject_username,
+                           events.details, events.occurred_at
+                    FROM server_audit_events AS events
+                    LEFT JOIN server_users AS actor
+                      ON actor.user_id = events.actor_user_id
+                    LEFT JOIN server_users AS subject
+                      ON subject.user_id = events.subject_user_id
+                    WHERE {' AND '.join(conditions)}
+                    ORDER BY events.occurred_at DESC, events.event_id DESC
+                    LIMIT %s OFFSET %s
+                    """,
+                    (*values, page.page_size, page.offset),
                 )
                 rows = cursor.fetchall()
         return JSONResponse(
@@ -508,6 +527,7 @@ def install_admin_view_routes(
                     }
                     for row in rows
                 ],
+                "pagination": pagination_payload(page, total_items),
             }
         )
 
@@ -594,13 +614,6 @@ def _read_text_asset(path) -> str:
         return path.read_bytes()[:100_000].decode("utf-8", errors="replace").strip()
     except OSError:
         return ""
-
-
-def _limit(request: Request, *, default: int = 50, maximum: int = 100) -> int | None:
-    try:
-        return min(max(int(request.query_params.get("limit", str(default))), 1), maximum)
-    except ValueError:
-        return None
 
 
 def _department_quota_payload(quota: object) -> dict[str, object]:

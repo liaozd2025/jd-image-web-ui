@@ -116,7 +116,7 @@ class WebUIStaticI18nTests(WebUIStaticTestCase):
         self.assertRegex(locale_sources, r"document\.documentElement\.dataset\.locale = currentLocale;")
         self.assertNotIn('id="languageSwitcher"', html)
         self.assertNotIn('id="languageSelect"', nav_actions)
-        self.assertLess(nav_actions.index('id="themeSwitcher"'), nav_actions.index('id="githubLink"'))
+        self.assertNotIn('id="githubLink"', nav_actions)
         self.assertIn('id="systemSettingsLanguageTab"', html)
         self.assertIn('data-i18n="systemSettings.appearanceTab"', html)
         self.assertIn('id="languageSelect"', language_panel)

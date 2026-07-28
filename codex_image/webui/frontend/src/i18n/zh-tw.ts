@@ -268,7 +268,6 @@ export const ZH_TW_DICTIONARY: TranslationDictionary = {
     "version.standardManualInstall": "macOS 標準 App 在更新助手可用時支援使用者確認後自動覆蓋；舊版 macOS App 和 Windows 標準 ZIP 仍需手動替換。",
     "version.noUpdater": "目前不是一鍵包運行，不能自動啟動更新器。",
     "version.openUpdater": "啟動更新器",
-    "version.release": "查看發布頁",
     "version.updaterStarted": "更新器已啟動。請關閉目前WebUI服務視窗，再按更新器提示操作。",
     "version.updaterFailed": "啟動更新器失敗，請手動執行包內更新腳本。",
     "version.onboardingTitle": "0.5.5 新增標準應用程式包",

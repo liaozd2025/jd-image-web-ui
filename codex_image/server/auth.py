@@ -45,6 +45,7 @@ class NoCacheStaticFiles(StaticFiles):
 class LoginPayload(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=1024)
+    remember_me: bool = False
 
 
 class PasswordChangePayload(BaseModel):
@@ -145,7 +146,12 @@ def install_authentication(
         login_result = identity.login(
             payload.username,
             payload.password,
-            ttl_seconds=settings.session_ttl_seconds,
+            ttl_seconds=(
+                settings.remembered_session_ttl_seconds
+                if payload.remember_me
+                else settings.session_ttl_seconds
+            ),
+            remember_me=payload.remember_me,
             failure_limit=settings.login_failure_limit,
             lock_seconds=settings.login_lock_seconds,
             user_agent=_request_user_agent(request),
@@ -153,7 +159,12 @@ def install_authentication(
         if login_result is None:
             return JSONResponse(status_code=401, content={"detail": "invalid_credentials"})
         user, credentials = login_result
-        return _authenticated_response(user, credentials, settings=settings)
+        return _authenticated_response(
+            user,
+            credentials,
+            settings=settings,
+            remember_me=payload.remember_me,
+        )
 
     @app.get("/api/auth/me", response_model=None)
     def current_user(request: Request) -> JSONResponse:
@@ -165,6 +176,7 @@ def install_authentication(
                     "session_id": session.session_id,
                     "user_agent": session.user_agent,
                     "current": True,
+                    "remember_me": session.remember_me,
                 },
                 "csrf_token": request.cookies.get(CSRF_COOKIE, ""),
             }
@@ -185,10 +197,20 @@ def install_authentication(
             return JSONResponse(status_code=400, content={"detail": "password_change_failed"})
         credentials = identity.create_session(
             user,
-            ttl_seconds=settings.session_ttl_seconds,
+            ttl_seconds=(
+                settings.remembered_session_ttl_seconds
+                if session.remember_me
+                else settings.session_ttl_seconds
+            ),
+            remember_me=session.remember_me,
             user_agent=session.user_agent,
         )
-        return _authenticated_response(user, credentials, settings=settings)
+        return _authenticated_response(
+            user,
+            credentials,
+            settings=settings,
+            remember_me=session.remember_me,
+        )
 
     @app.post("/api/auth/logout", response_model=None)
     def logout(request: Request) -> JSONResponse:
@@ -384,6 +406,7 @@ def _authenticated_response(
     credentials: SessionCredentials,
     *,
     settings: ServerSettings,
+    remember_me: bool,
 ) -> JSONResponse:
     response = JSONResponse(
         content={
@@ -391,10 +414,15 @@ def _authenticated_response(
             "csrf_token": credentials.csrf_token,
         }
     )
+    cookie_ttl_seconds = (
+        settings.remembered_session_ttl_seconds
+        if remember_me
+        else settings.session_ttl_seconds
+    )
     response.set_cookie(
         SESSION_COOKIE,
         credentials.token,
-        max_age=settings.session_ttl_seconds,
+        max_age=cookie_ttl_seconds,
         httponly=True,
         secure=settings.session_cookie_secure,
         samesite="strict",
@@ -403,7 +431,7 @@ def _authenticated_response(
     response.set_cookie(
         CSRF_COOKIE,
         credentials.csrf_token,
-        max_age=settings.session_ttl_seconds,
+        max_age=cookie_ttl_seconds,
         httponly=False,
         secure=settings.session_cookie_secure,
         samesite="strict",

@@ -49,6 +49,7 @@ EXPECTED_SCHEMA_VERSIONS = [
     "0032_seedream_5_lite_profile",
     "0033_seedream_5_lite_size_preferences",
     "0034_provider_concurrency_limit",
+    "0035_remembered_browser_sessions",
 ]
 
 

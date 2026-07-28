@@ -405,6 +405,28 @@
   font-weight: 680;
 }
 
+.login-remember {
+  width: fit-content;
+  margin-top: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.login-remember input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
+.login-remember:focus-within {
+  color: var(--text);
+}
+
 .login-control {
   position: relative;
 }
@@ -455,7 +477,7 @@
 .login-page .login-submit {
   width: 100%;
   min-height: 46px;
-  margin: 24px 0 0;
+  margin: 20px 0 0;
   padding: 0 16px;
   display: flex;
   align-items: center;

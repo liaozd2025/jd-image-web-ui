@@ -268,7 +268,6 @@ export const KO_DICTIONARY: TranslationDictionary = {
     "version.standardManualInstall": "Updater-enabled macOS standard apps support user-confirmed replacement; older macOS apps and Windows standard ZIP packages still update manually.",
     "version.noUpdater": "이 런타임은 이식 가능한 패키지가 아니므로 업데이트 프로그램을 자동으로 시작할 수 없습니다.",
     "version.openUpdater": "업데이터 시작",
-    "version.release": "릴리스 보기",
     "version.updaterStarted": "업데이터가 시작되었습니다. 현재WebUI서버 창을 닫은 다음 업데이트 프로그램의 지시를 따릅니다.",
     "version.updaterFailed": "업데이트 프로그램을 시작할 수 없습니다. 패키지에서 업데이터 스크립트를 수동으로 실행합니다.",
     "notifications.title": "작업 알림",

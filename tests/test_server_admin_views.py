@@ -20,6 +20,89 @@ TEST_DATABASE_URL = os.environ.get("JD_IMAGE_TEST_DATABASE_URL", "")
 
 @unittest.skipUnless(TEST_DATABASE_URL, "set JD_IMAGE_TEST_DATABASE_URL to a real PostgreSQL database")
 class ServerAdminViewTests(unittest.TestCase):
+    def test_audit_events_are_paginated_and_include_usernames(self) -> None:
+        from codex_image.server.app import create_server_app
+        from codex_image.server.config import ServerSettings
+
+        with temporary_postgres_database(TEST_DATABASE_URL) as database_url:
+            with tempfile.TemporaryDirectory() as tmp:
+                data_root = Path(tmp) / "data"
+                _, temporary_password = bootstrap_admin(database_url, data_root)
+                settings = ServerSettings(
+                    database_url=database_url,
+                    data_root=data_root,
+                    master_key=TEST_MASTER_KEY,
+                )
+                with TestClient(create_server_app(settings)) as admin:
+                    admin_login = login(
+                        admin,
+                        "admin",
+                        temporary_password,
+                        user_agent="Audit pagination admin",
+                    )
+                    admin_changed = change_password(
+                        admin,
+                        current_password=temporary_password,
+                        new_password=ADMIN_PASSWORD,
+                        csrf_token=admin_login["csrf_token"],
+                    )
+                    created = admin.post(
+                        "/api/admin/users",
+                        json={"username": "audit-target"},
+                        headers={"X-CSRF-Token": admin_changed["csrf_token"]},
+                    )
+                    self.assertEqual(created.status_code, 201, created.text)
+                    target_user_id = created.json()["user"]["user_id"]
+
+                    for _ in range(25):
+                        viewed = admin.get(
+                            f"/api/admin/users/{target_user_id}/tasks?page=1&page_size=20"
+                        )
+                        self.assertEqual(viewed.status_code, 200, viewed.text)
+
+                    page_one = admin.get(
+                        "/api/admin/audit"
+                        f"?page=1&page_size=20&subject_user_id={target_user_id}"
+                        "&action=admin.view_user_tasks_page"
+                    )
+                    page_two = admin.get(
+                        "/api/admin/audit"
+                        f"?page=2&page_size=20&subject_user_id={target_user_id}"
+                        "&action=admin.view_user_tasks_page"
+                    )
+                    legacy_limit = admin.get(
+                        "/api/admin/audit"
+                        f"?limit=200&subject_user_id={target_user_id}"
+                        "&action=admin.view_user_tasks_page"
+                    )
+                    invalid_page = admin.get("/api/admin/audit?page=0&page_size=20")
+
+        self.assertEqual(page_one.status_code, 200, page_one.text)
+        self.assertEqual(
+            page_one.json()["pagination"],
+            {"page": 1, "page_size": 20, "total_items": 25, "total_pages": 2},
+        )
+        self.assertEqual(len(page_one.json()["events"]), 20)
+        self.assertTrue(
+            all(event["actor_username"] == "admin" for event in page_one.json()["events"])
+        )
+        self.assertTrue(
+            all(
+                event["subject_username"] == "audit-target"
+                for event in page_one.json()["events"]
+            )
+        )
+        self.assertEqual(page_two.status_code, 200, page_two.text)
+        self.assertEqual(len(page_two.json()["events"]), 5)
+        first_page_ids = {event["event_id"] for event in page_one.json()["events"]}
+        second_page_ids = {event["event_id"] for event in page_two.json()["events"]}
+        self.assertFalse(first_page_ids & second_page_ids)
+        self.assertEqual(legacy_limit.status_code, 200, legacy_limit.text)
+        self.assertEqual(legacy_limit.json()["pagination"]["page_size"], 200)
+        self.assertEqual(len(legacy_limit.json()["events"]), 25)
+        self.assertEqual(invalid_page.status_code, 422)
+        self.assertEqual(invalid_page.json()["detail"], "invalid_audit_page")
+
     def test_admin_read_only_user_views_are_scoped_and_audited(self) -> None:
         from codex_image.server.app import create_server_app
         from codex_image.server.config import ServerSettings

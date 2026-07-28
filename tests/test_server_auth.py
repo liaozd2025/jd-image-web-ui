@@ -59,6 +59,21 @@ def bootstrap_admin(database_url: str, data_root: Path) -> tuple[dict[str, str],
     return environment, password_match.group(1)
 
 
+class ServerAuthenticationStaticContractTests(unittest.TestCase):
+    def test_login_form_can_request_a_remembered_session(self) -> None:
+        login_html = Path("codex_image/server/static/login.html").read_text(encoding="utf-8")
+        login_script = Path("codex_image/server/static/login.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="remember-me"', login_html)
+        self.assertIn('name="remember_me"', login_html)
+        self.assertIn("记住我（30 天）", login_html)
+        self.assertIn(
+            "remember_me: rememberMe",
+            login_script,
+        )
+        self.assertNotIn("sessionStorage.setItem", login_script)
+
+
 @unittest.skipUnless(TEST_DATABASE_URL, "set JD_IMAGE_TEST_DATABASE_URL to a real PostgreSQL database")
 class ServerAdminBootstrapTests(unittest.TestCase):
     def test_operations_cli_bootstraps_exactly_one_admin_and_prints_password_once(self) -> None:
@@ -144,6 +159,7 @@ class ServerAuthenticationFlowTests(unittest.TestCase):
                     with TestClient(create_server_app(settings)) as client:
                         login_page = client.get("/login")
                         login_styles = client.get("/auth-static/login.css")
+                        login_script = client.get("/auth-static/login.js")
                         anonymous_api = client.get("/api/auth/me")
                         anonymous_generation_catalog = client.get("/api/generation-catalog")
                         anonymous_file = client.get("/files/private/example.png")
@@ -244,11 +260,17 @@ class ServerAuthenticationFlowTests(unittest.TestCase):
         self.assertIn("让灵感更快", login_page.text)
         self.assertIn("登录图片工作区", login_page.text)
         self.assertIn('href="/auth-static/login.css?v=jiudian-brand-1"', login_page.text)
+        self.assertIn('id="remember-me"', login_page.text)
+        self.assertIn('name="remember_me"', login_page.text)
+        self.assertIn("记住我（30 天）", login_page.text)
         self.assertNotIn("prototype-switcher", login_page.text)
         self.assertNotIn("data-variant", login_page.text)
         self.assertIn("default-src 'self'", login_page.headers["content-security-policy"])
         self.assertEqual(login_styles.status_code, 200)
         self.assertEqual(login_styles.headers["cache-control"], "no-store")
+        self.assertEqual(login_script.status_code, 200)
+        self.assertEqual(login_script.headers["cache-control"], "no-store")
+        self.assertIn("remember_me: rememberMe", login_script.text)
         self.assertEqual(anonymous_api.status_code, 401)
         self.assertEqual(anonymous_generation_catalog.status_code, 401)
         self.assertEqual(anonymous_file.status_code, 401)
@@ -263,6 +285,7 @@ class ServerAuthenticationFlowTests(unittest.TestCase):
         )
         self.assertIn("HttpOnly", session_cookie)
         self.assertIn("SameSite=strict", session_cookie)
+        self.assertIn("Max-Age=3600", session_cookie)
         self.assertEqual(reused_temporary_password.status_code, 401)
         self.assertEqual(forced_login_page.status_code, 303)
         self.assertEqual(forced_login_page.headers["location"], "/login?change=1")
@@ -354,6 +377,59 @@ class ServerAuthenticationFlowTests(unittest.TestCase):
 
         self.assertEqual(login.status_code, 200)
         self.assertEqual(expired.status_code, 401)
+
+    def test_remember_me_extends_session_and_survives_password_change(self) -> None:
+        from codex_image.server.app import create_server_app
+        from codex_image.server.config import ServerSettings
+
+        with temporary_postgres_database(TEST_DATABASE_URL) as database_url:
+            with tempfile.TemporaryDirectory() as tmp:
+                data_root = Path(tmp) / "data"
+                _, temporary_password = bootstrap_admin(database_url, data_root)
+                settings = ServerSettings(
+                    database_url=database_url,
+                    data_root=data_root,
+                    master_key=TEST_MASTER_KEY,
+                    session_ttl_seconds=3600,
+                    remembered_session_ttl_seconds=30 * 24 * 60 * 60,
+                    session_cookie_secure=False,
+                )
+                with TestClient(create_server_app(settings)) as client:
+                    login = client.post(
+                        "/api/auth/login",
+                        json={
+                            "username": "admin",
+                            "password": temporary_password,
+                            "remember_me": True,
+                        },
+                    )
+                    login_cookie = next(
+                        header
+                        for header in login.headers.get_list("set-cookie")
+                        if header.startswith("jd_image_session=")
+                    )
+                    changed = client.post(
+                        "/api/auth/password",
+                        json={
+                            "current_password": temporary_password,
+                            "new_password": "a-new-remembered-password",
+                        },
+                        headers={"X-CSRF-Token": login.json()["csrf_token"]},
+                    )
+                    changed_cookie = next(
+                        header
+                        for header in changed.headers.get_list("set-cookie")
+                        if header.startswith("jd_image_session=")
+                    )
+                    current_user = client.get("/api/auth/me")
+
+        self.assertEqual(login.status_code, 200)
+        self.assertIn("HttpOnly", login_cookie)
+        self.assertIn("SameSite=strict", login_cookie)
+        self.assertIn("Max-Age=2592000", login_cookie)
+        self.assertEqual(changed.status_code, 200)
+        self.assertIn("Max-Age=2592000", changed_cookie)
+        self.assertEqual(current_user.status_code, 200)
 
 
 if __name__ == "__main__":
