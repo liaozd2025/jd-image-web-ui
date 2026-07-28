@@ -37206,6 +37206,23 @@ ${hint}` : hint;
     });
   }
 
+  // codex_image/webui/frontend/src/model-preference-request.ts
+  function buildGenerationModelPreferencePayload(provider, model, parameters) {
+    if (!provider || typeof provider !== "object" || !model || typeof model !== "object") return null;
+    const providerRecord = provider;
+    const modelRecord = model;
+    const providerScope = providerRecord.provider_scope;
+    const providerVersionId = String(providerRecord.provider_version_id || "").trim();
+    const generationModelId = String(modelRecord.generation_model_id || "").trim();
+    if (providerScope !== "personal" && providerScope !== "department" || !providerVersionId || !generationModelId) return null;
+    return {
+      provider_scope: providerScope,
+      provider_version_id: providerVersionId,
+      generation_model_id: generationModelId,
+      parameters
+    };
+  }
+
   // codex_image/webui/frontend/src/generation-model.ts
   var bridge10 = getLegacyBridge();
   var state10 = bridge10.state;
@@ -37513,16 +37530,16 @@ ${hint}` : hint;
   async function persistPreference() {
     const provider = selectedApiProvider();
     const model = currentGenerationModel();
-    if (!provider || !model) return;
+    const payload2 = buildGenerationModelPreferencePayload(
+      provider,
+      model,
+      currentPreferenceParameters()
+    );
+    if (!payload2) return;
     const response = await fetch("/api/generation-model-preferences", {
       method: "PUT",
       headers: { "Content-Type": "application/json", "X-CSRF-Token": getCsrfToken() },
-      body: JSON.stringify({
-        provider_scope: provider.provider_scope,
-        provider_version_id: provider.provider_version_id,
-        generation_model_id: model.generation_model_id,
-        parameters: currentPreferenceParameters()
-      })
+      body: JSON.stringify(payload2)
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || translate("generationModel.preferenceSaveFailed"));
